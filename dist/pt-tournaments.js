@@ -148,7 +148,7 @@
 (function (global) {
   'use strict';
 
-  var MAX_ENTRIES = 90;
+  var MAX_ENTRIES = 180;
   var ROLE_IDS = ['fish', 'nit', 'tag', 'lag', 'maniac', 'pro'];
 
   /** Niveles base (SB/BB/ante). La duración en manos depende del tamaño de mesa. */
@@ -297,6 +297,21 @@
       exploitProPct: 0.4,
       onBust: 'simulate'
     },
+    mttPro: {
+      id: 'mttPro',
+      name: 'Pro · MTT 108',
+      kind: 'mtt',
+      entries: 108,
+      seatsPerTable: 9,
+      buyInEur: 55,
+      startingStack: 10000,
+      placesPaid: 16,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 12, lag: 8, maniac: 0, pro: 80 },
+      exploitProPct: 0.85,
+      onBust: 'simulate'
+    },
     sng6: {
       id: 'sng6',
       name: 'SNG 6-Max',
@@ -325,6 +340,21 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
+      onBust: 'simulate'
+    },
+    sngPro: {
+      id: 'sngPro',
+      name: 'Pro · SNG 6-Max',
+      kind: 'sng',
+      entries: 6,
+      seatsPerTable: 6,
+      buyInEur: 33,
+      startingStack: 3000,
+      placesPaid: 2,
+      payoutLadder: 'standard',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
+      exploitProPct: 1,
       onBust: 'simulate'
     },
     spinEasy: {
@@ -370,6 +400,21 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
       exploitProPct: 0.4,
+      onBust: 'simulate'
+    },
+    spinPro: {
+      id: 'spinPro',
+      name: 'Pro · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 44,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
+      exploitProPct: 1,
       onBust: 'simulate'
     }
   };
@@ -420,7 +465,11 @@
   }
 
   function listPresets() {
-    return ['easy', 'medium', 'hard', 'sng6', 'sng9', 'spinEasy', 'spinMedium', 'spinHard'].map(function (id) {
+    return [
+      'easy', 'medium', 'hard', 'mttPro',
+      'sng6', 'sng9', 'sngPro',
+      'spinEasy', 'spinMedium', 'spinHard', 'spinPro'
+    ].map(function (id) {
       return normalize(clone(PRESETS[id]));
     });
   }
@@ -1510,7 +1559,8 @@
         preflopStrict: 0.92,
         postflop: tournamentPostflopFloor(role, {
           betFreqMult: 1.15, bluffFreqMult: 1, raiseFreqMult: 1.15, callMult: 1.05, foldMult: 0.9
-        })
+        }),
+        proStyle: seat && seat.proStyle || null
       };
     }
     var base = typeof VP.getProfile === 'function' ? VP.getProfile(role) : role;
@@ -1520,6 +1570,15 @@
     });
     if (seat && seat.proStyle) {
       prof = Object.assign({}, prof, { proStyle: seat.proStyle });
+    }
+    // Pros explotativos: un poco más de agresividad postflop.
+    if (prof.proStyle === 'exploit_pool' && prof.postflop) {
+      var pf = Object.assign({}, prof.postflop);
+      pf.betFreqMult = Math.min(2.2, (Number(pf.betFreqMult) || 1) * 1.12);
+      pf.raiseFreqMult = Math.min(2.2, (Number(pf.raiseFreqMult) || 1) * 1.14);
+      pf.bluffFreqMult = Math.min(2.2, (Number(pf.bluffFreqMult) || 1) * 1.1);
+      pf.foldMult = Math.max(0.35, (Number(pf.foldMult) || 1) * 0.94);
+      prof = Object.assign({}, prof, { postflop: pf });
     }
     return prof;
   }
@@ -1594,6 +1653,12 @@
     }
     var st = (hand && hand.state) || {};
     var cfg = (hand && hand.tournamentConfig) || {};
+    var heroStats = st.heroSessionStats || st.heroStats || hand.heroSessionStats || null;
+    var Ex = global.GTOVillainProExploit;
+    var heroProfile = null;
+    if (Ex && Ex.profileFromStats && heroStats) {
+      try { heroProfile = Ex.profileFromStats(heroStats); } catch (eHp) { heroProfile = null; }
+    }
     var ctx = {
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
@@ -1623,7 +1688,10 @@
       entries: st.entries != null ? st.entries : (cfg.entries != null ? cfg.entries : null),
       mttStructureSituation: st.mttStructureSituation
         || (hand && hand.mttStructureSituation)
-        || null
+        || null,
+      heroProfile: heroProfile,
+      heroSessionStats: heroStats,
+      proStyle: (seat && seat.proStyle) || null
     };
     // Si el campo está en burbuja, alinear fase efectiva para FormatAdjust / charts.
     if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
@@ -1658,9 +1726,9 @@
 
   function applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd) {
     var FA = global.GTOVillainFormatAdjust;
-    if (!FA || typeof FA.multipliers !== 'function') return face;
-    var m = FA.multipliers(ctx) || {};
+    var Ex = global.GTOVillainProExploit;
     var r = rnd != null ? rnd : Math.random();
+    var m = (FA && typeof FA.multipliers === 'function') ? (FA.multipliers(ctx) || {}) : {};
     // Fold bias by ICM/bubble; PKO softens fold (más call vs stacks cortos).
     var foldPush = (Number(m.fold) || 1) - 1;
     if (ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery') {
@@ -1673,14 +1741,34 @@
       return 'raise';
     }
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
+
+    // Exploit vs perfil Hero (pros exploit_pool).
+    var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
+    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+      var exCtx = Object.assign({}, ctx || {}, {
+        proStyle: 'exploit_pool',
+        strength: strength,
+        band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
+      });
+      var em = Ex.multipliers(exCtx) || {};
+      if (face === 'fold' && (em.barrel > 1.15 || em.bluff > 1.12) && strength > potOdds - 0.02 && r < 0.28) {
+        return 'call';
+      }
+      if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22) {
+        return 'raise';
+      }
+      if (face === 'raise' && em.bluff < 0.85 && strength < 0.38 && r < 0.4) {
+        return 'call';
+      }
+    }
     return face;
   }
 
-  function applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd) {
+  function applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd, profile) {
     var FA = global.GTOVillainFormatAdjust;
-    if (!FA || typeof FA.multipliers !== 'function') return lead;
-    var m = FA.multipliers(ctx) || {};
+    var Ex = global.GTOVillainProExploit;
     var r = rnd != null ? rnd : Math.random();
+    var m = (FA && typeof FA.multipliers === 'function') ? (FA.multipliers(ctx) || {}) : {};
     var betBoost = ((Number(m.bet) || 1) - 1) + ((Number(m.cbet) || 1) - 1) * (wasAgg ? 1 : 0.4);
     if (lead === 'check' && betBoost > 0.05 && strength > 0.32 && r < Math.min(0.55, 0.28 + betBoost)) {
       return 'bet';
@@ -1691,6 +1779,29 @@
     if ((ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery')
       && lead === 'check' && ctx.stackBB <= 18 && strength > 0.4 && r < 0.35) {
       return 'bet';
+    }
+
+    var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
+    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+      var exCtx = Object.assign({}, ctx || {}, {
+        proStyle: 'exploit_pool',
+        initiative: wasAgg ? 'aggressor' : 'caller',
+        strength: strength,
+        band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
+      });
+      var em = Ex.multipliers(exCtx) || {};
+      var barrelBoost = ((Number(em.barrel) || 1) - 1) * (wasAgg ? 1 : 0.45);
+      var bluffBoost = ((Number(em.bluff) || 1) - 1);
+      if (lead === 'check' && (barrelBoost > 0.08 || bluffBoost > 0.08)
+        && strength > 0.28 && r < Math.min(0.62, 0.3 + barrelBoost + bluffBoost * 0.5)) {
+        return 'bet';
+      }
+      if (lead === 'bet' && em.bluff < 0.8 && strength < 0.32 && r < 0.45) {
+        return 'check';
+      }
+      if (lead === 'check' && em.thinValue > 1.15 && strength > 0.58 && r < 0.35) {
+        return 'bet';
+      }
     }
     return lead;
   }
@@ -1884,7 +1995,7 @@
       if (role === 'nit') force *= 0.75;
       if (rnd < force) lead = 'bet';
     }
-    lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd);
+    lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd, profile);
 
     if (lead === 'bet') {
       var frac = sampleBetFrac(profile, street, strength);
@@ -5255,6 +5366,24 @@
       hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
       hand.mttStructureSituation = mttStructureSituation;
       hand.tournamentConfig = cfg;
+      var heroStatsPayload = null;
+      try {
+        var stStats = state.stats || {};
+        var hp = Number(stStats.handsPlayed) || 0;
+        var vpipH = Number(stStats.vpipHands) || 0;
+        var pfrH = Number(stStats.pfrHands) || 0;
+        heroStatsPayload = {
+          handsPlayed: hp,
+          hands: hp,
+          vpipHands: vpipH,
+          pfrHands: pfrH,
+          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
+          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
+        };
+      } catch (eStats) { heroStatsPayload = null; }
+      hand.heroSessionStats = heroStatsPayload;
       hand.state = {
         formatHub: hub,
         kind: kind,
@@ -5268,7 +5397,9 @@
         avgStackBB: avgStackBB,
         anteBB: anteBB,
         entries: hand.entries,
-        buyIn: hand.buyIn
+        buyIn: hand.buyIn,
+        heroStats: heroStatsPayload,
+        heroSessionStats: heroStatsPayload
       };
     } catch (eMeta) { /* */ }
     Live.runToHeroOrEnd(hand);
@@ -6621,7 +6752,7 @@ function reducedMotion() {
       '<label class="trn-field">Tipo<select data-f="kind">' +
       '<option value="mtt"' + (d.kind === 'mtt' ? ' selected' : '') + '>MTT</option>' +
       '<option value="sng"' + (d.kind === 'sng' ? ' selected' : '') + '>SNG</option></select></label>' +
-      '<label class="trn-field">Jugadores<input type="number" data-f="entries" min="2" max="90" value="' + d.entries + '"></label>' +
+      '<label class="trn-field">Jugadores<input type="number" data-f="entries" min="2" max="180" value="' + d.entries + '"></label>' +
       '<label class="trn-field">Asientos/mesa<select data-f="seatsPerTable">' +
       '<option value="6"' + (d.seatsPerTable === 6 ? ' selected' : '') + '>6</option>' +
       '<option value="9"' + (d.seatsPerTable === 9 ? ' selected' : '') + '>9</option></select></label>' +

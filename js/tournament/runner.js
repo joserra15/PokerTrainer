@@ -160,6 +160,24 @@
       hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
       hand.mttStructureSituation = mttStructureSituation;
       hand.tournamentConfig = cfg;
+      var heroStatsPayload = null;
+      try {
+        var stStats = state.stats || {};
+        var hp = Number(stStats.handsPlayed) || 0;
+        var vpipH = Number(stStats.vpipHands) || 0;
+        var pfrH = Number(stStats.pfrHands) || 0;
+        heroStatsPayload = {
+          handsPlayed: hp,
+          hands: hp,
+          vpipHands: vpipH,
+          pfrHands: pfrH,
+          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
+          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
+        };
+      } catch (eStats) { heroStatsPayload = null; }
+      hand.heroSessionStats = heroStatsPayload;
       hand.state = {
         formatHub: hub,
         kind: kind,
@@ -173,7 +191,9 @@
         avgStackBB: avgStackBB,
         anteBB: anteBB,
         entries: hand.entries,
-        buyIn: hand.buyIn
+        buyIn: hand.buyIn,
+        heroStats: heroStatsPayload,
+        heroSessionStats: heroStatsPayload
       };
     } catch (eMeta) { /* */ }
     Live.runToHeroOrEnd(hand);

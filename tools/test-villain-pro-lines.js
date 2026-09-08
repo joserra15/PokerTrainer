@@ -197,7 +197,40 @@ const strat = GTO.Strategy.postflopStrategy({
 assert.ok((strat.check || 0) + (strat.bet_33 || 0) + (strat.bet_66 || 0) + (strat.bet_100 || 0) + (strat.overbet || 0) > 0.95,
   'lead strategy freqs sum ~1');
 
+// --- Hero profile from stats + adaptive exploit multipliers ---
+assert.strictEqual(typeof Ex.profileFromStats, 'function', 'profileFromStats export');
+assert.strictEqual(Ex.profileFromStats({ handsPlayed: 5, vpipHands: 3, pfrHands: 1 }), null,
+  'sample < MIN_SAMPLE → null');
+
+const overfolder = Ex.profileFromStats({
+  handsPlayed: 40, vpipPct: 22, pfrPct: 18, foldToCbetFlopPct: 70
+});
+assert.strictEqual(overfolder, 'overfolder', 'high fold-to-cbet → overfolder');
+
+const station = Ex.profileFromStats({
+  handsPlayed: 40, vpipHands: 18, pfrHands: 6
+});
+assert.strictEqual(station, 'callingStation', 'high VPIP gap → callingStation');
+
+const baseM = Ex.multipliers({ formatHub: 'cash', proStyle: 'exploit_pool' });
+const vsOver = Ex.multipliers({
+  formatHub: 'cash', proStyle: 'exploit_pool', heroProfile: 'overfolder'
+});
+const vsStation = Ex.multipliers({
+  formatHub: 'cash', proStyle: 'exploit_pool', heroProfile: 'callingStation'
+});
+assert.ok(vsOver.barrel > baseM.barrel && vsOver.bluff > baseM.bluff,
+  'overfolder → more barrel/bluff');
+assert.ok(vsStation.thinValue > baseM.thinValue && vsStation.bluff < baseM.bluff,
+  'callingStation → more thin value, less bluff');
+
+const balanced = Ex.multipliers({
+  formatHub: 'cash', proStyle: 'balanced', heroProfile: 'overfolder'
+});
+assert.strictEqual(balanced.barrel, 1, 'balanced ignores hero profile');
+
 console.log('OK test-villain-pro-lines');
 console.log('  XR setup rate:', xrRate.toFixed(3));
 console.log('  size sample:', JSON.stringify(counts));
 console.log('  cash overbet mult:', cashDeep.overbet.toFixed(2), 'spin push overbet:', spinPush.overbet.toFixed(2));
+console.log('  hero profiles:', overfolder, station);

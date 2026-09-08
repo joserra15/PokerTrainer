@@ -79,7 +79,8 @@
         preflopStrict: 0.92,
         postflop: tournamentPostflopFloor(role, {
           betFreqMult: 1.15, bluffFreqMult: 1, raiseFreqMult: 1.15, callMult: 1.05, foldMult: 0.9
-        })
+        }),
+        proStyle: seat && seat.proStyle || null
       };
     }
     var base = typeof VP.getProfile === 'function' ? VP.getProfile(role) : role;
@@ -89,6 +90,15 @@
     });
     if (seat && seat.proStyle) {
       prof = Object.assign({}, prof, { proStyle: seat.proStyle });
+    }
+    // Pros explotativos: un poco más de agresividad postflop.
+    if (prof.proStyle === 'exploit_pool' && prof.postflop) {
+      var pf = Object.assign({}, prof.postflop);
+      pf.betFreqMult = Math.min(2.2, (Number(pf.betFreqMult) || 1) * 1.12);
+      pf.raiseFreqMult = Math.min(2.2, (Number(pf.raiseFreqMult) || 1) * 1.14);
+      pf.bluffFreqMult = Math.min(2.2, (Number(pf.bluffFreqMult) || 1) * 1.1);
+      pf.foldMult = Math.max(0.35, (Number(pf.foldMult) || 1) * 0.94);
+      prof = Object.assign({}, prof, { postflop: pf });
     }
     return prof;
   }
@@ -163,6 +173,12 @@
     }
     var st = (hand && hand.state) || {};
     var cfg = (hand && hand.tournamentConfig) || {};
+    var heroStats = st.heroSessionStats || st.heroStats || hand.heroSessionStats || null;
+    var Ex = global.GTOVillainProExploit;
+    var heroProfile = null;
+    if (Ex && Ex.profileFromStats && heroStats) {
+      try { heroProfile = Ex.profileFromStats(heroStats); } catch (eHp) { heroProfile = null; }
+    }
     var ctx = {
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
@@ -192,7 +208,10 @@
       entries: st.entries != null ? st.entries : (cfg.entries != null ? cfg.entries : null),
       mttStructureSituation: st.mttStructureSituation
         || (hand && hand.mttStructureSituation)
-        || null
+        || null,
+      heroProfile: heroProfile,
+      heroSessionStats: heroStats,
+      proStyle: (seat && seat.proStyle) || null
     };
     // Si el campo está en burbuja, alinear fase efectiva para FormatAdjust / charts.
     if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
@@ -227,9 +246,9 @@
 
   function applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd) {
     var FA = global.GTOVillainFormatAdjust;
-    if (!FA || typeof FA.multipliers !== 'function') return face;
-    var m = FA.multipliers(ctx) || {};
+    var Ex = global.GTOVillainProExploit;
     var r = rnd != null ? rnd : Math.random();
+    var m = (FA && typeof FA.multipliers === 'function') ? (FA.multipliers(ctx) || {}) : {};
     // Fold bias by ICM/bubble; PKO softens fold (más call vs stacks cortos).
     var foldPush = (Number(m.fold) || 1) - 1;
     if (ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery') {
@@ -242,14 +261,34 @@
       return 'raise';
     }
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
+
+    // Exploit vs perfil Hero (pros exploit_pool).
+    var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
+    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+      var exCtx = Object.assign({}, ctx || {}, {
+        proStyle: 'exploit_pool',
+        strength: strength,
+        band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
+      });
+      var em = Ex.multipliers(exCtx) || {};
+      if (face === 'fold' && (em.barrel > 1.15 || em.bluff > 1.12) && strength > potOdds - 0.02 && r < 0.28) {
+        return 'call';
+      }
+      if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22) {
+        return 'raise';
+      }
+      if (face === 'raise' && em.bluff < 0.85 && strength < 0.38 && r < 0.4) {
+        return 'call';
+      }
+    }
     return face;
   }
 
-  function applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd) {
+  function applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd, profile) {
     var FA = global.GTOVillainFormatAdjust;
-    if (!FA || typeof FA.multipliers !== 'function') return lead;
-    var m = FA.multipliers(ctx) || {};
+    var Ex = global.GTOVillainProExploit;
     var r = rnd != null ? rnd : Math.random();
+    var m = (FA && typeof FA.multipliers === 'function') ? (FA.multipliers(ctx) || {}) : {};
     var betBoost = ((Number(m.bet) || 1) - 1) + ((Number(m.cbet) || 1) - 1) * (wasAgg ? 1 : 0.4);
     if (lead === 'check' && betBoost > 0.05 && strength > 0.32 && r < Math.min(0.55, 0.28 + betBoost)) {
       return 'bet';
@@ -260,6 +299,29 @@
     if ((ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery')
       && lead === 'check' && ctx.stackBB <= 18 && strength > 0.4 && r < 0.35) {
       return 'bet';
+    }
+
+    var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
+    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+      var exCtx = Object.assign({}, ctx || {}, {
+        proStyle: 'exploit_pool',
+        initiative: wasAgg ? 'aggressor' : 'caller',
+        strength: strength,
+        band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
+      });
+      var em = Ex.multipliers(exCtx) || {};
+      var barrelBoost = ((Number(em.barrel) || 1) - 1) * (wasAgg ? 1 : 0.45);
+      var bluffBoost = ((Number(em.bluff) || 1) - 1);
+      if (lead === 'check' && (barrelBoost > 0.08 || bluffBoost > 0.08)
+        && strength > 0.28 && r < Math.min(0.62, 0.3 + barrelBoost + bluffBoost * 0.5)) {
+        return 'bet';
+      }
+      if (lead === 'bet' && em.bluff < 0.8 && strength < 0.32 && r < 0.45) {
+        return 'check';
+      }
+      if (lead === 'check' && em.thinValue > 1.15 && strength > 0.58 && r < 0.35) {
+        return 'bet';
+      }
     }
     return lead;
   }
@@ -453,7 +515,7 @@
       if (role === 'nit') force *= 0.75;
       if (rnd < force) lead = 'bet';
     }
-    lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd);
+    lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd, profile);
 
     if (lead === 'bet') {
       var frac = sampleBetFrac(profile, street, strength);

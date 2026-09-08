@@ -4,7 +4,7 @@
 (function (global) {
   'use strict';
 
-  var MAX_ENTRIES = 90;
+  var MAX_ENTRIES = 180;
   var ROLE_IDS = ['fish', 'nit', 'tag', 'lag', 'maniac', 'pro'];
 
   /** Niveles base (SB/BB/ante). La duración en manos depende del tamaño de mesa. */
@@ -153,6 +153,21 @@
       exploitProPct: 0.4,
       onBust: 'simulate'
     },
+    mttPro: {
+      id: 'mttPro',
+      name: 'Pro · MTT 108',
+      kind: 'mtt',
+      entries: 108,
+      seatsPerTable: 9,
+      buyInEur: 55,
+      startingStack: 10000,
+      placesPaid: 16,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 12, lag: 8, maniac: 0, pro: 80 },
+      exploitProPct: 0.85,
+      onBust: 'simulate'
+    },
     sng6: {
       id: 'sng6',
       name: 'SNG 6-Max',
@@ -181,6 +196,21 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
       exploitProPct: 0.15,
+      onBust: 'simulate'
+    },
+    sngPro: {
+      id: 'sngPro',
+      name: 'Pro · SNG 6-Max',
+      kind: 'sng',
+      entries: 6,
+      seatsPerTable: 6,
+      buyInEur: 33,
+      startingStack: 3000,
+      placesPaid: 2,
+      payoutLadder: 'standard',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
+      exploitProPct: 1,
       onBust: 'simulate'
     },
     spinEasy: {
@@ -226,6 +256,21 @@
       blindSchedule: DEFAULT_SCHEDULE,
       roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
       exploitProPct: 0.4,
+      onBust: 'simulate'
+    },
+    spinPro: {
+      id: 'spinPro',
+      name: 'Pro · Spin 3-Max',
+      kind: 'spin',
+      entries: 3,
+      seatsPerTable: 3,
+      buyInEur: 44,
+      startingStack: 500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
+      exploitProPct: 1,
       onBust: 'simulate'
     }
   };
@@ -276,7 +321,11 @@
   }
 
   function listPresets() {
-    return ['easy', 'medium', 'hard', 'sng6', 'sng9', 'spinEasy', 'spinMedium', 'spinHard'].map(function (id) {
+    return [
+      'easy', 'medium', 'hard', 'mttPro',
+      'sng6', 'sng9', 'sngPro',
+      'spinEasy', 'spinMedium', 'spinHard', 'spinPro'
+    ].map(function (id) {
       return normalize(clone(PRESETS[id]));
     });
   }

@@ -912,7 +912,7 @@ function reducedMotion() {
       '<label class="trn-field">Tipo<select data-f="kind">' +
       '<option value="mtt"' + (d.kind === 'mtt' ? ' selected' : '') + '>MTT</option>' +
       '<option value="sng"' + (d.kind === 'sng' ? ' selected' : '') + '>SNG</option></select></label>' +
-      '<label class="trn-field">Jugadores<input type="number" data-f="entries" min="2" max="90" value="' + d.entries + '"></label>' +
+      '<label class="trn-field">Jugadores<input type="number" data-f="entries" min="2" max="180" value="' + d.entries + '"></label>' +
       '<label class="trn-field">Asientos/mesa<select data-f="seatsPerTable">' +
       '<option value="6"' + (d.seatsPerTable === 6 ? ' selected' : '') + '>6</option>' +
       '<option value="9"' + (d.seatsPerTable === 9 ? ' selected' : '') + '>9</option></select></label>' +

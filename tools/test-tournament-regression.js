@@ -300,11 +300,11 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 7) Cap entries ≤ 90
+// 7) Cap entries ≤ MAX_ENTRIES (180)
 // ---------------------------------------------------------------------------
 {
   var cfg7 = g.PTTournamentConfig.normalize({ entries: 500, seatsPerTable: 9, kind: 'mtt' });
-  assert.strictEqual(cfg7.entries, 90);
+  assert.strictEqual(cfg7.entries, 180);
   console.log('OK cap entries');
 }
 

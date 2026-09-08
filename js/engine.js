@@ -1066,6 +1066,15 @@
     // FormatAdjust / jamBias usan el stack restante del villano (no el de sesión).
     const stackForAdjust = (remV > 0) ? remV
       : (cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand));
+    const heroStats = (cfg && cfg.heroSessionStats)
+      || hand.heroSessionStats
+      || hand.sessionStats
+      || null;
+    const Ex = global.GTOVillainProExploit;
+    let heroProfile = (cfg && cfg.heroProfile) || hand.heroProfile || null;
+    if (!heroProfile && Ex && Ex.profileFromStats && heroStats) {
+      heroProfile = Ex.profileFromStats(heroStats);
+    }
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
@@ -1095,6 +1104,8 @@
       priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
       lineIntent: hand._villainLineIntent || null,
       proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
+      heroProfile: heroProfile,
+      heroSessionStats: heroStats,
       hub: hub
     }, extra);
   }
