@@ -205,22 +205,65 @@
     if (A && A.track) A.track(name, props);
   }
 
+  function hasCachedAuthSession() {
+    if (global.PT_AUTH_USER && global.PT_AUTH_USER.sub) return true;
+    try {
+      var raw = localStorage.getItem('pt_auth_v1');
+      if (!raw) return false;
+      var data = JSON.parse(raw);
+      return !!(data && data.sub && data.email);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function shouldShowLandingPromo() {
+    /* Tras login la landing sigue visible hasta que getSession termina: no pintar
+       el banner Founder si ya hay sesión (o aún no sabemos). */
+    if (hasCachedAuthSession()) return false;
+    if (!global.PT_AUTH_BOOT_DONE) return false;
+    var gate = document.getElementById('auth-gate');
+    if (gate && gate.classList.contains('hidden')) return false;
+    return true;
+  }
+
   function renderPromo() {
     var Promo = global.PTBillingPromo;
     if (!Promo) return;
     var pillHost = document.getElementById('landing-promo-pill');
     if (pillHost) {
-      pillHost.innerHTML = Promo.pillHtml ? Promo.pillHtml() : '';
-      pillHost.classList.toggle('hidden', !pillHost.innerHTML);
+      if (!shouldShowLandingPromo()) {
+        pillHost.innerHTML = '';
+        pillHost.classList.add('hidden');
+        pillHost.setAttribute('hidden', '');
+        pillHost.setAttribute('aria-hidden', 'true');
+      } else {
+        pillHost.innerHTML = Promo.pillHtml ? Promo.pillHtml() : '';
+        var show = !!pillHost.innerHTML;
+        pillHost.classList.toggle('hidden', !show);
+        if (show) {
+          pillHost.removeAttribute('hidden');
+          pillHost.setAttribute('aria-hidden', 'false');
+        } else {
+          pillHost.setAttribute('hidden', '');
+          pillHost.setAttribute('aria-hidden', 'true');
+        }
+      }
     }
     var bannerHost = document.getElementById('landing-promo-banner');
-    if (bannerHost) bannerHost.innerHTML = Promo.bannerHtml ? Promo.bannerHtml() : '';
+    if (bannerHost) {
+      bannerHost.innerHTML = shouldShowLandingPromo() && Promo.bannerHtml
+        ? Promo.bannerHtml()
+        : '';
+    }
     markFounderNavBadges();
   }
 
   function markFounderNavBadges() {
     var Promo = global.PTBillingPromo;
-    var badge = Promo && Promo.founderNavBadgeHtml ? Promo.founderNavBadgeHtml() : '';
+    var badge = (shouldShowLandingPromo() && Promo && Promo.founderNavBadgeHtml)
+      ? Promo.founderNavBadgeHtml()
+      : '';
     document.querySelectorAll('.landing-nav a[href="#landing-pricing"], .landing-nav-pricing').forEach(function (el) {
       el.querySelectorAll('.founder-nav-badge').forEach(function (b) { b.remove(); });
       if (badge && !el.classList.contains('hidden')) {
@@ -572,6 +615,10 @@
     renderPricing();
     renderOAuthHints();
     bindNav();
+    if (typeof global.addEventListener === 'function') {
+      global.addEventListener('pt-auth-boot-done', function () { renderPromo(); });
+      global.addEventListener('pt-auth-bootstrap', function () { renderPromo(); });
+    }
     trackLanding('landing_view');
     if (global.PTGuestFunnel && global.PTGuestFunnel.scheduleLandingView) {
       global.PTGuestFunnel.scheduleLandingView();
