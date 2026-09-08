@@ -358,28 +358,77 @@ FILES.forEach(function (f) { load(g, f); });
 {
   assert.ok(typeof g.PTTournaments.menuVisible === 'function');
   assert.ok(typeof g.PTTournaments.render === 'function');
+  assert.ok(typeof g.PTTournaments.canPlayPreset === 'function');
+  assert.ok(typeof g.PTTournaments.canUseCustom === 'function');
   assert.ok(g.PTTournaments.TOURNAMENTS_PUBLIC === true, 'TOURNAMENTS_PUBLIC');
   assert.strictEqual(g.PTTournaments.menuVisible(), false, 'sin usuario → hidden');
   /* GA: cualquier usuario autenticado */
   g.PTAuth = { getUser: function () { return { id: 'u1', name: 'User', plan: 'free' }; } };
+  g.PTEntitlements = { get: function () { return { plan: 'free' }; } };
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; },
+    hasAccess: function () { return true; },
+    bypassPaywalls: function () { return false; }
+  };
   assert.strictEqual(g.PTTournaments.menuVisible(), true, 'auth → visible en PokerForge');
   g.PTDemo = { isActive: function () { return true; } };
   assert.strictEqual(g.PTTournaments.menuVisible(), false, 'demo → hidden');
   g.PTDemo = { isActive: function () { return false; } };
-  /* MTTLab: miembros auth (ya no solo managers) */
+  assert.strictEqual(g.PTTournaments.canUseCustom(), false, 'free sin admin → no custom');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('spinEasy').ok, true, 'free → spinEasy ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('easy').ok, false, 'free → MTT fácil bloqueado');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, false, 'free → hard bloqueado');
+  g.PTEntitlements = { get: function () { return { plan: 'pro' }; } };
+  assert.strictEqual(g.PTTournaments.canPlayPreset('easy').ok, true, 'study → MTT fácil ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('spinMedium').ok, true, 'study → spin medio ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, false, 'study → hard bloqueado');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('mttPro').ok, false, 'study → mttPro bloqueado');
+  g.PTEntitlements = { get: function () { return { plan: 'premium' }; } };
+  assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, true, 'coach → hard ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('spinPro').ok, true, 'coach → spinPro ok');
+  /* Admin ve Personalizado */
+  g.PTAuth = { getUser: function () { return { isAdmin: true, id: 'adm1', name: 'Admin', plan: 'free' }; } };
+  g.PTAdmin = { hasAccess: function () { return true; } };
+  assert.strictEqual(g.PTTournaments.canUseCustom(), true, 'admin → custom');
+  /* MTTLab: auth ve menú; bypass de plan si miembro; custom solo manager */
+  g.PTAdmin = { hasAccess: function () { return false; } };
+  g.PTAuth = { getUser: function () { return { id: 'm1', name: 'Member', plan: 'free' }; } };
+  g.PTEntitlements = { get: function () { return { plan: 'free' }; } };
   g.PTCommunity = {
     id: function () { return 'mttlab'; },
     isManager: function () { return false; },
-    requireMembership: function () { return true; }
+    requireMembership: function () { return true; },
+    hasAccess: function () { return true; },
+    bypassPaywalls: function () { return true; }
   };
   assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab member auth → visible');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, true, 'mttlab miembro → hard ok (bypass)');
+  assert.strictEqual(g.PTTournaments.canUseCustom(), false, 'mttlab miembro → no custom');
+  g.PTCommunity.isManager = function () { return true; };
+  assert.strictEqual(g.PTTournaments.canUseCustom(), true, 'mttlab manager → custom');
+  /* Sin membership: menú sigue visible (TOURNAMENTS_PUBLIC), pero sin bypass de plan */
+  g.PTCommunity.isManager = function () { return false; };
+  g.PTCommunity.hasAccess = function () { return false; };
+  g.PTCommunity.bypassPaywalls = function () { return false; };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab auth sin membership → menú visible');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, false, 'mttlab sin membership → plan gate');
   g.PTCommunity = {
     id: function () { return 'pokerforge'; },
     isManager: function () { return false; },
-    requireMembership: function () { return false; }
+    requireMembership: function () { return false; },
+    hasAccess: function () { return true; },
+    bypassPaywalls: function () { return false; }
   };
   g.PTAuth = { getUser: function () { return null; } };
+  g.PTAdmin = { hasAccess: function () { return false; } };
+  g.PTEntitlements = { get: function () { return { plan: 'free' }; } };
   assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset sin usuario');
+  assert.strictEqual(g.PTTournamentConfig.requiredPlanForPreset('spinEasy'), 'free');
+  assert.strictEqual(g.PTTournamentConfig.requiredPlanForPreset('easy'), 'pro');
+  assert.strictEqual(g.PTTournamentConfig.requiredPlanForPreset('hard'), 'premium');
+  assert.strictEqual(g.PTTournamentConfig.fromPreset('spinEasy').minPlan, 'free');
   console.log('OK index');
 }
 

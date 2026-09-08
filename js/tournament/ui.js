@@ -25,6 +25,7 @@
     lobbyFilter: 'all',
     exitPrompt: false,
     resumePrompt: false,
+    upgradePrompt: null,
     handDetailOpen: false,
     replayOpen: false,
     replayStep: 0,
@@ -438,6 +439,17 @@ function reducedMotion() {
     return Math.max(1, Math.round(Number(cfg.startingStack || 0) / bb));
   }
 
+  function planBadgeMeta(plan) {
+    var p = String(plan || 'free').toLowerCase();
+    if (p === 'premium' || p === 'coach') {
+      return { t: 'Coach', k: 'plan-coach', plan: 'premium' };
+    }
+    if (p === 'pro' || p === 'study') {
+      return { t: 'Study', k: 'plan-study', plan: 'pro' };
+    }
+    return { t: 'Gratis', k: 'plan-free', plan: 'free' };
+  }
+
   function lobbyBadges(cfg) {
     var badges = [];
     var kindLabel = cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT');
@@ -448,16 +460,57 @@ function reducedMotion() {
     if (cfg.id === 'easy' || cfg.id === 'spinEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
     if (cfg.id === 'medium' || cfg.id === 'spinMedium') badges.push({ t: 'MEDIO', k: 'diff' });
     if (cfg.id === 'hard' || cfg.id === 'spinHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    if (cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro') {
+      badges.push({ t: 'PRO', k: 'diff' });
+    }
+    var minPlan = cfg.minPlan ||
+      (global.PTTournaments && PTTournaments.requiredPlanForPreset
+        ? PTTournaments.requiredPlanForPreset(cfg.id)
+        : null);
+    if (minPlan) badges.push(planBadgeMeta(minPlan));
     return badges;
   }
 
   function lobbyTone(cfg) {
-    if (cfg.id === 'hard' || cfg.id === 'spinHard') return 'hard';
+    if (cfg.id === 'hard' || cfg.id === 'spinHard' ||
+        cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro') return 'hard';
     if (cfg.id === 'medium' || cfg.id === 'spinMedium') return 'mid';
     if (cfg.id === 'easy' || cfg.id === 'spinEasy') return 'easy';
     if (cfg.kind === 'spin') return 'spin';
     if (cfg.kind === 'sng') return 'sng';
     return 'mtt';
+  }
+
+  function gateForPreset(id) {
+    if (global.PTTournaments && typeof global.PTTournaments.canPlayPreset === 'function') {
+      return global.PTTournaments.canPlayPreset(id);
+    }
+    return { ok: true };
+  }
+
+  function showUpgradePrompt(gate, presetId) {
+    ui.upgradePrompt = {
+      presetId: presetId || null,
+      requiredPlan: gate && gate.requiredPlan,
+      requiredPlanLabel: (gate && gate.requiredPlanLabel) ||
+        (global.PTTournaments && PTTournaments.planLabel
+          ? PTTournaments.planLabel(gate && gate.requiredPlan)
+          : 'superior'),
+      message: (gate && gate.message) || 'Este torneo requiere un plan superior.'
+    };
+    paint();
+  }
+
+  function openUpgradePlans() {
+    ui.upgradePrompt = null;
+    if (global.PTBilling && typeof global.PTBilling.showPaywall === 'function') {
+      global.PTBilling.showPaywall(
+        'tournament_plan',
+        'Mejora tu plan para jugar más torneos IA (Study desbloquea la mayoría; Coach incluye difíciles y pro).'
+      );
+      return;
+    }
+    if (typeof global.goToTab === 'function') global.goToTab('pricing');
   }
 
   function esc(s) {
@@ -717,6 +770,19 @@ function reducedMotion() {
   function startFromConfig(cfg, opts) {
     opts = opts || {};
     opts.heroName = opts.heroName || resolveHeroNameOpt();
+    var presetId = typeof cfg === 'string' ? cfg : (cfg && cfg.id);
+    var gate = gateForPreset(presetId || 'custom');
+    if (!gate.ok) {
+      if (gate.upgrade) showUpgradePrompt(gate, presetId);
+      else if (gate.reason === 'custom_role') {
+        showUpgradePrompt({
+          message: gate.message,
+          requiredPlanLabel: 'Coach',
+          upgrade: false
+        }, presetId);
+      }
+      return;
+    }
     /* Comprobar saldo ANTES de borrar un torneo guardado / arrancar. */
     var buyIn = resolveBuyIn(cfg);
     if (!chargeBuyInOrExplain(buyIn)) return;
@@ -730,6 +796,7 @@ function reducedMotion() {
     ui.roleModalPlayerId = null;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
+    ui.upgradePrompt = null;
     ui.handDetailOpen = false;
     ui.heldFrames = null;
     ui.heldFramesDone = null;
@@ -750,6 +817,12 @@ function reducedMotion() {
   }
 
   function startPreset(id) {
+    var gate = gateForPreset(id);
+    if (!gate.ok) {
+      if (gate.upgrade || gate.reason === 'plan') showUpgradePrompt(gate, id);
+      else showUpgradePrompt(gate, id);
+      return;
+    }
     var active = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     if (active) {
       ui.resumePrompt = { presetId: id, active: active };
@@ -773,22 +846,34 @@ function reducedMotion() {
 
     var activeSum = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     var isActivePreset = !!(activeSum && (activeSum.presetId === p.id || activeSum.id === p.id));
+    var gate = gateForPreset(p.id);
+    var locked = !gate.ok && !!gate.upgrade;
+    var planMeta = planBadgeMeta(p.minPlan || (gate && gate.requiredPlan) || 'free');
+    var statusTxt = isActivePreset ? 'En curso' : (locked ? planMeta.t : 'Abierto');
+    var lockHint = locked
+      ? ('<span class="trn-lobby-lock" title="' + esc(gate.message || '') + '">Requiere ' +
+        esc(planMeta.t) + '</span>')
+      : '';
 
-    return '<button type="button" class="trn-lobby-row' + (isActivePreset ? ' is-active' : '') +
+    return '<button type="button" class="trn-lobby-row' +
+      (isActivePreset ? ' is-active' : '') +
+      (locked ? ' is-locked' : '') +
       '" data-preset="' + esc(p.id) +
-      '" data-kind="' + esc(p.kind) + '" data-tone="' + esc(tone) + '">' +
+      '" data-kind="' + esc(p.kind) + '" data-tone="' + esc(tone) + '"' +
+      (locked ? ' data-locked="1" aria-description="' + esc(gate.message || '') + '"' : '') + '>' +
       '<div class="trn-lobby-thumb" aria-hidden="true">' +
       '<span class="trn-lobby-thumb-kind">' + esc(kindLabel) + '</span>' +
       '<span class="trn-lobby-thumb-deco">♠</span>' +
-      '<span class="trn-lobby-status">' + (isActivePreset ? 'En curso' : 'Gratis') + '</span>' +
+      '<span class="trn-lobby-status">' + esc(statusTxt) + '</span>' +
       '</div>' +
       '<div class="trn-lobby-main">' +
       '<div class="trn-lobby-title-row">' +
       '<span class="trn-lobby-title">' + esc(p.name) + '</span>' +
-      '<span class="trn-lobby-badges">' + badges + '</span>' +
+      '<span class="trn-lobby-badges">' + badges + lockHint + '</span>' +
       '</div>' +
       '<div class="trn-lobby-subline">NLHE · Stack ' + p.startingStack +
-      ' (' + bb + ' bb) · ' + p.placesPaid + ' paid</div>' +
+      ' (' + bb + ' bb) · ' + p.placesPaid + ' paid' +
+      (locked ? (' · Requiere ' + esc(planMeta.t)) : '') + '</div>' +
       '<div class="trn-lobby-stats">' +
       '<div class="trn-stat"><span class="trn-stat-lbl">Entrada*</span>' +
       '<span class="trn-stat-val">' + esc(fmtEur(p.buyInEur)) + '</span></div>' +
@@ -798,7 +883,8 @@ function reducedMotion() {
       '<span class="trn-stat-val trn-stat-prize">' + esc(fmtEur(pool)) + '</span></div>' +
       '</div></div>' +
       '<div class="trn-lobby-desk" aria-hidden="true">' +
-      '<span class="trn-desk-start"><strong>Ahora</strong><small>al instante</small></span>' +
+      '<span class="trn-desk-start"><strong>' + (locked ? 'Plan' : 'Ahora') +
+      '</strong><small>' + (locked ? esc(planMeta.t) : 'al instante') + '</small></span>' +
       '<span class="trn-desk-name">' + esc(p.name) + '<small>' + badges + '</small></span>' +
       '<span class="trn-desk-game">NLHE</span>' +
       '<span class="trn-desk-players">' + p.entries + '</span>' +
@@ -872,6 +958,41 @@ function reducedMotion() {
         '</div></div></div>';
     }
 
+    var upgradeModal = '';
+    if (ui.upgradePrompt) {
+      var up = ui.upgradePrompt;
+      var planName = up.requiredPlanLabel || 'superior';
+      upgradeModal = '<div class="trn-modal-backdrop trn-upgrade-backdrop" data-act="close-upgrade">' +
+        '<div class="trn-modal trn-upgrade-modal" role="dialog" aria-modal="true" data-act="noop">' +
+        '<p class="trn-upgrade-kicker">Plan ' + esc(planName) + '</p>' +
+        '<h3>Desbloquea este torneo</h3>' +
+        '<p class="trn-upgrade-msg">' + esc(up.message) + '</p>' +
+        '<ul class="trn-upgrade-perks">' +
+        '<li><strong>Gratis</strong> — Spin fácil</li>' +
+        '<li><strong>Study</strong> — MTT/SNG/Spins fáciles y medios</li>' +
+        '<li><strong>Coach</strong> — Difíciles y Pro</li>' +
+        '</ul>' +
+        '<div class="trn-setup-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="upgrade-plans">Ver planes</button>' +
+        '<button type="button" class="btn" data-act="close-upgrade">Seguir mirando</button>' +
+        '</div></div></div>';
+    }
+
+    var canCustom = !(global.PTTournaments && typeof global.PTTournaments.canUseCustom === 'function') ||
+      global.PTTournaments.canUseCustom();
+    var customBtn = canCustom
+      ? '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>'
+      : '';
+    var planBypass = global.PTTournaments && global.PTTournaments.communityPlanBypass &&
+      global.PTTournaments.communityPlanBypass();
+    var planHint = planBypass
+      ? '<p class="trn-lobby-plan-hint">Comunidad · todos los torneos desbloqueados para miembros.</p>'
+      : '<p class="trn-lobby-plan-hint">' +
+        '<span class="trn-badge trn-badge-plan-free">Gratis</span> Spin fácil · ' +
+        '<span class="trn-badge trn-badge-plan-study">Study</span> fáciles y medios · ' +
+        '<span class="trn-badge trn-badge-plan-coach">Coach</span> difíciles y pro' +
+        '</p>';
+
     return '<div class="trn-hub trn-lobby">' +
       '<header class="trn-lobby-hero">' +
       '<div class="trn-lobby-hero-bg" aria-hidden="true"></div>' +
@@ -880,10 +1001,11 @@ function reducedMotion() {
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
+      planHint +
       '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
-      '<button type="button" class="btn btn-primary" data-act="custom">Personalizado</button>' +
+      customBtn +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '<button type="button" class="btn" data-act="general-stats">Estadísticas generales</button>' +
       '</div></header>' +
@@ -908,7 +1030,7 @@ function reducedMotion() {
       })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-lobby-recent-grid">' + histHtml + '</ul>' +
-      '</section>' + resumeModal + '</div>';
+      '</section>' + resumeModal + upgradeModal + '</div>';
   }
 
   /* ---------- Setup ---------- */
@@ -2455,6 +2577,12 @@ function reducedMotion() {
 
   function paint() {
     if (!ui.root) return;
+    if (ui.view === VIEW.setup && global.PTTournaments &&
+        typeof global.PTTournaments.canUseCustom === 'function' &&
+        !global.PTTournaments.canUseCustom()) {
+      ui.view = VIEW.hub;
+      ui.setupDraft = null;
+    }
     var html = '';
     try {
       if (ui.view === VIEW.setup) html = renderSetup();
@@ -2536,6 +2664,14 @@ function reducedMotion() {
           return;
         }
         if (act === 'custom') {
+          if (global.PTTournaments && typeof global.PTTournaments.canUseCustom === 'function' &&
+              !global.PTTournaments.canUseCustom()) {
+            showUpgradePrompt({
+              message: 'Los torneos personalizados solo están disponibles para administradores y managers de comunidad.',
+              requiredPlanLabel: 'admin'
+            }, 'custom');
+            return;
+          }
           ui.setupDraft = defaultDraft();
           setView(VIEW.setup);
         } else if (act === 'hub') {
@@ -2585,6 +2721,11 @@ function reducedMotion() {
         } else if (act === 'close-resume') {
           ui.resumePrompt = false;
           paint();
+        } else if (act === 'close-upgrade') {
+          ui.upgradePrompt = null;
+          paint();
+        } else if (act === 'upgrade-plans') {
+          openUpgradePlans();
         } else if (act === 'restart-preset') {
           var pid = btn.getAttribute('data-preset-id');
           clearActive();

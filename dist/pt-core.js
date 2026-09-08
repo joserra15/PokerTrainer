@@ -33911,7 +33911,8 @@ window.PT_NASH_PUSH_JSON = {
     billing_not_configured: '',
     purchases_paused: '',
     no_subscription: '',
-    trial_ended: 'Tu prueba de Study ha terminado.'
+    trial_ended: 'Tu prueba de Study ha terminado.',
+    tournament_plan: 'Este torneo requiere un plan superior. Study desbloquea fáciles y medios; Coach incluye difíciles y pro.'
   };
 
   function trialInfo() {
