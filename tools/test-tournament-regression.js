@@ -292,11 +292,12 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 6) Gate admin
+// 6) Gate menú (auth / comunidad)
 // ---------------------------------------------------------------------------
 {
   assert.strictEqual(g.PTTournaments.menuVisible(), false);
-  console.log('OK gate admin');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('spinEasy').ok, false);
+  console.log('OK gate menu');
 }
 
 // ---------------------------------------------------------------------------

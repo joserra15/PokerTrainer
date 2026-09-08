@@ -33638,7 +33638,8 @@ window.PT_NASH_PUSH_JSON = {
     billing_not_configured: '',
     purchases_paused: '',
     no_subscription: '',
-    trial_ended: 'Tu prueba de Study ha terminado.'
+    trial_ended: 'Tu prueba de Study ha terminado.',
+    tournament_plan: 'Este torneo requiere un plan superior. Study desbloquea fáciles y medios; Coach incluye difíciles y pro.'
   };
 
   function trialInfo() {
@@ -37144,7 +37145,7 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
     } catch (e) { /* noop */ }
-    /* Rol: PokerForgeAI → Admin; MTTLab → managers (PTTournaments.menuVisible). */
+    /* Rol: PokerForgeAI → autenticados; comunidad gated → miembros (PTTournaments.menuVisible). */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);

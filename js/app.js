@@ -67,7 +67,7 @@
         }
       }
     } catch (e) { /* noop */ }
-    /* Rol: PokerForgeAI → Admin; MTTLab → managers (PTTournaments.menuVisible). */
+    /* Rol: PokerForgeAI → autenticados; comunidad gated → miembros (PTTournaments.menuVisible). */
     const show = !communityHide && tournamentsMenuVisible();
     const tab = document.querySelector('.tab[data-tab="tournaments"]');
     if (tab) tab.classList.toggle('hidden', !show);

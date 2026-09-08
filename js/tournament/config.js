@@ -107,11 +107,30 @@
     return 'simulate';
   }
 
+  /**
+   * Plan mínimo por preset (DB: free / pro=Study / premium=Coach).
+   * Gratis → solo Spin fácil; Study → todos salvo difíciles/pro; Coach → todos.
+   */
+  var PRESET_MIN_PLAN = {
+    spinEasy: 'free',
+    easy: 'pro',
+    medium: 'pro',
+    sng6: 'pro',
+    sng9: 'pro',
+    spinMedium: 'pro',
+    hard: 'premium',
+    mttPro: 'premium',
+    sngPro: 'premium',
+    spinHard: 'premium',
+    spinPro: 'premium'
+  };
+
   var PRESETS = {
     easy: {
       id: 'easy',
       name: 'Fácil · MTT 18',
       kind: 'mtt',
+      minPlan: 'pro',
       entries: 18,
       seatsPerTable: 6,
       buyInEur: 5,
@@ -127,6 +146,7 @@
       id: 'medium',
       name: 'Medio · MTT 27',
       kind: 'mtt',
+      minPlan: 'pro',
       entries: 27,
       seatsPerTable: 9,
       buyInEur: 11,
@@ -142,6 +162,7 @@
       id: 'hard',
       name: 'Difícil · MTT 45',
       kind: 'mtt',
+      minPlan: 'premium',
       entries: 45,
       seatsPerTable: 9,
       buyInEur: 22,
@@ -157,6 +178,7 @@
       id: 'mttPro',
       name: 'Pro · MTT 108',
       kind: 'mtt',
+      minPlan: 'premium',
       entries: 108,
       seatsPerTable: 9,
       buyInEur: 55,
@@ -172,6 +194,7 @@
       id: 'sng6',
       name: 'SNG 6-Max',
       kind: 'sng',
+      minPlan: 'pro',
       entries: 6,
       seatsPerTable: 6,
       buyInEur: 5,
@@ -187,6 +210,7 @@
       id: 'sng9',
       name: 'SNG 9-Max',
       kind: 'sng',
+      minPlan: 'pro',
       entries: 9,
       seatsPerTable: 9,
       buyInEur: 11,
@@ -202,6 +226,7 @@
       id: 'sngPro',
       name: 'Pro · SNG 6-Max',
       kind: 'sng',
+      minPlan: 'premium',
       entries: 6,
       seatsPerTable: 6,
       buyInEur: 33,
@@ -217,6 +242,7 @@
       id: 'spinEasy',
       name: 'Fácil · Spin 3-Max',
       kind: 'spin',
+      minPlan: 'free',
       entries: 3,
       seatsPerTable: 3,
       buyInEur: 5,
@@ -232,6 +258,7 @@
       id: 'spinMedium',
       name: 'Medio · Spin 3-Max',
       kind: 'spin',
+      minPlan: 'pro',
       entries: 3,
       seatsPerTable: 3,
       buyInEur: 11,
@@ -247,6 +274,7 @@
       id: 'spinHard',
       name: 'Difícil · Spin 3-Max',
       kind: 'spin',
+      minPlan: 'premium',
       entries: 3,
       seatsPerTable: 3,
       buyInEur: 22,
@@ -262,6 +290,7 @@
       id: 'spinPro',
       name: 'Pro · Spin 3-Max',
       kind: 'spin',
+      minPlan: 'premium',
       entries: 3,
       seatsPerTable: 3,
       buyInEur: 44,
@@ -290,10 +319,18 @@
     var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
       ? normalizeSchedule(raw.blindSchedule, seats)
       : defaultScheduleForSeats(seats);
+    var id = String(raw.id || 'custom');
+    var minPlan = raw.minPlan || PRESET_MIN_PLAN[id] || (id === 'custom' ? null : 'pro');
+    if (minPlan === 'study') minPlan = 'pro';
+    if (minPlan === 'coach') minPlan = 'premium';
+    if (minPlan && minPlan !== 'free' && minPlan !== 'pro' && minPlan !== 'premium') {
+      minPlan = 'pro';
+    }
     return {
-      id: String(raw.id || 'custom'),
+      id: id,
       name: String(raw.name || 'Torneo personalizado').slice(0, 80),
       kind: kind,
+      minPlan: minPlan,
       entries: entries,
       seatsPerTable: seats,
       buyInEur: clamp(raw.buyInEur != null ? raw.buyInEur : 5, 0.01, 10000),
@@ -312,6 +349,19 @@
       exploitProPct: clamp(raw.exploitProPct != null ? raw.exploitProPct : 0, 0, 1),
       onBust: normalizeOnBust(raw.onBust)
     };
+  }
+
+  function planLabel(plan) {
+    var p = String(plan || 'free').toLowerCase();
+    if (p === 'premium' || p === 'coach') return 'Coach';
+    if (p === 'pro' || p === 'study') return 'Study';
+    return 'Gratis';
+  }
+
+  function requiredPlanForPreset(id) {
+    if (!id || id === 'custom') return null;
+    if (PRESETS[id] && PRESETS[id].minPlan) return PRESETS[id].minPlan;
+    return PRESET_MIN_PLAN[id] || 'pro';
   }
 
   function fromPreset(id) {
@@ -366,6 +416,7 @@
     ROLE_IDS: ROLE_IDS.slice(),
     DEFAULT_SCHEDULE: clone(DEFAULT_SCHEDULE),
     PRESETS: PRESETS,
+    PRESET_MIN_PLAN: PRESET_MIN_PLAN,
     normalize: normalize,
     fromPreset: fromPreset,
     listPresets: listPresets,
@@ -373,6 +424,8 @@
     payoutFractions: payoutFractions,
     payoutEuros: payoutEuros,
     handsPerLevelForSeats: handsPerLevelForSeats,
-    defaultScheduleForSeats: defaultScheduleForSeats
+    defaultScheduleForSeats: defaultScheduleForSeats,
+    planLabel: planLabel,
+    requiredPlanForPreset: requiredPlanForPreset
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
