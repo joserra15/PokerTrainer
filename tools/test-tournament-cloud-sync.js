@@ -20,11 +20,16 @@ assert.ok(/adoptBestCloudTournamentActive/.test(cloudSrc), 'sync adopta mejor to
 const appSrc = read('js/app.js');
 assert.ok(/Todavía se están guardando datos/.test(appSrc), 'mensaje amigable si busy');
 assert.ok(!/No se pudo sincronizar: ['"]?\s*\+?\s*\(?res\.reason/.test(appSrc) ||
+  /Todavía se estan guardando/.test(appSrc) ||
   /Todavía se están guardando/.test(appSrc),
   'no muestra reason crudo busy al usuario');
 
 const storageSrc = read('js/storage.js');
 assert.ok(/migrateTournamentKeysForUser/.test(storageSrc), 'migra claves torneo al login');
+assert.ok(/Nunca cambia la comunidad activa|communitySwitched:\s*false/.test(storageSrc),
+  'adoptBest no cambia de comunidad en sync');
+assert.ok(!/PTCommunity\.setActive\(best\.communityId/.test(storageSrc),
+  'adoptBest no llama setActive');
 assert.ok(/replaceFromCloud[\s\S]*tournamentWallet/.test(storageSrc) ||
   /function replaceFromCloud[\s\S]*tournamentHistory/.test(storageSrc),
   'replaceFromCloud aplica torneos');
@@ -394,16 +399,18 @@ assert.ok(Store && W && T, 'modules loaded');
     'cloudDirtyKeys wallet sin history');
 }
 
-/* --- adoptBest: nube MTT Lab (mano 28) gana aunque la UI esté en PokerForge --- */
+/* --- adoptBest: hidrata MTT Lab (mano 28) sin cambiar de PokerForge --- */
 {
   Object.keys(localStore).forEach((k) => delete localStore[k]);
   Store.setUserId('user-cross-comm');
+  let setActiveCalls = 0;
   sandbox.PTCommunity = {
     id: function () { return 'pokerforge'; },
     myCommunities: function () {
       return [{ id: 'pokerforge' }, { id: 'mttlab' }];
     },
     setActive: function (id) {
+      setActiveCalls++;
       sandbox.PTCommunity._id = id;
       this.id = function () { return sandbox.PTCommunity._id || 'pokerforge'; };
     },
@@ -435,8 +442,14 @@ assert.ok(Store && W && T, 'modules loaded');
   const adopted = Store.adoptBestCloudTournamentActive(cloudCross);
   assert.ok(adopted, 'adopta best');
   assert.strictEqual(adopted.handIndex, 28, 'mano 28');
-  assert.strictEqual(adopted.communityId, 'mttlab', 'cambia a mttlab');
-  assert.strictEqual(T.loadActive().handIndex, 28, 'local activo es 28');
+  assert.strictEqual(adopted.communityId, 'mttlab', 'best sigue en mttlab');
+  assert.strictEqual(adopted.communitySwitched, false, 'no cambia de comunidad');
+  assert.strictEqual(setActiveCalls, 0, 'setActive no se llama en sync');
+  assert.strictEqual(sandbox.PTCommunity.id(), 'pokerforge', 'UI permanece en PokerForge');
+  assert.strictEqual(T.loadActive().handIndex, 13, 'activo PF intacto');
+  const mttRaw = localStore['pt_tournament_active_v1_mttlab_user-cross-comm'];
+  assert.ok(mttRaw, 'mttlab local hidratado');
+  assert.strictEqual(JSON.parse(mttRaw).handIndex, 28, 'mttlab tiene mano 28');
 }
 
 /* --- mergeAllLocal sube activo mttlab aunque comunidad actual sea PF --- */
