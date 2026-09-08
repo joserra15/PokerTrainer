@@ -88,15 +88,16 @@ near(ST.rfiStrategy('BTN', 'A2o', CASH).raise, 0.25, 0.01, 'BTN A2o raise');
 near(ST.rfiStrategy('BTN', 'K4s', CASH).raise, 1.0, 0.01, 'BTN K4s raise');
 softNear(globalRfi('BTN'), 0.43, 0.03, 'BTN global RFI');
 
-// --- BB vs UTG (chart de estudio: no dump raked tight) ---
+// --- BB vs UTG (chart captura: ATo/AJo call; JJ+/AQs 3bet-heavy) ---
 near(ST.vsRfiStrategy('BB_vs_UTG', 'QQ', CASH, 'BB', 'UTG').raise, 1.0, 0.01, 'BB vs UTG QQ 3bet');
-near(ST.vsRfiStrategy('BB_vs_UTG', 'JJ', CASH, 'BB', 'UTG').raise, 0.5, 0.01, 'BB vs UTG JJ mix');
-near(ST.vsRfiStrategy('BB_vs_UTG', 'AQs', CASH, 'BB', 'UTG').raise, 0.5, 0.01, 'BB vs UTG AQs mix');
-near(ST.vsRfiStrategy('BB_vs_UTG', 'A5s', CASH, 'BB', 'UTG').raise, 0.5, 0.01, 'BB vs UTG A5s mix');
+near(ST.vsRfiStrategy('BB_vs_UTG', 'JJ', CASH, 'BB', 'UTG').raise, 0.9, 0.01, 'BB vs UTG JJ 3bet');
+near(ST.vsRfiStrategy('BB_vs_UTG', 'AQs', CASH, 'BB', 'UTG').raise, 0.85, 0.01, 'BB vs UTG AQs mix');
+near(ST.vsRfiStrategy('BB_vs_UTG', 'A5s', CASH, 'BB', 'UTG').raise, 0.2, 0.01, 'BB vs UTG A5s mix');
 near(ST.vsRfiStrategy('BB_vs_UTG', 'ATo', CASH, 'BB', 'UTG').call, 1.0, 0.01, 'BB vs UTG ATo call');
+near(ST.vsRfiStrategy('BB_vs_UTG', 'AJo', CASH, 'BB', 'UTG').call, 1.0, 0.01, 'BB vs UTG AJo call');
 {
   const g = globalVsRfi('BB_vs_UTG');
-  softNear(g.threeBet, 0.04, 0.03, 'BB vs UTG global 3bet');
+  softNear(g.threeBet, 0.045, 0.03, 'BB vs UTG global 3bet');
   softNear(g.call, 0.16, 0.08, 'BB vs UTG global call');
 }
 

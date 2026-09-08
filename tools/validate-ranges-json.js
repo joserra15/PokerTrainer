@@ -116,9 +116,13 @@ console.log('OK BB defensa: gappers HJ, T9o vs CO, Q9o/99 vs BTN');
 // combo_matrix overrides presentes en spots del dump profesional (BTN/SB; BB vs UTG es chart)
 assert.ok(bbUtg.threeBetMix && /AQs/.test(bbUtg.threeBetMix) && /KJs/.test(bbUtg.threeBetMix),
   'BB vs UTG threeBetMix AQs/KJs');
+assert.ok(bbUtg.combo_matrix && bbUtg.combo_matrix.ATo && bbUtg.combo_matrix.ATo.call === 1,
+  'BB vs UTG combo_matrix ATo call');
+assert.ok(bbUtg.combo_matrix.AJo && bbUtg.combo_matrix.AJo.call === 1,
+  'BB vs UTG combo_matrix AJo call');
 assert.ok(rfi.positions.UTG.combo_matrix && rfi.positions.UTG.combo_matrix.A4s.raise === 0.57,
   'UTG combo_matrix A4s 0.57');
-console.log('OK combo_matrix UTG / BB_vs_UTG chart');
+console.log('OK combo_matrix UTG / BB_vs_UTG ATo/AJo call');
 
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');

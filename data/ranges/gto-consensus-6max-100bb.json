@@ -18,7 +18,7 @@
         "JJ", "TT", "99", "22"
       ],
       "mustFold": ["A9o", "A8o", "KTo", "QTo", "Q9o", "K8s", "Q8s", "J8s", "T8s", "72o", "83o"],
-      "note": "BB vs UTG chart de estudio: 3bet QQ+/AK + mix JJ/AQs/A5s/A4s/KJs; defiende ATo+/KJo+/QJo/JTo y K9s+/Q9s+/J9s+."
+      "note": "BB vs UTG chart captura: 3bet JJ+/AK + mix AQs/A5s/A4s/KJs; ATo/AJo/KJo/QJo/JTo call."
     },
     "BB_vs_HJ": {
       "mustContinue": [

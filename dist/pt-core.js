@@ -1478,10 +1478,10 @@
 
   const VS_RFI = {
     BB_vs_UTG: {
-      threeBet: 'QQ+, AKs, AKo',
-      threeBetMix: 'JJ, AQs, A5s, A4s, KJs',
-      // Chart BB vs UTG (estudio): 3bet value+polar; ATo+/JTo call junto a KJo+/QJo.
-      call: '22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
+      threeBet: 'JJ+, AKs, AKo',
+      threeBetMix: 'AQs, A5s, A4s, KJs',
+      // Captura estudio: ATo/AJo call (no fold); 3bet JJ+/AK + mix AQs/A5s/A4s/KJs.
+      call: '22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
     },
     BB_vs_HJ: {
       threeBet: 'QQ+, AKs, AKo',
@@ -2066,13 +2066,34 @@ window.PT_VS_RFI_JSON = {
     "threeBetSizeBb": 10,
     "source": "solver-export-v2-pro-dump",
     "updated": "2026-09-08",
-    "note": "BB vs UTG: chart de estudio con 3bet value+polar (JJ mix, AQs/A5s/A4s/KJs) y defensa ATo+/KJo+/QJo/JTo. combo_matrix en otros spots."
+    "note": "BB vs UTG chart de estudio alineado a captura: 3bet JJ+/AK (+ mix AQs/A5s/A4s/KJs); call incluye ATo/AJo/KJo/QJo/JTo."
   },
   "pairs": {
     "BB_vs_UTG": {
-      "threeBet": "QQ+, AKs, AKo",
-      "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
-      "call": "22-JJ, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo"
+      "threeBet": "JJ+, AKs, AKo",
+      "threeBetMix": "AQs, A5s, A4s, KJs",
+      "call": "22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
+      "combo_matrix": {
+        "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "KK": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "QQ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "JJ": { "3bet": 0.9, "call": 0.1, "fold": 0.0 },
+        "TT": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AKs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQs": { "3bet": 0.85, "call": 0.15, "fold": 0.0 },
+        "AJs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "A5s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "A4s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
+        "KQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KJs": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
+        "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "ATo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "QJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "JTo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+      }
     },
     "BB_vs_HJ": {
       "threeBet": "QQ+, AKs, AKo",
