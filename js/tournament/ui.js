@@ -1096,7 +1096,8 @@ function reducedMotion() {
   }
 
   /**
-   * % de ganar para cada all-in (o contendientes con holes revelados).
+   * % de ganar para cada jugador del all-in / showdown (holes revelados).
+   * Incluye a todos los contendientes vivos (all-in o con fichas detrás).
    * Se recalcula al crecer el board (reveal → flop → turn → river).
    */
   function allInEquityBySeat(hand) {
@@ -1104,9 +1105,8 @@ function reducedMotion() {
     var contenders = (hand.seats || []).filter(function (s) {
       return s && !s.folded && s.cards && s.cards.length >= 2;
     });
-    var allin = contenders.filter(function (s) { return s.allIn; });
-    var pool = allin.length >= 2 ? allin
-      : (contenders.length >= 2 ? contenders : []);
+    /* Equity para CADA contendiente del showdown, no solo el héroe. */
+    var pool = contenders.length >= 2 ? contenders : [];
     if (pool.length < 2) return null;
 
     var board = cardCodesOf(hand.board);
@@ -1138,6 +1138,13 @@ function reducedMotion() {
     if (pct >= 60) cls += ' is-high';
     else if (pct <= 35) cls += ' is-low';
     return '<span class="' + cls + '" title="Probabilidad de ganar">' + esc(String(pct)) + '%</span>';
+  }
+
+  /** Badge visible junto a las cartas (no dentro del nombre truncado del asiento). */
+  function equityBesideCardsHtml(pct) {
+    var badge = equityBadgeHtml(pct);
+    if (!badge) return '';
+    return '<div class="trn-seat-equity" aria-label="Probabilidad de ganar">' + badge + '</div>';
   }
 
   function chipTier(bbAmt) {
@@ -1290,7 +1297,8 @@ function reducedMotion() {
       /* Solo streetInvested (ciegas/apuestas). El ante va en etiqueta del bote. */
       var betHtml = renderSeatBetHtml(Number(s.streetInvested) || 0, bb, betPlacement(c));
 
-      var eqHtml = (equityMap && equityMap[s.id] != null) ? (' ' + equityBadgeHtml(equityMap[s.id])) : '';
+      var eqPct = equityMap && equityMap[s.id] != null ? equityMap[s.id] : null;
+      var eqHtml = (showdown && eqPct != null) ? equityBesideCardsHtml(eqPct) : '';
       var villainName = s.name || 'Villano';
       var guessChip = guessed ? ('<div class="seat-role-guess">' + roleChipHtml(guessed) + '</div>') : '';
       var seatStyle = 'top:' + c.top + '%;left:' + c.left + '%';
@@ -1299,11 +1307,12 @@ function reducedMotion() {
         '" data-player="' + esc(s.id) + '"' +
         (guessed ? (' data-role-guess="' + esc(guessed) + '"') : '') +
         ' title="' + esc(villainName + ' · ' + (s.pos || '') +
+          (eqPct != null ? (' · ' + eqPct + '%') : '') +
           (guessed ? (' · ' + roleLabel(guessed)) : ' — adivinar rol')) + '">' +
         '<div class="seat-body">' +
-        '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
+        '<div class="seat-hole">' + actHtml + cardsHtml + eqHtml + '</div>' +
         '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
-        esc(villainName) + eqHtml + '</div>' +
+        esc(villainName) + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
         guessChip +
         '<div class="seat-role">' + esc(villainName) + '</div>' +
@@ -1342,15 +1351,21 @@ function reducedMotion() {
     /* Solo streetInvested: el ante no se pinta delante del héroe. */
     var streetChips = renderHeroStreetChipsHtml(Number(hero.streetInvested) || 0, bb);
     var equityMap = allInEquityBySeat(hand);
-    var eqHtml = (equityMap && equityMap[hero.id] != null) ? (' ' + equityBadgeHtml(equityMap[hero.id])) : '';
+    var heroShowdown = !folded && (hand.stage === 'complete' || !!hand.holesRevealed ||
+      !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed)));
+    var eqPct = equityMap && equityMap[hero.id] != null ? equityMap[hero.id] : null;
+    var eqHtml = (heroShowdown && eqPct != null) ? equityBesideCardsHtml(eqPct) : '';
     return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
       act +
       '<div class="hero-chips">' + streetChips +
       '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
       '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) +
-      ' · <span>' + esc(hero.pos || '-') + '</span>' + eqHtml +
+      ' · <span>' + esc(hero.pos || '-') + '</span>' +
+      (hero.allIn ? ' <span class="trn-allin-badge">ALL-IN</span>' : '') +
       '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
-      (cards ? ('<div class="hero-cards">' + cards + '</div>') : '<div class="hero-cards hero-cards-folded"></div>') +
+      (cards
+        ? ('<div class="hero-cards">' + cards + '</div>' + eqHtml)
+        : '<div class="hero-cards hero-cards-folded"></div>') +
       '</div>';
   }
 
@@ -2641,6 +2656,9 @@ function reducedMotion() {
     chipStackHTML: chipStackHTML,
     renderSeatBetHtml: renderSeatBetHtml,
     allInEquityBySeat: allInEquityBySeat,
-    equityBadgeHtml: equityBadgeHtml
+    equityBadgeHtml: equityBadgeHtml,
+    equityBesideCardsHtml: equityBesideCardsHtml,
+    renderTrainerSeats: renderTrainerSeats,
+    renderHeroArea: renderHeroArea
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

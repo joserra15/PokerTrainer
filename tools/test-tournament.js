@@ -1726,19 +1726,35 @@ console.log('OK pushfold-freq-100');
   load(g, 'js/cards.js');
   const UI = g.PTTournamentsUI;
   assert.ok(UI.allInEquityBySeat && UI.equityBadgeHtml, 'equity helpers exported');
+  assert.ok(UI.equityBesideCardsHtml && UI.renderTrainerSeats && UI.renderHeroArea,
+    'equity render helpers exported');
   const hand = {
     holesRevealed: true,
     board: [],
     seats: [
-      { id: 'h', isHero: true, allIn: true, folded: false, cards: ['As', 'Ah'], name: 'Hero' },
-      { id: 'v', isHero: false, allIn: true, folded: false, cards: ['2c', '7d'], name: 'Villain' },
-      { id: 'f', isHero: false, allIn: false, folded: true, cards: ['Kc', 'Kd'], name: 'Folded' }
+      { id: 'h', isHero: true, allIn: true, folded: false, cards: ['As', 'Ah'], name: 'Hero', pos: 'BTN', stack: 0, streetInvested: 20 },
+      { id: 'v', isHero: false, allIn: true, folded: false, cards: ['2c', '7d'], name: 'Villain', pos: 'BB', stack: 0, streetInvested: 20 },
+      { id: 'f', isHero: false, allIn: false, folded: true, cards: ['Kc', 'Kd'], name: 'Folded', pos: 'SB', stack: 10, streetInvested: 0 }
     ]
   };
   const pre = UI.allInEquityBySeat(hand);
   assert.ok(pre && pre.h != null && pre.v != null, 'equity map for all-in');
   assert.ok(pre.h > pre.v, 'AA > 72o preflop equity');
   assert.ok(pre.f == null, 'folded seat has no equity');
+
+  /* Caller con fichas detrás también entra en el mapa (antes se excluía si ≥2 all-in). */
+  const side = {
+    holesRevealed: true,
+    board: [],
+    seats: [
+      { id: 'h', isHero: true, allIn: true, folded: false, cards: ['As', 'Kh'], name: 'Hero' },
+      { id: 'v1', isHero: false, allIn: true, folded: false, cards: ['Qd', 'Qc'], name: 'V1' },
+      { id: 'v2', isHero: false, allIn: false, folded: false, cards: ['Jh', 'Js'], name: 'Caller', stack: 40 }
+    ]
+  };
+  const sideEq = UI.allInEquityBySeat(side);
+  assert.ok(sideEq && sideEq.h != null && sideEq.v1 != null && sideEq.v2 != null,
+    'equity for every showdown contender incl. caller with chips behind');
 
   hand.board = ['2h', '7h', '9s'];
   hand._eqCache = null;
@@ -1754,8 +1770,20 @@ console.log('OK pushfold-freq-100');
 
   const badge = UI.equityBadgeHtml(72);
   assert.ok(badge.includes('trn-equity-pct') && badge.includes('72%'), 'equity badge html');
+  assert.ok(UI.equityBesideCardsHtml(55).includes('trn-seat-equity'), 'beside-cards wrapper');
+
+  const seatsHtml = UI.renderTrainerSeats(hand, { heroGuesses: {} }, 1);
+  assert.ok(seatsHtml.includes('trn-seat-equity') && seatsHtml.includes('trn-equity-pct'),
+    'villain seats render equity beside cards');
+  assert.ok(!/<div class="seat-name">[^<]*trn-equity-pct/.test(seatsHtml),
+    'equity not buried inside truncated seat-name');
+  const heroHtml = UI.renderHeroArea(hand, 1);
+  assert.ok(heroHtml.includes('trn-seat-equity') && heroHtml.includes('trn-equity-pct'),
+    'hero area renders equity beside cards');
+
   const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(css.includes('.trn-equity-pct'), 'equity css');
+  assert.ok(css.includes('.trn-seat-equity'), 'seat equity css');
   console.log('OK tournament-allin-equity');
 }
 
