@@ -303,16 +303,24 @@ Object.keys(D.VS_RFI || {}).forEach((key) => {
 
 {
   const cont = unionFields(D.VS_RFI.BB_vs_UTG, VS_CONT);
-  ['AQo', 'AKo', 'AQs', 'KTs', 'JTs', '54s', 'TT', 'A5s'].forEach((h) => {
+  ['AQo', 'AKo', 'AQs', 'ATo', 'AJo', 'KJo', 'QJo', 'JTo', 'KTs', 'K9s', 'JTs', '54s', 'TT', 'A5s', 'KJs'].forEach((h) => {
     ok(cont.has(h), 'BB_vs_UTG continúa ' + h);
   });
-  ['ATo', 'AJo', 'JTo', 'KJo', 'QJo', 'K8s', 'T8s', '97s', '86s'].forEach((h) => {
-    ok(!cont.has(h), 'BB_vs_UTG foldea ' + h + ' (raked tight)');
+  ['A9o', 'KTo', 'K8s', 'Q8s', 'J8s', 'T8s', '97s', '86s'].forEach((h) => {
+    ok(!cont.has(h), 'BB_vs_UTG foldea ' + h);
   });
   const stAqo = ST.vsRfiStrategy('BB_vs_UTG', 'AQo');
   ok(stAqo.call >= 0.99 && stAqo.fold < 0.01, 'BB_vs_UTG AQo ~100% call (fold=' + stAqo.fold + ')');
   const stJj = ST.vsRfiStrategy('BB_vs_UTG', 'JJ');
-  ok(stJj.raise >= 0.99, 'BB_vs_UTG JJ ~100% 3bet (raise=' + stJj.raise + ')');
+  ok(stJj.raise >= 0.85 && stJj.call <= 0.15,
+    'BB_vs_UTG JJ ~90% 3bet (raise=' + stJj.raise + ')');
+  const stAqs = ST.vsRfiStrategy('BB_vs_UTG', 'AQs');
+  ok(stAqs.raise >= 0.8 && stAqs.call <= 0.2,
+    'BB_vs_UTG AQs mostly 3bet');
+  const stAto = ST.vsRfiStrategy('BB_vs_UTG', 'ATo');
+  ok(stAto.call >= 0.99 && stAto.fold < 0.01, 'BB_vs_UTG ATo ~100% call (fold=' + stAto.fold + ')');
+  const stAjo = ST.vsRfiStrategy('BB_vs_UTG', 'AJo');
+  ok(stAjo.call >= 0.99 && stAjo.fold < 0.01, 'BB_vs_UTG AJo ~100% call');
   const stA5 = ST.vsRfiStrategy('BB_vs_UTG', 'A5s');
   ok(Math.abs(stA5.raise - 0.2) < 0.01 && Math.abs(stA5.call - 0.8) < 0.01,
     'BB_vs_UTG A5s 20/80 matrix');
