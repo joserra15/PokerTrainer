@@ -1,16 +1,14 @@
 const { test, expect } = require('@playwright/test');
-const {
-  mockAuthenticatedUser,
+const { goTab, mockAuthenticatedUser,
   waitForAppShell,
-  openPlaySetupAdvanced
-} = require('./helpers');
+  openPlaySetupAdvanced } = require('./helpers');
 
 test.describe('Ocultar línea de acción previa @smoke', () => {
   test('opción disponible en cualquier calle y formato; × oculta en mesa', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await openPlaySetupAdvanced(page);
 

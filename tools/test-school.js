@@ -1214,7 +1214,7 @@ assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
   assert.strictEqual(W.getBalance(), 101, 'no dobla Koins al re-aprobar');
 
   ACTIVE = 'mttlab';
-  assert.strictEqual(W.getBalance(), 100, 'wallet MTTLab independiente');
+  assert.strictEqual(W.getBalance(), 0, 'wallet MTTLab independiente (partida en 0)');
   sandbox.Store._st = {
     handsPlayed: 0,
     school: { xp: 0, lessons: {}, updatedAt: 0, version: 2 }
@@ -1223,7 +1223,7 @@ assert.ok(!School.canPlayLesson('C-01').ok, 'canPlay C-01 locked');
   assert.ok(School.ensureLessonMarkedPassed('ML-M1-01', {
     passed: true, score: 0.9, pct: 90, gold: true, perfect: false
   }), 'ensure ML-M1-01');
-  assert.strictEqual(W.getBalance(), 101, 'MTTLab lección → +1 Koin propio');
+  assert.strictEqual(W.getBalance(), 1, 'MTTLab lección → +1 Koin propio');
 
   ACTIVE = 'pokerforge';
   assert.strictEqual(W.getBalance(), 101, 'PF saldo no afectado por award MTTLab');

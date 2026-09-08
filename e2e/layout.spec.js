@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { goTab, mockAuthenticatedUser, waitForAppShell } = require('./helpers');
 
 /** RG-A04 — asserts estables de check-hand-end-popup / HUD (Playwright). */
 test.describe('Layout play / hand-end @smoke', () => {
@@ -7,7 +7,7 @@ test.describe('Layout play / hand-end @smoke', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await goTab(page, 'play');
     await page.waitForSelector('#play-start', { timeout: 15000 });
     await page.click('#play-start');
     await page.waitForSelector('#play-active:not(.hidden) #actions .btn', { timeout: 60000 });

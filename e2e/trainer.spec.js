@@ -1,20 +1,18 @@
 const { test, expect } = require('@playwright/test');
-const {
-  mockAuthenticatedUser,
+const { goTab, mockAuthenticatedUser,
   waitForAppShell,
   clickFirstPlayAction,
   playActionButtons,
   playSkipButton,
   skipActionPlaybackIfNeeded,
-  expectAnyVisible
-} = require('./helpers');
+  expectAnyVisible } = require('./helpers');
 
 test.describe('Entrenamiento completo @smoke', () => {
   test('setup → decisión → score → histórico', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await page.click('#play-start');
 

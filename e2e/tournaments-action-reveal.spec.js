@@ -11,6 +11,12 @@ test.describe('Torneos: revelado de la acción @smoke', () => {
   test('la acción se ve jugador a jugador hasta el héroe', async ({ page }) => {
     await mockAuthenticatedUser(page, { isAdmin: true, plan: 'coach' });
     await waitForAppShell(page);
+    /* Partida en 0 Koins: seed para poder pagar buy-in del lobby. */
+    await page.evaluate(() => {
+      if (window.PTTournamentWallet && PTTournamentWallet.setBalance) {
+        PTTournamentWallet.setBalance(200, { type: 'e2e_seed' });
+      }
+    });
     await goTab(page, 'tournaments');
     await page.waitForSelector('#tab-tournaments .trn-lobby-row', { timeout: 30000 });
 

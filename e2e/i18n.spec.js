@@ -19,13 +19,13 @@ test.describe('i18n ES/EN @smoke', () => {
       await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
     }
 
-    await page.click('button.tab[data-tab="play"]');
-    const playText = await page.locator('#tab-play, #play-setup, #app-shell').first().innerText();
+    await goTab(page, 'play');
+    const playText = await page.locator('#tab-play.active, #play-setup').first().innerText();
     expect(playText).not.toMatch(/\bpt\.[a-z0-9_.]+/i);
     expect(playText).not.toMatch(/\bi18n\.[a-z0-9_.]+/i);
 
-    await page.click('button.tab[data-tab="pricing"]');
-    const pricing = await page.locator('#tab-pricing').innerText();
+    await goTab(page, 'pricing');
+    const pricing = await page.locator('#tab-pricing.active, #tab-pricing').innerText();
     expect(pricing).not.toMatch(/\bpt\.[a-z0-9_.]+/i);
   });
 });

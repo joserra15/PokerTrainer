@@ -231,16 +231,21 @@ async function goTab(page, tab) {
   if (tab === 'account') {
     const settings = page.locator('#account-settings');
     if (await settings.isVisible().catch(() => false)) {
-      await settings.click();
-    } else {
-      await page.evaluate(() => {
-        if (window.goToTab) window.goToTab('account');
-      });
+      await settings.click({ force: true }).catch(() => {});
     }
-  } else {
-    await page.click('button.tab[data-tab="' + tab + '"]');
   }
-  await page.waitForSelector('#tab-' + tab + ':not(.hidden), #tab-' + tab + '.active, #tab-' + tab, {
+  /* Con Torneos visible la nav puede clippear tabs; no confiar en click DOM. */
+  await page.evaluate((t) => {
+    if (typeof window.goToTab === 'function') {
+      window.goToTab(t);
+      return;
+    }
+    var btn = document.querySelector('button.tab[data-tab="' + t + '"]');
+    if (btn) btn.click();
+  }, tab);
+  /* Solo .active / :not(.hidden): #tab-X existe siempre pero display:none. */
+  await page.waitForSelector('#tab-' + tab + '.active, #tab-' + tab + ':not(.hidden)', {
+    state: 'visible',
     timeout: 15000
   });
 }

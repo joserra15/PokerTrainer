@@ -1,20 +1,18 @@
 const path = require('path');
 const { test, expect } = require('@playwright/test');
-const {
-  mockAuthenticatedUser,
+const { goTab, mockAuthenticatedUser,
   waitForAppShell,
   clickFirstPlayAction,
   playActionButtons,
   playSkipButton,
-  expectAnyVisible
-} = require('./helpers');
+  expectAnyVisible } = require('./helpers');
 
 test.describe('Modo Jugar', () => {
   test('juega al menos una decisión preflop', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await page.click('#play-start');
 
