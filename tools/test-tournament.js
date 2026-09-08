@@ -735,6 +735,38 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK wallet');
 }
 
+// --- Recientes / histórico de torneos aislados por comunidad ---
+{
+  const S = g.PTTournamentStore;
+  assert.ok(S && S.save && S.list, 'tournament store');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  S.clear();
+  S.save({ id: 'iso_pf', name: 'PF Reciente', place: 1, finishedAt: '2026-09-01T00:00:00.000Z' });
+  assert.strictEqual(S.list().length, 1, 'PF recientes');
+  assert.strictEqual(S.list()[0].communityId, 'pokerforge', 'stamp communityId');
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return true; },
+    requireMembership: function () { return true; }
+  };
+  assert.ok(/_mttlab/.test(S.storageKey()), 'mttlab storage key');
+  assert.strictEqual(S.list().length, 0, 'mttlab no ve PF recientes');
+  S.save({ id: 'iso_mt', name: 'MT Reciente', place: 2, finishedAt: '2026-09-02T00:00:00.000Z' });
+  assert.strictEqual(S.list().map(function (x) { return x.id; }).join(','), 'iso_mt');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  assert.strictEqual(S.list().map(function (x) { return x.id; }).join(','), 'iso_pf', 'PF intacto');
+  S.clear();
+  console.log('OK tournament-history-community-isolation');
+}
+
 // --- popup ciegas centrado (sin botón OK) ---
 {
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
@@ -1940,6 +1972,96 @@ console.log('OK pushfold-freq-100');
   assert.ok(/No borrar un torneo local|si local tampoco tiene active/i.test(storageSrc),
     'replaceFromCloud no limpia active local si cloud vacío');
   console.log('OK exit-save-persist-source');
+}
+
+// --- Resume tras salir-guardar: auto-reparte (no mesa congelada) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 515, heroName: 'ResumeHero' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 40) {
+    const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
+    g.PTTournamentRunner.heroAct(state, opt.id === 'check' ? 'check' : (opt.id === 'fold' ? 'fold' : opt.id), opt.amount);
+    hand = state._liveHand;
+  }
+  assert.ok(hand && hand.stage === 'complete' && hand.result, 'mano completa');
+  g.PTTournamentRunner.applyResults(state, hand);
+  state._liveHand = null;
+  g.PTTournamentStore.saveActive(state);
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded && !loaded._liveHand, 'snapshot sin liveHand (exit-save)');
+  const revived = g.PTTournamentRunner.ensureLiveHand(loaded);
+  assert.ok(revived, 'ensureLiveHand reparte');
+  assert.ok(loaded._liveHand, 'liveHand tras resume');
+  assert.ok(
+    (loaded._liveHand.awaitingHero && loaded._liveHand.heroOptions && loaded._liveHand.heroOptions.length) ||
+      loaded._liveHand.stage === 'complete',
+    'mano jugable o completa tras resume'
+  );
+  assert.ok(g.PTTournamentRunner.isPlayableLiveHand(loaded._liveHand), 'playable tras ensure');
+  g.PTTournamentStore.clearActive();
+  console.log('OK resume-auto-deal-after-exit-save');
+}
+
+// --- Resume con stub de mano roto (quota): no se queda sin botones ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 516, heroName: 'StubHero' });
+  g.PTTournamentRunner.beginHand(state);
+  assert.ok(state._liveHand && state._liveHand.awaitingHero, 'turno héroe');
+  /* Simula saveActive agresivo por quota: sin acted/heroOptions/boardDeck. */
+  state._liveHand = {
+    stage: state._liveHand.stage,
+    street: state._liveHand.street,
+    pot: state._liveHand.pot,
+    bb: state._liveHand.bb,
+    sb: state._liveHand.sb,
+    ante: state._liveHand.ante,
+    board: state._liveHand.board,
+    seats: state._liveHand.seats,
+    heroId: state._liveHand.heroId,
+    awaitingHero: true,
+    result: null,
+    decisions: [],
+    log: state._liveHand.log || []
+  };
+  assert.ok(!g.PTTournamentRunner.isPlayableLiveHand(state._liveHand), 'stub no playable');
+  const beforeIdx = state.handIndex;
+  g.PTTournamentRunner.ensureLiveHand(state);
+  assert.ok(state._liveHand, 'nueva mano');
+  assert.ok(g.PTTournamentRunner.isPlayableLiveHand(state._liveHand), 'playable tras revive');
+  assert.ok(
+    (state._liveHand.awaitingHero && state._liveHand.heroOptions && state._liveHand.heroOptions.length) ||
+      state._liveHand.stage === 'complete',
+    'acciones disponibles o mano ya cerrada'
+  );
+  assert.strictEqual(state.handIndex, beforeIdx, 'no avanza handIndex al descartar stub');
+  console.log('OK resume-revives-broken-livehand-stub');
+}
+
+// --- Resume conserva mano viva íntegra ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 517, heroName: 'KeepHero' });
+  g.PTTournamentRunner.beginHand(state);
+  assert.ok(state._liveHand && state._liveHand.awaitingHero, 'awaiting');
+  const potBefore = state._liveHand.pot;
+  const optsBefore = state._liveHand.heroOptions.length;
+  g.PTTournamentStore.saveActive(state);
+  const loaded = g.PTTournamentStore.loadActive();
+  const same = g.PTTournamentRunner.ensureLiveHand(loaded);
+  assert.ok(same && same.awaitingHero, 'conserva awaitingHero');
+  assert.strictEqual(same.heroOptions.length, optsBefore, 'mismas opciones');
+  assert.strictEqual(same.pot, potBefore, 'mismo pot');
+  g.PTTournamentStore.clearActive();
+  console.log('OK resume-keeps-intact-livehand');
+}
+
+// --- UI resumeActive llama ensureLiveHand ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/ensureLiveHand/.test(uiSrc), 'ui resume usa ensureLiveHand');
+  assert.ok(/clearPopupTimers/.test(uiSrc), 'limpia timers de banner al resume/exit');
+  assert.ok(/startBannerPending\s*=\s*null/.test(uiSrc), 'quita banner de inicio al continuar');
+  console.log('OK resume-ui-ensure-source');
 }
 
 console.log('*** test-tournament OK ***');

@@ -92,16 +92,16 @@ for (let i = axOffsuit.length - 1; i >= 0; i--) {
 }
 console.log('OK BB vs BTN: AQo/AJo/KJo continúan');
 
-// BB vs UTG raked: tight (~10% call). AQo+ / suited connectors; sin broadway offsuit débil ni gappers.
+// BB vs UTG (chart estudio): defiende ATo+/KJo+/QJo/JTo; 3bet mix AQs/KJs/A5s/A4s/JJ.
 const bbUtg = vsRfi.pairs.BB_vs_UTG;
 const bbUtgCont = continueSet(bbUtg);
-['AQo', 'AKo', 'AQs', 'KTs', 'JTs', '54s', 'TT'].forEach((h) => {
+['AQo', 'AKo', 'AQs', 'ATo', 'AJo', 'KJo', 'QJo', 'JTo', 'KTs', 'K9s', 'JTs', 'J9s', '54s', 'TT', 'JJ', 'A5s', 'KJs'].forEach((h) => {
   assert.ok(bbUtgCont.has(h), 'BB vs UTG debe continuar ' + h);
 });
-['ATo', 'AJo', 'KJo', 'QJo', 'JTo', 'A9o', 'A8o', 'K8s', 'Q8s'].forEach((h) => {
-  assert.ok(!bbUtgCont.has(h), 'BB vs UTG no debe continuar ' + h + ' (raked tight)');
+['A9o', 'A8o', 'KTo', 'K8s', 'Q8s', 'J8s', 'T8s'].forEach((h) => {
+  assert.ok(!bbUtgCont.has(h), 'BB vs UTG no debe continuar ' + h);
 });
-console.log('OK BB vs UTG: defensa raked tight (AQo+, sin ATo/KJo/gappers)');
+console.log('OK BB vs UTG: chart estudio (ATo+/KJo+, sin K8s/gappers)');
 
 // BB vs HJ/CO/BTN: gappers y Q9o (más anchos que vs UTG).
 const bbHjCont = continueSet(vsRfi.pairs.BB_vs_HJ);
@@ -113,12 +113,16 @@ assert.ok(continueSet(vsRfi.pairs.BB_vs_BTN).has('Q9o'), 'BB vs BTN debe continu
 assert.ok(continueSet(vsRfi.pairs.BB_vs_BTN).has('99'), 'BB vs BTN debe continuar 99');
 console.log('OK BB defensa: gappers HJ, T9o vs CO, Q9o/99 vs BTN');
 
-// combo_matrix overrides presentes en spots del dump profesional
-assert.ok(bbUtg.combo_matrix && bbUtg.combo_matrix.JJ && bbUtg.combo_matrix.JJ['3bet'] === 1,
-  'BB vs UTG combo_matrix JJ 3bet');
+// combo_matrix overrides presentes en spots del dump profesional (BTN/SB; BB vs UTG es chart)
+assert.ok(bbUtg.threeBetMix && /AQs/.test(bbUtg.threeBetMix) && /KJs/.test(bbUtg.threeBetMix),
+  'BB vs UTG threeBetMix AQs/KJs');
+assert.ok(bbUtg.combo_matrix && bbUtg.combo_matrix.ATo && bbUtg.combo_matrix.ATo.call === 1,
+  'BB vs UTG combo_matrix ATo call');
+assert.ok(bbUtg.combo_matrix.AJo && bbUtg.combo_matrix.AJo.call === 1,
+  'BB vs UTG combo_matrix AJo call');
 assert.ok(rfi.positions.UTG.combo_matrix && rfi.positions.UTG.combo_matrix.A4s.raise === 0.57,
   'UTG combo_matrix A4s 0.57');
-console.log('OK combo_matrix UTG / BB_vs_UTG');
+console.log('OK combo_matrix UTG / BB_vs_UTG ATo/AJo call');
 
 // --- vs-3bet ---
 const vs3 = loadJson('vs-3bet-6max-100bb.json');

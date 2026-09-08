@@ -44,6 +44,23 @@
     return '';
   }
 
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return String(global.PTCommunity.id() || 'pokerforge');
+      }
+    } catch (e) { /* ignore */ }
+    var s = communitySuffix();
+    return s ? String(s).replace(/^_/, '') : 'pokerforge';
+  }
+
+  function belongsToActiveCommunity(entry) {
+    if (!entry) return false;
+    var cid = communityId();
+    if (!entry.communityId) return true; /* legacy en clave namespaced = esta comunidad */
+    return String(entry.communityId) === String(cid);
+  }
+
   function storageKey() {
     return BASE_KEY + communitySuffix() + userSuffix();
   }
@@ -185,16 +202,16 @@
   }
 
   function list() {
-    return getHistoryMemory();
+    return getHistoryMemory().filter(belongsToActiveCommunity);
   }
 
   function get(id) {
     var sid = String(id || '');
     if (!sid) return null;
-    var mem = getHistoryMemory();
+    var mem = list();
     var hit = mem.find(function (x) { return x && x.id === sid; });
     if (hit) return hit;
-    return readList().find(function (x) { return x && x.id === sid; }) || null;
+    return readList().filter(belongsToActiveCommunity).find(function (x) { return x && x.id === sid; }) || null;
   }
 
   function normalizeSummary(summary) {
@@ -214,7 +231,8 @@
       roleAccuracy: Number(summary.roleAccuracy) || 0,
       finishedAt: summary.finishedAt || new Date().toISOString(),
       presetId: summary.presetId || null,
-      sessionId: summary.sessionId || null
+      sessionId: summary.sessionId || null,
+      communityId: summary.communityId || communityId()
     };
   }
 
@@ -375,7 +393,12 @@
 
   /** Sustituye histórico desde nube (login replace) sin marcar dirty de push. */
   function replaceAll(list) {
-    var arr = Array.isArray(list) ? sortHistory(list).slice(0, MAX) : [];
+    var cid = communityId();
+    var arr = sortHistory((Array.isArray(list) ? list : []).filter(function (x) {
+      return x && (!x.communityId || String(x.communityId) === String(cid));
+    }).map(function (x) {
+      return normalizeSummary(x);
+    })).slice(0, MAX);
     setHistoryMemory(arr);
     writeList(arr.slice(0, LOCAL_KEEP), { silent: true });
     return { ok: true, list: arr };
@@ -384,14 +407,17 @@
   /** Fusiona entradas remotas por id (finishedAt más reciente gana). */
   function mergeFromCloud(remoteList) {
     if (!Array.isArray(remoteList) || !remoteList.length) return list();
+    var cid = communityId();
     var map = Object.create(null);
     function add(item) {
       if (!item || !item.id) return;
-      var prev = map[item.id];
-      if (!prev) { map[item.id] = item; return; }
-      var ta = Date.parse(item.finishedAt || 0) || 0;
+      if (item.communityId && String(item.communityId) !== String(cid)) return;
+      var norm = normalizeSummary(item);
+      var prev = map[norm.id];
+      if (!prev) { map[norm.id] = norm; return; }
+      var ta = Date.parse(norm.finishedAt || 0) || 0;
       var tb = Date.parse(prev.finishedAt || 0) || 0;
-      if (ta >= tb) map[item.id] = item;
+      if (ta >= tb) map[norm.id] = norm;
     }
     getHistoryMemory().forEach(add);
     remoteList.forEach(add);

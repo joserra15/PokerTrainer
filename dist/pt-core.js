@@ -1478,10 +1478,10 @@
 
   const VS_RFI = {
     BB_vs_UTG: {
-      threeBet: 'QQ+, AKs, AKo',
-      threeBetMix: 'JJ, AQs, A5s, A4s, KJs',
-      // ATo+/JTo: solvers ~100% call; no foldear Ax offsuit mejores que QJo/KJo del mismo chart.
-      call: '22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
+      threeBet: 'JJ+, AKs, AKo',
+      threeBetMix: 'AQs, A5s, A4s, KJs',
+      // Captura estudio: ATo/AJo call (no fold); 3bet JJ+/AK + mix AQs/A5s/A4s/KJs.
+      call: '22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
     },
     BB_vs_HJ: {
       threeBet: 'QQ+, AKs, AKo',
@@ -2065,36 +2065,34 @@ window.PT_VS_RFI_JSON = {
     "openSizeBb": 2.5,
     "threeBetSizeBb": 10,
     "source": "solver-export-v2-pro-dump",
-    "updated": "2026-09-07",
-    "note": "BB vs UTG tightened toward ~10% call / ~3% 3bet (raked). combo_matrix overrides exact mixes."
+    "updated": "2026-09-08",
+    "note": "BB vs UTG chart de estudio alineado a captura: 3bet JJ+/AK (+ mix AQs/A5s/A4s/KJs); call incluye ATo/AJo/KJo/QJo/JTo."
   },
   "pairs": {
     "BB_vs_UTG": {
       "threeBet": "JJ+, AKs, AKo",
-      "threeBetMix": "A5s, A4s",
-      "call": "22-TT, A2s-AQs, KTs+, QJs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, AQo",
-      "global_frequencies": {
-        "3bet_10bb": 0.031,
-        "call": 0.104,
-        "fold": 0.865
-      },
+      "threeBetMix": "AQs, A5s, A4s, KJs",
+      "call": "22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
       "combo_matrix": {
         "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
         "KK": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
         "QQ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "JJ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "JJ": { "3bet": 0.9, "call": 0.1, "fold": 0.0 },
         "TT": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "33": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
         "AKs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "AQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "A9s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AQs": { "3bet": 0.85, "call": 0.15, "fold": 0.0 },
+        "AJs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
         "A5s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
         "A4s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
-        "KTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "JTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "54s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KJs": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
         "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "ATo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "QJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "JTo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
       }
     },
     "BB_vs_HJ": {
@@ -25430,6 +25428,16 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  /**
+   * Vista lógica para merge/replace. En comunidades gated NUNCA usa claves
+   * PokerForge (sin sufijo): sin fallback a tournamentHistory/stats de PF.
+   */
+  function toLogicalCloud(cloudSnapshot) {
+    var s = communityDataSuffix();
+    if (!s) return cloudSnapshot || {};
+    return sliceCloudForActive(cloudSnapshot || {});
+  }
+
   /** Escribe el snapshot de la comunidad activa en claves namespaced sin tocar otras. */
   function mergeActiveIntoCloudPayload(cloudPayload) {
     var out = Object.assign({}, cloudPayload || {});
@@ -27519,16 +27527,9 @@ window.PT_NASH_PUSH_JSON = {
   /** Fusiona datos locales con snapshot de la nube (union por id). Acepta payload completo o lógico. */
   function mergeFromCloud(cloudSnapshot) {
     if (!cloudSnapshot) return null;
-    var logical = cloudSnapshot;
     var s = communityDataSuffix();
-    if (s && (cloudSnapshot['stats' + s] != null || cloudSnapshot['history' + s] != null ||
-        cloudSnapshot['errors' + s] != null || cloudSnapshot['school' + s] != null ||
-        cloudSnapshot['clearedAt' + s] != null ||
-        cloudSnapshot['tournamentWallet' + s] != null ||
-        cloudSnapshot['tournamentHistory' + s] != null ||
-        cloudSnapshot['tournamentActive' + s] != null)) {
-      logical = sliceCloudForActive(cloudSnapshot);
-    }
+    /* Comunidad gated: siempre vista namespaced (sin fallback a datos PokerForge). */
+    var logical = toLogicalCloud(cloudSnapshot);
     const local = getCloudSnapshot();
     const cloudCa = logical.clearedAt || {};
     const localCa = getClearedAt();
@@ -27588,16 +27589,8 @@ window.PT_NASH_PUSH_JSON = {
 
   function replaceFromCloud(snapshot) {
     if (!snapshot) return;
-    var logical = snapshot;
     var s = communityDataSuffix();
-    if (s && (snapshot['stats' + s] != null || snapshot['history' + s] != null ||
-        snapshot['errors' + s] != null || snapshot['school' + s] != null ||
-        snapshot['clearedAt' + s] != null ||
-        snapshot['tournamentWallet' + s] != null ||
-        snapshot['tournamentHistory' + s] != null ||
-        snapshot['tournamentActive' + s] != null)) {
-      logical = sliceCloudForActive(snapshot);
-    }
+    var logical = toLogicalCloud(snapshot);
     const cloudCa = logical.clearedAt || {};
     const localCa = getClearedAt();
     writeClearedAt(mergeClearedAtMeta(localCa, cloudCa));

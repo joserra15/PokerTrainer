@@ -3718,6 +3718,23 @@
     return '';
   }
 
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return String(global.PTCommunity.id() || 'pokerforge');
+      }
+    } catch (e) { /* ignore */ }
+    var s = communitySuffix();
+    return s ? String(s).replace(/^_/, '') : 'pokerforge';
+  }
+
+  function belongsToActiveCommunity(entry) {
+    if (!entry) return false;
+    var cid = communityId();
+    if (!entry.communityId) return true; /* legacy en clave namespaced = esta comunidad */
+    return String(entry.communityId) === String(cid);
+  }
+
   function storageKey() {
     return BASE_KEY + communitySuffix() + userSuffix();
   }
@@ -3859,16 +3876,16 @@
   }
 
   function list() {
-    return getHistoryMemory();
+    return getHistoryMemory().filter(belongsToActiveCommunity);
   }
 
   function get(id) {
     var sid = String(id || '');
     if (!sid) return null;
-    var mem = getHistoryMemory();
+    var mem = list();
     var hit = mem.find(function (x) { return x && x.id === sid; });
     if (hit) return hit;
-    return readList().find(function (x) { return x && x.id === sid; }) || null;
+    return readList().filter(belongsToActiveCommunity).find(function (x) { return x && x.id === sid; }) || null;
   }
 
   function normalizeSummary(summary) {
@@ -3888,7 +3905,8 @@
       roleAccuracy: Number(summary.roleAccuracy) || 0,
       finishedAt: summary.finishedAt || new Date().toISOString(),
       presetId: summary.presetId || null,
-      sessionId: summary.sessionId || null
+      sessionId: summary.sessionId || null,
+      communityId: summary.communityId || communityId()
     };
   }
 
@@ -4049,7 +4067,12 @@
 
   /** Sustituye histórico desde nube (login replace) sin marcar dirty de push. */
   function replaceAll(list) {
-    var arr = Array.isArray(list) ? sortHistory(list).slice(0, MAX) : [];
+    var cid = communityId();
+    var arr = sortHistory((Array.isArray(list) ? list : []).filter(function (x) {
+      return x && (!x.communityId || String(x.communityId) === String(cid));
+    }).map(function (x) {
+      return normalizeSummary(x);
+    })).slice(0, MAX);
     setHistoryMemory(arr);
     writeList(arr.slice(0, LOCAL_KEEP), { silent: true });
     return { ok: true, list: arr };
@@ -4058,14 +4081,17 @@
   /** Fusiona entradas remotas por id (finishedAt más reciente gana). */
   function mergeFromCloud(remoteList) {
     if (!Array.isArray(remoteList) || !remoteList.length) return list();
+    var cid = communityId();
     var map = Object.create(null);
     function add(item) {
       if (!item || !item.id) return;
-      var prev = map[item.id];
-      if (!prev) { map[item.id] = item; return; }
-      var ta = Date.parse(item.finishedAt || 0) || 0;
+      if (item.communityId && String(item.communityId) !== String(cid)) return;
+      var norm = normalizeSummary(item);
+      var prev = map[norm.id];
+      if (!prev) { map[norm.id] = norm; return; }
+      var ta = Date.parse(norm.finishedAt || 0) || 0;
       var tb = Date.parse(prev.finishedAt || 0) || 0;
-      if (ta >= tb) map[item.id] = item;
+      if (ta >= tb) map[norm.id] = norm;
     }
     getHistoryMemory().forEach(add);
     remoteList.forEach(add);
@@ -4822,6 +4848,53 @@
     return Blinds.currentLevel(state.config.blindSchedule, state.handIndex || 0);
   }
 
+  /**
+   * ¿Se puede pintar/jugar la mano guardada sin repartir de nuevo?
+   * Tras salir-guardar la mano suele ser null; tras quota cloud puede quedar un stub
+   * sin acted/heroOptions (mesa congelada: se ven asientos pero no hay acciones).
+   */
+  function isPlayableLiveHand(hand) {
+    if (!hand) return false;
+    if (hand.stage === 'complete' && hand.result) return true;
+    if (hand.stage !== 'playing') return false;
+    if (!Array.isArray(hand.seats) || hand.seats.length < 2) return false;
+    if (!hand.acted || typeof hand.acted !== 'object') return false;
+    if (hand.awaitingHero) {
+      return !!(hand._heroSeatId && hand.heroOptions && hand.heroOptions.length);
+    }
+    /* Jugando sin turno de héroe: recuperable con runToHeroOrEnd si el estado es íntegro. */
+    return true;
+  }
+
+  /**
+   * Al Continuar un torneo guardado: reanuda la mano viva o reparte la siguiente.
+   * No deja la mesa en idle (solo asientos clicables sin botones / sin Repartir).
+   */
+  function ensureLiveHand(state) {
+    if (!state || state.status !== 'running') return null;
+    var Live = global.PTTournamentLiveHand;
+    var hand = state._liveHand;
+
+    if (hand && hand.stage === 'complete' && hand.result) return hand;
+
+    if (hand && hand.stage === 'playing' && isPlayableLiveHand(hand) && Live) {
+      if (!hand.awaitingHero) {
+        try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
+        hand = state._liveHand;
+        if (hand && hand.stage === 'complete') return hand;
+        if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) return hand;
+      } else if (hand.heroOptions && hand.heroOptions.length) {
+        return hand;
+      }
+    }
+
+    /* Stub roto o sin mano: descartar y repartir. */
+    if (state._liveHand && !(state._liveHand.stage === 'complete' && state._liveHand.result)) {
+      state._liveHand = null;
+    }
+    return beginHand(state);
+  }
+
   function beginHand(state) {
     if (!state || state.status !== 'running') return null;
     // Si la mano anterior terminó sin heroAct (p.ej. todos fold a BB), aplica resultados.
@@ -5339,6 +5412,8 @@
   global.PTTournamentRunner = {
     create: create,
     beginHand: beginHand,
+    ensureLiveHand: ensureLiveHand,
+    isPlayableLiveHand: isPlayableLiveHand,
     heroAct: heroAct,
     continueAfterHand: continueAfterHand,
     applyResults: applyResults,
@@ -5889,6 +5964,18 @@ function reducedMotion() {
     } catch (e) { /* ignore */ }
   }
 
+  function clearPopupTimers() {
+    if (!ui.popupClearTimers) return;
+    Object.keys(ui.popupClearTimers).forEach(function (k) {
+      try {
+        if (ui.popupClearTimers[k] && typeof clearTimeout === 'function') {
+          clearTimeout(ui.popupClearTimers[k]);
+        }
+      } catch (eT) { /* */ }
+      ui.popupClearTimers[k] = null;
+    });
+  }
+
   function resumeActive() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
@@ -5900,14 +5987,41 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    ui.heldFrames = null;
+    ui.heldFramesDone = null;
     stopAnim();
+    clearPopupTimers();
     /* Si la partida guardada acabó (apply al salir), mostrar resultado. */
     if (st.status === 'finished') {
       clearActive();
       setView(VIEW.result);
       return true;
     }
-    setView(VIEW.table);
+    /* Continuar no es un arranque: quitar cartel de inicio que bloquearía acciones. */
+    if (st.startBannerPending) st.startBannerPending = null;
+    /* Tras salir-guardar _liveHand es null; reparte o rehidrata stub roto. */
+    try {
+      var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.ensureLiveHand === 'function') {
+        Runner.ensureLiveHand(st);
+      } else if (Runner && typeof Runner.beginHand === 'function' && !st._liveHand) {
+        Runner.beginHand(st);
+      }
+    } catch (eResume) {
+      try { console.warn('[Tournaments] resume ensureLiveHand', eResume); } catch (e2) { /* */ }
+    }
+    persistActive();
+    var frames = takeFrames();
+    ui.view = VIEW.table;
+    if (frames) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = paint;
+      ensureBannerTimers();
+      paint();
+    } else {
+      ensureBannerTimers();
+      paint();
+    }
     return true;
   }
 
@@ -7523,6 +7637,7 @@ function reducedMotion() {
           commitProgressBeforeExit();
           persistActive();
           flushTournamentCloud();
+          clearPopupTimers();
           ui.state = null;
           ui.exitPrompt = false;
           setView(VIEW.hub);
