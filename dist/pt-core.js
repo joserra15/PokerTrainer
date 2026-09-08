@@ -1478,10 +1478,10 @@
 
   const VS_RFI = {
     BB_vs_UTG: {
-      threeBet: 'QQ+, AKs, AKo',
-      threeBetMix: 'JJ, AQs, A5s, A4s, KJs',
-      // ATo+/JTo: solvers ~100% call; no foldear Ax offsuit mejores que QJo/KJo del mismo chart.
-      call: '22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
+      threeBet: 'JJ+, AKs, AKo',
+      threeBetMix: 'AQs, A5s, A4s, KJs',
+      // Captura estudio: ATo/AJo call (no fold); 3bet JJ+/AK + mix AQs/A5s/A4s/KJs.
+      call: '22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
     },
     BB_vs_HJ: {
       threeBet: 'QQ+, AKs, AKo',
@@ -2065,36 +2065,34 @@ window.PT_VS_RFI_JSON = {
     "openSizeBb": 2.5,
     "threeBetSizeBb": 10,
     "source": "solver-export-v2-pro-dump",
-    "updated": "2026-09-07",
-    "note": "BB vs UTG tightened toward ~10% call / ~3% 3bet (raked). combo_matrix overrides exact mixes."
+    "updated": "2026-09-08",
+    "note": "BB vs UTG chart de estudio alineado a captura: 3bet JJ+/AK (+ mix AQs/A5s/A4s/KJs); call incluye ATo/AJo/KJo/QJo/JTo."
   },
   "pairs": {
     "BB_vs_UTG": {
       "threeBet": "JJ+, AKs, AKo",
-      "threeBetMix": "A5s, A4s",
-      "call": "22-TT, A2s-AQs, KTs+, QJs, JTs, T9s, 98s, 87s, 76s, 65s, 54s, AQo",
-      "global_frequencies": {
-        "3bet_10bb": 0.031,
-        "call": 0.104,
-        "fold": 0.865
-      },
+      "threeBetMix": "AQs, A5s, A4s, KJs",
+      "call": "22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
       "combo_matrix": {
         "AA": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
         "KK": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
         "QQ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "JJ": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
+        "JJ": { "3bet": 0.9, "call": 0.1, "fold": 0.0 },
         "TT": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "33": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
         "AKs": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "AQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "A9s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AQs": { "3bet": 0.85, "call": 0.15, "fold": 0.0 },
+        "AJs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
         "A5s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
         "A4s": { "3bet": 0.2, "call": 0.8, "fold": 0.0 },
-        "KTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "JTs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
-        "54s": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KQs": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KJs": { "3bet": 0.5, "call": 0.5, "fold": 0.0 },
         "AKo": { "3bet": 1.0, "call": 0.0, "fold": 0.0 },
-        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
+        "AQo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "AJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "ATo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "KJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "QJo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 },
+        "JTo": { "3bet": 0.0, "call": 1.0, "fold": 0.0 }
       }
     },
     "BB_vs_HJ": {
@@ -32525,6 +32523,8 @@ window.PT_NASH_PUSH_JSON = {
   var loading = null;
   var refreshTimer = null;
   var REFRESH_DEBOUNCE_MS = 8000;
+  /** Motivo de bloqueo diferido tras fallo de RPC optimista (p.ej. trainer_limit). */
+  var trainerQuotaBlockedReason = null;
 
   function scheduleRefresh() {
     if (refreshTimer) clearTimeout(refreshTimer);
@@ -32652,6 +32652,8 @@ window.PT_NASH_PUSH_JSON = {
         state = localFallback();
       } else {
         state = normalizeEnt(res.data);
+        /* Tras refresh el usage del servidor manda; limpia bloqueo diferido. */
+        trainerQuotaBlockedReason = null;
       }
     } catch (e) {
       console.warn('[PTEntitlements]', e);
@@ -32868,6 +32870,7 @@ window.PT_NASH_PUSH_JSON = {
       if (left <= 0) return { ok: false, reason: 'guest_gate', used: 5, limit: 5 };
       return { ok: true, used: 0, limit: 5 };
     }
+    var usingLiveState = (ent == null) || (state != null && ent === state);
     ent = ent || state || localFallback();
     if (unlimited(ent)) return { ok: true };
     var lim = ent.limits || {};
@@ -32875,7 +32878,72 @@ window.PT_NASH_PUSH_JSON = {
     if (max == null) return { ok: true };
     var used = (ent.usage && ent.usage.trainer_hands_today) || 0;
     if (used >= max) return { ok: false, reason: 'trainer_limit', used: used, limit: max };
+    if (usingLiveState && trainerQuotaBlockedReason) {
+      return { ok: false, reason: trainerQuotaBlockedReason, used: used, limit: max };
+    }
     return { ok: true, used: used, limit: max };
+  }
+
+  function bumpLocalTrainerUsage(delta) {
+    if (!state) state = localFallback();
+    if (!state.usage) state.usage = { trainer_hands_today: 0, import_sessions_month: 0, ai_reports_month: 0 };
+    state.usage.trainer_hands_today = Math.max(0, (Number(state.usage.trainer_hands_today) || 0) + delta);
+  }
+
+  function awardTrainerKoins() {
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
+        return PTTournamentWallet.noteTrainerHand();
+      }
+    } catch (eTH) { /* ignore */ }
+    return null;
+  }
+
+  /**
+   * Consumo optimista de cupo: incrementa usage local al instante y dispara el RPC
+   * en background. Si el RPC falla, revierte el contador y bloquea la siguiente mano.
+   * No espera red — el camino crítico del deal no debe bloquearse.
+   */
+  function recordTrainerHandAsync() {
+    /* Invitados no ganan Koins ni consumen cupo autenticado. */
+    if (isGuestUser()) return { ok: true };
+    if (trainerQuotaBlockedReason) {
+      return { ok: false, error: trainerQuotaBlockedReason };
+    }
+    if (!useAuth() || e2eBypass()) {
+      awardTrainerKoins();
+      return { ok: true };
+    }
+    var c = client();
+    if (!c) {
+      awardTrainerKoins();
+      return { ok: true };
+    }
+
+    bumpLocalTrainerUsage(1);
+    awardTrainerKoins();
+
+    var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
+    Promise.resolve(c.rpc(rpc)).then(function (res) {
+      if (res && res.error) {
+        bumpLocalTrainerUsage(-1);
+        trainerQuotaBlockedReason = res.error.message || 'trainer_limit';
+        return;
+      }
+      var data = res && res.data;
+      if (data && data.ok === false) {
+        bumpLocalTrainerUsage(-1);
+        trainerQuotaBlockedReason = data.error || data.reason || 'trainer_limit';
+        return;
+      }
+      /* Usage ya incrementado en local; no volver a sumar. */
+      try { scheduleRefresh(); } catch (eRefresh) { /* ignore */ }
+    }).catch(function (e) {
+      bumpLocalTrainerUsage(-1);
+      trainerQuotaBlockedReason = (e && e.message) || 'trainer_limit';
+    });
+
+    return { ok: true };
   }
 
   function canImportSession(handCount, ent) {
@@ -32895,37 +32963,9 @@ window.PT_NASH_PUSH_JSON = {
     return { ok: true, used: used, limit: maxImports };
   }
 
-  function awardTrainerKoins() {
-    try {
-      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
-        return PTTournamentWallet.noteTrainerHand();
-      }
-    } catch (eTH) { /* ignore */ }
-    return null;
-  }
-
+  /** Alias no bloqueante (compat). Preferir recordTrainerHandAsync. */
   async function recordTrainerHand() {
-    /* Invitados no ganan Koins. */
-    if (isGuestUser()) return { ok: true };
-    if (!useAuth() || e2eBypass()) {
-      awardTrainerKoins();
-      return { ok: true };
-    }
-    var c = client();
-    if (!c) {
-      awardTrainerKoins();
-      return { ok: true };
-    }
-    var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
-    var res = await c.rpc(rpc);
-    if (res.error) return { ok: false, error: res.error.message };
-    if (state && state.usage) {
-      state.usage.trainer_hands_today = (Number(state.usage.trainer_hands_today) || 0) + 1;
-    }
-    /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
-    scheduleRefresh();
-    awardTrainerKoins();
-    return res.data || { ok: true };
+    return recordTrainerHandAsync();
   }
 
   async function recordImportSession(handCount) {
@@ -32974,6 +33014,7 @@ window.PT_NASH_PUSH_JSON = {
     PLAN_LABELS: PLAN_LABELS,
     refresh: refresh,
     ensureLoaded: ensureLoaded,
+    isLoaded: function () { return state != null; },
     get: function () { return state || localFallback(); },
     canUseAI: canUseAI,
     aiCombinedQuota: aiCombinedQuota,
@@ -32983,6 +33024,9 @@ window.PT_NASH_PUSH_JSON = {
     analysisHandsMax: analysisHandsMax,
     canSaveAnalysisHand: canSaveAnalysisHand,
     recordTrainerHand: recordTrainerHand,
+    recordTrainerHandAsync: recordTrainerHandAsync,
+    trainerQuotaBlocked: function () { return trainerQuotaBlockedReason; },
+    clearTrainerQuotaBlock: function () { trainerQuotaBlockedReason = null; },
     recordImportSession: recordImportSession,
     historyCutoffDate: historyCutoffDate,
     unlimited: unlimited,
@@ -36884,6 +36928,12 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   let startingHand = false;
+  /** Buffer de la siguiente mano generada en idle (no sustituye `hand` hasta aceptar). */
+  let prefetchedHand = null;
+  let prefetchedCfgKey = null;
+  let prefetchGen = 0;
+  /** Snap de la última mano terminada para «Repetir» si `hand` se pierde. */
+  let lastFinishedReplayRec = null;
 
   function setPlayTableLoading(visible) {
     const wrap = document.querySelector('#play-active .table-wrap');
@@ -39427,6 +39477,8 @@ window.PT_NASH_PUSH_JSON = {
 
   function resetPlaySession(showSetup) {
     closeModal();
+    invalidatePrefetch();
+    lastFinishedReplayRec = null;
     session = {
       hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
       handScoreSum: 0,
@@ -39444,6 +39496,141 @@ window.PT_NASH_PUSH_JSON = {
     }
   }
 
+  function playConfigPrefetchKey(cfg) {
+    if (!cfg) return '';
+    return [
+      cfg.format || '',
+      cfg.handRange || '',
+      cfg.villainLevel || '',
+      cfg.practiceStreet || '',
+      cfg.practiceIntent || '',
+      cfg.actionMode || '',
+      cfg.tableSize || '',
+      cfg.stackBB || '',
+      cfg.schoolMode ? '1' : '0',
+      cfg.legendaryMode ? '1' : '0'
+    ].join('|');
+  }
+
+  function invalidatePrefetch() {
+    prefetchGen += 1;
+    prefetchedHand = null;
+    prefetchedCfgKey = null;
+  }
+
+  function canPrefetchNextHand() {
+    if (leakReplayQueue.length) return false;
+    if (repeatErrorsMode) return false;
+    if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) return false;
+    const cfg = playSessionConfig;
+    if (!cfg) return false;
+    if (cfg.schoolMode || cfg.school || cfg.legendaryMode) return false;
+    return true;
+  }
+
+  function buildReplayRecFromHand(h) {
+    if (!h) return null;
+    const snap = h.replaySnapshot || {
+      scenario: h.scenario,
+      seed: h.seed,
+      playConfig: h.playConfig,
+      displayHeroPos: h.displayHeroPos,
+      forceDeal: h.forceDeal || null,
+      forceScript: h.forceScript || null
+    };
+    return {
+      seed: h.seed,
+      scenarioRaw: h.scenario,
+      playConfig: h.playConfig,
+      displayHeroPos: h.displayHeroPos,
+      replaySnapshot: snap,
+      forceDeal: h.forceDeal || (snap && snap.forceDeal) || null,
+      forceScript: h.forceScript || (snap && snap.forceScript) || null,
+      heroCards: h.hero && h.hero.cards,
+      villainCards: h.villain && h.villain.cards,
+      board: (h._predeal && h._predeal.board) || h.board
+    };
+  }
+
+  function generateTrainerHand(force, cfg) {
+    const streetTarget = cfg && cfg.practiceStreet;
+    const intent = cfg && cfg.practiceIntent;
+    const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
+    const needsBluffFilter = intent && intent !== 'mixed' && !force;
+    let next = null;
+    if (needsStreetFastForward || needsBluffFilter) {
+      let tries = 0;
+      const maxTries = needsBluffFilter ? 18 : 12;
+      while (tries < maxTries) {
+        next = Engine.newHand(force || undefined, cfg);
+        if (needsStreetFastForward) Engine.fastForwardToStreet(next, streetTarget);
+        else if (needsBluffFilter && streetTarget === 'random' && Engine.fastForwardToStreet) {
+          const target = Math.random() < 0.55 ? 'river' : (Math.random() < 0.5 ? 'turn' : 'flop');
+          Engine.fastForwardToStreet(next, target);
+        }
+        const streetOk = !needsStreetFastForward
+          || (!next.result && next.current && next.stage === streetTarget);
+        const intentOk = !needsBluffFilter
+          || (Engine.currentMatchesPracticeIntent && Engine.currentMatchesPracticeIntent(next));
+        if (streetOk && intentOk && !next.result && next.current) break;
+        tries++;
+      }
+    } else {
+      next = Engine.newHand(force || undefined, cfg);
+    }
+    return next;
+  }
+
+  function schedulePrefetchNextHand() {
+    if (!canPrefetchNextHand()) {
+      invalidatePrefetch();
+      return;
+    }
+    const gen = ++prefetchGen;
+    prefetchedHand = null;
+    prefetchedCfgKey = null;
+    const cfgSnapshot = playSessionConfig;
+    const key = playConfigPrefetchKey(cfgSnapshot);
+    const run = function () {
+      if (gen !== prefetchGen) return;
+      if (!canPrefetchNextHand()) return;
+      if (playConfigPrefetchKey(playSessionConfig) !== key) return;
+      try {
+        let cfg = cfgSnapshot;
+        if (cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
+          cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
+            return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
+          });
+        }
+        const next = generateTrainerHand(null, cfg);
+        if (gen !== prefetchGen) return;
+        if (!next) return;
+        prefetchedHand = next;
+        prefetchedCfgKey = key;
+      } catch (e) {
+        console.warn('[Play] prefetch failed', e);
+      }
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 400 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function takePrefetchedHand() {
+    if (!prefetchedHand) return null;
+    if (playConfigPrefetchKey(playSessionConfig) !== prefetchedCfgKey) {
+      invalidatePrefetch();
+      return null;
+    }
+    const next = prefetchedHand;
+    prefetchedHand = null;
+    prefetchedCfgKey = null;
+    prefetchGen += 1;
+    return next;
+  }
+
   // ---------- Nueva mano ----------
   async function startNewHand() {
     if (startingHand) return;
@@ -39451,27 +39638,67 @@ window.PT_NASH_PUSH_JSON = {
     startingHand = true;
     closeModal();
     if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
-    setPlayTableLoading(true);
     setPlayHandButtonsDisabled(true);
     $('#feedback').classList.add('hidden');
-    await yieldToPaint();
+
+    const guestOnEarly = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
+    const cfgEarlyPeek = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+    const isLegendaryPeek = !!(cfgEarlyPeek && cfgEarlyPeek.legendaryMode);
+    const isSchoolPeek = !!(cfgEarlyPeek && (cfgEarlyPeek.schoolMode || cfgEarlyPeek.school));
+    const canUsePrefetch = !pendingForce && !guestOnEarly && !isLegendaryPeek && !isSchoolPeek
+      && !repeatErrorsMode && prefetchedHand
+      && playConfigPrefetchKey(playSessionConfig) === prefetchedCfgKey;
+    const EntPeek = window.PTEntitlements;
+    const entAlreadyLoaded = !!(EntPeek && EntPeek.isLoaded && EntPeek.isLoaded());
+    const needsColdEnt = !guestOnEarly && !isLegendaryPeek && !isSchoolPeek
+      && EntPeek && EntPeek.ensureLoaded && !entAlreadyLoaded;
+
+    let loadingTimer = null;
+    let loadingShown = false;
+    function showLoadingSoon() {
+      if (loadingShown) return;
+      if (needsColdEnt || !canUsePrefetch) {
+        loadingTimer = setTimeout(function () {
+          loadingShown = true;
+          setPlayTableLoading(true);
+        }, canUsePrefetch ? 0 : 50);
+      }
+    }
+    if (needsColdEnt) {
+      setPlayTableLoading(true);
+      loadingShown = true;
+      await yieldToPaint();
+    } else if (!canUsePrefetch) {
+      showLoadingSoon();
+    }
+
     try {
-      const guestOn = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
-      const Ent = window.PTEntitlements;
-      const cfgEarly = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
-      const isLegendaryHand = !!(cfgEarly && cfgEarly.legendaryMode);
-      const isSchoolHand = !!(cfgEarly && (cfgEarly.schoolMode || cfgEarly.school));
+      const guestOn = guestOnEarly;
+      const Ent = EntPeek;
+      const cfgEarly = cfgEarlyPeek;
+      const isLegendaryHand = isLegendaryPeek;
+      const isSchoolHand = isSchoolPeek;
       /* Escuela y Legendary no consumen cupo diario del entrenador. */
       if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent && Ent.ensureLoaded) {
-        const ent = await Ent.ensureLoaded();
+        const ent = entAlreadyLoaded ? Ent.get() : await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
+          invalidatePrefetch();
           if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
           return;
         }
-        if (Ent.recordTrainerHand) {
-          const rec = await Ent.recordTrainerHand();
-          if (rec && rec.ok === false) {
+        const recFn = Ent.recordTrainerHandAsync || Ent.recordTrainerHand;
+        if (recFn) {
+          const rec = recFn.call(Ent);
+          if (rec && typeof rec.then === 'function') {
+            /* Compat: si aún devolviera Promise, no bloquear el deal. */
+            rec.then(function (r) {
+              if (r && r.ok === false && window.PTBilling) {
+                window.PTBilling.showPaywall(r.error || 'trainer_limit');
+              }
+            }).catch(function () { /* ignore */ });
+          } else if (rec && rec.ok === false) {
+            invalidatePrefetch();
             if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
             return;
           }
@@ -39493,12 +39720,21 @@ window.PT_NASH_PUSH_JSON = {
 
       let force = pendingForce;
       let cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
-      if (!force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
+      let usedPrefetch = false;
+      if (!force && canUsePrefetch) {
+        const pref = takePrefetchedHand();
+        if (pref) {
+          hand = pref;
+          usedPrefetch = true;
+          cfg = (pref.playConfig) || cfg;
+        }
+      }
+      if (!usedPrefetch && !force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
         cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
           return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
         });
       }
-      if (!force && repeatErrorsMode) {
+      if (!usedPrefetch && !force && repeatErrorsMode) {
         let errs = Store.getErrors();
         const streetFilter = cfg && cfg.practiceStreet;
         if (streetFilter && streetFilter !== 'random') {
@@ -39510,30 +39746,9 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
       replayPlayConfig = null;
-      const streetTarget = cfg && cfg.practiceStreet;
-      const intent = cfg && cfg.practiceIntent;
-      const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
-      const needsBluffFilter = intent && intent !== 'mixed' && !force;
-      if (needsStreetFastForward || needsBluffFilter) {
-        let tries = 0;
-        const maxTries = needsBluffFilter ? 18 : 12;
-        while (tries < maxTries) {
-          hand = Engine.newHand(force || undefined, cfg);
-          if (needsStreetFastForward) Engine.fastForwardToStreet(hand, streetTarget);
-          else if (needsBluffFilter && streetTarget === 'random' && Engine.fastForwardToStreet) {
-            // Faroles: preferir postflop (river con más peso).
-            const target = Math.random() < 0.55 ? 'river' : (Math.random() < 0.5 ? 'turn' : 'flop');
-            Engine.fastForwardToStreet(hand, target);
-          }
-          const streetOk = !needsStreetFastForward
-            || (!hand.result && hand.current && hand.stage === streetTarget);
-          const intentOk = !needsBluffFilter
-            || (Engine.currentMatchesPracticeIntent && Engine.currentMatchesPracticeIntent(hand));
-          if (streetOk && intentOk && !hand.result && hand.current) break;
-          tries++;
-        }
-      } else {
-        hand = Engine.newHand(force || undefined, cfg);
+
+      if (!usedPrefetch) {
+        hand = generateTrainerHand(force, cfg);
       }
       pendingForce = null;
       if (window.PTLog && PTLog.event && hand) {
@@ -39545,6 +39760,7 @@ window.PT_NASH_PUSH_JSON = {
         });
       }
       $('#hand-log').innerHTML = '';
+      if (loadingTimer) clearTimeout(loadingTimer);
       setPlayTableLoading(false);
       const played = await playHandIntro(hand);
       if (!played) return;
@@ -39554,6 +39770,7 @@ window.PT_NASH_PUSH_JSON = {
       console.error('[Play] startNewHand failed', e);
     } finally {
       startingHand = false;
+      if (loadingTimer) clearTimeout(loadingTimer);
       setPlayTableLoading(false);
       setPlayHandButtonsDisabled(false);
     }
@@ -39811,6 +40028,7 @@ window.PT_NASH_PUSH_JSON = {
   function continueLeakReplayOrNext() {
     pendingForce = null;
     if (leakReplayQueue.length) {
+      invalidatePrefetch();
       const rec = leakReplayQueue.shift();
       if (prepareReplayFromStored(rec)) {
         void startNewHand();
@@ -39823,27 +40041,11 @@ window.PT_NASH_PUSH_JSON = {
 
   // Repite la mano actual con la MISMA semilla / cartas forzadas
   function replayCurrentHand() {
-    if (!hand) return;
-    const snap = hand.replaySnapshot || {
-      scenario: hand.scenario,
-      seed: hand.seed,
-      playConfig: hand.playConfig,
-      displayHeroPos: hand.displayHeroPos,
-      forceDeal: hand.forceDeal || null,
-      forceScript: hand.forceScript || null
-    };
-    replayFromStored({
-      seed: hand.seed,
-      scenarioRaw: hand.scenario,
-      playConfig: hand.playConfig,
-      displayHeroPos: hand.displayHeroPos,
-      replaySnapshot: snap,
-      forceDeal: hand.forceDeal || (snap && snap.forceDeal) || null,
-      forceScript: hand.forceScript || (snap && snap.forceScript) || null,
-      heroCards: hand.hero && hand.hero.cards,
-      villainCards: hand.villain && hand.villain.cards,
-      board: (hand._predeal && hand._predeal.board) || hand.board
-    });
+    invalidatePrefetch();
+    let rec = buildReplayRecFromHand(hand);
+    if (!rec) rec = lastFinishedReplayRec;
+    if (!rec) return;
+    replayFromStored(rec);
   }
 
   function scenarioFromError(err) {
@@ -42180,6 +42382,7 @@ window.PT_NASH_PUSH_JSON = {
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
     }
     Store.saveHand(hand);
+    lastFinishedReplayRec = buildReplayRecFromHand(hand);
     if (window.PTGuest && typeof window.PTGuest.afterHandFinished === 'function' &&
         window.PTGuest.isActive && window.PTGuest.isActive()) {
       window.PTGuest.afterHandFinished(hand);
@@ -42336,6 +42539,7 @@ window.PT_NASH_PUSH_JSON = {
         try { openSessionBlockPopup(target); } catch (e2) { console.warn('[session-block]', e2); }
       }
     }
+    schedulePrefetchNextHand();
   }
 
   function handEndOutcome(r) {

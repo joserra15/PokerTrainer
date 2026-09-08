@@ -538,6 +538,18 @@ function reducedMotion() {
     } catch (e) { /* ignore */ }
   }
 
+  function clearPopupTimers() {
+    if (!ui.popupClearTimers) return;
+    Object.keys(ui.popupClearTimers).forEach(function (k) {
+      try {
+        if (ui.popupClearTimers[k] && typeof clearTimeout === 'function') {
+          clearTimeout(ui.popupClearTimers[k]);
+        }
+      } catch (eT) { /* */ }
+      ui.popupClearTimers[k] = null;
+    });
+  }
+
   function resumeActive() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
@@ -549,14 +561,41 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    ui.heldFrames = null;
+    ui.heldFramesDone = null;
     stopAnim();
+    clearPopupTimers();
     /* Si la partida guardada acabó (apply al salir), mostrar resultado. */
     if (st.status === 'finished') {
       clearActive();
       setView(VIEW.result);
       return true;
     }
-    setView(VIEW.table);
+    /* Continuar no es un arranque: quitar cartel de inicio que bloquearía acciones. */
+    if (st.startBannerPending) st.startBannerPending = null;
+    /* Tras salir-guardar _liveHand es null; reparte o rehidrata stub roto. */
+    try {
+      var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.ensureLiveHand === 'function') {
+        Runner.ensureLiveHand(st);
+      } else if (Runner && typeof Runner.beginHand === 'function' && !st._liveHand) {
+        Runner.beginHand(st);
+      }
+    } catch (eResume) {
+      try { console.warn('[Tournaments] resume ensureLiveHand', eResume); } catch (e2) { /* */ }
+    }
+    persistActive();
+    var frames = takeFrames();
+    ui.view = VIEW.table;
+    if (frames) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = paint;
+      ensureBannerTimers();
+      paint();
+    } else {
+      ensureBannerTimers();
+      paint();
+    }
     return true;
   }
 
@@ -2172,6 +2211,7 @@ function reducedMotion() {
           commitProgressBeforeExit();
           persistActive();
           flushTournamentCloud();
+          clearPopupTimers();
           ui.state = null;
           ui.exitPrompt = false;
           setView(VIEW.hub);

@@ -35,10 +35,10 @@
 
   const VS_RFI = {
     BB_vs_UTG: {
-      threeBet: 'QQ+, AKs, AKo',
-      threeBetMix: 'JJ, AQs, A5s, A4s, KJs',
-      // ATo+/JTo: solvers ~100% call; no foldear Ax offsuit mejores que QJo/KJo del mismo chart.
-      call: '22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
+      threeBet: 'JJ+, AKs, AKo',
+      threeBetMix: 'AQs, A5s, A4s, KJs',
+      // Captura estudio: ATo/AJo call (no fold); 3bet JJ+/AK + mix AQs/A5s/A4s/KJs.
+      call: '22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo'
     },
     BB_vs_HJ: {
       threeBet: 'QQ+, AKs, AKo',
