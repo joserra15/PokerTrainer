@@ -50,7 +50,16 @@
     if (window.PTTournaments && typeof window.PTTournaments.menuVisible === 'function') {
       return !!window.PTTournaments.menuVisible();
     }
-    return isLegendaryAdminUser();
+    /* Fallback sin chunk lazy: misma política que tournament/index.js */
+    if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
+    try {
+      if (window.PTCommunity && typeof window.PTCommunity.requireMembership === 'function' &&
+          window.PTCommunity.requireMembership()) {
+        return !!(window.PTCommunity.hasAccess && window.PTCommunity.hasAccess());
+      }
+    } catch (e) { /* noop */ }
+    var u = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser()) || window.PT_AUTH_USER;
+    return !!u;
   }
 
   function refreshTournamentsTabVisibility() {
