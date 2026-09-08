@@ -231,26 +231,18 @@ async function goTab(page, tab) {
   if (tab === 'account') {
     const settings = page.locator('#account-settings');
     if (await settings.isVisible().catch(() => false)) {
-      await settings.click();
-    } else {
-      await page.evaluate(() => {
-        if (window.goToTab) window.goToTab('account');
-      });
-    }
-  } else {
-    const btn = page.locator('button.tab[data-tab="' + tab + '"]');
-    if (await btn.count()) {
-      await btn.first().click({ force: true }).catch(async () => {
-        await page.evaluate((t) => {
-          if (window.goToTab) window.goToTab(t);
-        }, tab);
-      });
-    } else {
-      await page.evaluate((t) => {
-        if (window.goToTab) window.goToTab(t);
-      }, tab);
+      await settings.click({ force: true }).catch(() => {});
     }
   }
+  /* Con Torneos visible la nav puede clippear tabs; no confiar en click DOM. */
+  await page.evaluate((t) => {
+    if (typeof window.goToTab === 'function') {
+      window.goToTab(t);
+      return;
+    }
+    var btn = document.querySelector('button.tab[data-tab="' + t + '"]');
+    if (btn) btn.click();
+  }, tab);
   await page.waitForSelector('#tab-' + tab + ':not(.hidden), #tab-' + tab + '.active, #tab-' + tab, {
     timeout: 15000
   });

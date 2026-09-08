@@ -81,7 +81,12 @@ body {
 .topbar-nav { display: flex; align-items: center; flex: 1; justify-content: flex-end; gap: 12px; min-width: 0; }
 .drawer-head, .nav-toggle, .nav-backdrop { display: none; }
 @media (min-width: 681px) {
-  .topbar-nav .tabs { flex: 1; justify-content: center; order: 1; }
+  .topbar-nav .tabs {
+    flex: 1; justify-content: flex-start; order: 1;
+    overflow-x: auto; flex-wrap: nowrap; max-width: 100%;
+    -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+  }
+  .topbar-nav .tabs .tab { flex-shrink: 0; }
   .topbar-nav .account-menu { order: 2; }
 }
 

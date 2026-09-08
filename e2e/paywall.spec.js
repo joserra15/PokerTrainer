@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { goTab, mockAuthenticatedUser, waitForAppShell } = require('./helpers');
 
 test.describe('Paywall free @smoke', () => {
   test('techo trainer muestra paywall', async ({ page }) => {
@@ -16,7 +16,7 @@ test.describe('Paywall free @smoke', () => {
       };
     });
 
-    await page.locator('button.tab[data-tab="play"]').click({ force: true });
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await page.click('#play-start');
 

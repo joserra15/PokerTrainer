@@ -1,17 +1,15 @@
 const { test, expect } = require('@playwright/test');
-const {
-  mockAuthenticatedUser,
+const { goTab, mockAuthenticatedUser,
   waitForAppShell,
   openPlaySetupAdvanced,
-  expectAnyVisible
-} = require('./helpers');
+  expectAnyVisible } = require('./helpers');
 
 test.describe('Modo completo de mesa @smoke', () => {
   test('completo: reproduce acción y permite saltar a la decisión', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.locator('button.tab[data-tab="play"]').click({ force: true });
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await openPlaySetupAdvanced(page);
     await page.click('#setup-action-mode [data-val="complete"]');
@@ -44,7 +42,7 @@ test.describe('Modo completo de mesa @smoke', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.locator('button.tab[data-tab="play"]').click({ force: true });
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await openPlaySetupAdvanced(page);
     await page.click('#setup-action-mode [data-val="quick"]');

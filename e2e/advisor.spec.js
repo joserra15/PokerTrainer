@@ -1,19 +1,17 @@
 const { test, expect } = require('@playwright/test');
-const {
-  mockAuthenticatedUser,
+const { goTab, mockAuthenticatedUser,
   waitForAppShell,
   clickFirstPlayAction,
   playActionButtons,
   playSkipButton,
-  expectAnyVisible
-} = require('./helpers');
+  expectAnyVisible } = require('./helpers');
 
 test.describe('Live Advisor @smoke', () => {
   test('advisor ON no rompe acciones', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.locator('button.tab[data-tab="play"]').click({ force: true });
+    await goTab(page, 'play');
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
 
     await page.evaluate(() => {
