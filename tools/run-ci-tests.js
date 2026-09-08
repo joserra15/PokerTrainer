@@ -70,6 +70,7 @@ const STEPS = [
   ['Test history replay cards', ['node', 'tools/test-history-replay-cards.js']],
   // Fase 1 — nuevos
   ['Test entitlements / cuotas', ['node', 'tools/test-entitlements.js']],
+  ['Test instant next hand', ['node', 'tools/test-instant-next-hand.js']],
   // Fase 2
   ['Test cloud merge', ['node', 'tools/test-cloud-merge.js']],
   ['Test cloud sessions slim', ['node', 'tools/test-cloud-sessions.js']],
