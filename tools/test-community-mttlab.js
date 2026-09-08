@@ -103,6 +103,7 @@ assert.ok(/communityDataSuffix|scopedDataKey/.test(read('js/storage.js')), 'stor
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/045_community_school_no_pf_fallback.sql')), 'migration 045');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/046_community_contact_manager_fixes.sql')), 'migration 046');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/047_community_school_pack_filter.sql')), 'migration 047');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/054_contact_threads_overload.sql')), 'migration 054');
 const sql47 = read('supabase/migrations/047_community_school_pack_filter.sql');
 assert.ok(/pt_community_school_from_payload/.test(sql47), '047 school filter helper');
 assert.ok(/pt_is_pokerforge_lesson_id/.test(sql47), '047 detecta lecciones PF');
@@ -115,6 +116,11 @@ assert.ok(/pt_contact_unread_count\(p_community_id/.test(sql46), 'unread por com
 assert.ok(/Sin fallback a PokerForge|\/\* Sin fallback a PokerForge \*\//.test(sql46), '046 sin fallback PF escuela');
 assert.ok(/return json_build_object\('ok', false, 'error', 'not_a_member'/.test(sql46), 'detalle not_a_member amigable');
 assert.ok(/lower\(p\.email\) = lower\(uid\)/.test(sql46), 'detalle fallback email');
+
+const sql54 = read('supabase/migrations/054_contact_threads_overload.sql');
+assert.ok(/drop function if exists public\.pt_contact_my_threads\(\)/.test(sql54), '054 elimina overload sin args');
+assert.ok(/drop function if exists public\.pt_contact_unread_count\(\)/.test(sql54), '054 elimina unread sin args');
+assert.ok(/pt_contact_my_threads\(p_community_id/.test(sql54), '054 deja signature con community');
 
 assert.ok(/formatDisplayNameHtml/.test(commSrc), 'helper nombre con powered by');
 assert.ok(/powered by PokerForgeAI/.test(commSrc), 'copy powered by PokerForgeAI');
@@ -155,6 +161,8 @@ assert.ok(/state\.route === 'mttlab'/.test(school),
 
 const contact = read('js/contact.js');
 assert.ok(/p_community_id/.test(contact), 'contacto envía community_id');
+assert.ok(/return \{ p_community_id: contactCommunityParam\(\) \}/.test(contact),
+  'contacto siempre pasa p_community_id (evita overload ambiguo)');
 assert.ok(/contactThreadsRpcArgs|pt_contact_my_threads',\s*contactThreadsRpcArgs/.test(contact), 'lista hilos scoped');
 assert.ok(/pt_contact_unread_count',\s*contactThreadsRpcArgs/.test(contact), 'unread scoped');
 
