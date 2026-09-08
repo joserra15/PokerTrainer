@@ -157,6 +157,265 @@
     };
   }
 
+  function round2(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  }
+
+  function emptyHandStats() {
+    return {
+      sessions: 0,
+      hands: 0,
+      decisions: 0,
+      good: 0,
+      accuracy: null,
+      evLoss: 0,
+      netBB: 0,
+      bbPer100: null,
+      vpipHands: 0,
+      pfrHands: 0,
+      vpipPct: null,
+      pfrPct: null,
+      threeBetOpps: 0,
+      threeBetHits: 0,
+      threeBetPct: null,
+      cbetFlopOpps: 0,
+      cbetFlopHits: 0,
+      cbetFlopPct: null,
+      sawFlopN: 0,
+      wtsdN: 0,
+      wtsdPct: null
+    };
+  }
+
+  function emptyDerived() {
+    return {
+      availableSessions: 0,
+      byStreet: {
+        preflop: { n: 0, good: 0 },
+        flop: { n: 0, good: 0 },
+        turn: { n: 0, good: 0 },
+        river: { n: 0, good: 0 }
+      },
+      accByStreet: { preflop: null, flop: null, turn: null, river: null },
+      dist: { optima: 0, aceptable: 0, imprecisa: 0, error: 0 }
+    };
+  }
+
+  function isTournamentAiSession(session) {
+    if (!session) return false;
+    if (session.source === 'tournamentAi' || session.tournamentAi) return true;
+    var st = session.stats || {};
+    return st.source === 'tournamentAi';
+  }
+
+  /**
+   * Resuelve sesiones GTO vinculadas al histórico IA.
+   * Preferencia: sessionId del histórico; fallback: sesiones source=tournamentAi.
+   */
+  function resolveLinkedSessions(historyList, allSessions) {
+    var hist = Array.isArray(historyList) ? historyList : [];
+    var pool = Array.isArray(allSessions) ? allSessions : [];
+    var byId = {};
+    var linkedIds = {};
+
+    hist.forEach(function (h) {
+      if (h && h.sessionId) linkedIds[String(h.sessionId)] = true;
+    });
+
+    pool.forEach(function (s) {
+      if (!s || !s.id) return;
+      var sid = String(s.id);
+      if (linkedIds[sid] || isTournamentAiSession(s)) {
+        byId[sid] = s;
+      }
+    });
+
+    /* Si el caller ya pasó sesiones filtradas (solo las del histórico), úsalas. */
+    if (!pool.length && hist.length) {
+      hist.forEach(function (h) {
+        if (h && h._session && h._session.id) byId[String(h._session.id)] = h._session;
+      });
+    }
+
+    return Object.keys(byId).map(function (k) { return byId[k]; });
+  }
+
+  /** Misma lógica que PTStatsAggregate.sessionStatsFromStub (criterios Sesiones). */
+  function handRowFromSession(session) {
+    var stats = (session && session.stats) || {};
+    var dist = stats.dist || {};
+    var decN = stats.nDecisions || (
+      (dist.optima || 0) + (dist.aceptable || 0) + (dist.imprecisa || 0) + (dist.error || 0)
+    );
+    var good = decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0;
+    var hands = stats.nHands || ((session.hands && session.hands.length) || 0);
+    var vpipHands = stats.vpipHands != null
+      ? stats.vpipHands
+      : (stats.vpipPct != null && hands ? Math.round((stats.vpipPct / 100) * hands) : 0);
+    var pfrHands = stats.pfrHands != null
+      ? stats.pfrHands
+      : (stats.pfrPct != null && hands ? Math.round((stats.pfrPct / 100) * hands) : 0);
+    return {
+      hands: hands,
+      decisions: decN,
+      good: good,
+      evLoss: round2(Math.abs(stats.evLossBB || 0)),
+      netBB: round2(stats.netBB || 0),
+      vpipHands: vpipHands,
+      pfrHands: pfrHands,
+      threeBetOpps: Number(stats.threeBetOpps) || 0,
+      threeBetHits: Number(stats.threeBetHits) || 0,
+      cbetFlopOpps: Number(stats.cbetFlopOpps) || 0,
+      cbetFlopHits: Number(stats.cbetFlopHits) || 0,
+      sawFlopN: Number(stats.sawFlopN) || 0,
+      wtsdN: Number(stats.wtsdN) || 0
+    };
+  }
+
+  function handTotalsFromSessions(sessions) {
+    var tot = emptyHandStats();
+    var rows = Array.isArray(sessions) ? sessions : [];
+    rows.forEach(function (s) {
+      if (!s) return;
+      var row = handRowFromSession(s);
+      if (!row.hands && !row.decisions) return;
+      tot.sessions += 1;
+      tot.hands += row.hands;
+      tot.decisions += row.decisions;
+      tot.good += row.good;
+      tot.evLoss = round2(tot.evLoss + row.evLoss);
+      tot.netBB = round2(tot.netBB + row.netBB);
+      tot.vpipHands += row.vpipHands;
+      tot.pfrHands += row.pfrHands;
+      tot.threeBetOpps += row.threeBetOpps;
+      tot.threeBetHits += row.threeBetHits;
+      tot.cbetFlopOpps += row.cbetFlopOpps;
+      tot.cbetFlopHits += row.cbetFlopHits;
+      tot.sawFlopN += row.sawFlopN;
+      tot.wtsdN += row.wtsdN;
+    });
+    tot.accuracy = tot.decisions ? Math.round((tot.good / tot.decisions) * 100) : null;
+    tot.vpipPct = tot.hands ? Math.round((tot.vpipHands / tot.hands) * 1000) / 10 : null;
+    tot.pfrPct = tot.hands ? Math.round((tot.pfrHands / tot.hands) * 1000) / 10 : null;
+    tot.bbPer100 = tot.hands ? Math.round((tot.netBB / tot.hands) * 1000) / 10 : null;
+    tot.threeBetPct = tot.threeBetOpps
+      ? Math.round((tot.threeBetHits / tot.threeBetOpps) * 1000) / 10
+      : null;
+    tot.cbetFlopPct = tot.cbetFlopOpps
+      ? Math.round((tot.cbetFlopHits / tot.cbetFlopOpps) * 1000) / 10
+      : null;
+    tot.wtsdPct = tot.sawFlopN
+      ? Math.round((tot.wtsdN / tot.sawFlopN) * 1000) / 10
+      : null;
+    return tot;
+  }
+
+  /** Misma lógica que buildSessionDerivedStats en app.js. */
+  function derivedFromSessions(sessions) {
+    var out = emptyDerived();
+    var streetTotals = {
+      preflop: { weighted: 0, n: 0 },
+      flop: { weighted: 0, n: 0 },
+      turn: { weighted: 0, n: 0 },
+      river: { weighted: 0, n: 0 }
+    };
+    (sessions || []).forEach(function (s) {
+      if (!s) return;
+      var stats = s.stats || {};
+      if (s.hands && s.hands.length) {
+        out.availableSessions += 1;
+        s.hands.forEach(function (h) {
+          (h.decisions || []).forEach(function (d) {
+            if (!d) return;
+            if (out.dist[d.class] != null) out.dist[d.class] += 1;
+            var street = out.byStreet[d.street];
+            if (street) {
+              street.n += 1;
+              if (d.class === 'optima' || d.class === 'aceptable') street.good += 1;
+            }
+          });
+        });
+        return;
+      }
+      if (stats && stats.nHands) {
+        ['optima', 'aceptable', 'imprecisa', 'error'].forEach(function (key) {
+          if (out.dist[key] != null) out.dist[key] += Number((stats.dist || {})[key]) || 0;
+        });
+        ['preflop', 'flop', 'turn', 'river'].forEach(function (streetKey) {
+          var pctVal = stats.accByStreet && stats.accByStreet[streetKey];
+          var decisions = Number((stats.street || {})[streetKey] && (stats.street || {})[streetKey].n) || 0;
+          if (pctVal == null) return;
+          if (decisions > 0) {
+            out.byStreet[streetKey].n += decisions;
+            out.byStreet[streetKey].good += Math.round((decisions * pctVal) / 100);
+          } else {
+            streetTotals[streetKey].weighted += Number(pctVal) * Math.max(1, Number(stats.nDecisions) || 1);
+            streetTotals[streetKey].n += Math.max(1, Number(stats.nDecisions) || 1);
+          }
+        });
+      }
+    });
+    ['preflop', 'flop', 'turn', 'river'].forEach(function (streetKey) {
+      if (out.byStreet[streetKey].n > 0) {
+        out.accByStreet[streetKey] = Math.round(
+          (out.byStreet[streetKey].good / out.byStreet[streetKey].n) * 100
+        );
+      } else if (streetTotals[streetKey].n > 0) {
+        out.accByStreet[streetKey] = Math.round(
+          streetTotals[streetKey].weighted / streetTotals[streetKey].n
+        );
+      }
+    });
+    return out;
+  }
+
+  function sessionSpotKey(h, d) {
+    var fmt = (h && (h.formatKey || h.format)) || 'mtt';
+    var fam = String(fmt).indexOf('spin') === 0 ? 'spin'
+      : (String(fmt).indexOf('mtt') === 0 || fmt === 'sng' ? 'mtt' : String(fmt));
+    if (d && d.spotKind) {
+      return fam + '|' + d.spotKind + '|' + ((h && h.heroPos) || '?') + '|' + (d.street || 'preflop');
+    }
+    return fam + '|postflop|' + ((h && h.heroPos) || '?') + '|' + ((d && d.street) || 'postflop');
+  }
+
+  function sessionSpotLabel(h, d, key) {
+    var base = (d && d.spot) || String(key).replace(/\|/g, ' · ');
+    return base;
+  }
+
+  function leaksFromSessions(sessions, limit) {
+    var map = {};
+    var LEAK = { imprecisa: true, error: true };
+    (sessions || []).forEach(function (session) {
+      if (!session || !session.hands) return;
+      session.hands.forEach(function (h) {
+        (h.decisions || []).forEach(function (d) {
+          if (!d || !LEAK[d.class]) return;
+          var k = sessionSpotKey(h, d);
+          if (!map[k]) {
+            map[k] = {
+              key: k,
+              label: sessionSpotLabel(h, d, k),
+              count: 0,
+              evLoss: 0,
+              sessionId: session.id || null
+            };
+          }
+          map[k].count += 1;
+          map[k].evLoss = round2(map[k].evLoss + (Number(d.evLoss) || Number(d.evLossBB) || 0));
+          if (!map[k].sessionId && session.id) map[k].sessionId = session.id;
+        });
+      });
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; });
+    list.sort(function (a, b) {
+      if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+      return b.count - a.count;
+    });
+    return list.slice(0, limit || 5);
+  }
+
   /** Agrega histórico de torneos IA (PTTournamentStore.list). */
   function aggregateFromHistory(list) {
     var rows = Array.isArray(list) ? list : [];
@@ -210,10 +469,34 @@
     };
   }
 
+  /**
+   * Resultados de torneo + métricas GTO/HUD de sesiones enlazadas
+   * (mismos criterios que Estadísticas → Sesiones).
+   */
+  function aggregateWithSessionStats(list, sessions) {
+    var base = aggregateFromHistory(list);
+    var linked = resolveLinkedSessions(list, sessions);
+    var handStats = handTotalsFromSessions(linked);
+    var derived = derivedFromSessions(linked);
+    var leaks = leaksFromSessions(linked, 5);
+    return Object.assign({}, base, {
+      sessions: linked,
+      handStats: handStats,
+      derived: derived,
+      leaks: leaks,
+      hasHandStats: !!(handStats && (handStats.hands > 0 || handStats.decisions > 0))
+    });
+  }
+
   global.PTTournamentStats = {
     onHandComplete: onHandComplete,
     summary: summary,
     ensureStats: ensureStats,
-    aggregateFromHistory: aggregateFromHistory
+    aggregateFromHistory: aggregateFromHistory,
+    resolveLinkedSessions: resolveLinkedSessions,
+    handTotalsFromSessions: handTotalsFromSessions,
+    derivedFromSessions: derivedFromSessions,
+    leaksFromSessions: leaksFromSessions,
+    aggregateWithSessionStats: aggregateWithSessionStats
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
