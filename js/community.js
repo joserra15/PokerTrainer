@@ -53,9 +53,12 @@
     return null;
   }
 
-  /** Solo para landing pre-login (branding). Tras OAuth no manda. */
+  /**
+   * Pre-login branding y boot: URL explícita gana; si no, última comunidad
+   * elegida (session/local). Evita que un reload en `/` pise MTT Lab.
+   */
   function resolveInitial() {
-    return pathCommunity() || 'pokerforge';
+    return pathCommunity() || readStored() || 'pokerforge';
   }
 
   function accessibleIds() {
@@ -65,13 +68,19 @@
   }
 
   /**
-   * Tras login: 1 acceso → ese; varios → default_app si es válido; si no, pokerforge.
-   * OAuth siempre vuelve a /; aquí se elige el shell.
+   * Tras login: 1 acceso → ese; varios → URL / última elegida / activa /
+   * default_app / pokerforge. No forzar default_app si el usuario ya estaba
+   * en otra comunidad (p.ej. minimizar app o TOKEN_REFRESHED).
    */
   function resolveActiveFromMemberships() {
     var ids = accessibleIds();
     if (!ids.length) return 'pokerforge';
     if (ids.length === 1) return ids[0];
+    var fromPath = pathCommunity();
+    if (fromPath && ids.indexOf(fromPath) >= 0) return fromPath;
+    var stored = readStored();
+    if (stored && ids.indexOf(stored) >= 0) return stored;
+    if (ACTIVE && ids.indexOf(ACTIVE) >= 0) return ACTIVE;
     var def = normalizeId(DEFAULT_APP);
     if (ids.indexOf(def) >= 0) return def;
     if (ids.indexOf('pokerforge') >= 0) return 'pokerforge';

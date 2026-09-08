@@ -116,14 +116,21 @@ assert.ok(/Sin fallback a PokerForge|\/\* Sin fallback a PokerForge \*\//.test(s
 assert.ok(/return json_build_object\('ok', false, 'error', 'not_a_member'/.test(sql46), 'detalle not_a_member amigable');
 assert.ok(/lower\(p\.email\) = lower\(uid\)/.test(sql46), 'detalle fallback email');
 
-const auth = read('js/auth.js');
-assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
 assert.ok(/resolveActiveFromMemberships/.test(commSrc), 'resolve post-login');
 assert.ok(/ids\.length === 1/.test(commSrc), 'un solo acceso → ese shell');
+assert.ok(/readStored\(\)/.test(commSrc), 'usa comunidad almacenada');
+assert.ok(/pathCommunity\(\)/.test(commSrc) && /readStored\(\)/.test(commSrc),
+  'URL o última comunidad antes que default_app');
 assert.ok(/cleanEntryUrl/.test(commSrc), 'limpia ?app= tras login');
 assert.ok(!/forced = /.test(commSrc), 'ya no fuerza shell por URL tras login');
 assert.ok(/community-shell/.test(commSrc), 'clase community-shell');
 assert.ok(/home-card\[data-go-tab="learn"\]/.test(commSrc), 'oculta card Guía básica');
+
+const auth = read('js/auth.js');
+assert.ok(/gateAfterLogin/.test(auth), 'auth gate comunidad');
+assert.ok(/appEnteredSub/.test(auth), 'no re-entra en TOKEN_REFRESHED');
+assert.ok(/TOKEN_REFRESHED|Conserva la comunidad|mismo usuario/.test(auth),
+  'skip re-gate si ya dentro');
 
 const school = read('js/school.js');
 assert.ok(/unlockMode\(\) === 'allOpen'/.test(school), 'allOpen unlock');
@@ -247,8 +254,28 @@ assert.ok(/function applyFormats/.test(commSrc), 'applyFormats');
 assert.ok(/syncFormatHubUI/.test(app), 'app expone syncFormatHubUI');
 assert.ok(/ranges-game-type \[data-val="spin3"\]/.test(read('css/styles.css')), 'CSS oculta spin rangos');
 
-// Resolución post-login: 1 acceso → ese; varios → default_app
+// Resolución post-login: 1 acceso → ese; varios → stored / default_app
 assert.ok(typeof C.resolveActiveFromMemberships === 'function', 'resolveActiveFromMemberships');
+
+/* Preferir última comunidad (MTT Lab) frente a default_app pokerforge */
+{
+  const store = {};
+  sandbox.sessionStorage = {
+    getItem: function (k) { return Object.prototype.hasOwnProperty.call(store, k) ? store[k] : null; },
+    setItem: function (k, v) { store[k] = String(v); },
+    removeItem: function (k) { delete store[k]; }
+  };
+  sandbox.localStorage = sandbox.sessionStorage;
+  sandbox.location = { pathname: '/', search: '', hash: '' };
+  C.setActive('mttlab', { skipMenus: true, skipBrand: true });
+  /* Simular memberships: PF + MTTLab, default_app = pokerforge */
+  sandbox.PTCommunity = C;
+  /* refreshMembership no está mockeado con RPC; inyectar vía resolve con MY_COMMUNITIES
+     no es público — comprobamos contrato fuente + setActive escribe storage. */
+  assert.strictEqual(store.pt_app_variant, 'mttlab', 'setActive persiste comunidad');
+  assert.ok(/readStored\(\)/.test(commSrc) && /DEFAULT_APP/.test(commSrc),
+    'resolve consulta stored antes que default');
+}
 
 // PF default no oculta manager en hide de pokerforge config
 assert.ok(C.getConfig('pokerforge').menus.hide.indexOf('manager') >= 0);

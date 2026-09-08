@@ -25492,9 +25492,31 @@ window.PT_NASH_PUSH_JSON = {
     } else if (!cloudHist.length && out[hKey] == null) {
       out[hKey] = [];
     }
-    /* si local vacío y cloud tiene datos, conservar cloud (no pisar). */
-    if (snap.tournamentActive) out[aKey] = snap.tournamentActive;
-    else delete out[aKey];
+    /* Active: no pisar nube más avanzada con local atrasado (PC mano 28 vs móvil 13). */
+    if (snap.tournamentActive) {
+      var cloudAct = out[aKey] || null;
+      var preferLocal = !cloudAct;
+      if (!preferLocal && global.PTTournamentStore && PTTournamentStore.isPreferableActive) {
+        preferLocal = PTTournamentStore.isPreferableActive(snap.tournamentActive, cloudAct);
+      } else if (!preferLocal) {
+        preferLocal = true;
+      }
+      if (preferLocal) out[aKey] = snap.tournamentActive;
+      else {
+        try {
+          if (global.PTTournamentStore && PTTournamentStore.saveActive) {
+            PTTournamentStore.saveActive(cloudAct, { silent: true, fromCloud: true });
+          }
+          if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+            global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
+              detail: { tournamentActive: 'adopted_cloud' }
+            }));
+          }
+        } catch (ePrefer) { /* */ }
+      }
+    } else {
+      delete out[aKey];
+    }
   }
 
   function mergeTournamentHistoryLists(a, b) {
@@ -27500,8 +27522,29 @@ window.PT_NASH_PUSH_JSON = {
           : (Array.isArray(cloud.tournamentHistory) ? cloud.tournamentHistory : []);
         out[cloudDataKey || key] = mergeTournamentHistoryLists(cloudH, localH);
       } else if (key === 'tournamentActive') {
+        const cloudAct = s ? cloud['tournamentActive' + s] : cloud.tournamentActive;
         if (local.tournamentActive) {
-          out[cloudDataKey || key] = local.tournamentActive;
+          var preferLocalAct = !cloudAct;
+          if (!preferLocalAct && global.PTTournamentStore && PTTournamentStore.isPreferableActive) {
+            preferLocalAct = PTTournamentStore.isPreferableActive(local.tournamentActive, cloudAct);
+          } else if (!preferLocalAct) {
+            preferLocalAct = true;
+          }
+          if (preferLocalAct) {
+            out[cloudDataKey || key] = local.tournamentActive;
+          } else {
+            out[cloudDataKey || key] = cloudAct;
+            try {
+              if (global.PTTournamentStore && PTTournamentStore.saveActive) {
+                PTTournamentStore.saveActive(cloudAct, { silent: true, fromCloud: true });
+              }
+              if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+                global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
+                  detail: { tournamentActive: 'adopted_cloud' }
+                }));
+              }
+            } catch (eActPref) { /* */ }
+          }
         } else {
           /* clearActive local → borrar en nube */
           delete out[cloudDataKey || key];
@@ -35522,6 +35565,8 @@ window.PT_NASH_PUSH_JSON = {
   let appReadyCallback = null;
   let appStarted = false;
   let enterAppLock = null;
+  /** Evita re-entrar (gate comunidad + sync login) en TOKEN_REFRESHED / resume. */
+  let appEnteredSub = null;
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -35831,10 +35876,20 @@ window.PT_NASH_PUSH_JSON = {
     if (!user || user.isGuest) return;
     user = normalizeUser(user);
     if (enterAppLock && enterAppLock.sub === user.sub) return enterAppLock.promise;
+    /* Ya dentro de la app con el mismo usuario: no re-gate ni syncOnLogin
+       (TOKEN_REFRESHED / focus). Conserva la comunidad activa. */
+    if (appEnteredSub === user.sub && currentUser && currentUser.sub === user.sub) {
+      currentUser = user;
+      global.PT_AUTH_USER = user;
+      try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (eSoft) { /* noop */ }
+      startAppIfNeeded();
+      return;
+    }
     var run = runEnterApp(user);
     enterAppLock = { sub: user.sub, promise: run };
     try {
       await run;
+      if (currentUser && currentUser.sub === user.sub) appEnteredSub = user.sub;
     } finally {
       if (enterAppLock && enterAppLock.promise === run) enterAppLock = null;
     }
@@ -35848,7 +35903,7 @@ window.PT_NASH_PUSH_JSON = {
         var errEl = $('auth-error');
         if (errEl) errEl.textContent = 'Debes confirmar que tienes más de 18 años para usar PokerForgeAI.';
         signOut();
-        return;
+        return false;
       }
     }
     if (global.PTGuest && global.PTGuest.clearOAuthHandoff) global.PTGuest.clearOAuthHandoff();
@@ -35869,7 +35924,7 @@ window.PT_NASH_PUSH_JSON = {
         var communityOk = await global.PTCommunity.gateAfterLogin();
         if (!communityOk) {
           setAppVisible(false);
-          return;
+          return false;
         }
         if (global.PTCommunity.applyBranding) global.PTCommunity.applyBranding();
         if (global.PTCommunity.applyMenus) global.PTCommunity.applyMenus();
@@ -36019,6 +36074,7 @@ window.PT_NASH_PUSH_JSON = {
       currentUser = null;
       global.PT_AUTH_USER = null;
       appStarted = false;
+      appEnteredSub = null;
       location.reload();
       return;
     }
@@ -36036,6 +36092,7 @@ window.PT_NASH_PUSH_JSON = {
     if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     appStarted = false;
+    appEnteredSub = null;
     var done = function () {
       if (global.PT_retryLogin) global.PT_retryLogin();
       else location.reload();
@@ -36109,6 +36166,7 @@ window.PT_NASH_PUSH_JSON = {
     currentUser = null;
     global.PT_AUTH_USER = null;
     appStarted = false;
+    appEnteredSub = null;
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
     if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
