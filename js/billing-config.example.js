@@ -39,14 +39,14 @@ window.PT_BILLING = {
   },
   founder: {
     code: 'FOUNDER',
-    launchDate: null,
-    launchLabel: 'próximas semanas',
+    launchDate: '2026-10-01',
+    launchLabel: '1 de octubre',
     discount: '40%',
     seatsNote: 'Plazas limitadas',
     priorityNote: 'Solicita tu plaza FOUNDER Study o FOUNDER Coach en Planes: plazas limitadas; revisamos cada solicitud en soporte.',
     kicker: 'FOUNDER · plazas limitadas',
     title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento para siempre · plazas limitadas',
-    note: 'Lanzamiento en próximas semanas. Compras cerradas hasta entonces. Solicita tu plaza en el menú Planes; el administrador confirmará según disponibilidad.',
+    note: 'Lanzamiento el 1 de octubre. Compras cerradas hasta entonces. Solicita tu plaza en el menú Planes; el administrador confirmará según disponibilidad.',
     ctaPlanes: 'Solicita tu plaza en Planes',
     priceLock: 'Si entras como FOUNDER conservas ese precio para siempre mientras mantengas la suscripción activa.'
   },
