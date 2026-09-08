@@ -33314,7 +33314,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function founderLaunchLabel() {
     var f = founderInfo();
-    return (f && f.launchLabel) || 'próximamente';
+    return (f && f.launchLabel) || 'próximas semanas';
   }
 
   function purchasesPausedShortMsg() {
@@ -33335,13 +33335,13 @@ window.PT_NASH_PUSH_JSON = {
       '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
       '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
       '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
-      '<li><strong>Plazas FOUNDER limitadas por petición</strong> (Study o Coach).</li>' +
+      '<li><strong>Plazas FOUNDER limitadas</strong> (Study o Coach).</li>' +
       '</ul>' +
-      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
-      ' · ' + escapeHtml(f.discount || '40%') + ' dto. · <strong>' +
-      escapeHtml(f.seatsNote || 'Plazas limitadas por petición') + '</strong>.</p>' +
+      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> en ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
+      ' · ' + escapeHtml(f.discount || '40%') + ' dto. para siempre · <strong>' +
+      escapeHtml(f.seatsNote || 'Plazas limitadas') + '</strong>.</p>' +
       '<p class="muted-text">' + escapeHtml(f.priorityNote ||
-        'Solicita plaza FOUNDER Study o Coach; revisamos cada petición en soporte.') + '</p>' +
+        'Solicita tu plaza FOUNDER Study o Coach en Planes; revisamos cada solicitud en soporte.') + '</p>' +
       '<p class="paywall-founder-cta-wrap">' + studyBtn + ' ' + coachBtn + '</p>' +
       '</div>';
   }
@@ -38881,6 +38881,38 @@ window.PT_NASH_PUSH_JSON = {
     }
   }
 
+  function mountHomeFounderPromo(communityShell, homeOpts) {
+    var host = $('#home-founder-promo');
+    if (!host) return;
+    var hidePricing = !!(communityShell && homeOpts && homeOpts.hideAnnualUpsell);
+    if (!hidePricing && window.PTCommunity && PTCommunity.config) {
+      var cfg = PTCommunity.config();
+      if (cfg && cfg.billing && cfg.billing.hidePricing) hidePricing = true;
+    }
+    var Promo = window.PTBillingPromo;
+    var paused = !!(Promo && Promo.purchasesPaused && Promo.purchasesPaused());
+    var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+    var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
+    if (!paused || hidePricing || isFounder || !Promo || !Promo.homePromoHtml) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
+    host.innerHTML = Promo.homePromoHtml();
+    host.classList.toggle('hidden', !host.innerHTML);
+  }
+
+  function markFounderPricingTabBadge() {
+    var Promo = window.PTBillingPromo;
+    var badge = Promo && Promo.founderNavBadgeHtml ? Promo.founderNavBadgeHtml() : '';
+    document.querySelectorAll('.tab[data-tab="pricing"]').forEach(function (el) {
+      el.querySelectorAll('.founder-nav-badge').forEach(function (b) { b.remove(); });
+      if (badge && !el.classList.contains('hidden')) {
+        el.insertAdjacentHTML('beforeend', ' ' + badge);
+      }
+    });
+  }
+
   function renderHome() {
     const greetEl = $('#home-greeting');
     const statsEl = $('#home-stats');
@@ -38979,6 +39011,7 @@ window.PT_NASH_PUSH_JSON = {
     homeBootRendered = true;
     maybeFinishHomeBoot(false);
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
+    mountHomeFounderPromo(communityShellCoach, homeOptsCoach);
     if (window.PTBilling && PTBilling.mountAnnualUpsell) {
       if (communityShellCoach && homeOptsCoach.hideAnnualUpsell) {
         var upsell = $('#home-annual-upsell');
@@ -38991,6 +39024,7 @@ window.PT_NASH_PUSH_JSON = {
         PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
       }
     }
+    markFounderPricingTabBadge();
     if (window.PTOnboarding) {
       PTOnboarding.bind($('#home-onboarding'));
       PTOnboarding.render($('#home-onboarding'));
@@ -42239,6 +42273,7 @@ window.PT_NASH_PUSH_JSON = {
     if (promoHost && window.PTBillingPromo && PTBillingPromo.bannerHtml) {
       promoHost.innerHTML = PTBillingPromo.bannerHtml();
     }
+    markFounderPricingTabBadge();
 
     const cards = [
       {
@@ -42258,7 +42293,7 @@ window.PT_NASH_PUSH_JSON = {
         featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
-            'FOUNDER Study · plazas limitadas por petición',
+            'FOUNDER Study · plazas limitadas',
             'Entrenador e import ilimitados',
             '20 manos en análisis',
             '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
@@ -42279,7 +42314,7 @@ window.PT_NASH_PUSH_JSON = {
         featured: false,
         features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
           ? [
-            'FOUNDER Coach · plazas limitadas por petición',
+            'FOUNDER Coach · plazas limitadas',
             'Todo Study',
             '100 manos en análisis',
             '150 consultas ForgeCoach/mes',
@@ -42319,7 +42354,7 @@ window.PT_NASH_PUSH_JSON = {
           btns = '<span class="muted-text">Plan actual</span>';
         } else if (c.id === 'pro') {
           btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
-            'Compra ' + escapeHtml((founder && founder.launchLabel) || 'próximamente') + '</button>';
+            'Compra próximamente</button>';
           btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
             ? window.PTFounderRequest.requestButtonHtml('study', 'btn-block')
             : '<button type="button" class="btn btn-primary btn-block" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
@@ -42328,7 +42363,7 @@ window.PT_NASH_PUSH_JSON = {
             ' dto. Se envía un mensaje a soporte automáticamente.</p>';
         } else if (c.id === 'premium') {
           btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
-            'Compra ' + escapeHtml((founder && founder.launchLabel) || 'próximamente') + '</button>';
+            'Compra próximamente</button>';
           btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
             ? window.PTFounderRequest.requestButtonHtml('coach', 'btn-block')
             : '<button type="button" class="btn btn-primary btn-block" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
