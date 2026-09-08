@@ -2153,6 +2153,8 @@ console.log('OK pushfold-freq-100');
   assert.ok(/ensureLiveHand/.test(uiSrc), 'ui resume usa ensureLiveHand');
   assert.ok(/clearPopupTimers/.test(uiSrc), 'limpia timers de banner al resume/exit');
   assert.ok(/startBannerPending\s*=\s*null/.test(uiSrc), 'quita banner de inicio al continuar');
+  assert.ok(/function resumeActive[\s\S]*playFrames\(frames,\s*paint\)/.test(uiSrc),
+    'resumeActive anima frames (no solo heldFrames/skip)');
   console.log('OK resume-ui-ensure-source');
 }
 

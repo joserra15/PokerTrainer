@@ -146,9 +146,31 @@
     } else if (!cloudHist.length && out[hKey] == null) {
       out[hKey] = [];
     }
-    /* si local vacío y cloud tiene datos, conservar cloud (no pisar). */
-    if (snap.tournamentActive) out[aKey] = snap.tournamentActive;
-    else delete out[aKey];
+    /* Active: no pisar nube más avanzada con local atrasado (PC mano 28 vs móvil 13). */
+    if (snap.tournamentActive) {
+      var cloudAct = out[aKey] || null;
+      var preferLocal = !cloudAct;
+      if (!preferLocal && global.PTTournamentStore && PTTournamentStore.isPreferableActive) {
+        preferLocal = PTTournamentStore.isPreferableActive(snap.tournamentActive, cloudAct);
+      } else if (!preferLocal) {
+        preferLocal = true;
+      }
+      if (preferLocal) out[aKey] = snap.tournamentActive;
+      else {
+        try {
+          if (global.PTTournamentStore && PTTournamentStore.saveActive) {
+            PTTournamentStore.saveActive(cloudAct, { silent: true, fromCloud: true });
+          }
+          if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+            global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
+              detail: { tournamentActive: 'adopted_cloud' }
+            }));
+          }
+        } catch (ePrefer) { /* */ }
+      }
+    } else {
+      delete out[aKey];
+    }
   }
 
   function mergeTournamentHistoryLists(a, b) {
@@ -2154,8 +2176,29 @@
           : (Array.isArray(cloud.tournamentHistory) ? cloud.tournamentHistory : []);
         out[cloudDataKey || key] = mergeTournamentHistoryLists(cloudH, localH);
       } else if (key === 'tournamentActive') {
+        const cloudAct = s ? cloud['tournamentActive' + s] : cloud.tournamentActive;
         if (local.tournamentActive) {
-          out[cloudDataKey || key] = local.tournamentActive;
+          var preferLocalAct = !cloudAct;
+          if (!preferLocalAct && global.PTTournamentStore && PTTournamentStore.isPreferableActive) {
+            preferLocalAct = PTTournamentStore.isPreferableActive(local.tournamentActive, cloudAct);
+          } else if (!preferLocalAct) {
+            preferLocalAct = true;
+          }
+          if (preferLocalAct) {
+            out[cloudDataKey || key] = local.tournamentActive;
+          } else {
+            out[cloudDataKey || key] = cloudAct;
+            try {
+              if (global.PTTournamentStore && PTTournamentStore.saveActive) {
+                PTTournamentStore.saveActive(cloudAct, { silent: true, fromCloud: true });
+              }
+              if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+                global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
+                  detail: { tournamentActive: 'adopted_cloud' }
+                }));
+              }
+            } catch (eActPref) { /* */ }
+          }
         } else {
           /* clearActive local → borrar en nube */
           delete out[cloudDataKey || key];

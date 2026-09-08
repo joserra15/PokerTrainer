@@ -588,10 +588,16 @@ function reducedMotion() {
     var frames = takeFrames();
     ui.view = VIEW.table;
     if (frames) {
-      ui.heldFrames = frames;
-      ui.heldFramesDone = paint;
-      ensureBannerTimers();
-      paint();
+      /* Continuar no deja cartel de inicio: animar ya (como animateThen).
+         Si solo se aparcan en heldFrames, queda «Saltar acción» sin autoplay. */
+      if (isBannerBlocking()) {
+        ui.heldFrames = frames;
+        ui.heldFramesDone = paint;
+        ensureBannerTimers();
+        paint();
+      } else {
+        playFrames(frames, paint);
+      }
     } else {
       ensureBannerTimers();
       paint();

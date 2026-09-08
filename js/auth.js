@@ -11,6 +11,8 @@
   let appReadyCallback = null;
   let appStarted = false;
   let enterAppLock = null;
+  /** Evita re-entrar (gate comunidad + sync login) en TOKEN_REFRESHED / resume. */
+  let appEnteredSub = null;
 
   function $(sel) { return document.querySelector(sel); }
 
@@ -320,10 +322,20 @@
     if (!user || user.isGuest) return;
     user = normalizeUser(user);
     if (enterAppLock && enterAppLock.sub === user.sub) return enterAppLock.promise;
+    /* Ya dentro de la app con el mismo usuario: no re-gate ni syncOnLogin
+       (TOKEN_REFRESHED / focus). Conserva la comunidad activa. */
+    if (appEnteredSub === user.sub && currentUser && currentUser.sub === user.sub) {
+      currentUser = user;
+      global.PT_AUTH_USER = user;
+      try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (eSoft) { /* noop */ }
+      startAppIfNeeded();
+      return;
+    }
     var run = runEnterApp(user);
     enterAppLock = { sub: user.sub, promise: run };
     try {
       await run;
+      if (currentUser && currentUser.sub === user.sub) appEnteredSub = user.sub;
     } finally {
       if (enterAppLock && enterAppLock.promise === run) enterAppLock = null;
     }
@@ -508,6 +520,7 @@
       currentUser = null;
       global.PT_AUTH_USER = null;
       appStarted = false;
+      appEnteredSub = null;
       location.reload();
       return;
     }
@@ -525,6 +538,7 @@
     if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     appStarted = false;
+    appEnteredSub = null;
     var done = function () {
       if (global.PT_retryLogin) global.PT_retryLogin();
       else location.reload();
@@ -598,6 +612,7 @@
     currentUser = null;
     global.PT_AUTH_USER = null;
     appStarted = false;
+    appEnteredSub = null;
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
     if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);

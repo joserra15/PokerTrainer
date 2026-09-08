@@ -191,6 +191,66 @@ assert.ok(Store && W && T, 'modules loaded');
      tras replace/merge el active local existiría; aquí comprobamos history/wallet. */
 }
 
+/* --- dirty push no pisa active cloud más avanzado --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-sync-active-push');
+  T.saveActive({
+    id: 't_stale_mobile',
+    status: 'running',
+    handIndex: 13,
+    _progressRev: 1,
+    _savedAt: '2026-05-12T10:00:00.000Z',
+    config: { name: 'Stale' },
+    players: [{ id: 'h', isHero: true, stack: 1000, alive: true }]
+  });
+  const cloudAhead = {
+    tournamentActive: {
+      id: 't_pc_ahead',
+      status: 'running',
+      handIndex: 28,
+      _progressRev: 5,
+      _savedAt: '2026-05-12T12:00:00.000Z',
+      config: { name: 'Ahead' },
+      players: [{ id: 'h', isHero: true, stack: 800, alive: true }]
+    }
+  };
+  const pushedDirty = Store.mergeDirtyKeysIntoCloud(cloudAhead, ['tournamentActive']);
+  assert.strictEqual(pushedDirty.tournamentActive.handIndex, 28, 'dirty push conserva cloud más avanzado');
+  assert.strictEqual(T.loadActive().handIndex, 28, 'local adopta cloud más avanzado');
+}
+
+/* --- mergeActiveIntoCloudPayload tampoco pisa active más avanzado --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-sync-active-full');
+  T.saveActive({
+    id: 't_stale_2',
+    status: 'running',
+    handIndex: 10,
+    _progressRev: 1,
+    _savedAt: '2026-05-12T09:00:00.000Z',
+    config: { name: 'Stale2' },
+    players: []
+  });
+  const full = Store.mergeActiveIntoCloudPayload({
+    stats: { handsPlayed: 1 },
+    history: [],
+    errors: [],
+    tournamentActive: {
+      id: 't_cloud_28',
+      status: 'running',
+      handIndex: 28,
+      _progressRev: 3,
+      _savedAt: '2026-05-12T11:00:00.000Z',
+      config: { name: 'Cloud28' },
+      players: []
+    }
+  });
+  assert.strictEqual(full.tournamentActive.handIndex, 28, 'full push conserva cloud más avanzado');
+  assert.strictEqual(T.loadActive().handIndex, 28, 'full push adopta cloud en local');
+}
+
 /* --- dirty clearActive elimina active en nube --- */
 {
   Object.keys(localStore).forEach((k) => delete localStore[k]);
