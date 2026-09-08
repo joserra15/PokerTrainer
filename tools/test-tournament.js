@@ -1774,16 +1774,99 @@ console.log('OK pushfold-freq-100');
 
   const Stats = g.PTTournamentStats;
   assert.ok(Stats.aggregateFromHistory, 'aggregateFromHistory');
-  const agg = Stats.aggregateFromHistory([
-    { place: 1, prizeEur: 30, buyInEur: 5, profit: 25, roi: 500, kind: 'sng', roleAccuracy: 80 },
-    { place: 4, prizeEur: 0, buyInEur: 5, profit: -5, roi: -100, kind: 'sng', roleAccuracy: 40 },
+  const hist = [
+    { place: 1, prizeEur: 30, buyInEur: 5, profit: 25, roi: 500, kind: 'sng', roleAccuracy: 80, sessionId: 'sess_a' },
+    { place: 4, prizeEur: 0, buyInEur: 5, profit: -5, roi: -100, kind: 'sng', roleAccuracy: 40, sessionId: 'sess_b' },
     { place: 2, prizeEur: 10, buyInEur: 5, profit: 5, roi: 100, kind: 'mtt', roleAccuracy: 60 }
-  ]);
+  ];
+  const agg = Stats.aggregateFromHistory(hist);
   assert.strictEqual(agg.n, 3);
   assert.strictEqual(agg.wins, 1);
   assert.strictEqual(agg.itm, 2);
   assert.strictEqual(agg.totalProfit, 25);
   assert.ok(agg.byKind.sng === 2 && agg.byKind.mtt === 1, 'byKind');
+
+  assert.ok(Stats.aggregateWithSessionStats, 'aggregateWithSessionStats');
+  const sessions = [
+    {
+      id: 'sess_a',
+      source: 'tournamentAi',
+      stats: {
+        nHands: 40,
+        nDecisions: 20,
+        accuracy: 80,
+        vpipPct: 25,
+        pfrPct: 18,
+        netBB: 12,
+        evLossBB: 3.5,
+        threeBetOpps: 10,
+        threeBetHits: 2,
+        cbetFlopOpps: 8,
+        cbetFlopHits: 4,
+        sawFlopN: 20,
+        wtsdN: 6,
+        dist: { optima: 10, aceptable: 6, imprecisa: 3, error: 1 },
+        accByStreet: { preflop: 85, flop: 70, turn: 60, river: 50 },
+        street: {
+          preflop: { n: 10 }, flop: { n: 5 }, turn: { n: 3 }, river: { n: 2 }
+        }
+      },
+      hands: [
+        {
+          id: 'h1', heroPos: 'BTN', formatKey: 'mtt',
+          decisions: [
+            { class: 'error', street: 'preflop', spotKind: 'open', spot: 'Open BTN', evLoss: 1.2 },
+            { class: 'imprecisa', street: 'flop', spotKind: 'cbet', spot: 'Cbet flop', evLoss: 0.8 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'sess_b',
+      source: 'tournamentAi',
+      stats: {
+        nHands: 20,
+        nDecisions: 10,
+        accuracy: 60,
+        vpipHands: 6,
+        pfrHands: 3,
+        netBB: -4,
+        evLossBB: 2,
+        dist: { optima: 4, aceptable: 2, imprecisa: 2, error: 2 }
+      }
+    },
+    {
+      id: 'cash_noise',
+      source: 'import',
+      stats: { nHands: 100, nDecisions: 50, accuracy: 90, vpipPct: 30, pfrPct: 22, netBB: 50 }
+    }
+  ];
+  const withHands = Stats.aggregateWithSessionStats(hist, sessions);
+  assert.strictEqual(withHands.n, 3, 'result metrics preserved: n');
+  assert.strictEqual(withHands.wins, 1, 'result metrics preserved: wins');
+  assert.strictEqual(withHands.itm, 2, 'result metrics preserved: itm');
+  assert.strictEqual(withHands.totalProfit, 25, 'result metrics preserved: profit');
+  assert.ok(withHands.hasHandStats, 'hasHandStats when linked sessions exist');
+  assert.strictEqual(withHands.handStats.sessions, 2, 'only tournament AI linked sessions');
+  assert.strictEqual(withHands.handStats.hands, 60, 'hands sum');
+  assert.strictEqual(withHands.handStats.decisions, 30, 'decisions sum');
+  assert.strictEqual(withHands.handStats.accuracy, 73, 'accuracy = round(good/decisions*100)');
+  assert.ok(withHands.handStats.vpipPct != null, 'vpipPct');
+  assert.ok(withHands.handStats.pfrPct != null, 'pfrPct');
+  assert.strictEqual(withHands.handStats.bbPer100, Math.round(((12 + -4) / 60) * 1000) / 10, 'bbPer100');
+  assert.ok(withHands.derived.accByStreet.preflop != null, 'street accuracy from hands/stubs');
+  assert.ok(withHands.leaks.length >= 1, 'leaks from hand decisions');
+  assert.ok(withHands.leaks[0].sessionId === 'sess_a', 'leak links to session');
+
+  const emptyHands = Stats.aggregateWithSessionStats(hist, []);
+  assert.strictEqual(emptyHands.n, 3);
+  assert.ok(!emptyHands.hasHandStats, 'no hand stats without sessions');
+
+  assert.ok(uiSrc.includes('Resumen GTO') && uiSrc.includes('Acierto por calle'),
+    'general stats UI includes GTO sections');
+  assert.ok(uiSrc.includes('aggregateWithSessionStats') || uiSrc.includes('hasHandStats'),
+    'general stats uses session aggregation');
+  assert.ok(uiSrc.includes('Top 5 fugas'), 'general stats shows leaks');
 
   const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
   assert.ok(appSrc.includes('isTournamentAi') && appSrc.includes('Ver estadísticas de manos'),
@@ -1792,6 +1875,7 @@ console.log('OK pushfold-freq-100');
     'toggle hand stats from tournament summary');
   const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(css.includes('trn-ante-label') && css.includes('trn-gstat-grid'), 'ante + gstat css');
+  assert.ok(css.includes('trn-gstat-section') && css.includes('trn-gstat-leaks'), 'enriched gstat css');
   console.log('OK tournament-ante-and-general-stats');
 }
 
