@@ -357,26 +357,28 @@ FILES.forEach(function (f) { load(g, f); });
 {
   assert.ok(typeof g.PTTournaments.menuVisible === 'function');
   assert.ok(typeof g.PTTournaments.render === 'function');
-  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'no admin → hidden');
-  /* PokerForge: admin */
-  g.PTAuth = { getUser: function () { return { isAdmin: true, id: 'adm1', name: 'Admin' }; } };
-  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'admin → visible en PokerForge');
-  /* MTTLab: solo managers (admin PF no basta) */
+  assert.ok(g.PTTournaments.TOURNAMENTS_PUBLIC === true, 'TOURNAMENTS_PUBLIC');
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'sin usuario → hidden');
+  /* GA: cualquier usuario autenticado */
+  g.PTAuth = { getUser: function () { return { id: 'u1', name: 'User', plan: 'free' }; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'auth → visible en PokerForge');
+  g.PTDemo = { isActive: function () { return true; } };
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'demo → hidden');
+  g.PTDemo = { isActive: function () { return false; } };
+  /* MTTLab: miembros auth (ya no solo managers) */
   g.PTCommunity = {
     id: function () { return 'mttlab'; },
     isManager: function () { return false; },
     requireMembership: function () { return true; }
   };
-  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'mttlab sin manager → hidden');
-  g.PTCommunity.isManager = function () { return true; };
-  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab manager → visible');
+  assert.strictEqual(g.PTTournaments.menuVisible(), true, 'mttlab member auth → visible');
   g.PTCommunity = {
     id: function () { return 'pokerforge'; },
     isManager: function () { return false; },
     requireMembership: function () { return false; }
   };
   g.PTAuth = { getUser: function () { return null; } };
-  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset no admin');
+  assert.strictEqual(g.PTTournaments.menuVisible(), false, 'reset sin usuario');
   console.log('OK index');
 }
 

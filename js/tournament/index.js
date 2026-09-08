@@ -1,13 +1,25 @@
 /*
  * tournament/index.js — API pública PTTournaments (lazy chunk).
+ * Menú abierto a usuarios autenticados (TOURNAMENTS_PUBLIC=true).
  */
 (function (global) {
   'use strict';
 
   var ENABLED = true;
+  /**
+   * Visibilidad del menú Torneos.
+   * TOURNAMENTS_PUBLIC=true → cualquier usuario autenticado (no demo).
+   * menus.show/hide de comunidad sigue aplicando en app.js.
+   */
+  var TOURNAMENTS_PUBLIC = true;
 
   function isDemoActive() {
     return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
+  }
+
+  function authUser() {
+    return (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) ||
+      global.PT_AUTH_USER || null;
   }
 
   function hasAdminAccess() {
@@ -15,7 +27,7 @@
       return !!global.PTAdmin.hasAccess();
     }
     if (isDemoActive()) return false;
-    var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+    var u = authUser();
     return !!(u && u.isAdmin);
   }
 
@@ -37,12 +49,11 @@
     return 'pokerforge';
   }
 
-  /**
-   * PokerForgeAI: solo Admin.
-   * MTTLab (y otras comunidades gated): solo managers.
-   */
+  /** ¿Puede ver el tab Torneos? Usuarios autenticados (GA). */
   function menuVisible() {
     if (!ENABLED || isDemoActive()) return false;
+    if (TOURNAMENTS_PUBLIC) return !!authUser();
+    /* Legacy: PokerForge admin; MTTLab / gated → managers. */
     var cid = activeCommunityId();
     if (cid === 'mttlab') return isManagerAccess();
     if (cid !== 'pokerforge') {
@@ -75,6 +86,7 @@
 
   global.PTTournaments = {
     ENABLED: ENABLED,
+    TOURNAMENTS_PUBLIC: TOURNAMENTS_PUBLIC,
     menuVisible: menuVisible,
     refreshMenuVisibility: refreshMenuVisibility,
     render: render

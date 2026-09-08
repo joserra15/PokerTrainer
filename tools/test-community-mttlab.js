@@ -250,7 +250,7 @@ assert.strictEqual(C.getConfig('pokerforge').requireMembership, false);
 assert.strictEqual(C.getConfig('mttlab').requireMembership, true);
 assert.ok(C.getConfig('mttlab').menus.hide.indexOf('pricing') >= 0, 'mttlab oculta pricing');
 assert.ok(C.getConfig('mttlab').menus.hide.indexOf('tournaments') < 0, 'mttlab no oculta tournaments');
-assert.ok(C.getConfig('mttlab').menus.show.indexOf('tournaments') >= 0, 'mttlab muestra tournaments (managers)');
+assert.ok(C.getConfig('mttlab').menus.show.indexOf('tournaments') >= 0, 'mttlab muestra tournaments');
 assert.ok(C.getConfig('mttlab').menus.show.indexOf('school') >= 0, 'mttlab muestra school');
 assert.ok(C.getConfig('mttlab').school.unlockMode === 'allOpen');
 assert.ok(C.getConfig('mttlab').billing.hidePricing);
