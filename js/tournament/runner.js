@@ -36,6 +36,53 @@
     return Blinds.currentLevel(state.config.blindSchedule, state.handIndex || 0);
   }
 
+  /**
+   * ¿Se puede pintar/jugar la mano guardada sin repartir de nuevo?
+   * Tras salir-guardar la mano suele ser null; tras quota cloud puede quedar un stub
+   * sin acted/heroOptions (mesa congelada: se ven asientos pero no hay acciones).
+   */
+  function isPlayableLiveHand(hand) {
+    if (!hand) return false;
+    if (hand.stage === 'complete' && hand.result) return true;
+    if (hand.stage !== 'playing') return false;
+    if (!Array.isArray(hand.seats) || hand.seats.length < 2) return false;
+    if (!hand.acted || typeof hand.acted !== 'object') return false;
+    if (hand.awaitingHero) {
+      return !!(hand._heroSeatId && hand.heroOptions && hand.heroOptions.length);
+    }
+    /* Jugando sin turno de héroe: recuperable con runToHeroOrEnd si el estado es íntegro. */
+    return true;
+  }
+
+  /**
+   * Al Continuar un torneo guardado: reanuda la mano viva o reparte la siguiente.
+   * No deja la mesa en idle (solo asientos clicables sin botones / sin Repartir).
+   */
+  function ensureLiveHand(state) {
+    if (!state || state.status !== 'running') return null;
+    var Live = global.PTTournamentLiveHand;
+    var hand = state._liveHand;
+
+    if (hand && hand.stage === 'complete' && hand.result) return hand;
+
+    if (hand && hand.stage === 'playing' && isPlayableLiveHand(hand) && Live) {
+      if (!hand.awaitingHero) {
+        try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
+        hand = state._liveHand;
+        if (hand && hand.stage === 'complete') return hand;
+        if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) return hand;
+      } else if (hand.heroOptions && hand.heroOptions.length) {
+        return hand;
+      }
+    }
+
+    /* Stub roto o sin mano: descartar y repartir. */
+    if (state._liveHand && !(state._liveHand.stage === 'complete' && state._liveHand.result)) {
+      state._liveHand = null;
+    }
+    return beginHand(state);
+  }
+
   function beginHand(state) {
     if (!state || state.status !== 'running') return null;
     // Si la mano anterior terminó sin heroAct (p.ej. todos fold a BB), aplica resultados.
@@ -553,6 +600,8 @@
   global.PTTournamentRunner = {
     create: create,
     beginHand: beginHand,
+    ensureLiveHand: ensureLiveHand,
+    isPlayableLiveHand: isPlayableLiveHand,
     heroAct: heroAct,
     continueAfterHand: continueAfterHand,
     applyResults: applyResults,
