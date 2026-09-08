@@ -11,7 +11,7 @@ const profileSrc = fs.readFileSync(path.join(root, 'js/user-profile.js'), 'utf8'
 const settingsSrc = fs.readFileSync(path.join(root, 'js/account-settings.js'), 'utf8');
 const uiSrc = fs.readFileSync(path.join(root, 'js/tournament/ui.js'), 'utf8');
 const lbSrc = fs.readFileSync(path.join(root, 'js/tournament/leaderboard.js'), 'utf8');
-const migSrc = fs.readFileSync(path.join(root, 'supabase/migrations/052_tournament_alias.sql'), 'utf8');
+const migSrc = fs.readFileSync(path.join(root, 'supabase/migrations/053_tournament_alias.sql'), 'utf8');
 
 assert.ok(/tournament_alias/.test(migSrc), 'migration column');
 assert.ok(/pt_set_tournament_alias/.test(migSrc), 'migration setter RPC');
