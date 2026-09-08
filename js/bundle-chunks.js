@@ -164,6 +164,7 @@
       'js/tournament/leaderboard.js',
       'js/tournament/store.js',
       'js/tournament/session-bridge.js',
+      'js/tournament/leaks-bridge.js',
       'js/tournament/runner.js',
       'js/tournament/ui.js',
       'js/tournament/index.js'

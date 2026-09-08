@@ -5205,6 +5205,440 @@
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
+ * tournament/leaks-bridge.js — Pipeline Torneos IA → Store.errors / leaks
+ * + informe post-torneo accionable (peores manos, leak por fase, drills).
+ */
+(function (global) {
+  'use strict';
+
+  var LEAK_CLASSES = { imprecisa: true, error: true };
+  var PHASE_BUCKET_LABELS = {
+    early: 'Early / Mid',
+    bubble: 'Burbuja',
+    ft: 'Mesa final'
+  };
+
+  function r2(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  }
+
+  function spotTypeFromDecision(d, hand) {
+    if (d && d.spotKind) return d.spotKind;
+    if (d && d.input && d.input.spotKind) return d.input.spotKind;
+    if (d && d.street && d.street !== 'preflop') return 'postflop';
+    if (hand && hand.mttPhase === 'push') return 'RFI';
+    return 'RFI';
+  }
+
+  function resolvePhase(d, hand) {
+    return (d && (d.mttPhase || (d.input && d.input.mttPhase)))
+      || (hand && hand.mttPhase)
+      || 'mid';
+  }
+
+  function phaseBucket(hand, decision, state) {
+    var cfg = (state && state.config) || {};
+    var seats = Number(cfg.seatsPerTable) || Number(hand && hand.tableMax) || 9;
+    var left = hand && hand.playersLeft != null
+      ? Number(hand.playersLeft)
+      : (state && state.aliveCount != null ? Number(state.aliveCount) : null);
+    var placesPaid = hand && hand.placesPaid != null
+      ? Number(hand.placesPaid)
+      : (cfg.placesPaid != null ? Number(cfg.placesPaid) : null);
+    var situation = (hand && hand.mttStructureSituation)
+      || (hand && hand.tournamentContext && hand.tournamentContext.mttStructureSituation)
+      || null;
+    var phase = resolvePhase(decision, hand);
+
+    if (situation === 'ft9' || (left != null && left <= seats)) return 'ft';
+    if (situation === 'bubble' || situation === 'mincash' || phase === 'bubble') return 'bubble';
+    if (left != null && placesPaid != null && placesPaid > 0 && left <= placesPaid + 2) {
+      return 'bubble';
+    }
+    if (phase === 'short' || phase === 'push') return 'bubble';
+    return 'early';
+  }
+
+  function buildSpotKey(hand, d) {
+    var type = spotTypeFromDecision(d, hand);
+    var pos = (hand && (hand.heroPos || hand.displayHeroPos)) || (d && d.pos) || '?';
+    var street = (d && d.street) || 'preflop';
+    var baseKey = type + '|' + pos + '|' + street;
+    var phase = resolvePhase(d, hand);
+    var Tax = global.PTFormatTaxonomy;
+    if (Tax && typeof Tax.formatSpotKey === 'function') {
+      try {
+        return Tax.formatSpotKey(baseKey, {
+          formatHub: 'mtt',
+          gameType: (hand && hand.gameKind === 'spin') ? 'spin3' : 'mtt',
+          practiceIntent: 'mixed',
+          phase: phase,
+          street: street
+        });
+      } catch (e) { /* */ }
+    }
+    return 'tournament|' + baseKey + '|' + phase;
+  }
+
+  function scenarioLabel(type, pos, street) {
+    var TYPE = {
+      RFI: 'RFI',
+      vsRFI: '3-Bet',
+      face3bet: 'Vs 3-Bet',
+      face4bet: '4-Bet',
+      squeeze: 'Squeeze',
+      postflop: 'Postflop'
+    };
+    return (TYPE[type] || type) + ' · ' + (pos || '?') + ' · ' + (street || 'preflop');
+  }
+
+  /**
+   * Convierte decisiones imprecisa/error de una mano analizada de torneo
+   * en registros compatibles con Store.errors / PTLeaks.
+   */
+  function errorsFromHand(hand, state) {
+    if (!hand || !hand.id) return [];
+    var out = [];
+    var decisions = hand.decisions || [];
+    decisions.forEach(function (d, idx) {
+      if (!d || !LEAK_CLASSES[d.class]) return;
+      if (d.unscored) return;
+      var type = spotTypeFromDecision(d, hand);
+      var pos = hand.heroPos || d.pos || '?';
+      var street = d.street || 'preflop';
+      var phase = resolvePhase(d, hand);
+      var bucket = phaseBucket(hand, d, state);
+      var spotKey = buildSpotKey(hand, d);
+      var cfg = (state && state.config) || {};
+      out.push({
+        id: hand.id + '_trn_' + idx,
+        handId: hand.id,
+        createdAt: hand.datetime || new Date().toISOString(),
+        scenarioRaw: { type: type, tournament: true },
+        scenario: scenarioLabel(type, pos, street),
+        playConfig: {
+          formatHub: hand.gameKind === 'spin' ? 'spin' : 'mtt',
+          gameType: hand.gameKind === 'spin' ? 'spin3' : 'mtt',
+          mttPhase: phase,
+          resolvedPhase: phase,
+          practiceIntent: 'mixed',
+          source: 'tournamentAi'
+        },
+        displayHeroPos: pos,
+        heroPos: pos,
+        heroCode: hand.heroCode || null,
+        heroCards: (hand.heroCards || []).slice(),
+        street: street,
+        spotKey: spotKey,
+        formatHub: hand.gameKind === 'spin' ? 'spin' : 'mtt',
+        practiceIntent: 'mixed',
+        mttPhase: phase,
+        phaseBucket: bucket,
+        source: 'tournamentAi',
+        tournament: true,
+        tournamentId: hand.tournamentId || (state && state.id) || null,
+        handIndex: hand.handIndex != null ? hand.handIndex : null,
+        chosen: d.label || d.chosen || d.action,
+        chosenAction: d.chosen || d.action,
+        best: d.best || null,
+        class: d.class,
+        evLoss: Number(d.evLoss) || 0,
+        gto: d.gto || null,
+        context: d.context || null,
+        spot: type,
+        kind: cfg.kind || hand.gameKind || 'mtt'
+      });
+    });
+    return out;
+  }
+
+  function errorsFromTournament(state) {
+    if (!state) return [];
+    var hands = (state.sessionHands && state.sessionHands.length)
+      ? state.sessionHands
+      : [];
+    var all = [];
+    hands.forEach(function (h) {
+      all = all.concat(errorsFromHand(h, state));
+    });
+    return all;
+  }
+
+  /** Persiste errores en Store (idempotente por id). */
+  function recordHandErrors(hand, state) {
+    var errs = errorsFromHand(hand, state);
+    if (!errs.length) return { ok: true, added: 0, errors: [] };
+    var Store = global.Store;
+    if (Store && typeof Store.appendErrors === 'function') {
+      var res = Store.appendErrors(errs, { source: 'tournamentAi' });
+      return { ok: !!(res && res.ok !== false), added: (res && res.added) || 0, errors: errs };
+    }
+    return { ok: false, added: 0, errors: errs, reason: 'no_store' };
+  }
+
+  function recordTournamentErrors(state) {
+    var errs = errorsFromTournament(state);
+    if (!errs.length) return { ok: true, added: 0, errors: [] };
+    var Store = global.Store;
+    if (Store && typeof Store.appendErrors === 'function') {
+      var res = Store.appendErrors(errs, { source: 'tournamentAi' });
+      return { ok: !!(res && res.ok !== false), added: (res && res.added) || 0, errors: errs };
+    }
+    return { ok: false, added: 0, errors: errs, reason: 'no_store' };
+  }
+
+  function aggregateLeaks(errors) {
+    var map = {};
+    (errors || []).forEach(function (err) {
+      var key = err.spotKey || (err.spot + '|' + err.heroPos + '|' + err.street);
+      if (!map[key]) {
+        var label = err.scenario || key;
+        if (global.PTLeaks && global.PTLeaks.labelForKey) {
+          try { label = global.PTLeaks.labelForKey(key) || label; } catch (e) { /* */ }
+        }
+        map[key] = {
+          key: key,
+          label: label,
+          count: 0,
+          evLoss: 0,
+          sample: err,
+          mttPhase: err.mttPhase || null,
+          phaseBucket: err.phaseBucket || null,
+          errors: []
+        };
+      }
+      map[key].count += 1;
+      map[key].evLoss = r2(map[key].evLoss + (Number(err.evLoss) || 0));
+      map[key].errors.push(err);
+      if ((Number(err.evLoss) || 0) >= (Number(map[key].sample.evLoss) || 0)) {
+        map[key].sample = err;
+      }
+    });
+    return Object.keys(map).map(function (k) { return map[k]; })
+      .sort(function (a, b) {
+        if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+        return b.count - a.count;
+      });
+  }
+
+  function topWorstHands(state, limit) {
+    limit = limit || 3;
+    var hands = (state && state.sessionHands) || [];
+    return hands.slice()
+      .filter(function (h) {
+        return (Number(h.totalEvLoss) || 0) > 0
+          || (h.decisions || []).some(function (d) { return LEAK_CLASSES[d && d.class]; });
+      })
+      .sort(function (a, b) {
+        return (Number(b.totalEvLoss) || 0) - (Number(a.totalEvLoss) || 0);
+      })
+      .slice(0, limit)
+      .map(function (h) {
+        var worst = null;
+        (h.decisions || []).forEach(function (d) {
+          if (!d || !LEAK_CLASSES[d.class]) return;
+          if (!worst || (Number(d.evLoss) || 0) > (Number(worst.evLoss) || 0)) worst = d;
+        });
+        return {
+          handId: h.id,
+          handIndex: h.handIndex,
+          heroCode: h.heroCode || '',
+          heroPos: h.heroPos || '',
+          totalEvLoss: r2(h.totalEvLoss || 0),
+          handScore: h.handScore != null ? h.handScore : null,
+          worstClass: (worst && worst.class) || h.worstClass || null,
+          worstStreet: (worst && worst.street) || null,
+          worstLabel: (worst && (worst.label || worst.chosen)) || null,
+          mttPhase: h.mttPhase || (worst && worst.mttPhase) || null,
+          phaseBucket: phaseBucket(h, worst || {}, state)
+        };
+      });
+  }
+
+  function dominantLeakByPhase(errors, state) {
+    var byBucket = { early: [], bubble: [], ft: [] };
+    (errors || []).forEach(function (err) {
+      var b = err.phaseBucket || phaseBucket(
+        { playersLeft: null, placesPaid: null, mttPhase: err.mttPhase, tableMax: 9 },
+        err,
+        state
+      );
+      if (!byBucket[b]) byBucket[b] = [];
+      byBucket[b].push(err);
+    });
+    var phases = ['early', 'bubble', 'ft'].map(function (bucket) {
+      var list = byBucket[bucket] || [];
+      var leaks = aggregateLeaks(list);
+      var top = leaks[0] || null;
+      var evLoss = list.reduce(function (s, e) { return s + (Number(e.evLoss) || 0); }, 0);
+      return {
+        bucket: bucket,
+        label: PHASE_BUCKET_LABELS[bucket] || bucket,
+        count: list.length,
+        evLoss: r2(evLoss),
+        topLeak: top ? {
+          key: top.key,
+          label: top.label,
+          count: top.count,
+          evLoss: top.evLoss,
+          mttPhase: top.mttPhase
+        } : null
+      };
+    }).filter(function (p) { return p.count > 0; })
+      .sort(function (a, b) {
+        if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+        return b.count - a.count;
+      });
+
+    return {
+      dominant: phases[0] || null,
+      byPhase: phases
+    };
+  }
+
+  function recommendedDrills(leaks, phaseInfo) {
+    var out = [];
+    var seen = {};
+    function pushFromLeak(leak, hands) {
+      if (!leak || !leak.key || seen[leak.key]) return;
+      seen[leak.key] = true;
+      var drill = {
+        leakKey: leak.key,
+        label: leak.label || leak.key,
+        hands: hands || 25,
+        mttPhase: (leak.sample && leak.sample.mttPhase) || leak.mttPhase || null,
+        phaseBucket: (leak.sample && leak.sample.phaseBucket) || leak.phaseBucket || null
+      };
+      if (global.PTTrainerLeakPresets && global.PTTrainerLeakPresets.presetForLeak) {
+        try {
+          var cfg = global.PTTrainerLeakPresets.presetForLeak(leak, hands || 25);
+          if (cfg) {
+            cfg.formatHub = 'mtt';
+            cfg.gameType = 'mtt';
+            if (drill.mttPhase && drill.mttPhase !== 'auto') cfg.mttPhase = drill.mttPhase;
+            drill.preset = cfg;
+          }
+        } catch (e1) { /* */ }
+      }
+      if (global.PTAIReport) {
+        try {
+          if (typeof global.PTAIReport.lessonFromLeak === 'function') {
+            drill.lessonId = global.PTAIReport.lessonFromLeak(leak) || null;
+          }
+        } catch (e2) { /* */ }
+      }
+      out.push(drill);
+    }
+
+    (leaks || []).slice(0, 2).forEach(function (l, i) {
+      pushFromLeak(l, i === 0 ? 25 : 50);
+    });
+    if (out.length < 2 && phaseInfo && phaseInfo.dominant && phaseInfo.dominant.topLeak) {
+      pushFromLeak(phaseInfo.dominant.topLeak, 25);
+    }
+    return out.slice(0, 2);
+  }
+
+  /**
+   * Informe post-torneo: top peores manos, leak dominante por fase, drills.
+   */
+  function buildReport(state) {
+    var errors = errorsFromTournament(state);
+    var leaks = aggregateLeaks(errors);
+    var phaseInfo = dominantLeakByPhase(errors, state);
+    var worstHands = topWorstHands(state, 3);
+    var drills = recommendedDrills(leaks, phaseInfo);
+    return {
+      tournamentId: state && state.id,
+      errorCount: errors.length,
+      leakCount: leaks.length,
+      topLeaks: leaks.slice(0, 5).map(function (l) {
+        return {
+          key: l.key,
+          label: l.label,
+          count: l.count,
+          evLoss: l.evLoss,
+          mttPhase: l.mttPhase,
+          phaseBucket: l.phaseBucket
+        };
+      }),
+      worstHands: worstHands,
+      phase: phaseInfo,
+      drills: drills
+    };
+  }
+
+  /** Aplica el drill recomendado (o el top leak del informe) en Entrenar MTT. */
+  function trainLeak(leakOrDrill, opts) {
+    opts = opts || {};
+    var leak = leakOrDrill;
+    var hands = opts.hands || (leakOrDrill && leakOrDrill.hands) || 25;
+    var preset = (leakOrDrill && leakOrDrill.preset) || null;
+    if (!preset && global.PTTrainerLeakPresets && global.PTTrainerLeakPresets.presetForLeak) {
+      preset = global.PTTrainerLeakPresets.presetForLeak(leak, hands);
+    }
+    if (!preset) {
+      preset = {
+        formatHub: 'mtt',
+        gameType: 'mtt',
+        scenario: 'rfi',
+        practiceStreet: 'preflop',
+        handsTarget: hands
+      };
+    }
+    preset.formatHub = 'mtt';
+    preset.gameType = preset.gameType === 'spin3' ? 'spin3' : 'mtt';
+    if (opts.mttPhase) preset.mttPhase = opts.mttPhase;
+    else if (leakOrDrill && leakOrDrill.mttPhase) preset.mttPhase = leakOrDrill.mttPhase;
+    else if (!preset.mttPhase || preset.mttPhase === 'auto') preset.mttPhase = 'mid';
+    preset.handsTarget = hands;
+
+    if (global.applyPlaySetupConfig) global.applyPlaySetupConfig(preset);
+    if (typeof global.goToTab === 'function') global.goToTab('play', { setup: true });
+    return preset;
+  }
+
+  function trainTournamentLeaks(report, opts) {
+    opts = opts || {};
+    var drill = (report && report.drills && report.drills[0]) || null;
+    var leak = drill || (report && report.topLeaks && report.topLeaks[0]) || null;
+    if (!leak) {
+      if (global.applyPlaySetupConfig) {
+        global.applyPlaySetupConfig({
+          formatHub: 'mtt',
+          gameType: 'mtt',
+          scenario: 'rfi',
+          practiceStreet: 'preflop',
+          mttPhase: 'mid',
+          handsTarget: 25
+        });
+      }
+      if (typeof global.goToTab === 'function') global.goToTab('play', { setup: true });
+      return null;
+    }
+    return trainLeak(leak, opts);
+  }
+
+  global.PTTournamentLeaksBridge = {
+    LEAK_CLASSES: LEAK_CLASSES,
+    PHASE_BUCKET_LABELS: PHASE_BUCKET_LABELS,
+    phaseBucket: phaseBucket,
+    buildSpotKey: buildSpotKey,
+    errorsFromHand: errorsFromHand,
+    errorsFromTournament: errorsFromTournament,
+    recordHandErrors: recordHandErrors,
+    recordTournamentErrors: recordTournamentErrors,
+    aggregateLeaks: aggregateLeaks,
+    topWorstHands: topWorstHands,
+    dominantLeakByPhase: dominantLeakByPhase,
+    recommendedDrills: recommendedDrills,
+    buildReport: buildReport,
+    trainLeak: trainLeak,
+    trainTournamentLeaks: trainTournamentLeaks
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
  * tournament/runner.js — Orquesta un torneo en vivo (Hero + mesas satélite).
  */
 (function (global) {
@@ -5577,6 +6011,11 @@
             }
           }
           if (!replaced) state.sessionHands.push(analyzed);
+          /* Pipeline Torneos → leaks globales (imprecisa/error). */
+          try {
+            var LeaksBr = global.PTTournamentLeaksBridge;
+            if (LeaksBr && LeaksBr.recordHandErrors) LeaksBr.recordHandErrors(analyzed, state);
+          } catch (eLeak) { /* ignore */ }
         }
       }
     } catch (eBridge) { /* ignore */ }
@@ -5664,6 +6103,14 @@
     /* Persistir sesión con meta de torneo (puesto/ROI) ya calculada. */
     var sessionId = null;
     var sessionStats = null;
+    var improvementReport = null;
+    try {
+      var LeaksFin = global.PTTournamentLeaksBridge;
+      if (LeaksFin) {
+        if (LeaksFin.recordTournamentErrors) LeaksFin.recordTournamentErrors(state);
+        if (LeaksFin.buildReport) improvementReport = LeaksFin.buildReport(state);
+      }
+    } catch (eLeakFin) { /* ignore */ }
     try {
       var Bridge2 = global.PTTournamentSessionBridge;
       var StoreApi = global.Store;
@@ -5678,6 +6125,7 @@
         if (session && session.hands && session.hands.length) {
           sessionId = session.id;
           sessionStats = session.stats || null;
+          if (improvementReport) session.improvementReport = improvementReport;
           state.sessionId = sessionId;
           state.sessionStats = sessionStats;
           state._savedSession = session;
@@ -5714,7 +6162,8 @@
       gtoSession: state.gtoSession || null,
       reason: opts.reason || 'finished',
       sessionId: sessionId,
-      sessionStats: sessionStats
+      sessionStats: sessionStats,
+      improvementReport: improvementReport
     };
 
     if (StoreMod && StoreMod.save) {
@@ -5731,7 +6180,11 @@
         roleAccuracy: roleScore.accuracy,
         finishedAt: state.finishedAt,
         presetId: state._presetId || state.config.id,
-        sessionId: sessionId
+        sessionId: sessionId,
+        errorCount: improvementReport ? improvementReport.errorCount : null,
+        topLeakLabel: improvementReport && improvementReport.topLeaks && improvementReport.topLeaks[0]
+          ? improvementReport.topLeaks[0].label
+          : null
       });
     }
 
@@ -7864,6 +8317,15 @@ function reducedMotion() {
       '<summary>Manos jugadas (' + handsCount + ')</summary>' +
       '<ul class="trn-hand-log-list">' + handsHtml + '</ul></details>';
 
+    var report = r.improvementReport || null;
+    if (!report) {
+      try {
+        var LB = global.PTTournamentLeaksBridge;
+        if (LB && LB.buildReport) report = LB.buildReport(state);
+      } catch (eRep) { report = null; }
+    }
+    var improveHtml = renderImprovementReport(report, sessionId);
+
     var placeLabel = r.place != null ? (r.place + 'º') : '—';
     return '<div class="trn-result panel">' +
       '<header class="trn-result-hero">' +
@@ -7875,6 +8337,7 @@ function reducedMotion() {
       (r.roleKoins ? (' · +' + r.roleKoins + ' Koins por roles') : '') + '</p>' +
       '</header>' +
       statsHtml +
+      improveHtml +
       '<div id="ai-coach-tournament" class="trn-result-coach"></div>' +
       (sessionId
         ? ('<p class="trn-result-cta"><button type="button" class="btn btn-primary" data-act="open-session" data-session-id="' +
@@ -7890,6 +8353,90 @@ function reducedMotion() {
       '<button type="button" class="btn btn-primary" data-act="hub">Hub</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
       '</div></div>';
+  }
+
+  function renderImprovementReport(report, sessionId) {
+    if (!report || (!report.errorCount && !(report.worstHands && report.worstHands.length))) {
+      return '<section class="trn-improve panel-inset">' +
+        '<h3>Mejora tu juego</h3>' +
+        '<p class="muted">Sin errores graves detectados en este torneo. Sigue así.</p>' +
+        '</section>';
+    }
+    var worst = (report.worstHands || []).map(function (h, i) {
+      return '<li class="trn-improve-hand">' +
+        '<span class="trn-improve-rank">#' + (i + 1) + '</span>' +
+        '<span class="trn-improve-hand-main">' +
+        '<strong>Mano #' + esc(String(h.handIndex != null ? h.handIndex : '—')) + '</strong>' +
+        ' · ' + esc(h.heroCode || '') + ' ' + esc(h.heroPos || '') +
+        (h.worstLabel ? (' · ' + esc(h.worstLabel)) : '') +
+        (h.worstStreet ? (' · ' + esc(h.worstStreet)) : '') +
+        ' · <span class="net-neg">−' + esc(String(h.totalEvLoss)) + ' bb</span>' +
+        (h.phaseBucket ? (' · <span class="trn-phase-chip">' + esc(
+          (global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.PHASE_BUCKET_LABELS[h.phaseBucket])
+            || h.phaseBucket
+        ) + '</span>') : '') +
+        '</span>' +
+        (h.handId
+          ? (' <button type="button" class="btn btn-sm" data-act="session-review-hand" data-hand-id="' +
+            esc(h.handId) + '"' +
+            (sessionId ? (' data-session-id="' + esc(sessionId) + '"') : '') +
+            '>Revisar</button>')
+          : '') +
+        '</li>';
+    }).join('') || '<li class="muted">Sin manos destacadas</li>';
+
+    var phase = report.phase && report.phase.dominant;
+    var phaseHtml = '';
+    if (phase) {
+      phaseHtml = '<div class="trn-improve-phase">' +
+        '<div class="trn-improve-phase-label">Leak dominante por fase</div>' +
+        '<div class="trn-improve-phase-val">' +
+        '<span class="trn-phase-chip">' + esc(phase.label) + '</span> · ' +
+        esc(String(phase.count)) + ' error' + (phase.count === 1 ? '' : 'es') +
+        ' · −' + esc(String(phase.evLoss)) + ' bb' +
+        (phase.topLeak
+          ? (' · <strong>' + esc(phase.topLeak.label) + '</strong>')
+          : '') +
+        '</div></div>';
+    } else if (report.phase && report.phase.byPhase && report.phase.byPhase.length) {
+      phaseHtml = '<ul class="trn-improve-phase-list">' +
+        report.phase.byPhase.map(function (p) {
+          return '<li><span class="trn-phase-chip">' + esc(p.label) + '</span> · ' +
+            p.count + ' · −' + p.evLoss + ' bb' +
+            (p.topLeak ? (' · ' + esc(p.topLeak.label)) : '') + '</li>';
+        }).join('') + '</ul>';
+    }
+
+    var drills = (report.drills || []).map(function (d, i) {
+      return '<li class="trn-improve-drill">' +
+        '<span>' + esc(d.label) +
+        (d.mttPhase ? (' · fase ' + esc(d.mttPhase)) : '') +
+        ' · ' + esc(String(d.hands || 25)) + ' manos</span>' +
+        '<button type="button" class="btn btn-sm btn-primary" data-act="train-drill" data-drill-idx="' +
+        i + '">Entrenar</button></li>';
+    }).join('');
+
+    var drillsBlock = drills
+      ? ('<div class="trn-improve-drills"><div class="trn-improve-phase-label">Drills recomendados</div>' +
+        '<ul class="trn-improve-drill-list">' + drills + '</ul></div>')
+      : '';
+
+    return '<section class="trn-improve panel-inset" data-trn-report="1">' +
+      '<h3>Mejora tu juego</h3>' +
+      '<p class="muted">' + esc(String(report.errorCount || 0)) + ' decisión' +
+      ((report.errorCount === 1) ? '' : 'es') + ' imprecisa/error · ' +
+      esc(String(report.leakCount || 0)) + ' leak' +
+      ((report.leakCount === 1) ? '' : 's') + ' detectado' +
+      ((report.leakCount === 1) ? '' : 's') + '</p>' +
+      '<div class="trn-improve-block">' +
+      '<div class="trn-improve-phase-label">Top peores manos (EV loss)</div>' +
+      '<ul class="trn-improve-hands">' + worst + '</ul></div>' +
+      phaseHtml +
+      drillsBlock +
+      '<p class="trn-result-cta trn-improve-cta">' +
+      '<button type="button" class="btn btn-primary" data-act="train-tournament-leaks">' +
+      'Entrenar mis leaks de este torneo</button></p>' +
+      '</section>';
   }
 
   function loadSessionsForGeneralStats(historyList) {
@@ -8316,6 +8863,26 @@ function reducedMotion() {
           openLiveHandReview(btn.getAttribute('data-hand-id'), 'review');
         } else if (act === 'open-session') {
           openSessionHand(btn.getAttribute('data-session-id'), null, 'review');
+        } else if (act === 'train-tournament-leaks') {
+          var repTrain = (ui.state && ui.state.result && ui.state.result.improvementReport) || null;
+          if (!repTrain && ui.state && global.PTTournamentLeaksBridge) {
+            try { repTrain = PTTournamentLeaksBridge.buildReport(ui.state); } catch (eT) { repTrain = null; }
+          }
+          if (global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.trainTournamentLeaks) {
+            PTTournamentLeaksBridge.trainTournamentLeaks(repTrain || {});
+          }
+        } else if (act === 'train-drill') {
+          var dIdx = Number(btn.getAttribute('data-drill-idx'));
+          var repD = (ui.state && ui.state.result && ui.state.result.improvementReport) || null;
+          if (!repD && ui.state && global.PTTournamentLeaksBridge) {
+            try { repD = PTTournamentLeaksBridge.buildReport(ui.state); } catch (eD) { repD = null; }
+          }
+          var drill = repD && repD.drills && repD.drills[dIdx];
+          if (drill && global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.trainLeak) {
+            PTTournamentLeaksBridge.trainLeak(drill);
+          } else if (global.PTTournamentLeaksBridge && PTTournamentLeaksBridge.trainTournamentLeaks) {
+            PTTournamentLeaksBridge.trainTournamentLeaks(repD || {});
+          }
         } else if (act === 'session-review-hand') {
           openSessionHand(btn.getAttribute('data-session-id'), btn.getAttribute('data-hand-id'), 'review');
         } else if (act === 'session-replay-hand') {
