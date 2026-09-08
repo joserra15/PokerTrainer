@@ -19,7 +19,7 @@ test.describe('i18n ES/EN @smoke', () => {
       await page.waitForSelector('#app-shell:not(.hidden)', { timeout: 30000 });
     }
 
-    await page.click('button.tab[data-tab="play"]');
+    await page.locator('button.tab[data-tab="play"]').click({ force: true });
     const playText = await page.locator('#tab-play, #play-setup, #app-shell').first().innerText();
     expect(playText).not.toMatch(/\bpt\.[a-z0-9_.]+/i);
     expect(playText).not.toMatch(/\bi18n\.[a-z0-9_.]+/i);

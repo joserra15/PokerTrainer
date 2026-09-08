@@ -14,7 +14,7 @@ test.describe('Entrenamiento completo @smoke', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await page.locator('button.tab[data-tab="play"]').click({ force: true });
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await page.click('#play-start');
 

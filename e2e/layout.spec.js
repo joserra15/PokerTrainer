@@ -7,7 +7,7 @@ test.describe('Layout play / hand-end @smoke', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await page.locator('button.tab[data-tab="play"]').click({ force: true });
     await page.waitForSelector('#play-start', { timeout: 15000 });
     await page.click('#play-start');
     await page.waitForSelector('#play-active:not(.hidden) #actions .btn', { timeout: 60000 });

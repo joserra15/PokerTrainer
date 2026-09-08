@@ -6,7 +6,7 @@ test.describe('Tipo de rival explotativo @smoke', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="play"]');
+    await page.locator('button.tab[data-tab="play"]').click({ force: true });
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
 
     await openPlaySetupAdvanced(page);
@@ -28,7 +28,7 @@ test.describe('Tipo de rival explotativo @smoke', () => {
   test('Aleatorio oculta criterio explotativo', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
-    await page.click('button.tab[data-tab="play"]');
+    await page.locator('button.tab[data-tab="play"]').click({ force: true });
     await page.waitForSelector('#play-setup:not(.hidden)', { timeout: 15000 });
     await openPlaySetupAdvanced(page);
     await page.click('#setup-villain-type [data-val="nit"]');

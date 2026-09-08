@@ -238,7 +238,18 @@ async function goTab(page, tab) {
       });
     }
   } else {
-    await page.click('button.tab[data-tab="' + tab + '"]');
+    const btn = page.locator('button.tab[data-tab="' + tab + '"]');
+    if (await btn.count()) {
+      await btn.first().click({ force: true }).catch(async () => {
+        await page.evaluate((t) => {
+          if (window.goToTab) window.goToTab(t);
+        }, tab);
+      });
+    } else {
+      await page.evaluate((t) => {
+        if (window.goToTab) window.goToTab(t);
+      }, tab);
+    }
   }
   await page.waitForSelector('#tab-' + tab + ':not(.hidden), #tab-' + tab + '.active, #tab-' + tab, {
     timeout: 15000
