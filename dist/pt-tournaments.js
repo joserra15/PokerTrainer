@@ -3904,11 +3904,17 @@
       }
     } catch (e0) { /* */ }
     try {
-      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
-      if (u) {
-        name = u.displayName || u.name || u.email || name;
-        if (u.id || u.sub) id = String(u.id || u.sub);
+      if (global.PTProfile && PTProfile.getTournamentDisplayName) {
+        name = PTProfile.getTournamentDisplayName({ fallback: 'Hero' });
+      } else {
+        var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+        if (u) {
+          name = u.displayName || u.name || u.email || name;
+          if (u.id || u.sub) id = String(u.id || u.sub);
+        }
       }
+      var u2 = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u2 && (u2.id || u2.sub)) id = String(u2.id || u2.sub);
     } catch (e1) { /* */ }
     return { id: id, name: String(name).slice(0, 40) };
   }
@@ -6453,6 +6459,7 @@
     replayOpen: false,
     replayStep: 0,
     replayHandIndex: null,
+    aliasEditorOpen: false,
     popupClearScheduled: { blind: false, ft: false, itm: false, start: false, congrats: false },
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null },
     heldFrames: null,
@@ -6526,8 +6533,86 @@
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
+      global.addEventListener('pt-tournament-alias-changed', function (ev) {
+        var alias = ev && ev.detail ? ev.detail.alias : null;
+        applyAliasToActiveHero(alias);
+        try {
+          if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.publishHero) {
+            PTTournamentLeaderboard.publishHero({ forceCloud: true });
+          }
+        } catch (eLb) { /* */ }
+        if (ui.root && (ui.view === VIEW.hub || ui.view === VIEW.table || ui.view === VIEW.result)) {
+          paint();
+        }
+      });
     }
   } catch (eBind) { /* */ }
+
+  function applyAliasToActiveHero(alias) {
+    try {
+      if (!ui.state || !ui.state.players) return;
+      var name = alias || resolveHeroNameOpt();
+      ui.state.players.forEach(function (p) {
+        if (p && p.isHero) p.name = name;
+      });
+    } catch (e) { /* */ }
+  }
+
+  function currentAliasValue() {
+    try {
+      if (global.PTProfile && PTProfile.getTournamentAlias) {
+        return PTProfile.getTournamentAlias() || '';
+      }
+    } catch (e) { /* */ }
+    return '';
+  }
+
+  function aliasChipHtml() {
+    var alias = currentAliasValue();
+    var label = alias || 'Sin alias (se usa tu nombre)';
+    if (ui.aliasEditorOpen) {
+      return '<div class="trn-alias-editor" id="trn-alias-editor">' +
+        '<label class="trn-alias-label" for="trn-alias-input">Alias en clasificación y mesa</label>' +
+        '<div class="trn-alias-row">' +
+        '<input type="text" id="trn-alias-input" class="trn-alias-input" maxlength="20" ' +
+        'autocomplete="off" spellcheck="false" placeholder="Ej. RiverRat" value="' + esc(alias) + '" />' +
+        '<button type="button" class="btn btn-primary btn-sm" data-act="save-alias">Guardar</button>' +
+        '<button type="button" class="btn btn-sm" data-act="cancel-alias">Cancelar</button>' +
+        '</div>' +
+        '<p class="trn-alias-hint muted">Único · 3–20 caracteres · letras, números, _ o -</p>' +
+        '<p class="trn-alias-status muted" id="trn-alias-status" role="status"></p>' +
+        '</div>';
+    }
+    return '<div class="trn-alias-chip">' +
+      '<span>Alias: <strong>' + esc(label) + '</strong></span>' +
+      '<button type="button" class="btn btn-sm" data-act="edit-alias">' +
+      (alias ? 'Cambiar' : 'Elegir alias') + '</button>' +
+      '</div>';
+  }
+
+  function saveLobbyAlias(btn) {
+    var input = ui.root && ui.root.querySelector('#trn-alias-input');
+    var status = ui.root && ui.root.querySelector('#trn-alias-status');
+    var raw = input ? input.value : '';
+    if (!global.PTProfile || !global.PTProfile.setTournamentAlias) {
+      if (status) status.textContent = 'Inicia sesión para guardar el alias.';
+      return;
+    }
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Guardando…';
+    global.PTProfile.setTournamentAlias(raw).then(function (res) {
+      if (btn) btn.disabled = false;
+      if (!res || !res.ok) {
+        if (status) status.textContent = (res && res.message) || 'No se pudo guardar.';
+        return;
+      }
+      ui.aliasEditorOpen = false;
+      paint();
+    }).catch(function (e) {
+      if (btn) btn.disabled = false;
+      if (status) status.textContent = (e && e.message) || 'No se pudo guardar.';
+    });
+  }
 
   /**
    * En móvil Safari/Chrome el proceso muere al cambiar de app; sin pagehide
@@ -6561,11 +6646,20 @@
 
   function heroDisplayName(state) {
     try {
+      if (global.PTProfile && PTProfile.getTournamentAlias) {
+        var alias = PTProfile.getTournamentAlias();
+        if (alias) return alias;
+      }
+    } catch (eAlias) { /* */ }
+    try {
       var h = state && global.PTTournamentState && PTTournamentState.hero
         ? PTTournamentState.hero(state) : null;
       if (h && h.name && h.name !== 'Héroe' && h.name !== 'Hero') return h.name;
     } catch (e0) { /* */ }
     try {
+      if (global.PTProfile && PTProfile.getTournamentDisplayName) {
+        return PTProfile.getTournamentDisplayName({ firstTokenOnly: true, fallback: 'Jugador' });
+      }
       var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
       if (u && u.name) {
         var n = String(u.name).trim().split(/\s+/)[0];
@@ -6577,6 +6671,9 @@
 
   function resolveHeroNameOpt() {
     try {
+      if (global.PTProfile && PTProfile.getTournamentDisplayName) {
+        return PTProfile.getTournamentDisplayName({ firstTokenOnly: true, fallback: 'Jugador' });
+      }
       var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
       if (u && u.name) return String(u.name).trim().split(/\s+/)[0] || u.name;
     } catch (e) { /* */ }
@@ -7426,6 +7523,7 @@ function reducedMotion() {
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
       planHint +
       '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +
+      aliasChipHtml() +
       '</div>' +
       '<div class="trn-lobby-hero-actions">' +
       customBtn +
@@ -9097,6 +9195,18 @@ function reducedMotion() {
           }
           ui.setupDraft = defaultDraft();
           setView(VIEW.setup);
+        } else if (act === 'edit-alias') {
+          ui.aliasEditorOpen = true;
+          paint();
+          var inpEdit = ui.root && ui.root.querySelector('#trn-alias-input');
+          if (inpEdit && typeof inpEdit.focus === 'function') {
+            try { inpEdit.focus(); inpEdit.select(); } catch (eF) { /* */ }
+          }
+        } else if (act === 'cancel-alias') {
+          ui.aliasEditorOpen = false;
+          paint();
+        } else if (act === 'save-alias') {
+          saveLobbyAlias(btn);
         } else if (act === 'hub') {
           if (ui.view === VIEW.table && ui.state && ui.state.status !== 'finished') {
             ui.exitPrompt = true;

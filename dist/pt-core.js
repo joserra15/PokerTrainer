@@ -32261,6 +32261,69 @@ window.PT_NASH_PUSH_JSON = {
     return ADMIN_EMAILS.some(function (e) { return lower === e.toLowerCase(); });
   }
 
+  var ALIAS_MIN = 3;
+  var ALIAS_MAX = 20;
+  var ALIAS_RE = /^[A-Za-z0-9]([A-Za-z0-9_-]*[A-Za-z0-9])?$/;
+  var ALIAS_RESERVED = { hero: 1, heroe: 1, 'héroe': 1, jugador: 1, admin: 1, pokerforge: 1 };
+
+  function normalizeAliasLocal(raw) {
+    var cleaned = String(raw == null ? '' : raw).trim();
+    if (!cleaned) return { ok: true, alias: null };
+    if (cleaned.length < ALIAS_MIN || cleaned.length > ALIAS_MAX) {
+      return { ok: false, error: 'alias_length' };
+    }
+    if (!ALIAS_RE.test(cleaned)) return { ok: false, error: 'alias_format' };
+    if (ALIAS_RESERVED[cleaned.toLowerCase()]) return { ok: false, error: 'alias_reserved' };
+    return { ok: true, alias: cleaned };
+  }
+
+  function aliasErrorMessage(code) {
+    if (code === 'alias_taken') return 'Ese alias ya está en uso. Elige otro.';
+    if (code === 'alias_length') return 'El alias debe tener entre 3 y 20 caracteres.';
+    if (code === 'alias_format') {
+      return 'Usa letras, números, _ o - (sin espacios; debe empezar y terminar en letra o número).';
+    }
+    if (code === 'alias_reserved') return 'Ese alias está reservado. Elige otro.';
+    if (code === 'not_authenticated') return 'Inicia sesión para guardar el alias.';
+    return 'No se pudo guardar el alias.';
+  }
+
+  function applyTournamentAlias(user, alias) {
+    if (!user) return user;
+    var cleaned = alias == null || alias === '' ? null : String(alias).trim() || null;
+    user.tournamentAlias = cleaned;
+    user.displayName = cleaned || null;
+    return user;
+  }
+
+  function getTournamentAlias(user) {
+    var u = user || (global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null)
+      || global.PT_AUTH_USER || null;
+    if (!u) return '';
+    var a = u.tournamentAlias != null ? u.tournamentAlias : u.tournament_alias;
+    return a ? String(a).trim() : '';
+  }
+
+  /** Nombre a mostrar en mesa / clasificación: alias o nombre de cuenta. */
+  function getTournamentDisplayName(opts) {
+    opts = opts || {};
+    var u = opts.user || (global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null)
+      || global.PT_AUTH_USER || null;
+    var alias = getTournamentAlias(u);
+    if (alias) return alias.slice(0, ALIAS_MAX);
+    if (u && u.name) {
+      var full = String(u.name).trim();
+      if (!full) return opts.fallback || 'Jugador';
+      if (opts.firstTokenOnly) {
+        var tok = full.split(/\s+/)[0];
+        return tok || full;
+      }
+      return full.slice(0, 40);
+    }
+    if (u && u.email) return String(u.email).slice(0, 40);
+    return opts.fallback || 'Jugador';
+  }
+
   function applyProfileToUser(user, profile) {
     if (!user || !profile) return user;
     user.isAdmin = !!profile.is_admin || isBootstrapAdmin(user.email);
@@ -32275,7 +32338,66 @@ window.PT_NASH_PUSH_JSON = {
     user.aiDailyLimit = profile.ai_limit || profile.ai_daily_limit || null;
     user.subscriptionStatus = profile.subscription_status;
     user.paidActive = profile.plan === 'pro' || profile.plan === 'premium';
+    if (Object.prototype.hasOwnProperty.call(profile, 'tournament_alias') ||
+        Object.prototype.hasOwnProperty.call(profile, 'tournamentAlias')) {
+      applyTournamentAlias(user, profile.tournament_alias != null
+        ? profile.tournament_alias
+        : profile.tournamentAlias);
+    }
     return user;
+  }
+
+  async function setTournamentAlias(rawAlias) {
+    var local = normalizeAliasLocal(rawAlias);
+    if (!local.ok) {
+      return { ok: false, error: local.error, message: aliasErrorMessage(local.error) };
+    }
+    if (!useAuth()) {
+      return { ok: false, error: 'not_authenticated', message: aliasErrorMessage('not_authenticated') };
+    }
+    var c = client();
+    if (!c) {
+      return { ok: false, error: 'no_client', message: aliasErrorMessage('no_client') };
+    }
+    try {
+      var res = await c.rpc('pt_set_tournament_alias', { p_alias: local.alias || '' });
+      if (res.error) {
+        if (global.PTAuth && global.PTAuth.isAuthFailureError &&
+            global.PTAuth.isAuthFailureError(res.error) &&
+            global.PTAuth.handleAuthFailure) {
+          global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
+        }
+        return {
+          ok: false,
+          error: res.error.message || 'rpc_error',
+          message: aliasErrorMessage(res.error.message)
+        };
+      }
+      var data = res.data || {};
+      if (!data.ok) {
+        return {
+          ok: false,
+          error: data.error || 'alias_invalid',
+          message: aliasErrorMessage(data.error)
+        };
+      }
+      var user = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : global.PT_AUTH_USER;
+      applyTournamentAlias(user, data.alias);
+      try {
+        if (typeof global.dispatchEvent === 'function') {
+          global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
+            detail: { alias: data.alias || null }
+          }));
+        }
+      } catch (eEv) { /* */ }
+      return { ok: true, alias: data.alias || null };
+    } catch (e) {
+      return {
+        ok: false,
+        error: (e && e.message) || 'rpc_error',
+        message: aliasErrorMessage((e && e.message) || 'rpc_error')
+      };
+    }
   }
 
   async function touchProfile(user) {
@@ -32362,6 +32484,12 @@ window.PT_NASH_PUSH_JSON = {
     touchAndApply: touchAndApply,
     touchProfile: touchProfile,
     applyProfileToUser: applyProfileToUser,
+    applyTournamentAlias: applyTournamentAlias,
+    getTournamentAlias: getTournamentAlias,
+    getTournamentDisplayName: getTournamentDisplayName,
+    setTournamentAlias: setTournamentAlias,
+    normalizeAliasLocal: normalizeAliasLocal,
+    aliasErrorMessage: aliasErrorMessage,
     getMyAiUsageToday: getMyAiUsageToday,
     stopHeartbeat: stopHeartbeat,
     PLAN_LABELS: PLAN_LABELS
@@ -35634,6 +35762,42 @@ window.PT_NASH_PUSH_JSON = {
       '<ul class="community-settings-list">' + items + '</ul></section>';
   }
 
+  function bindAliasSettings(host) {
+    if (!host) return;
+    var input = host.querySelector('#settings-tournament-alias');
+    var btn = host.querySelector('#settings-save-alias');
+    var status = host.querySelector('#settings-alias-status');
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      if (!global.PTProfile || !global.PTProfile.setTournamentAlias) {
+        if (status) status.textContent = 'No disponible sin sesión.';
+        return;
+      }
+      btn.disabled = true;
+      if (status) status.textContent = 'Guardando…';
+      global.PTProfile.setTournamentAlias(input.value).then(function (res) {
+        btn.disabled = false;
+        if (!res || !res.ok) {
+          if (status) status.textContent = (res && res.message) || 'No se pudo guardar.';
+          return;
+        }
+        input.value = res.alias || '';
+        if (status) {
+          status.textContent = res.alias
+            ? 'Alias guardado: ' + res.alias
+            : 'Alias eliminado. Se usará tu nombre de cuenta.';
+        }
+        if (global.PTProfile.applyTournamentAlias) {
+          var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+          if (u) global.PTProfile.applyTournamentAlias(u, res.alias);
+        }
+      }).catch(function (e) {
+        btn.disabled = false;
+        if (status) status.textContent = (e && e.message) || 'No se pudo guardar.';
+      });
+    });
+  }
+
   function bindCommunitySettings(host) {
     if (!host || !global.PTCommunity) return;
     host.querySelectorAll('[data-switch-community]').forEach(function (btn) {
@@ -35742,6 +35906,9 @@ window.PT_NASH_PUSH_JSON = {
     var ent = (global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : null)
       || (data && data.entitlements)
       || {};
+    if (global.PTProfile && global.PTProfile.applyTournamentAlias) {
+      global.PTProfile.applyTournamentAlias(user, prof.tournament_alias);
+    }
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
@@ -35757,6 +35924,17 @@ window.PT_NASH_PUSH_JSON = {
       '<section class="account-settings-card card-box">' +
       '<h3>Perfil</h3>' +
       row('Nombre', escapeHtml(user.name || prof.name || '—')) +
+      '<div class="account-settings-alias">' +
+      '<label class="setup-label" for="settings-tournament-alias">Alias en torneos</label>' +
+      '<p class="muted-text">Se muestra en la clasificación y en la mesa en lugar de tu nombre real. Debe ser único.</p>' +
+      '<div class="account-settings-alias-row">' +
+      '<input type="text" id="settings-tournament-alias" class="setup-text-input" maxlength="20" ' +
+      'autocomplete="off" spellcheck="false" placeholder="Ej. RiverRat" value="' +
+      escapeHtml(user.tournamentAlias || prof.tournament_alias || '') + '" />' +
+      '<button type="button" class="btn btn-primary btn-sm" id="settings-save-alias">Guardar alias</button>' +
+      '</div>' +
+      '<p class="muted-text" id="settings-alias-status" role="status"></p>' +
+      '</div>' +
       row('Correo', escapeHtml(user.email || prof.email || '—')) +
       (user.emailVerified ? row('Verificado', 'Sí') : '') +
       (prof.is_admin ? row('Rol', '<span class="account-settings-admin">Administrador</span>') : '') +
@@ -35891,6 +36069,7 @@ window.PT_NASH_PUSH_JSON = {
       global.PTPush.bindSettings(host);
     }
     bindCommunitySettings(host);
+    bindAliasSettings(host);
     if (hideCommunityBilling) {
       host.querySelectorAll('.account-settings-card').forEach(function (card) {
         var h = card.querySelector('h3');

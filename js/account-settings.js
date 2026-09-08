@@ -69,6 +69,42 @@
       '<ul class="community-settings-list">' + items + '</ul></section>';
   }
 
+  function bindAliasSettings(host) {
+    if (!host) return;
+    var input = host.querySelector('#settings-tournament-alias');
+    var btn = host.querySelector('#settings-save-alias');
+    var status = host.querySelector('#settings-alias-status');
+    if (!btn || !input) return;
+    btn.addEventListener('click', function () {
+      if (!global.PTProfile || !global.PTProfile.setTournamentAlias) {
+        if (status) status.textContent = 'No disponible sin sesión.';
+        return;
+      }
+      btn.disabled = true;
+      if (status) status.textContent = 'Guardando…';
+      global.PTProfile.setTournamentAlias(input.value).then(function (res) {
+        btn.disabled = false;
+        if (!res || !res.ok) {
+          if (status) status.textContent = (res && res.message) || 'No se pudo guardar.';
+          return;
+        }
+        input.value = res.alias || '';
+        if (status) {
+          status.textContent = res.alias
+            ? 'Alias guardado: ' + res.alias
+            : 'Alias eliminado. Se usará tu nombre de cuenta.';
+        }
+        if (global.PTProfile.applyTournamentAlias) {
+          var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+          if (u) global.PTProfile.applyTournamentAlias(u, res.alias);
+        }
+      }).catch(function (e) {
+        btn.disabled = false;
+        if (status) status.textContent = (e && e.message) || 'No se pudo guardar.';
+      });
+    });
+  }
+
   function bindCommunitySettings(host) {
     if (!host || !global.PTCommunity) return;
     host.querySelectorAll('[data-switch-community]').forEach(function (btn) {
@@ -177,6 +213,9 @@
     var ent = (global.PTEntitlements && global.PTEntitlements.get ? global.PTEntitlements.get() : null)
       || (data && data.entitlements)
       || {};
+    if (global.PTProfile && global.PTProfile.applyTournamentAlias) {
+      global.PTProfile.applyTournamentAlias(user, prof.tournament_alias);
+    }
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
@@ -192,6 +231,17 @@
       '<section class="account-settings-card card-box">' +
       '<h3>Perfil</h3>' +
       row('Nombre', escapeHtml(user.name || prof.name || '—')) +
+      '<div class="account-settings-alias">' +
+      '<label class="setup-label" for="settings-tournament-alias">Alias en torneos</label>' +
+      '<p class="muted-text">Se muestra en la clasificación y en la mesa en lugar de tu nombre real. Debe ser único.</p>' +
+      '<div class="account-settings-alias-row">' +
+      '<input type="text" id="settings-tournament-alias" class="setup-text-input" maxlength="20" ' +
+      'autocomplete="off" spellcheck="false" placeholder="Ej. RiverRat" value="' +
+      escapeHtml(user.tournamentAlias || prof.tournament_alias || '') + '" />' +
+      '<button type="button" class="btn btn-primary btn-sm" id="settings-save-alias">Guardar alias</button>' +
+      '</div>' +
+      '<p class="muted-text" id="settings-alias-status" role="status"></p>' +
+      '</div>' +
       row('Correo', escapeHtml(user.email || prof.email || '—')) +
       (user.emailVerified ? row('Verificado', 'Sí') : '') +
       (prof.is_admin ? row('Rol', '<span class="account-settings-admin">Administrador</span>') : '') +
@@ -326,6 +376,7 @@
       global.PTPush.bindSettings(host);
     }
     bindCommunitySettings(host);
+    bindAliasSettings(host);
     if (hideCommunityBilling) {
       host.querySelectorAll('.account-settings-card').forEach(function (card) {
         var h = card.querySelector('h3');

@@ -75,11 +75,17 @@
       }
     } catch (e0) { /* */ }
     try {
-      var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
-      if (u) {
-        name = u.displayName || u.name || u.email || name;
-        if (u.id || u.sub) id = String(u.id || u.sub);
+      if (global.PTProfile && PTProfile.getTournamentDisplayName) {
+        name = PTProfile.getTournamentDisplayName({ fallback: 'Hero' });
+      } else {
+        var u = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+        if (u) {
+          name = u.displayName || u.name || u.email || name;
+          if (u.id || u.sub) id = String(u.id || u.sub);
+        }
       }
+      var u2 = global.PTAuth && PTAuth.getUser ? PTAuth.getUser() : (global.PT_AUTH_USER || null);
+      if (u2 && (u2.id || u2.sub)) id = String(u2.id || u2.sub);
     } catch (e1) { /* */ }
     return { id: id, name: String(name).slice(0, 40) };
   }
