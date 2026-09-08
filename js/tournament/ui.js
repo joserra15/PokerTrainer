@@ -538,6 +538,18 @@ function reducedMotion() {
     } catch (e) { /* ignore */ }
   }
 
+  function clearPopupTimers() {
+    if (!ui.popupClearTimers) return;
+    Object.keys(ui.popupClearTimers).forEach(function (k) {
+      try {
+        if (ui.popupClearTimers[k] && typeof clearTimeout === 'function') {
+          clearTimeout(ui.popupClearTimers[k]);
+        }
+      } catch (eT) { /* */ }
+      ui.popupClearTimers[k] = null;
+    });
+  }
+
   function resumeActive() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
@@ -549,14 +561,41 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
+    ui.heldFrames = null;
+    ui.heldFramesDone = null;
     stopAnim();
+    clearPopupTimers();
     /* Si la partida guardada acabó (apply al salir), mostrar resultado. */
     if (st.status === 'finished') {
       clearActive();
       setView(VIEW.result);
       return true;
     }
-    setView(VIEW.table);
+    /* Continuar no es un arranque: quitar cartel de inicio que bloquearía acciones. */
+    if (st.startBannerPending) st.startBannerPending = null;
+    /* Tras salir-guardar _liveHand es null; reparte o rehidrata stub roto. */
+    try {
+      var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.ensureLiveHand === 'function') {
+        Runner.ensureLiveHand(st);
+      } else if (Runner && typeof Runner.beginHand === 'function' && !st._liveHand) {
+        Runner.beginHand(st);
+      }
+    } catch (eResume) {
+      try { console.warn('[Tournaments] resume ensureLiveHand', eResume); } catch (e2) { /* */ }
+    }
+    persistActive();
+    var frames = takeFrames();
+    ui.view = VIEW.table;
+    if (frames) {
+      ui.heldFrames = frames;
+      ui.heldFramesDone = paint;
+      ensureBannerTimers();
+      paint();
+    } else {
+      ensureBannerTimers();
+      paint();
+    }
     return true;
   }
 
@@ -1960,14 +1999,122 @@ function reducedMotion() {
       '</div></div>';
   }
 
+  function loadSessionsForGeneralStats(historyList) {
+    var Store = global.Store;
+    if (!Store) return [];
+    var byId = {};
+    var hist = historyList || [];
+    hist.forEach(function (h) {
+      if (!h || !h.sessionId) return;
+      var sid = String(h.sessionId);
+      var full = null;
+      try {
+        full = Store.getSession ? Store.getSession(sid) : null;
+      } catch (eGet) { full = null; }
+      if (full) byId[sid] = full;
+    });
+    var all = [];
+    try {
+      all = Store.getSessions ? Store.getSessions() : [];
+    } catch (eList) { all = []; }
+    all.forEach(function (stub) {
+      if (!stub || !stub.id) return;
+      var sid = String(stub.id);
+      if (byId[sid]) return;
+      var isAi = stub.source === 'tournamentAi' || stub.tournamentAi ||
+        (stub.stats && stub.stats.source === 'tournamentAi');
+      if (!isAi) return;
+      var full = stub;
+      try {
+        if (Store.getSession) full = Store.getSession(sid) || stub;
+      } catch (eFull) { full = stub; }
+      byId[sid] = full;
+    });
+    return Object.keys(byId).map(function (k) { return byId[k]; });
+  }
+
+  function fmtHudPct(v) {
+    if (v == null || !isFinite(Number(v))) return '—';
+    return String(Number(v)) + '%';
+  }
+
+  function fmtHudNum(v) {
+    if (v == null || !isFinite(Number(v))) return '—';
+    return String(Number(v));
+  }
+
+  function fmtBbVal(v) {
+    if (v == null || !isFinite(Number(v))) return '—';
+    var n = Math.round(Number(v) * 100) / 100;
+    return String(n);
+  }
+
+  function renderGstatStreetBars(accByStreet) {
+    var labels = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River' };
+    return ['preflop', 'flop', 'turn', 'river'].map(function (st) {
+      var pct = accByStreet ? accByStreet[st] : null;
+      if (pct == null) {
+        return '<div class="street-acc-row"><span class="lbl">' + labels[st] +
+          '</span><span class="muted">sin decisiones</span></div>';
+      }
+      var color = pct >= 75 ? 'var(--green)' : (pct >= 55 ? 'var(--yellow)' : 'var(--red)');
+      return '<div class="street-acc-row"><span class="lbl">' + labels[st] + '</span>' +
+        '<span class="track"><span class="fill" style="width:' + pct + '%;background:' + color +
+        '"></span></span><span class="pct">' + pct + '%</span></div>';
+    }).join('');
+  }
+
+  function renderGstatDecisionDist(dist, total) {
+    total = total || 0;
+    function pct(n) { return total ? Math.round((n / total) * 100) : 0; }
+    var o = dist || {};
+    return '<div class="stats-distribution trn-gstat-dist">' +
+      '<div class="dist-bar">' +
+      '<span style="width:' + pct(o.optima || 0) + '%;background:var(--green)">' + pct(o.optima || 0) + '%</span>' +
+      '<span style="width:' + pct(o.aceptable || 0) + '%;background:var(--yellow)">' + pct(o.aceptable || 0) + '%</span>' +
+      '<span style="width:' + pct(o.imprecisa || 0) + '%;background:var(--orange)">' + pct(o.imprecisa || 0) + '%</span>' +
+      '<span style="width:' + pct(o.error || 0) + '%;background:var(--red)">' + pct(o.error || 0) + '%</span>' +
+      '</div>' +
+      '<div class="stats-distribution-legend">' +
+      '<span style="color:var(--green)">■ Óptima ' + (o.optima || 0) + '</span>' +
+      '<span style="color:var(--yellow)">■ Aceptable ' + (o.aceptable || 0) + '</span>' +
+      '<span style="color:var(--orange)">■ Imprecisa ' + (o.imprecisa || 0) + '</span>' +
+      '<span style="color:var(--red)">■ Error ' + (o.error || 0) + '</span>' +
+      '</div></div>';
+  }
+
+  function renderGstatLeaks(leaks) {
+    if (!leaks || !leaks.length) {
+      return '<p class="muted trn-gstat-empty">Sin fugas destacables en las sesiones de torneo.</p>';
+    }
+    return '<div class="trn-gstat-leaks">' + leaks.map(function (l, i) {
+      var action = l.sessionId
+        ? ('<button type="button" class="btn btn-sm" data-act="open-session" data-session-id="' +
+          esc(l.sessionId) + '">Ir a la sesión</button>')
+        : '';
+      return '<div class="trn-gstat-leak-row">' +
+        '<div class="trn-gstat-leak-rank">#' + (i + 1) + '</div>' +
+        '<div class="trn-gstat-leak-main">' +
+        '<div class="trn-gstat-leak-title">' + esc(l.label || l.key) + '</div>' +
+        '<div class="muted">' + (l.count || 0) + ' error' + ((l.count === 1) ? '' : 'es') + '</div>' +
+        '</div>' +
+        (action ? ('<div class="trn-gstat-leak-actions">' + action + '</div>') : '') +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
   function renderGeneralStats() {
     var list = global.PTTournamentStore.list() || [];
     var Stats = global.PTTournamentStats;
-    var agg = Stats && Stats.aggregateFromHistory
-      ? Stats.aggregateFromHistory(list)
-      : { n: 0 };
-    function cell(val, lbl) {
-      return '<div class="trn-gstat-cell"><div class="trn-gstat-val">' + esc(String(val)) +
+    var sessions = loadSessionsForGeneralStats(list);
+    var agg = Stats && Stats.aggregateWithSessionStats
+      ? Stats.aggregateWithSessionStats(list, sessions)
+      : (Stats && Stats.aggregateFromHistory
+        ? Object.assign(Stats.aggregateFromHistory(list), { hasHandStats: false })
+        : { n: 0, hasHandStats: false });
+    function cell(val, lbl, extraCls) {
+      return '<div class="trn-gstat-cell"><div class="trn-gstat-val' +
+        (extraCls ? (' ' + extraCls) : '') + '">' + esc(String(val)) +
         '</div><div class="trn-gstat-lbl">' + esc(lbl) + '</div></div>';
     }
     var profitCls = (Number(agg.totalProfit) || 0) >= 0 ? 'net-pos' : 'net-neg';
@@ -1975,9 +2122,60 @@ function reducedMotion() {
     var kindBits = Object.keys(agg.byKind || {}).map(function (k) {
       return esc(k.toUpperCase()) + ' ' + agg.byKind[k];
     }).join(' · ') || '—';
+    var hs = agg.handStats || {};
+    var derived = agg.derived || {};
+    var dist = derived.dist || {};
+    var distTotal = (dist.optima || 0) + (dist.aceptable || 0) + (dist.imprecisa || 0) + (dist.error || 0);
+    var netCls = (Number(hs.netBB) || 0) >= 0 ? 'net-pos' : 'net-neg';
+    var netStr = hs.netBB != null
+      ? (((Number(hs.netBB) || 0) >= 0 ? '+' : '') + fmtBbVal(hs.netBB) + ' bb')
+      : '—';
+    var gtoHtml;
+    if (agg.hasHandStats) {
+      gtoHtml =
+        '<section class="trn-gstat-section">' +
+        '<h3>Resumen GTO</h3>' +
+        '<p class="muted">Criterios alineados con Estadísticas → Sesiones (torneos IA).</p>' +
+        '<div class="trn-gstat-grid trn-gstat-grid-gto">' +
+        cell(hs.accuracy != null ? (hs.accuracy + '%') : '—', 'Acierto') +
+        cell(String(hs.sessions || 0), 'Sesiones') +
+        cell(String(hs.hands || 0), 'Manos') +
+        cell(fmtHudNum(hs.bbPer100), 'bb/100') +
+        '</div></section>' +
+        '<section class="trn-gstat-section">' +
+        '<h3>Acierto por calle</h3>' +
+        '<div class="street-acc trn-gstat-streets">' + renderGstatStreetBars(derived.accByStreet) + '</div>' +
+        renderGstatDecisionDist(dist, distTotal) +
+        '</section>' +
+        '<section class="trn-gstat-section">' +
+        '<h3>HUD</h3>' +
+        '<div class="trn-gstat-grid trn-gstat-grid-hud">' +
+        cell(fmtHudPct(hs.vpipPct), 'VPIP') +
+        cell(fmtHudPct(hs.pfrPct), 'PFR') +
+        cell(fmtHudPct(hs.threeBetPct), '3-Bet') +
+        cell(fmtHudPct(hs.cbetFlopPct), 'C-Bet flop') +
+        cell(fmtHudPct(hs.wtsdPct), 'WTSD') +
+        cell(netStr, 'Resultado real', netCls) +
+        cell(hs.evLoss != null ? ('-' + fmtBbVal(hs.evLoss) + ' bb') : '—', 'EV perdido', 'net-neg') +
+        '</div></section>' +
+        '<section class="trn-gstat-section">' +
+        '<h3>Top 5 fugas</h3>' +
+        '<p class="muted">Spots con más errores en torneos IA. Abre la sesión para revisar.</p>' +
+        renderGstatLeaks(agg.leaks) +
+        '</section>';
+    } else {
+      gtoHtml =
+        '<section class="trn-gstat-section">' +
+        '<h3>Estadísticas de manos</h3>' +
+        '<p class="muted">Aún no hay sesiones GTO vinculadas a estos torneos. ' +
+        'Juega un torneo IA hasta el final para ver acierto, HUD y fugas aquí.</p>' +
+        '</section>';
+    }
     return '<div class="trn-general-stats panel">' +
       '<h2>Estadísticas generales de torneos</h2>' +
       '<p class="muted">Resumen de todos los torneos IA guardados en el histórico.</p>' +
+      '<section class="trn-gstat-section">' +
+      '<h3>Resultados de torneo</h3>' +
       '<div class="trn-gstat-grid">' +
       cell(agg.n || 0, 'Torneos') +
       cell((agg.winPct != null ? agg.winPct : 0) + '%', 'Victorias') +
@@ -1990,6 +2188,8 @@ function reducedMotion() {
       cell(fmtKoins(agg.totalBuyIn || 0), 'Buy-ins') +
       '</div>' +
       '<p class="trn-gstat-kinds muted">Por tipo: ' + kindBits + '</p>' +
+      '</section>' +
+      gtoHtml +
       '<div class="trn-setup-actions">' +
       '<button type="button" class="btn" data-act="hub">Volver</button>' +
       '<button type="button" class="btn" data-act="history">Histórico</button>' +
@@ -2172,6 +2372,7 @@ function reducedMotion() {
           commitProgressBeforeExit();
           persistActive();
           flushTournamentCloud();
+          clearPopupTimers();
           ui.state = null;
           ui.exitPrompt = false;
           setView(VIEW.hub);

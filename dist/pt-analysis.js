@@ -1220,8 +1220,8 @@
     (base.villains || []).forEach(function (v) {
       if (v && v.pos === villainPos && v.cards && v.cards.length === 2) target = v;
     });
-    if (!target) return { ok: false, error: 'no_cards' };
-    if (villainPos === base.heroPos) return { ok: false, error: 'same_seat' };
+    if (!target) return Promise.resolve({ ok: false, error: 'no_cards' });
+    if (villainPos === base.heroPos) return Promise.resolve({ ok: false, error: 'same_seat' });
 
     var oldHeroPos = base.heroPos;
     var oldHeroCards = (base.heroCards || []).slice(0, 2);
@@ -1252,25 +1252,43 @@
     };
 
     var errs = validateSpec(newSpec);
-    if (errs.length) return { ok: false, error: 'invalid', details: errs };
+    if (errs.length) return Promise.resolve({ ok: false, error: 'invalid', details: errs });
 
     var check = canSave();
-    if (!check.ok) return { ok: false, error: 'analysis_limit', limit: check.limit };
+    if (!check.ok) return Promise.resolve({ ok: false, error: 'analysis_limit', limit: check.limit });
 
     var analyzed;
     try {
       analyzed = buildAnalyzedHand(newSpec, 'manual-swap');
     } catch (e) {
-      return { ok: false, error: 'analyze', message: (e && e.message) || String(e) };
+      return Promise.resolve({ ok: false, error: 'analyze', message: (e && e.message) || String(e) });
     }
-    var res = saveHand(analyzed);
-    if (!res.ok) return res;
-    return { ok: true, hand: res.hand || analyzed };
+    return saveHand(analyzed).then(function (res) {
+      if (!res.ok) return res;
+      return { ok: true, hand: res.hand || analyzed };
+    });
   }
 
   // ---------- persistencia / límites ----------
   function getHands() {
     return (global.Store && global.Store.getAnalysisHands) ? global.Store.getAnalysisHands() : [];
+  }
+  function resolveHand(id) {
+    if (global.Store && global.Store.getAnalysisHandAsync) {
+      return global.Store.getAnalysisHandAsync(id);
+    }
+    return Promise.resolve(
+      (global.Store && global.Store.getAnalysisHand) ? global.Store.getAnalysisHand(id) : null
+    );
+  }
+  function formatSaveError(res) {
+    if (!res) return 'error desconocido';
+    if (res.error === 'analysis_limit') return 'límite del plan alcanzado.';
+    if (res.message) return res.message;
+    if (res.error === 'storage_full') {
+      return 'sin espacio local. Se intentó liberar memoria moviendo datos antiguos a la nube.';
+    }
+    return res.error || '';
   }
   function handsMax() {
     if (global.PTEntitlements && global.PTEntitlements.analysisHandsMax) {
@@ -1289,19 +1307,19 @@
   function saveHand(analyzed) {
     var check = canSave();
     if (!check.ok) {
-      return { ok: false, error: 'analysis_limit', limit: check.limit };
+      return Promise.resolve({ ok: false, error: 'analysis_limit', limit: check.limit });
     }
     if (global.Store && global.Store.saveAnalysisHand) {
-      return global.Store.saveAnalysisHand(analyzed);
+      return Promise.resolve(global.Store.saveAnalysisHand(analyzed));
     }
-    return { ok: false, error: 'no_store' };
+    return Promise.resolve({ ok: false, error: 'no_store' });
   }
 
   function updateHand(analyzed) {
     if (global.Store && global.Store.updateAnalysisHand) {
-      return global.Store.updateAnalysisHand(analyzed);
+      return Promise.resolve(global.Store.updateAnalysisHand(analyzed));
     }
-    return { ok: false, error: 'no_store' };
+    return Promise.resolve({ ok: false, error: 'no_store' });
   }
 
   // ---------- draft / asientos / acciones ----------
@@ -1659,8 +1677,10 @@
     });
     root.querySelectorAll('[data-ha-review]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        var h = global.Store.getAnalysisHand(btn.dataset.haReview);
-        if (h && global.openAnalysisHandReview) global.openAnalysisHandReview(h, 'review');
+        resolveHand(btn.dataset.haReview).then(function (h) {
+          if (h && global.openAnalysisHandReview) global.openAnalysisHandReview(h, 'review');
+          else if (!h) showErrors(['No se pudo cargar la mano (¿sin conexión con la nube?).']);
+        });
       });
     });
     root.querySelectorAll('[data-ha-edit]').forEach(function (btn) {
@@ -1669,8 +1689,9 @@
     root.querySelectorAll('[data-ha-del]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         if (!confirm('¿Borrar esta mano guardada?')) return;
-        global.Store.removeAnalysisHand(btn.dataset.haDel);
-        render();
+        Promise.resolve(global.Store.removeAnalysisHand(btn.dataset.haDel)).then(function () {
+          render();
+        });
       });
     });
     root.querySelectorAll('[data-ha-play]').forEach(function (btn) {
@@ -1689,39 +1710,44 @@
       panel.innerHTML = '';
       return;
     }
-    var hand = global.Store.getAnalysisHand(id);
-    var CQ = global.PTSchoolCoachQuiz;
-    if (!hand || !CQ || !CQ.renderPanelHtml) return;
-    panel.innerHTML = CQ.renderPanelHtml(hand);
-    panel.classList.remove('hidden');
-    CQ.mountPanel(panel, hand, function () {
-      panel.classList.add('hidden');
+    resolveHand(id).then(function (hand) {
+      var CQ = global.PTSchoolCoachQuiz;
+      if (!hand || !CQ || !CQ.renderPanelHtml) return;
+      panel.innerHTML = CQ.renderPanelHtml(hand);
+      panel.classList.remove('hidden');
+      CQ.mountPanel(panel, hand, function () {
+        panel.classList.add('hidden');
+      });
     });
   }
 
   function startEditHand(id) {
-    var h = global.Store.getAnalysisHand(id);
-    if (!h) return;
-    // ensureHandSpec completa villanos desde acciones (manos IA a menudo
-    // guardan acciones de todos los asientos pero villains vacío).
-    var spec = ensureHandSpec(h);
-    if (!spec.villains || !spec.villains.length) spec.villains = [{ pos: '', cards: [] }];
-    S.editId = h.id;
-    S.editMeta = {
-      createdAt: h.createdAt,
-      savedName: h.savedName,
-      coachThread: h.coachThread,
-      aiAnalysis: h.aiAnalysis,
-      source: h.source
-    };
-    S.picker = null;
-    closeCardPickerModal();
-    S.format = spec.format === '9max' ? '9max' : '6max';
-    S.draft = draftFromSpec(spec);
-    ensureUniqueSeats(S.draft);
-    syncActionsFromSeats(S.draft);
-    S.view = 'manual';
-    render();
+    resolveHand(id).then(function (h) {
+      if (!h) {
+        showErrors(['No se pudo cargar la mano para editar.']);
+        return;
+      }
+      // ensureHandSpec completa villanos desde acciones (manos IA a menudo
+      // guardan acciones de todos los asientos pero villains vacío).
+      var spec = ensureHandSpec(h);
+      if (!spec.villains || !spec.villains.length) spec.villains = [{ pos: '', cards: [] }];
+      S.editId = h.id;
+      S.editMeta = {
+        createdAt: h.createdAt,
+        savedName: h.savedName,
+        coachThread: h.coachThread,
+        aiAnalysis: h.aiAnalysis,
+        source: h.source
+      };
+      S.picker = null;
+      closeCardPickerModal();
+      S.format = spec.format === '9max' ? '9max' : '6max';
+      S.draft = draftFromSpec(spec);
+      ensureUniqueSeats(S.draft);
+      syncActionsFromSeats(S.draft);
+      S.view = 'manual';
+      render();
+    });
   }
 
   function ensureUniqueSeats(draft) {
@@ -1773,10 +1799,14 @@
     if (go) go.addEventListener('click', function () {
       var vl = (panel.querySelector('[data-ha-villain] .ha-chip.active') || {}).dataset;
       var th = (panel.querySelector('[data-ha-theme] .ha-chip.active') || {}).dataset;
-      var hand = global.Store.getAnalysisHand(id);
-      if (!hand) return;
-      var cfg = toTrainerConfig(hand, vl ? vl.val : 'pro', th ? th.val : 'emerald');
-      if (global.playAnalysisHand) global.playAnalysisHand(cfg.force, cfg.playConfig);
+      resolveHand(id).then(function (hand) {
+        if (!hand) {
+          showErrors(['No se pudo cargar la mano (¿sin conexión con la nube?).']);
+          return;
+        }
+        var cfg = toTrainerConfig(hand, vl ? vl.val : 'pro', th ? th.val : 'emerald');
+        if (global.playAnalysisHand) global.playAnalysisHand(cfg.force, cfg.playConfig);
+      });
     });
   }
 
@@ -2667,19 +2697,23 @@
         if (S.editMeta.createdAt) analyzed.createdAt = S.editMeta.createdAt;
       }
 
-      var res = editing ? updateHand(analyzed) : saveHand(analyzed);
-      if (!res.ok) {
-        showErrors(['No se pudo guardar: ' + (res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || ''))]);
-        return;
-      }
-      closeCardPickerModal();
-      S.view = 'list';
-      S.draft = null;
-      S.editId = null;
-      S.editMeta = null;
-      S.picker = null;
-      render();
-      if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+      return Promise.resolve(editing ? updateHand(analyzed) : saveHand(analyzed)).then(function (res) {
+        if (!res.ok) {
+          showErrors(['No se pudo guardar: ' + formatSaveError(res)]);
+          return;
+        }
+        closeCardPickerModal();
+        S.view = 'list';
+        S.draft = null;
+        S.editId = null;
+        S.editMeta = null;
+        S.picker = null;
+        render();
+        if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+        if (global.Store && global.Store.maybeProactiveMemoryOptimize) {
+          global.Store.maybeProactiveMemoryOptimize();
+        }
+      });
     }).catch(function (e) {
       showErrors(['No se pudo analizar la mano: ' + ((e && e.message) || e)]);
     });
@@ -2941,12 +2975,18 @@
     btn.disabled = true;
 
     function finishSaved(analyzed) {
-      var res = saveHand(analyzed);
-      if (!res.ok) throw new Error(res.error === 'analysis_limit' ? 'límite del plan alcanzado.' : (res.error || 'no se pudo guardar.'));
-      btn.disabled = false;
-      S.view = 'list';
-      render();
-      if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+      return Promise.resolve(saveHand(analyzed)).then(function (res) {
+        if (!res.ok) {
+          throw new Error(formatSaveError(res) || 'no se pudo guardar.');
+        }
+        btn.disabled = false;
+        S.view = 'list';
+        render();
+        if (global.openAnalysisHandReview) global.openAnalysisHandReview(res.hand || analyzed, 'review');
+        if (global.Store && global.Store.maybeProactiveMemoryOptimize) {
+          global.Store.maybeProactiveMemoryOptimize();
+        }
+      });
     }
 
     status.innerHTML = '<div class="ha-loading">Analizando…</div>';
@@ -2954,8 +2994,7 @@
       var local = tryImportHandHistory(text);
       if (local) {
         status.innerHTML = '<div class="ha-loading">Historial detectado · guardando…</div>';
-        finishSaved(local);
-        return null;
+        return finishSaved(local).then(function () { return null; });
       }
       if (!global.PTAIReport || !global.PTAIReport.parseHand) {
         throw new Error('No es un historial reconocido y el ForgeCoach no está disponible.');

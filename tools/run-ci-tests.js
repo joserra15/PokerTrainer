@@ -70,9 +70,12 @@ const STEPS = [
   ['Test history replay cards', ['node', 'tools/test-history-replay-cards.js']],
   // Fase 1 — nuevos
   ['Test entitlements / cuotas', ['node', 'tools/test-entitlements.js']],
+  ['Test instant next hand', ['node', 'tools/test-instant-next-hand.js']],
   // Fase 2
   ['Test cloud merge', ['node', 'tools/test-cloud-merge.js']],
   ['Test cloud sessions slim', ['node', 'tools/test-cloud-sessions.js']],
+  ['Test cloud analysis slim', ['node', 'tools/test-cloud-analysis.js']],
+  ['Test memory optimize reclaim', ['node', 'tools/test-memory-optimize.js']],
   ['Test RLS policies (SQL)', ['node', 'tools/test-rls-policies.js']],
   ['Test auth contract', ['node', 'tools/test-auth-contract.js']],
   ['Test auth bootstrap login UI', ['node', 'tools/test-auth-bootstrap-login-ui.js']],

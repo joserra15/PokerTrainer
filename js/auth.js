@@ -370,6 +370,9 @@
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) {
       global.PTCloudSessions.setUser(user);
     }
+    if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) {
+      global.PTCloudAnalysis.setUser(user);
+    }
     var cloudLoginSync = false;
     if (global.PTCloud && global.PTCloud.setUser) {
       global.PTCloud.setUser(user);
@@ -519,6 +522,7 @@
     currentUser = null;
     global.PT_AUTH_USER = null;
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
+    if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     appStarted = false;
     var done = function () {
@@ -595,6 +599,7 @@
     global.PT_AUTH_USER = null;
     appStarted = false;
     if (global.PTCloudSessions && global.PTCloudSessions.setUser) global.PTCloudSessions.setUser(null);
+    if (global.PTCloudAnalysis && global.PTCloudAnalysis.setUser) global.PTCloudAnalysis.setUser(null);
     if (global.PTCloud && global.PTCloud.setUser) global.PTCloud.setUser(null);
     var finish = function () {
       if (global.PT_retryLogin) global.PT_retryLogin();

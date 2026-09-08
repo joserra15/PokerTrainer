@@ -43,6 +43,8 @@
   var loading = null;
   var refreshTimer = null;
   var REFRESH_DEBOUNCE_MS = 8000;
+  /** Motivo de bloqueo diferido tras fallo de RPC optimista (p.ej. trainer_limit). */
+  var trainerQuotaBlockedReason = null;
 
   function scheduleRefresh() {
     if (refreshTimer) clearTimeout(refreshTimer);
@@ -170,6 +172,8 @@
         state = localFallback();
       } else {
         state = normalizeEnt(res.data);
+        /* Tras refresh el usage del servidor manda; limpia bloqueo diferido. */
+        trainerQuotaBlockedReason = null;
       }
     } catch (e) {
       console.warn('[PTEntitlements]', e);
@@ -386,6 +390,7 @@
       if (left <= 0) return { ok: false, reason: 'guest_gate', used: 5, limit: 5 };
       return { ok: true, used: 0, limit: 5 };
     }
+    var usingLiveState = (ent == null) || (state != null && ent === state);
     ent = ent || state || localFallback();
     if (unlimited(ent)) return { ok: true };
     var lim = ent.limits || {};
@@ -393,7 +398,72 @@
     if (max == null) return { ok: true };
     var used = (ent.usage && ent.usage.trainer_hands_today) || 0;
     if (used >= max) return { ok: false, reason: 'trainer_limit', used: used, limit: max };
+    if (usingLiveState && trainerQuotaBlockedReason) {
+      return { ok: false, reason: trainerQuotaBlockedReason, used: used, limit: max };
+    }
     return { ok: true, used: used, limit: max };
+  }
+
+  function bumpLocalTrainerUsage(delta) {
+    if (!state) state = localFallback();
+    if (!state.usage) state.usage = { trainer_hands_today: 0, import_sessions_month: 0, ai_reports_month: 0 };
+    state.usage.trainer_hands_today = Math.max(0, (Number(state.usage.trainer_hands_today) || 0) + delta);
+  }
+
+  function awardTrainerKoins() {
+    try {
+      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
+        return PTTournamentWallet.noteTrainerHand();
+      }
+    } catch (eTH) { /* ignore */ }
+    return null;
+  }
+
+  /**
+   * Consumo optimista de cupo: incrementa usage local al instante y dispara el RPC
+   * en background. Si el RPC falla, revierte el contador y bloquea la siguiente mano.
+   * No espera red — el camino crítico del deal no debe bloquearse.
+   */
+  function recordTrainerHandAsync() {
+    /* Invitados no ganan Koins ni consumen cupo autenticado. */
+    if (isGuestUser()) return { ok: true };
+    if (trainerQuotaBlockedReason) {
+      return { ok: false, error: trainerQuotaBlockedReason };
+    }
+    if (!useAuth() || e2eBypass()) {
+      awardTrainerKoins();
+      return { ok: true };
+    }
+    var c = client();
+    if (!c) {
+      awardTrainerKoins();
+      return { ok: true };
+    }
+
+    bumpLocalTrainerUsage(1);
+    awardTrainerKoins();
+
+    var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
+    Promise.resolve(c.rpc(rpc)).then(function (res) {
+      if (res && res.error) {
+        bumpLocalTrainerUsage(-1);
+        trainerQuotaBlockedReason = res.error.message || 'trainer_limit';
+        return;
+      }
+      var data = res && res.data;
+      if (data && data.ok === false) {
+        bumpLocalTrainerUsage(-1);
+        trainerQuotaBlockedReason = data.error || data.reason || 'trainer_limit';
+        return;
+      }
+      /* Usage ya incrementado en local; no volver a sumar. */
+      try { scheduleRefresh(); } catch (eRefresh) { /* ignore */ }
+    }).catch(function (e) {
+      bumpLocalTrainerUsage(-1);
+      trainerQuotaBlockedReason = (e && e.message) || 'trainer_limit';
+    });
+
+    return { ok: true };
   }
 
   function canImportSession(handCount, ent) {
@@ -413,37 +483,9 @@
     return { ok: true, used: used, limit: maxImports };
   }
 
-  function awardTrainerKoins() {
-    try {
-      if (global.PTTournamentWallet && PTTournamentWallet.noteTrainerHand) {
-        return PTTournamentWallet.noteTrainerHand();
-      }
-    } catch (eTH) { /* ignore */ }
-    return null;
-  }
-
+  /** Alias no bloqueante (compat). Preferir recordTrainerHandAsync. */
   async function recordTrainerHand() {
-    /* Invitados no ganan Koins. */
-    if (isGuestUser()) return { ok: true };
-    if (!useAuth() || e2eBypass()) {
-      awardTrainerKoins();
-      return { ok: true };
-    }
-    var c = client();
-    if (!c) {
-      awardTrainerKoins();
-      return { ok: true };
-    }
-    var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
-    var res = await c.rpc(rpc);
-    if (res.error) return { ok: false, error: res.error.message };
-    if (state && state.usage) {
-      state.usage.trainer_hands_today = (Number(state.usage.trainer_hands_today) || 0) + 1;
-    }
-    /* No refrescar entitlements en cada mano (bloqueaba Escuela en móvil); debounce. */
-    scheduleRefresh();
-    awardTrainerKoins();
-    return res.data || { ok: true };
+    return recordTrainerHandAsync();
   }
 
   async function recordImportSession(handCount) {
@@ -492,6 +534,7 @@
     PLAN_LABELS: PLAN_LABELS,
     refresh: refresh,
     ensureLoaded: ensureLoaded,
+    isLoaded: function () { return state != null; },
     get: function () { return state || localFallback(); },
     canUseAI: canUseAI,
     aiCombinedQuota: aiCombinedQuota,
@@ -501,6 +544,9 @@
     analysisHandsMax: analysisHandsMax,
     canSaveAnalysisHand: canSaveAnalysisHand,
     recordTrainerHand: recordTrainerHand,
+    recordTrainerHandAsync: recordTrainerHandAsync,
+    trainerQuotaBlocked: function () { return trainerQuotaBlockedReason; },
+    clearTrainerQuotaBlock: function () { trainerQuotaBlockedReason = null; },
     recordImportSession: recordImportSession,
     historyCutoffDate: historyCutoffDate,
     unlimited: unlimited,

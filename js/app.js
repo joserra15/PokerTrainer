@@ -213,6 +213,12 @@
   }
 
   let startingHand = false;
+  /** Buffer de la siguiente mano generada en idle (no sustituye `hand` hasta aceptar). */
+  let prefetchedHand = null;
+  let prefetchedCfgKey = null;
+  let prefetchGen = 0;
+  /** Snap de la última mano terminada para «Repetir» si `hand` se pierde. */
+  let lastFinishedReplayRec = null;
 
   function setPlayTableLoading(visible) {
     const wrap = document.querySelector('#play-active .table-wrap');
@@ -2756,6 +2762,8 @@
 
   function resetPlaySession(showSetup) {
     closeModal();
+    invalidatePrefetch();
+    lastFinishedReplayRec = null;
     session = {
       hands: 0, net: 0, evLossBB: 0, decisions: 0, good: 0,
       handScoreSum: 0,
@@ -2773,6 +2781,141 @@
     }
   }
 
+  function playConfigPrefetchKey(cfg) {
+    if (!cfg) return '';
+    return [
+      cfg.format || '',
+      cfg.handRange || '',
+      cfg.villainLevel || '',
+      cfg.practiceStreet || '',
+      cfg.practiceIntent || '',
+      cfg.actionMode || '',
+      cfg.tableSize || '',
+      cfg.stackBB || '',
+      cfg.schoolMode ? '1' : '0',
+      cfg.legendaryMode ? '1' : '0'
+    ].join('|');
+  }
+
+  function invalidatePrefetch() {
+    prefetchGen += 1;
+    prefetchedHand = null;
+    prefetchedCfgKey = null;
+  }
+
+  function canPrefetchNextHand() {
+    if (leakReplayQueue.length) return false;
+    if (repeatErrorsMode) return false;
+    if (window.PTGuest && PTGuest.isActive && PTGuest.isActive()) return false;
+    const cfg = playSessionConfig;
+    if (!cfg) return false;
+    if (cfg.schoolMode || cfg.school || cfg.legendaryMode) return false;
+    return true;
+  }
+
+  function buildReplayRecFromHand(h) {
+    if (!h) return null;
+    const snap = h.replaySnapshot || {
+      scenario: h.scenario,
+      seed: h.seed,
+      playConfig: h.playConfig,
+      displayHeroPos: h.displayHeroPos,
+      forceDeal: h.forceDeal || null,
+      forceScript: h.forceScript || null
+    };
+    return {
+      seed: h.seed,
+      scenarioRaw: h.scenario,
+      playConfig: h.playConfig,
+      displayHeroPos: h.displayHeroPos,
+      replaySnapshot: snap,
+      forceDeal: h.forceDeal || (snap && snap.forceDeal) || null,
+      forceScript: h.forceScript || (snap && snap.forceScript) || null,
+      heroCards: h.hero && h.hero.cards,
+      villainCards: h.villain && h.villain.cards,
+      board: (h._predeal && h._predeal.board) || h.board
+    };
+  }
+
+  function generateTrainerHand(force, cfg) {
+    const streetTarget = cfg && cfg.practiceStreet;
+    const intent = cfg && cfg.practiceIntent;
+    const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
+    const needsBluffFilter = intent && intent !== 'mixed' && !force;
+    let next = null;
+    if (needsStreetFastForward || needsBluffFilter) {
+      let tries = 0;
+      const maxTries = needsBluffFilter ? 18 : 12;
+      while (tries < maxTries) {
+        next = Engine.newHand(force || undefined, cfg);
+        if (needsStreetFastForward) Engine.fastForwardToStreet(next, streetTarget);
+        else if (needsBluffFilter && streetTarget === 'random' && Engine.fastForwardToStreet) {
+          const target = Math.random() < 0.55 ? 'river' : (Math.random() < 0.5 ? 'turn' : 'flop');
+          Engine.fastForwardToStreet(next, target);
+        }
+        const streetOk = !needsStreetFastForward
+          || (!next.result && next.current && next.stage === streetTarget);
+        const intentOk = !needsBluffFilter
+          || (Engine.currentMatchesPracticeIntent && Engine.currentMatchesPracticeIntent(next));
+        if (streetOk && intentOk && !next.result && next.current) break;
+        tries++;
+      }
+    } else {
+      next = Engine.newHand(force || undefined, cfg);
+    }
+    return next;
+  }
+
+  function schedulePrefetchNextHand() {
+    if (!canPrefetchNextHand()) {
+      invalidatePrefetch();
+      return;
+    }
+    const gen = ++prefetchGen;
+    prefetchedHand = null;
+    prefetchedCfgKey = null;
+    const cfgSnapshot = playSessionConfig;
+    const key = playConfigPrefetchKey(cfgSnapshot);
+    const run = function () {
+      if (gen !== prefetchGen) return;
+      if (!canPrefetchNextHand()) return;
+      if (playConfigPrefetchKey(playSessionConfig) !== key) return;
+      try {
+        let cfg = cfgSnapshot;
+        if (cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
+          cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
+            return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
+          });
+        }
+        const next = generateTrainerHand(null, cfg);
+        if (gen !== prefetchGen) return;
+        if (!next) return;
+        prefetchedHand = next;
+        prefetchedCfgKey = key;
+      } catch (e) {
+        console.warn('[Play] prefetch failed', e);
+      }
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 400 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function takePrefetchedHand() {
+    if (!prefetchedHand) return null;
+    if (playConfigPrefetchKey(playSessionConfig) !== prefetchedCfgKey) {
+      invalidatePrefetch();
+      return null;
+    }
+    const next = prefetchedHand;
+    prefetchedHand = null;
+    prefetchedCfgKey = null;
+    prefetchGen += 1;
+    return next;
+  }
+
   // ---------- Nueva mano ----------
   async function startNewHand() {
     if (startingHand) return;
@@ -2780,27 +2923,67 @@
     startingHand = true;
     closeModal();
     if (window.PTLiveAdvisor && PTLiveAdvisor.clearPendingAlert) PTLiveAdvisor.clearPendingAlert();
-    setPlayTableLoading(true);
     setPlayHandButtonsDisabled(true);
     $('#feedback').classList.add('hidden');
-    await yieldToPaint();
+
+    const guestOnEarly = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
+    const cfgEarlyPeek = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
+    const isLegendaryPeek = !!(cfgEarlyPeek && cfgEarlyPeek.legendaryMode);
+    const isSchoolPeek = !!(cfgEarlyPeek && (cfgEarlyPeek.schoolMode || cfgEarlyPeek.school));
+    const canUsePrefetch = !pendingForce && !guestOnEarly && !isLegendaryPeek && !isSchoolPeek
+      && !repeatErrorsMode && prefetchedHand
+      && playConfigPrefetchKey(playSessionConfig) === prefetchedCfgKey;
+    const EntPeek = window.PTEntitlements;
+    const entAlreadyLoaded = !!(EntPeek && EntPeek.isLoaded && EntPeek.isLoaded());
+    const needsColdEnt = !guestOnEarly && !isLegendaryPeek && !isSchoolPeek
+      && EntPeek && EntPeek.ensureLoaded && !entAlreadyLoaded;
+
+    let loadingTimer = null;
+    let loadingShown = false;
+    function showLoadingSoon() {
+      if (loadingShown) return;
+      if (needsColdEnt || !canUsePrefetch) {
+        loadingTimer = setTimeout(function () {
+          loadingShown = true;
+          setPlayTableLoading(true);
+        }, canUsePrefetch ? 0 : 50);
+      }
+    }
+    if (needsColdEnt) {
+      setPlayTableLoading(true);
+      loadingShown = true;
+      await yieldToPaint();
+    } else if (!canUsePrefetch) {
+      showLoadingSoon();
+    }
+
     try {
-      const guestOn = window.PTGuest && PTGuest.isActive && PTGuest.isActive();
-      const Ent = window.PTEntitlements;
-      const cfgEarly = pendingForce ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
-      const isLegendaryHand = !!(cfgEarly && cfgEarly.legendaryMode);
-      const isSchoolHand = !!(cfgEarly && (cfgEarly.schoolMode || cfgEarly.school));
+      const guestOn = guestOnEarly;
+      const Ent = EntPeek;
+      const cfgEarly = cfgEarlyPeek;
+      const isLegendaryHand = isLegendaryPeek;
+      const isSchoolHand = isSchoolPeek;
       /* Escuela y Legendary no consumen cupo diario del entrenador. */
       if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent && Ent.ensureLoaded) {
-        const ent = await Ent.ensureLoaded();
+        const ent = entAlreadyLoaded ? Ent.get() : await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
         if (!check.ok) {
+          invalidatePrefetch();
           if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
           return;
         }
-        if (Ent.recordTrainerHand) {
-          const rec = await Ent.recordTrainerHand();
-          if (rec && rec.ok === false) {
+        const recFn = Ent.recordTrainerHandAsync || Ent.recordTrainerHand;
+        if (recFn) {
+          const rec = recFn.call(Ent);
+          if (rec && typeof rec.then === 'function') {
+            /* Compat: si aún devolviera Promise, no bloquear el deal. */
+            rec.then(function (r) {
+              if (r && r.ok === false && window.PTBilling) {
+                window.PTBilling.showPaywall(r.error || 'trainer_limit');
+              }
+            }).catch(function () { /* ignore */ });
+          } else if (rec && rec.ok === false) {
+            invalidatePrefetch();
             if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
             return;
           }
@@ -2822,12 +3005,21 @@
 
       let force = pendingForce;
       let cfg = force ? (replayPlayConfig || playSessionConfig) : playSessionConfig;
-      if (!force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
+      let usedPrefetch = false;
+      if (!force && canUsePrefetch) {
+        const pref = takePrefetchedHand();
+        if (pref) {
+          hand = pref;
+          usedPrefetch = true;
+          cfg = (pref.playConfig) || cfg;
+        }
+      }
+      if (!usedPrefetch && !force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
         cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
           return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
         });
       }
-      if (!force && repeatErrorsMode) {
+      if (!usedPrefetch && !force && repeatErrorsMode) {
         let errs = Store.getErrors();
         const streetFilter = cfg && cfg.practiceStreet;
         if (streetFilter && streetFilter !== 'random') {
@@ -2839,30 +3031,9 @@
         }
       }
       replayPlayConfig = null;
-      const streetTarget = cfg && cfg.practiceStreet;
-      const intent = cfg && cfg.practiceIntent;
-      const needsStreetFastForward = streetTarget && streetTarget !== 'random' && streetTarget !== 'preflop' && Engine.fastForwardToStreet;
-      const needsBluffFilter = intent && intent !== 'mixed' && !force;
-      if (needsStreetFastForward || needsBluffFilter) {
-        let tries = 0;
-        const maxTries = needsBluffFilter ? 18 : 12;
-        while (tries < maxTries) {
-          hand = Engine.newHand(force || undefined, cfg);
-          if (needsStreetFastForward) Engine.fastForwardToStreet(hand, streetTarget);
-          else if (needsBluffFilter && streetTarget === 'random' && Engine.fastForwardToStreet) {
-            // Faroles: preferir postflop (river con más peso).
-            const target = Math.random() < 0.55 ? 'river' : (Math.random() < 0.5 ? 'turn' : 'flop');
-            Engine.fastForwardToStreet(hand, target);
-          }
-          const streetOk = !needsStreetFastForward
-            || (!hand.result && hand.current && hand.stage === streetTarget);
-          const intentOk = !needsBluffFilter
-            || (Engine.currentMatchesPracticeIntent && Engine.currentMatchesPracticeIntent(hand));
-          if (streetOk && intentOk && !hand.result && hand.current) break;
-          tries++;
-        }
-      } else {
-        hand = Engine.newHand(force || undefined, cfg);
+
+      if (!usedPrefetch) {
+        hand = generateTrainerHand(force, cfg);
       }
       pendingForce = null;
       if (window.PTLog && PTLog.event && hand) {
@@ -2874,6 +3045,7 @@
         });
       }
       $('#hand-log').innerHTML = '';
+      if (loadingTimer) clearTimeout(loadingTimer);
       setPlayTableLoading(false);
       const played = await playHandIntro(hand);
       if (!played) return;
@@ -2883,6 +3055,7 @@
       console.error('[Play] startNewHand failed', e);
     } finally {
       startingHand = false;
+      if (loadingTimer) clearTimeout(loadingTimer);
       setPlayTableLoading(false);
       setPlayHandButtonsDisabled(false);
     }
@@ -3140,6 +3313,7 @@
   function continueLeakReplayOrNext() {
     pendingForce = null;
     if (leakReplayQueue.length) {
+      invalidatePrefetch();
       const rec = leakReplayQueue.shift();
       if (prepareReplayFromStored(rec)) {
         void startNewHand();
@@ -3152,27 +3326,11 @@
 
   // Repite la mano actual con la MISMA semilla / cartas forzadas
   function replayCurrentHand() {
-    if (!hand) return;
-    const snap = hand.replaySnapshot || {
-      scenario: hand.scenario,
-      seed: hand.seed,
-      playConfig: hand.playConfig,
-      displayHeroPos: hand.displayHeroPos,
-      forceDeal: hand.forceDeal || null,
-      forceScript: hand.forceScript || null
-    };
-    replayFromStored({
-      seed: hand.seed,
-      scenarioRaw: hand.scenario,
-      playConfig: hand.playConfig,
-      displayHeroPos: hand.displayHeroPos,
-      replaySnapshot: snap,
-      forceDeal: hand.forceDeal || (snap && snap.forceDeal) || null,
-      forceScript: hand.forceScript || (snap && snap.forceScript) || null,
-      heroCards: hand.hero && hand.hero.cards,
-      villainCards: hand.villain && hand.villain.cards,
-      board: (hand._predeal && hand._predeal.board) || hand.board
-    });
+    invalidatePrefetch();
+    let rec = buildReplayRecFromHand(hand);
+    if (!rec) rec = lastFinishedReplayRec;
+    if (!rec) return;
+    replayFromStored(rec);
   }
 
   function scenarioFromError(err) {
@@ -5509,6 +5667,7 @@
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
     }
     Store.saveHand(hand);
+    lastFinishedReplayRec = buildReplayRecFromHand(hand);
     if (window.PTGuest && typeof window.PTGuest.afterHandFinished === 'function' &&
         window.PTGuest.isActive && window.PTGuest.isActive()) {
       window.PTGuest.afterHandFinished(hand);
@@ -5665,6 +5824,7 @@
         try { openSessionBlockPopup(target); } catch (e2) { console.warn('[session-block]', e2); }
       }
     }
+    schedulePrefetchNextHand();
   }
 
   function handEndOutcome(r) {

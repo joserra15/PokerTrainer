@@ -1971,12 +1971,28 @@
 }
 
 /* Estadísticas generales de torneos */
-.trn-general-stats { max-width: 720px; margin: 0 auto; }
+.trn-general-stats { max-width: 820px; margin: 0 auto; }
+.trn-gstat-section {
+  margin: 18px 0 8px;
+}
+.trn-gstat-section > h3 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.trn-gstat-section > .muted {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
 .trn-gstat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
-  margin: 16px 0;
+  margin: 12px 0 16px;
+}
+.trn-gstat-grid-gto,
+.trn-gstat-grid-hud {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
 }
 .trn-gstat-cell {
   padding: 12px 10px;
@@ -1998,7 +2014,42 @@
   text-transform: uppercase;
   color: var(--muted, #8b97a7);
 }
-.trn-gstat-kinds { font-size: 13px; margin: 0 0 16px; }
+.trn-gstat-kinds { font-size: 13px; margin: 0 0 8px; }
+.trn-gstat-streets { margin: 8px 0 12px; }
+.trn-gstat-dist { margin: 8px 0 4px; }
+.trn-gstat-empty { margin: 8px 0 0; font-size: 13px; }
+.trn-gstat-leaks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.trn-gstat-leak-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(20, 28, 40, .45);
+  border: 1px solid rgba(180, 200, 230, .1);
+}
+.trn-gstat-leak-rank {
+  flex: 0 0 auto;
+  font-weight: 800;
+  color: var(--muted, #8b97a7);
+  font-variant-numeric: tabular-nums;
+}
+.trn-gstat-leak-main { flex: 1 1 auto; min-width: 0; }
+.trn-gstat-leak-title {
+  font-weight: 650;
+  font-size: 13px;
+  color: var(--text, #e6edf3);
+}
+.trn-gstat-leak-actions { flex: 0 0 auto; }
+@media (max-width: 560px) {
+  .trn-gstat-leak-row { flex-wrap: wrap; }
+  .trn-gstat-leak-actions { width: 100%; }
+}
 .trn-play-like .board-area .trn-ante-label {
   display: flex;
   align-items: center;

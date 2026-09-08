@@ -735,6 +735,38 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK wallet');
 }
 
+// --- Recientes / histórico de torneos aislados por comunidad ---
+{
+  const S = g.PTTournamentStore;
+  assert.ok(S && S.save && S.list, 'tournament store');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  S.clear();
+  S.save({ id: 'iso_pf', name: 'PF Reciente', place: 1, finishedAt: '2026-09-01T00:00:00.000Z' });
+  assert.strictEqual(S.list().length, 1, 'PF recientes');
+  assert.strictEqual(S.list()[0].communityId, 'pokerforge', 'stamp communityId');
+  g.PTCommunity = {
+    id: function () { return 'mttlab'; },
+    isManager: function () { return true; },
+    requireMembership: function () { return true; }
+  };
+  assert.ok(/_mttlab/.test(S.storageKey()), 'mttlab storage key');
+  assert.strictEqual(S.list().length, 0, 'mttlab no ve PF recientes');
+  S.save({ id: 'iso_mt', name: 'MT Reciente', place: 2, finishedAt: '2026-09-02T00:00:00.000Z' });
+  assert.strictEqual(S.list().map(function (x) { return x.id; }).join(','), 'iso_mt');
+  g.PTCommunity = {
+    id: function () { return 'pokerforge'; },
+    isManager: function () { return false; },
+    requireMembership: function () { return false; }
+  };
+  assert.strictEqual(S.list().map(function (x) { return x.id; }).join(','), 'iso_pf', 'PF intacto');
+  S.clear();
+  console.log('OK tournament-history-community-isolation');
+}
+
 // --- popup ciegas centrado (sin botón OK) ---
 {
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
@@ -1742,16 +1774,99 @@ console.log('OK pushfold-freq-100');
 
   const Stats = g.PTTournamentStats;
   assert.ok(Stats.aggregateFromHistory, 'aggregateFromHistory');
-  const agg = Stats.aggregateFromHistory([
-    { place: 1, prizeEur: 30, buyInEur: 5, profit: 25, roi: 500, kind: 'sng', roleAccuracy: 80 },
-    { place: 4, prizeEur: 0, buyInEur: 5, profit: -5, roi: -100, kind: 'sng', roleAccuracy: 40 },
+  const hist = [
+    { place: 1, prizeEur: 30, buyInEur: 5, profit: 25, roi: 500, kind: 'sng', roleAccuracy: 80, sessionId: 'sess_a' },
+    { place: 4, prizeEur: 0, buyInEur: 5, profit: -5, roi: -100, kind: 'sng', roleAccuracy: 40, sessionId: 'sess_b' },
     { place: 2, prizeEur: 10, buyInEur: 5, profit: 5, roi: 100, kind: 'mtt', roleAccuracy: 60 }
-  ]);
+  ];
+  const agg = Stats.aggregateFromHistory(hist);
   assert.strictEqual(agg.n, 3);
   assert.strictEqual(agg.wins, 1);
   assert.strictEqual(agg.itm, 2);
   assert.strictEqual(agg.totalProfit, 25);
   assert.ok(agg.byKind.sng === 2 && agg.byKind.mtt === 1, 'byKind');
+
+  assert.ok(Stats.aggregateWithSessionStats, 'aggregateWithSessionStats');
+  const sessions = [
+    {
+      id: 'sess_a',
+      source: 'tournamentAi',
+      stats: {
+        nHands: 40,
+        nDecisions: 20,
+        accuracy: 80,
+        vpipPct: 25,
+        pfrPct: 18,
+        netBB: 12,
+        evLossBB: 3.5,
+        threeBetOpps: 10,
+        threeBetHits: 2,
+        cbetFlopOpps: 8,
+        cbetFlopHits: 4,
+        sawFlopN: 20,
+        wtsdN: 6,
+        dist: { optima: 10, aceptable: 6, imprecisa: 3, error: 1 },
+        accByStreet: { preflop: 85, flop: 70, turn: 60, river: 50 },
+        street: {
+          preflop: { n: 10 }, flop: { n: 5 }, turn: { n: 3 }, river: { n: 2 }
+        }
+      },
+      hands: [
+        {
+          id: 'h1', heroPos: 'BTN', formatKey: 'mtt',
+          decisions: [
+            { class: 'error', street: 'preflop', spotKind: 'open', spot: 'Open BTN', evLoss: 1.2 },
+            { class: 'imprecisa', street: 'flop', spotKind: 'cbet', spot: 'Cbet flop', evLoss: 0.8 }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'sess_b',
+      source: 'tournamentAi',
+      stats: {
+        nHands: 20,
+        nDecisions: 10,
+        accuracy: 60,
+        vpipHands: 6,
+        pfrHands: 3,
+        netBB: -4,
+        evLossBB: 2,
+        dist: { optima: 4, aceptable: 2, imprecisa: 2, error: 2 }
+      }
+    },
+    {
+      id: 'cash_noise',
+      source: 'import',
+      stats: { nHands: 100, nDecisions: 50, accuracy: 90, vpipPct: 30, pfrPct: 22, netBB: 50 }
+    }
+  ];
+  const withHands = Stats.aggregateWithSessionStats(hist, sessions);
+  assert.strictEqual(withHands.n, 3, 'result metrics preserved: n');
+  assert.strictEqual(withHands.wins, 1, 'result metrics preserved: wins');
+  assert.strictEqual(withHands.itm, 2, 'result metrics preserved: itm');
+  assert.strictEqual(withHands.totalProfit, 25, 'result metrics preserved: profit');
+  assert.ok(withHands.hasHandStats, 'hasHandStats when linked sessions exist');
+  assert.strictEqual(withHands.handStats.sessions, 2, 'only tournament AI linked sessions');
+  assert.strictEqual(withHands.handStats.hands, 60, 'hands sum');
+  assert.strictEqual(withHands.handStats.decisions, 30, 'decisions sum');
+  assert.strictEqual(withHands.handStats.accuracy, 73, 'accuracy = round(good/decisions*100)');
+  assert.ok(withHands.handStats.vpipPct != null, 'vpipPct');
+  assert.ok(withHands.handStats.pfrPct != null, 'pfrPct');
+  assert.strictEqual(withHands.handStats.bbPer100, Math.round(((12 + -4) / 60) * 1000) / 10, 'bbPer100');
+  assert.ok(withHands.derived.accByStreet.preflop != null, 'street accuracy from hands/stubs');
+  assert.ok(withHands.leaks.length >= 1, 'leaks from hand decisions');
+  assert.ok(withHands.leaks[0].sessionId === 'sess_a', 'leak links to session');
+
+  const emptyHands = Stats.aggregateWithSessionStats(hist, []);
+  assert.strictEqual(emptyHands.n, 3);
+  assert.ok(!emptyHands.hasHandStats, 'no hand stats without sessions');
+
+  assert.ok(uiSrc.includes('Resumen GTO') && uiSrc.includes('Acierto por calle'),
+    'general stats UI includes GTO sections');
+  assert.ok(uiSrc.includes('aggregateWithSessionStats') || uiSrc.includes('hasHandStats'),
+    'general stats uses session aggregation');
+  assert.ok(uiSrc.includes('Top 5 fugas'), 'general stats shows leaks');
 
   const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
   assert.ok(appSrc.includes('isTournamentAi') && appSrc.includes('Ver estadísticas de manos'),
@@ -1760,6 +1875,7 @@ console.log('OK pushfold-freq-100');
     'toggle hand stats from tournament summary');
   const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(css.includes('trn-ante-label') && css.includes('trn-gstat-grid'), 'ante + gstat css');
+  assert.ok(css.includes('trn-gstat-section') && css.includes('trn-gstat-leaks'), 'enriched gstat css');
   console.log('OK tournament-ante-and-general-stats');
 }
 
@@ -1948,6 +2064,96 @@ console.log('OK pushfold-freq-100');
   assert.ok(/No borrar un torneo local|si local tampoco tiene active/i.test(storageSrc),
     'replaceFromCloud no limpia active local si cloud vacío');
   console.log('OK exit-save-persist-source');
+}
+
+// --- Resume tras salir-guardar: auto-reparte (no mesa congelada) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 515, heroName: 'ResumeHero' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 40) {
+    const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
+    g.PTTournamentRunner.heroAct(state, opt.id === 'check' ? 'check' : (opt.id === 'fold' ? 'fold' : opt.id), opt.amount);
+    hand = state._liveHand;
+  }
+  assert.ok(hand && hand.stage === 'complete' && hand.result, 'mano completa');
+  g.PTTournamentRunner.applyResults(state, hand);
+  state._liveHand = null;
+  g.PTTournamentStore.saveActive(state);
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded && !loaded._liveHand, 'snapshot sin liveHand (exit-save)');
+  const revived = g.PTTournamentRunner.ensureLiveHand(loaded);
+  assert.ok(revived, 'ensureLiveHand reparte');
+  assert.ok(loaded._liveHand, 'liveHand tras resume');
+  assert.ok(
+    (loaded._liveHand.awaitingHero && loaded._liveHand.heroOptions && loaded._liveHand.heroOptions.length) ||
+      loaded._liveHand.stage === 'complete',
+    'mano jugable o completa tras resume'
+  );
+  assert.ok(g.PTTournamentRunner.isPlayableLiveHand(loaded._liveHand), 'playable tras ensure');
+  g.PTTournamentStore.clearActive();
+  console.log('OK resume-auto-deal-after-exit-save');
+}
+
+// --- Resume con stub de mano roto (quota): no se queda sin botones ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 516, heroName: 'StubHero' });
+  g.PTTournamentRunner.beginHand(state);
+  assert.ok(state._liveHand && state._liveHand.awaitingHero, 'turno héroe');
+  /* Simula saveActive agresivo por quota: sin acted/heroOptions/boardDeck. */
+  state._liveHand = {
+    stage: state._liveHand.stage,
+    street: state._liveHand.street,
+    pot: state._liveHand.pot,
+    bb: state._liveHand.bb,
+    sb: state._liveHand.sb,
+    ante: state._liveHand.ante,
+    board: state._liveHand.board,
+    seats: state._liveHand.seats,
+    heroId: state._liveHand.heroId,
+    awaitingHero: true,
+    result: null,
+    decisions: [],
+    log: state._liveHand.log || []
+  };
+  assert.ok(!g.PTTournamentRunner.isPlayableLiveHand(state._liveHand), 'stub no playable');
+  const beforeIdx = state.handIndex;
+  g.PTTournamentRunner.ensureLiveHand(state);
+  assert.ok(state._liveHand, 'nueva mano');
+  assert.ok(g.PTTournamentRunner.isPlayableLiveHand(state._liveHand), 'playable tras revive');
+  assert.ok(
+    (state._liveHand.awaitingHero && state._liveHand.heroOptions && state._liveHand.heroOptions.length) ||
+      state._liveHand.stage === 'complete',
+    'acciones disponibles o mano ya cerrada'
+  );
+  assert.strictEqual(state.handIndex, beforeIdx, 'no avanza handIndex al descartar stub');
+  console.log('OK resume-revives-broken-livehand-stub');
+}
+
+// --- Resume conserva mano viva íntegra ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 517, heroName: 'KeepHero' });
+  g.PTTournamentRunner.beginHand(state);
+  assert.ok(state._liveHand && state._liveHand.awaitingHero, 'awaiting');
+  const potBefore = state._liveHand.pot;
+  const optsBefore = state._liveHand.heroOptions.length;
+  g.PTTournamentStore.saveActive(state);
+  const loaded = g.PTTournamentStore.loadActive();
+  const same = g.PTTournamentRunner.ensureLiveHand(loaded);
+  assert.ok(same && same.awaitingHero, 'conserva awaitingHero');
+  assert.strictEqual(same.heroOptions.length, optsBefore, 'mismas opciones');
+  assert.strictEqual(same.pot, potBefore, 'mismo pot');
+  g.PTTournamentStore.clearActive();
+  console.log('OK resume-keeps-intact-livehand');
+}
+
+// --- UI resumeActive llama ensureLiveHand ---
+{
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/ensureLiveHand/.test(uiSrc), 'ui resume usa ensureLiveHand');
+  assert.ok(/clearPopupTimers/.test(uiSrc), 'limpia timers de banner al resume/exit');
+  assert.ok(/startBannerPending\s*=\s*null/.test(uiSrc), 'quita banner de inicio al continuar');
+  console.log('OK resume-ui-ensure-source');
 }
 
 console.log('*** test-tournament OK ***');

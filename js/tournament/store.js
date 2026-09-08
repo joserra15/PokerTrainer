@@ -7,6 +7,19 @@
   var BASE_KEY = 'pt_tournaments_v1';
   var ACTIVE_KEY = 'pt_tournament_active_v1';
   var MAX = 100;
+  /** Histórico completo en memoria (desde nube); localStorage solo guarda LOCAL_KEEP. */
+  var LOCAL_KEEP = 15;
+  var historyMemoryCache = null;
+  var historyMemoryKey = null;
+
+  function invalidateHistoryMemory() {
+    historyMemoryCache = null;
+    historyMemoryKey = null;
+  }
+
+  function currentHistoryKey() {
+    return storageKey();
+  }
 
   function userSuffix() {
     var uid = null;
@@ -29,6 +42,23 @@
       }
     } catch (e) { /* ignore */ }
     return '';
+  }
+
+  function communityId() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        return String(global.PTCommunity.id() || 'pokerforge');
+      }
+    } catch (e) { /* ignore */ }
+    var s = communitySuffix();
+    return s ? String(s).replace(/^_/, '') : 'pokerforge';
+  }
+
+  function belongsToActiveCommunity(entry) {
+    if (!entry) return false;
+    var cid = communityId();
+    if (!entry.communityId) return true; /* legacy en clave namespaced = esta comunidad */
+    return String(entry.communityId) === String(cid);
   }
 
   function storageKey() {
@@ -83,22 +113,115 @@
     } catch (e) { /* ignore */ }
   }
 
+  function sortHistory(arr) {
+    return (arr || []).slice().sort(function (a, b) {
+      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
+    });
+  }
+
+  function setHistoryMemory(list) {
+    historyMemoryKey = currentHistoryKey();
+    historyMemoryCache = sortHistory(list).slice(0, MAX);
+    return historyMemoryCache;
+  }
+
+  function getHistoryMemory() {
+    if (historyMemoryCache && historyMemoryKey === currentHistoryKey()) {
+      return historyMemoryCache.slice();
+    }
+    historyMemoryKey = currentHistoryKey();
+    historyMemoryCache = sortHistory(readList()).slice(0, MAX);
+    return historyMemoryCache.slice();
+  }
+
+  /**
+   * Escribe solo los N más recientes en localStorage (silent por defecto
+   * para no pushear un subset que pise la nube).
+   */
+  function trimLocalHistory(keep) {
+    keep = keep == null ? LOCAL_KEEP : keep;
+    if (!historyMemoryCache) setHistoryMemory(readList());
+    var full = historyMemoryCache || [];
+    var local = readList();
+    if (local.length <= keep && full.length <= keep) return false;
+    var next = full.slice(0, keep);
+    return writeList(next, { silent: true });
+  }
+
+  function slimActiveAggressive(opts) {
+    opts = opts || {};
+    var st = loadActive();
+    if (!st) return false;
+    var aggressive = !!opts.aggressive;
+    var handsKeep = aggressive ? 10 : 15;
+    var logKeep = aggressive ? 15 : 20;
+    var snap = slimForPersist(st);
+    if (snap.sessionHands) snap.sessionHands = snap.sessionHands.slice(-handsKeep);
+    if (snap.handLog) {
+      snap.handLog = snap.handLog.slice(-logKeep).map(function (h) {
+        return {
+          handIndex: h.handIndex,
+          bb: h.bb,
+          pot: h.pot,
+          showdown: h.showdown,
+          result: h.result ? { heroNet: h.result.heroNet } : null,
+          seats: (h.seats || []).filter(function (s) { return s.isHero; })
+            .map(function (s) { return { isHero: true, pos: s.pos }; })
+        };
+      });
+    }
+    try {
+      writeActiveRaw(snap);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Asegura push del histórico completo a la nube y luego recorta local.
+   */
+  async function ensureHistoryOffloaded(opts) {
+    opts = opts || {};
+    var keep = opts.keep != null ? opts.keep : (opts.aggressive ? 5 : LOCAL_KEEP);
+    var full = getHistoryMemory();
+    if (!full.length) full = readList();
+    setHistoryMemory(full);
+    var cloudReady = global.PTCloud && global.PTCloud.isReady && global.PTCloud.isReady();
+    if (cloudReady && full.length) {
+      try {
+        markCloudDirty('history');
+        if (typeof global.PTCloud.flushPush === 'function') {
+          await global.PTCloud.flushPush();
+        }
+      } catch (e) { /* ignore */ }
+    }
+    var trimmed = trimLocalHistory(keep);
+    if (opts.aggressive) slimActiveAggressive({ aggressive: true });
+    return { ok: true, trimmed: trimmed, keep: keep, total: full.length };
+  }
+
   function list() {
-    return readList().slice();
+    return getHistoryMemory().filter(belongsToActiveCommunity);
   }
 
   function get(id) {
     var sid = String(id || '');
     if (!sid) return null;
-    return readList().find(function (x) { return x && x.id === sid; }) || null;
+    var mem = list();
+    var hit = mem.find(function (x) { return x && x.id === sid; });
+    if (hit) return hit;
+    return readList().filter(belongsToActiveCommunity).find(function (x) { return x && x.id === sid; }) || null;
   }
 
   function normalizeSummary(summary) {
     summary = summary || {};
+    var kindRaw = String(summary.kind || 'mtt').toLowerCase();
+    var kind = kindRaw === 'sng' ? 'sng' : (kindRaw === 'spin' ? 'spin' : 'mtt');
     return {
       id: String(summary.id || ''),
       name: String(summary.name || 'Torneo').slice(0, 80),
-      kind: summary.kind === 'sng' ? 'sng' : 'mtt',
+      kind: kind,
       entries: Number(summary.entries) || 0,
       place: summary.place != null ? Number(summary.place) : null,
       prizeEur: Number(summary.prizeEur) || 0,
@@ -108,30 +231,45 @@
       roleAccuracy: Number(summary.roleAccuracy) || 0,
       finishedAt: summary.finishedAt || new Date().toISOString(),
       presetId: summary.presetId || null,
-      sessionId: summary.sessionId || null
+      sessionId: summary.sessionId || null,
+      communityId: summary.communityId || communityId()
     };
   }
 
   function save(summary) {
     var entry = normalizeSummary(summary);
     if (!entry.id) return { ok: false, reason: 'missing_id' };
-    var arr = readList().filter(function (x) { return x && x.id !== entry.id; });
+    var arr = getHistoryMemory().filter(function (x) { return x && x.id !== entry.id; });
     arr.unshift(entry);
     if (arr.length > MAX) arr = arr.slice(0, MAX);
-    writeList(arr);
+    setHistoryMemory(arr);
+    var localOk = writeList(arr.slice(0, LOCAL_KEEP));
+    if (!localOk) {
+      /* Reintento: slim + trim agresivo. */
+      try {
+        if (global.Store && global.Store.freeStorageSpace) {
+          global.Store.freeStorageSpace({ aggressive: true });
+        }
+      } catch (eFree) { /* ignore */ }
+      trimLocalHistory(5);
+      localOk = writeList(arr.slice(0, 5));
+      if (!localOk) return { ok: false, reason: 'storage_full', entry: entry, list: arr };
+    }
     return { ok: true, entry: entry, list: arr };
   }
 
   function remove(id) {
     var sid = String(id || '');
-    var arr = readList();
+    var arr = getHistoryMemory();
     var next = arr.filter(function (x) { return x && x.id !== sid; });
     if (next.length === arr.length) return { ok: false, list: arr };
-    writeList(next);
+    setHistoryMemory(next);
+    writeList(next.slice(0, LOCAL_KEEP));
     return { ok: true, list: next };
   }
 
   function clear() {
+    setHistoryMemory([]);
     writeList([]);
     return { ok: true, list: [] };
   }
@@ -255,29 +393,38 @@
 
   /** Sustituye histórico desde nube (login replace) sin marcar dirty de push. */
   function replaceAll(list) {
-    var arr = Array.isArray(list) ? list.slice(0, MAX) : [];
-    writeList(arr, { silent: true });
+    var cid = communityId();
+    var arr = sortHistory((Array.isArray(list) ? list : []).filter(function (x) {
+      return x && (!x.communityId || String(x.communityId) === String(cid));
+    }).map(function (x) {
+      return normalizeSummary(x);
+    })).slice(0, MAX);
+    setHistoryMemory(arr);
+    writeList(arr.slice(0, LOCAL_KEEP), { silent: true });
     return { ok: true, list: arr };
   }
 
   /** Fusiona entradas remotas por id (finishedAt más reciente gana). */
   function mergeFromCloud(remoteList) {
     if (!Array.isArray(remoteList) || !remoteList.length) return list();
+    var cid = communityId();
     var map = Object.create(null);
     function add(item) {
       if (!item || !item.id) return;
-      var prev = map[item.id];
-      if (!prev) { map[item.id] = item; return; }
-      var ta = Date.parse(item.finishedAt || 0) || 0;
+      if (item.communityId && String(item.communityId) !== String(cid)) return;
+      var norm = normalizeSummary(item);
+      var prev = map[norm.id];
+      if (!prev) { map[norm.id] = norm; return; }
+      var ta = Date.parse(norm.finishedAt || 0) || 0;
       var tb = Date.parse(prev.finishedAt || 0) || 0;
-      if (ta >= tb) map[item.id] = item;
+      if (ta >= tb) map[norm.id] = norm;
     }
-    readList().forEach(add);
+    getHistoryMemory().forEach(add);
     remoteList.forEach(add);
-    var next = Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) {
-      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
-    }).slice(0, MAX);
-    writeList(next, { silent: true });
+    var next = Object.keys(map).map(function (k) { return map[k]; });
+    next = sortHistory(next).slice(0, MAX);
+    setHistoryMemory(next);
+    writeList(next.slice(0, LOCAL_KEEP), { silent: true });
     return next;
   }
 
@@ -342,6 +489,7 @@
     BASE_KEY: BASE_KEY,
     ACTIVE_KEY: ACTIVE_KEY,
     MAX: MAX,
+    LOCAL_KEEP: LOCAL_KEEP,
     storageKey: storageKey,
     activeStorageKey: activeStorageKey,
     list: list,
@@ -356,6 +504,11 @@
     clearActive: clearActive,
     hasActive: hasActive,
     isPreferableActive: isPreferableActive,
-    activeSummary: activeSummary
+    activeSummary: activeSummary,
+    trimLocalHistory: trimLocalHistory,
+    slimActiveAggressive: slimActiveAggressive,
+    ensureHistoryOffloaded: ensureHistoryOffloaded,
+    getHistoryMemory: getHistoryMemory,
+    invalidateHistoryMemory: invalidateHistoryMemory
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

@@ -157,4 +157,76 @@ assert.strictEqual(Wallet.getBalance(), 101, 'vuelta a PF: saldo intacto');
 assert.strictEqual(Wallet.earnFromLesson('C-00').already, true, 'PF sigue con award C-00');
 assert.strictEqual(Wallet.earnFromLesson('ML-M1-01').added, 1, 'PF wallet no hereda awards mttlab');
 
+/* --- Histórico de torneos independientes por comunidad (Recientes) --- */
+vm.runInContext(read('js/tournament/store.js'), sandbox, { filename: 'store.js' });
+const TStore = sandbox.PTTournamentStore;
+assert.ok(TStore, 'PTTournamentStore');
+
+ACTIVE = 'pokerforge';
+Object.keys(localStore).forEach(function (k) {
+  if (/pt_tournaments_v1/.test(k)) delete localStore[k];
+});
+TStore.clear();
+TStore.save({
+  id: 'trn_pf_1', name: 'PF Easy', kind: 'mtt', place: 1,
+  prizeEur: 10, finishedAt: '2026-09-01T00:00:00.000Z'
+});
+assert.strictEqual(TStore.list().length, 1, 'PF tiene 1 reciente');
+assert.strictEqual(TStore.list()[0].communityId, 'pokerforge', 'PF stamp communityId');
+assert.ok(TStore.storageKey().indexOf('_mttlab') < 0, 'clave PF sin _mttlab');
+
+ACTIVE = 'mttlab';
+assert.ok(/_mttlab/.test(TStore.storageKey()), 'clave mttlab namespaced');
+assert.strictEqual(TStore.list().length, 0, 'mttlab Recientes vacío al inicio');
+TStore.save({
+  id: 'trn_mt_1', name: 'MT Spin', kind: 'sng', place: 2,
+  prizeEur: 0, finishedAt: '2026-09-02T00:00:00.000Z'
+});
+assert.strictEqual(TStore.list().length, 1, 'mttlab tiene su reciente');
+assert.strictEqual(TStore.list()[0].id, 'trn_mt_1');
+assert.strictEqual(TStore.list()[0].communityId, 'mttlab');
+
+ACTIVE = 'pokerforge';
+assert.strictEqual(TStore.list().length, 1, 'PF no ve torneos mttlab');
+assert.strictEqual(TStore.list()[0].id, 'trn_pf_1');
+
+/* Merge cloud con payload FULL solo-PF no debe contaminar mttlab */
+ACTIVE = 'mttlab';
+Store.mergeFromCloud({
+  stats: { handsPlayed: 9 },
+  history: [],
+  errors: [],
+  tournamentHistory: [{
+    id: 'trn_pf_leak', name: 'LEAKED PF', place: 3,
+    finishedAt: '2026-09-03T00:00:00.000Z', communityId: 'pokerforge'
+  }]
+});
+assert.ok(!TStore.list().some(function (h) { return h.id === 'trn_pf_leak'; }),
+  'mergeFromCloud PF-only no filtra a Recientes mttlab');
+assert.ok(TStore.list().some(function (h) { return h.id === 'trn_mt_1'; }),
+  'mttlab conserva su torneo tras merge PF-only');
+
+Store.replaceFromCloud({
+  stats: { handsPlayed: 1 },
+  history: [],
+  tournamentHistory: [{
+    id: 'trn_pf_only', name: 'SHOULD NOT APPEAR',
+    finishedAt: '2026-09-04T00:00:00.000Z'
+  }]
+});
+assert.ok(!TStore.list().some(function (h) { return h.id === 'trn_pf_only'; }),
+  'replaceFromCloud PF-only no pisa Recientes mttlab');
+
+/* Payload namespaced correcto sí aplica */
+Store.mergeFromCloud({
+  stats_mttlab: { handsPlayed: 2 },
+  history_mttlab: [],
+  tournamentHistory_mttlab: [{
+    id: 'trn_mt_2', name: 'MT Cloud', place: 1,
+    finishedAt: '2026-09-05T00:00:00.000Z', communityId: 'mttlab'
+  }]
+});
+assert.ok(TStore.list().some(function (h) { return h.id === 'trn_mt_2'; }),
+  'merge namespaced sí aporta torneo mttlab');
+
 console.log('*** community-data-isolation OK ***');

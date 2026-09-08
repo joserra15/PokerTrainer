@@ -168,6 +168,12 @@ assert.ok(/sanitizeCommunitySchool|isPokerForgeLessonId|rejected_pf/.test(mgr), 
 assert.ok(/\\^C-\|/.test(mgr) || /C-\|R-\|T-/.test(mgr), 'rechaza ids C-00');
 assert.ok(/training/.test(mgr) && /handsPlayed/.test(sql46), 'detalle training comunidad');
 assert.ok(/scope', 'community_only'|scope., .community_only/.test(sql46) || /'scope', 'community_only'/.test(sql46), 'RPC scope community_only');
+assert.ok(/renderTournamentUsageSection|<h4>Torneos<\/h4>/.test(mgr), 'manager detalle Torneos');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/051_tournament_usage_stats.sql')), 'migration 051');
+const sql51 = read('supabase/migrations/051_tournament_usage_stats.sql');
+assert.ok(/pt_tournament_usage_from_payload/.test(sql51), '051 helper torneos');
+assert.ok(/pt_manager_member_usage[\s\S]*tournaments/.test(sql51), '051 manager tournaments');
+assert.ok(/leaderboard/.test(sql51), '051 leaderboard koins');
 
 const billing = read('js/billing.js');
 assert.ok(/requireMembership\(\)/.test(billing) && /mountAnnualUpsell/.test(billing), 'upsell oculto en comunidad');

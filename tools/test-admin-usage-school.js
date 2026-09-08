@@ -19,11 +19,16 @@ assert.ok(/pt_admin_usage_stats/.test(adminSrc), 'RPC uso en admin');
 assert.ok(/pt_admin_guest_funnel/.test(adminSrc) && /renderGuestFunnelSection/.test(adminSrc), 'embudo guest en uso');
 assert.ok(/Escuela de Póker/.test(adminSrc) && /renderSchoolSection/.test(adminSrc), 'detalle Escuela');
 assert.ok(/renderFeatureUsageSection/.test(adminSrc), 'uso individual');
+assert.ok(/renderTournamentUsageSection/.test(adminSrc) && /<h4>Torneos<\/h4>/.test(adminSrc), 'detalle Torneos');
+assert.ok(/tournaments:\s*'Torneos'/.test(adminSrc), 'label pestaña Torneos');
 assert.ok(/pt_admin_usage_stats/.test(sql) && /feature_usage/.test(sql) && /school/.test(sql), 'migración SQL');
+const sqlTournaments = fs.readFileSync(path.join(root, 'supabase/migrations/051_tournament_usage_stats.sql'), 'utf8');
+assert.ok(/pt_tournament_usage_from_payload/.test(sqlTournaments), 'migración torneos uso');
+assert.ok(/'tournaments', tournaments/.test(sqlTournaments), 'user detail con tournaments');
 assert.ok(/pt_admin_guest_funnel/.test(sqlFunnel) && /pt_guest_funnel_ingest/.test(sqlFunnel), 'migración embudo');
 assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
 assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
-assert.ok(/PT_BUILD\s*=\s*'3.1.7'/.test(version), 'versión 3.1.7');
+assert.ok(/PT_BUILD\s*=\s*'3\.1\.10'/.test(version), 'versión 3.1.10');
 
 const localStore = {};
 const sandbox = {
