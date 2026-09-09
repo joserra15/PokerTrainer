@@ -11,7 +11,7 @@
     controllerName: 'Responsable del tratamiento (configura js/legal-config.js)',
     controllerEmail: 'privacidad@ejemplo.com',
     appUrl: '',
-    lastUpdated: '19 de junio de 2026'
+    lastUpdated: '9 de septiembre de 2026'
   };
 
   function cfg() {

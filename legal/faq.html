@@ -33,16 +33,100 @@
 
     <h2>¿Qué es PokerForgeAI?</h2>
     <p>
-      PokerForgeAI es una aplicación web para entrenar decisiones GTO en No-Limit Hold'em (NLHE),
-      revisar sesiones importadas (PokerStars, Winamax, GGPoker, 888poker, CoinPoker) y, con planes de pago,
-      usar ForgeCoach e informes. El entrenador se centra en cash; el importador también organiza
-      <strong>spins</strong> y <strong>torneos</strong> con métricas e ideales adaptados al formato.
+      PokerForgeAI es una aplicación web para entrenar decisiones GTO en No-Limit Hold'em (NLHE):
+      spots de <strong>cash</strong>, <strong>spins</strong> y <strong>torneos</strong>, con rangos,
+      Escuela de Póker, análisis de manos, importación de sesiones y ForgeCoach.
+      También puedes jugar <strong>Torneos</strong> simulados (MTT / SNG / Spin) contra rivales IA.
+    </p>
+    <p>
+      El importador organiza historiales de
+      <strong>PokerStars</strong>, <strong>Winamax</strong>, <strong>GGPoker</strong>,
+      <strong>888poker</strong> y <strong>CoinPoker</strong> en pestañas Cash, Spins y Torneos,
+      con métricas e ideales adaptados al formato.
     </p>
 
     <h2>¿Necesito cuenta para usarla?</h2>
     <p>
-      Sí. El acceso requiere iniciar sesión con Google. Tus datos se asocian a tu cuenta para
-      sincronización en la nube y límites de uso según el plan.
+      No para probar: desde la landing puedes jugar <strong>5 manos</strong> de demostración sin
+      registrarte (mesa del entrenador, sin el resto de pestañas). Al terminar verás un resumen y
+      podrás continuar con Google.
+    </p>
+    <p>
+      Para guardar progreso, sincronizar en la nube, usar Escuela, Sesiones, Análisis, Torneos,
+      Rangos y ForgeCoach necesitas iniciar sesión con Google. Los límites dependen de tu plan.
+    </p>
+
+    <h2>¿Qué formatos entrena el entrenador?</h2>
+    <p>
+      En <strong>Configurar sesión</strong> eliges el hub <strong>Cash</strong>, <strong>Spins</strong>
+      o <strong>Torneos</strong>:
+    </p>
+    <ul>
+      <li><strong>Cash</strong> — charts GTO de estudio (6-max / 9-max), stacks y escenarios (SRP, 3-bet pot, multiway…).</li>
+      <li><strong>Spins</strong> — Spin 3-max, payouts 2×/3×/5×, push/fold, steal y grind por fase/stack.</li>
+      <li><strong>Torneos (MTT)</strong> — fases early→push/burbuja, stacks cortos, push/fold, steal y multiway.</li>
+    </ul>
+    <p>
+      Cuando veas la etiqueta <strong>ICM</strong> en el tapete, el premio importa más que las fichas
+      (Spins siempre; MTT en short/push/burbuja). Es <em>ICM lite</em> orientativo, no un solver ICM completo.
+    </p>
+
+    <h2>¿Qué es la Escuela de Póker?</h2>
+    <p>
+      Rutas guiadas de lecciones (Cash, Spins, MTT y Laboratorio de rangos) con desbloqueo lineal,
+      quizzes y práctica en mesa. Disponible para usuarios autenticados.
+    </p>
+    <ul>
+      <li><strong>M0</strong> de cada ruta — incluido en el plan Gratis.</li>
+      <li>Desde <strong>M1</strong> — suele requerir Study.</li>
+      <li>Módulos Pro / burbuja-FT / rangos avanzados — Coach.</li>
+    </ul>
+    <p>
+      Las lecciones <strong>no consumen</strong> el cupo diario de manos del entrenador.
+    </p>
+
+    <h2>¿Qué es el Spot del día?</h2>
+    <p>
+      En la pestaña <strong>Inicio</strong> (con sesión iniciada) aparece un quiz diario de la Escuela
+      (fold/call/raise, pot odds, blockers, etc.). Hay <strong>un spot por día</strong>, racha de días
+      consecutivos y <strong>+15 XP</strong> si aciertas. Puedes compartirlo.
+    </p>
+
+    <h2>¿Qué son los Koins?</h2>
+    <p>
+      Moneda ficticia del lobby de <strong>Torneos</strong>. Sirven para el buy-in de los eventos
+      simulados. Empiezas en 0 y puedes ganarlas, entre otras formas, aprobando lecciones de Escuela
+      (+1 la primera vez), cada 25 manos de entrenador (+1), acertando el rol de un rival al acabar
+      un torneo (+2) y según el puesto en el evento.
+    </p>
+
+    <h2>¿Qué es la pestaña Torneos?</h2>
+    <p>
+      Un lobby de eventos simulados (MTT, SNG y Spins) contra rivales IA por arquetipo, con
+      clasificación de Koins de tu comunidad, estadísticas, informe de fugas al terminar y atajo
+      para entrenar esos leaks. Visible para usuarios autenticados.
+    </p>
+    <ul>
+      <li><strong>Gratis</strong> — Fácil · Spin 3-Max.</li>
+      <li><strong>Study</strong> — presets fáciles y medios (MTT, SNG, Spin).</li>
+      <li><strong>Coach</strong> — también difíciles y Pro.</li>
+    </ul>
+
+    <h2>¿Qué es Análisis de manos?</h2>
+    <p>
+      En la pestaña <strong>Análisis</strong> guardas manos para estudiarlas: entrada manual (cuenta
+      en el cupo de manos guardadas) o desde texto/historial. Una descripción libre con IA cuenta
+      como <strong>1 consulta ForgeCoach</strong>; pegar un historial de sala sin IA no gasta cupo IA.
+    </p>
+    <p>
+      Límites de manos guardadas: <strong>5</strong> (Gratis), <strong>20</strong> (Study),
+      <strong>100</strong> (Coach). Puedes revisar la línea GTO y rejugar el spot en el entrenador.
+    </p>
+
+    <h2>¿Qué hay en la pestaña Rangos?</h2>
+    <p>
+      Un visor de matrices GTO: preflop y postflop (flop/turn/river), mesas 6-max / 9-max /
+      Spin 3-max / MTT, stacks, fase de torneo y toggle de <strong>ICM lite</strong>. Puedes guardar favoritos.
     </p>
 
     <h2>¿Cómo importo una sesión?</h2>
@@ -87,7 +171,7 @@
       (cash + torneo), la sesión se clasifica por el tipo dominante.
     </p>
 
-    <h2>¿Cómo organizo Cash, Spins y Torneos?</h2>
+    <h2>¿Cómo organizo Cash, Spins y Torneos en Sesiones?</h2>
     <p>
       Tras importar, abre la pestaña correspondiente en <strong>Sesiones</strong>. El contador de cada
       pestaña muestra cuántas sesiones hay de ese tipo. Al revisar una sesión verás badges de formato
@@ -96,9 +180,10 @@
 
     <h2>¿Dónde se guardan mis datos?</h2>
     <p>
-      El histórico del entrenador, errores, estadísticas y el índice de sesiones se guardan en tu
-      navegador y, si usas la app con sesión iniciada, se sincronizan en la nube (Supabase).
-      El texto bruto del <code>.txt</code> importado permanece en el dispositivo y no se sube a la nube.
+      El histórico del entrenador, errores, estadísticas, análisis, torneos y el índice de sesiones
+      se guardan en tu navegador y, si usas la app con sesión iniciada, se sincronizan en la nube
+      (Supabase). El texto bruto del <code>.txt</code> importado permanece en el dispositivo y no se
+      sube a la nube.
     </p>
 
     <h2>¿Qué incluye el plan gratuito?</h2>
@@ -106,6 +191,8 @@
       <li>15 manos de entrenador al día</li>
       <li>1 importación de sesión al mes (máx. 200 manos)</li>
       <li>5 manos guardadas en análisis (entrada manual; sin añadir manos con IA)</li>
+      <li>Escuela: módulos M0 (Cash, Spins, MTT y rangos)</li>
+      <li>Torneos: preset Fácil · Spin 3-Max</li>
       <li>Sesión de ejemplo incluida</li>
       <li>3 consultas ForgeCoach al mes de prueba (informes y preguntas)</li>
       <li>Histórico de 30 días</li>
@@ -120,16 +207,47 @@
 
     <h2>¿Qué planes de pago hay?</h2>
     <ul>
-      <li><strong>Study</strong> — entrenador e import ilimitados, 20 manos en análisis, 40 consultas ForgeCoach/mes (añadir manos con IA, análisis y preguntas), sync en la nube.</li>
-      <li><strong>Coach</strong> — todo Study, 100 manos en análisis, 150 consultas IA/mes, informes y preguntas sobre manos/sesiones y soporte prioritario.</li>
+      <li><strong>Study</strong> — entrenador e import ilimitados, 20 manos en análisis, 40 consultas ForgeCoach/mes, más Escuela y Torneos medios, sync en la nube.</li>
+      <li><strong>Coach</strong> — todo Study, 100 manos en análisis, 150 consultas IA/mes, Escuela/Torneos avanzados, informes y soporte prioritario.</li>
       <li><strong>Bono IA</strong> — packs de 20/40/80 consultas (válidas 12 meses), precio según tu plan. Disponible también en Gratis.</li>
     </ul>
-    <p>Los precios actuales aparecen en la landing y en tu cuenta al iniciar sesión.</p>
+    <p>
+      Precios de lista: Study <strong>14,99&nbsp;€/mes</strong> o <strong>119&nbsp;€/año</strong>
+      (~9,92&nbsp;€/mes); Coach <strong>34,99&nbsp;€/mes</strong> o <strong>279&nbsp;€/año</strong>
+      (~23,25&nbsp;€/mes). Los precios actuales también aparecen en la landing y en Planes.
+    </p>
+
+    <h2>¿Qué es FOUNDER?</h2>
+    <p>
+      Promo de lanzamiento (previsto el <strong>1 de octubre de 2026</strong>):
+      <strong>40&nbsp;% de descuento para siempre</strong> en Study o Coach, con plazas limitadas.
+      Mientras las compras estén pausadas puedes <strong>solicitar tu plaza</strong> desde Planes;
+      el administrador confirma según disponibilidad.
+    </p>
+    <p>
+      Precio FOUNDER: Study <strong>8,99&nbsp;€/mes</strong> o <strong>71,40&nbsp;€/año</strong>;
+      Coach <strong>20,99&nbsp;€/mes</strong> o <strong>167,40&nbsp;€/año</strong>. Si entras como
+      FOUNDER conservas ese precio mientras mantengas la suscripción activa.
+    </p>
+
+    <h2>¿Hay comunidades o MTT LAB?</h2>
+    <p>
+      Sí. Además del producto abierto PokerForgeAI existen <strong>comunidades partner</strong>
+      (por ejemplo MTT LAB) con acceso propio, Escuela enfocada en torneos y cupo de IA de comunidad.
+      Si te invita una escuela o sala, usa el enlace o código que te faciliten.
+    </p>
 
     <h2>¿Puedo instalarla en el móvil?</h2>
     <p>
       Sí. PokerForgeAI es una <strong>PWA</strong>: en la landing o desde la app usa «Instalar app»
       (Android/Chrome) o «Añadir a pantalla de inicio» en Safari (iOS).
+    </p>
+
+    <h2>¿Hay notificaciones push?</h2>
+    <p>
+      Sí. En <strong>Configuración</strong> puedes activar «Avisarme en este dispositivo» (Web Push).
+      En iOS hace falta haber instalado la app en la pantalla de inicio. Sirven para recordatorios
+      de estudio y avisos de la app.
     </p>
 
     <h2>¿Puedo exportar un informe de sesión?</h2>
@@ -169,7 +287,8 @@
     <h2>¿Qué es el drill adaptativo?</h2>
     <p>
       Agrupa tus errores por spot, ordena por EV perdido y lanza un bloque (~25 manos) de tus fugas más
-      caras, en lugar de repetir al azar toda la lista de errores.
+      caras, en lugar de repetir al azar toda la lista de errores. También puedes entrenar leaks
+      detectados al terminar un Torneo IA.
     </p>
 
     <h2>¿Las stats de spins/torneos usan las mismas bandas que cash?</h2>
@@ -183,14 +302,16 @@
     <p>
       Desde el menú de cuenta, abre el portal de facturación de Stripe. Ahí puedes cambiar de plan,
       actualizar el método de pago o cancelar. La cancelación mantiene el acceso hasta el final del
-      periodo ya pagado.
+      periodo ya pagado. Mientras las compras estén pausadas (prelanzamiento FOUNDER), solicita plaza
+      desde Planes o escribe a soporte.
     </p>
 
     <h2>¿Qué es ForgeCoach?</h2>
     <p>
-      Es un asistente opcional que explica decisiones GTO en lenguaje natural. Antes del primer uso
-      debes aceptar el envío de datos de mano a un proveedor de IA. Puedes rechazarlo y seguir usando
-      el resto de funciones. Consulta <a href="ia.html">Uso de IA</a> para más detalle.
+      Es un asistente opcional que explica decisiones GTO en lenguaje natural (manos, sesiones,
+      dudas de estudio y contexto de torneo). Antes del primer uso debes aceptar el envío de datos
+      de mano a un proveedor de IA. Puedes rechazarlo y seguir usando el resto de funciones.
+      Consulta <a href="ia.html">Uso de IA</a> para más detalle.
     </p>
 
     <h2>El login con Google no funciona</h2>

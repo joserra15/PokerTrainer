@@ -7147,7 +7147,8 @@ window.PT_NASH_PUSH_JSON = {
   function straightDraws(cards) {
     const vals = new Set(cards.map((c) => C.RANK_VALUE[c[0]]));
     if (vals.has(14)) vals.add(1);
-    let oesd = false, gutshot = false;
+    let oesd = false;
+    let gutshot = false;
     for (let lo = 2; lo <= 11; lo++) {
       const seq = [lo, lo + 1, lo + 2, lo + 3];
       if (seq.every((v) => vals.has(v)) && lo - 1 >= 1 && lo + 4 <= 14) oesd = true;
@@ -7158,7 +7159,7 @@ window.PT_NASH_PUSH_JSON = {
         if (window.filter((v) => vals.has(v)).length === 4) gutshot = true;
       }
     }
-    return { oesd, gutshot };
+    return { oesd: oesd, gutshot: gutshot };
   }
 
   function classifyMadeHand(holeCards, board) {
@@ -7169,7 +7170,8 @@ window.PT_NASH_PUSH_JSON = {
 
     const suitCount = {};
     holeCards.concat(board).forEach((c) => { suitCount[c[1]] = (suitCount[c[1]] || 0) + 1; });
-    let flushDraw = false, flush = false;
+    let flushDraw = false;
+    let flush = false;
     for (const s in suitCount) {
       if (suitCount[s] >= 5) flush = true;
       else if (suitCount[s] === 4) flushDraw = true;
@@ -7189,8 +7191,12 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     return {
-      ev, tier, flush, flushDraw,
-      oesd: straightStuff.oesd, gutshot: straightStuff.gutshot,
+      ev: ev,
+      tier: tier,
+      flush: flush,
+      flushDraw: flushDraw,
+      oesd: straightStuff.oesd,
+      gutshot: straightStuff.gutshot,
       hasDraw: flushDraw || straightStuff.oesd || straightStuff.gutshot,
       isNutFlush: flush && (function () {
         const Eq = global.GTOEquity;
@@ -7201,8 +7207,100 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
-  global.GTOEquityMadeHand = { classifyMadeHand, straightDraws, kickerStrength };
-})(window);
+  function rankCmp(a, b) {
+    if (!a || !b) return 0;
+    const ra = a.rank || [];
+    const rb = b.rank || [];
+    const n = Math.max(ra.length, rb.length);
+    for (let i = 0; i < n; i++) {
+      const x = ra[i] || 0;
+      const y = rb[i] || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  /**
+   * Fuerza 0..1 relativa al board: playing-the-board / solo kicker ≈ air.
+   * street: 'flop'|'turn'|'river' (draws aportan en flop/turn).
+   */
+  function relativeStrength01(holeCards, board, street) {
+    if (!holeCards || holeCards.length < 2) return 0.08;
+    const holeStr = (function () {
+      const ranks = '23456789TJQKA';
+      const a = Math.max(0, ranks.indexOf(String(holeCards[0])[0]));
+      const b = Math.max(0, ranks.indexOf(String(holeCards[1])[0]));
+      const pair = String(holeCards[0])[0] === String(holeCards[1])[0];
+      const suited = String(holeCards[0])[1] === String(holeCards[1])[1];
+      return Math.max(0.05, Math.min(0.95,
+        (Math.max(a, b) / 12) * 0.55 + (Math.min(a, b) / 12) * 0.2 +
+        (pair ? 0.25 : 0) + (suited ? 0.08 : 0)));
+    })();
+
+    if (!board || board.length < 3 || !C || !C.evaluate) return holeStr;
+
+    const full = C.evaluate(holeCards.concat(board));
+    const boardOnly = C.evaluate(board.slice());
+    const cat = full && full.category != null ? Number(full.category) : 0;
+    const bcat = boardOnly && boardOnly.category != null ? Number(boardOnly.category) : -1;
+    const made = classifyMadeHand(holeCards, board);
+    const highHole = Math.max(
+      C.RANK_VALUE[String(holeCards[0])[0]] || 0,
+      C.RANK_VALUE[String(holeCards[1])[0]] || 0
+    );
+
+    const sameCat = cat === bcat;
+    const primaryImproved = sameCat && (
+      (full.rank[1] || 0) > (boardOnly.rank[1] || 0) ||
+      (cat >= 2 && (full.rank[1] || 0) === (boardOnly.rank[1] || 0) &&
+        (full.rank[2] || 0) > (boardOnly.rank[2] || 0))
+    );
+    const kickerOnly = sameCat && !primaryImproved && cat <= 3;
+
+    let score;
+    if (cat > bcat) {
+      score = 0.34 + (cat / 8) * 0.58;
+      if (cat === 1) {
+        const pairVal = full.rank[1] || 0;
+        const topBoard = Math.max.apply(null, board.map((c) => C.RANK_VALUE[String(c)[0]] || 0));
+        if (pairVal >= topBoard) score = kickerStrength(holeCards, pairVal) ? 0.72 : 0.58;
+        else if (pairVal >= topBoard - 2) score = 0.48;
+        else score = 0.38;
+        if (String(holeCards[0])[0] === String(holeCards[1])[0] && pairVal > topBoard) {
+          score = Math.max(score, 0.78);
+        }
+      } else if (cat === 2) {
+        score = Math.max(0.62, score);
+      }
+    } else if (kickerOnly) {
+      if (cat <= 0) score = 0.10 + (highHole / 14) * 0.18;
+      else if (cat === 1) score = 0.14 + (highHole / 14) * 0.16;
+      else score = 0.16 + (highHole / 14) * 0.14;
+    } else if (sameCat && primaryImproved) {
+      score = 0.42 + (cat / 8) * 0.45 + (highHole / 14) * 0.08;
+    } else {
+      score = 0.16 + (cat / 8) * 0.72;
+      if (cat <= 0) score = Math.max(score, 0.12 + holeStr * 0.28);
+    }
+
+    if (street !== 'river' && made) {
+      if (made.flushDraw && made.oesd) score = Math.max(score, 0.52);
+      else if (made.flushDraw) score = Math.max(score, 0.44);
+      else if (made.oesd) score = Math.max(score, 0.40);
+      else if (made.gutshot) score = Math.max(score, Math.min(0.36, score + 0.06));
+    }
+
+    return Math.max(0.06, Math.min(0.98, score));
+  }
+
+  global.GTOEquityMadeHand = {
+    classifyMadeHand: classifyMadeHand,
+    straightDraws: straightDraws,
+    kickerStrength: kickerStrength,
+    relativeStrength01: relativeStrength01,
+    rankCmp: rankCmp
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
  * potMath.js — Aritmética de bote sin errores de coma flotante.
@@ -9750,6 +9848,15 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
 
+    /* Value/nuts: nunca check≈100% con equity alta (paso a paso mostraba 100/0). */
+    if ((band === 'nuts' || band === 'value') && equity >= 0.55) {
+      const minValueBet = street === 'river' ? 0.42 : (street === 'turn' ? 0.48 : 0.55);
+      betTotal = Math.max(betTotal, minValueBet);
+      if (band === 'nuts') betTotal = Math.max(betTotal, 0.68);
+    } else if (band === 'merge' && equity >= 0.58 && inPosition) {
+      betTotal = Math.max(betTotal, street === 'flop' ? 0.28 : 0.22);
+    }
+
     if (band === 'bluffcatch' || (band === 'merge' && equity < 0.42)) {
       betTotal = Math.min(betTotal, street === 'river' ? 0.12 : 0.28);
     }
@@ -10007,25 +10114,67 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
+   * Suaviza estrategias 100/0 en el borde para que el paso a paso muestre mixes.
+   * Pure raise/call/check → residual visible. Pure fold se deja intacto: inyectar
+   * call material (~5%+) reclasifica traps claros (p. ej. A9o BB vs UTG) como
+   * «aceptable» en lugar de error.
+   */
+  function softenPureStrategy(base, code) {
+    if (!base) return base;
+    const out = Object.assign({}, base);
+    const keys = Object.keys(out);
+    let dom = null;
+    let domVal = -1;
+    keys.forEach(function (k) {
+      const v = out[k] || 0;
+      if (v > domVal) { domVal = v; dom = k; }
+    });
+    if (!dom || domVal < 0.97) return base;
+    /* Fold puro = fold puro (pedagogía + guest traps). */
+    if (dom === 'fold') return base;
+    const s = HS && HS.handStrength01 ? HS.handStrength01(code) : 0.5;
+    if (dom === 'raise' || dom === 'allin') {
+      const keep = clamp(0.82 + s * 0.12, 0.82, 0.94);
+      out[dom] = keep;
+      const rem = 1 - keep;
+      if (out.fold != null || rem > 0) out.fold = (out.fold || 0) + rem * 0.7;
+      if (out.call != null || rem > 0) out.call = (out.call || 0) + rem * 0.3;
+    } else if (dom === 'call') {
+      const keep = clamp(0.84 + s * 0.1, 0.84, 0.94);
+      out.call = keep;
+      const rem = 1 - keep;
+      out.fold = (out.fold || 0) + rem * 0.65;
+      out.raise = (out.raise || 0) + rem * 0.35;
+    } else if (dom === 'check') {
+      const keep = clamp(0.85 + (1 - s) * 0.08, 0.82, 0.94);
+      out.check = keep;
+      const rem = 1 - keep;
+      out.bet = (out.bet || 0) + rem;
+      out.raise = (out.raise || 0);
+    }
+    return normalize(out);
+  }
+
+  /**
    * Refina estrategia preflop según tipo de spot y si la mano está en zona mix.
    */
   function enhancePreflopStrategy(base, code, spotKind, tableCtx) {
     tableCtx = tableCtx || {};
     if (!base || !code) return base;
 
+    let out = base;
     if (spotKind === 'RFI' && tableCtx.inMix) {
-      return refineMixStrategy(base, code, 'rfi_mix');
+      out = refineMixStrategy(base, code, 'rfi_mix');
+    } else if (spotKind === 'vsRFI') {
+      if (tableCtx.inThreeBetMix) out = refineMixStrategy(base, code, 'threebet_mix');
+      else if (tableCtx.inCallMix) out = refineMixStrategy(base, code, 'call_mix');
+    } else if (spotKind === 'squeeze') {
+      out = refineMixStrategy(base, code, 'squeeze');
+    } else if (spotKind === 'isoLimp' || spotKind === 'vsLimp') {
+      out = refineMixStrategy(base, code, 'iso');
     }
 
-    if (spotKind === 'vsRFI') {
-      if (tableCtx.inThreeBetMix) return refineMixStrategy(base, code, 'threebet_mix');
-      if (tableCtx.inCallMix) return refineMixStrategy(base, code, 'call_mix');
-    }
-
-    if (spotKind === 'squeeze') return refineMixStrategy(base, code, 'squeeze');
-    if (spotKind === 'isoLimp' || spotKind === 'vsLimp') return refineMixStrategy(base, code, 'iso');
-
-    return base;
+    return softenPureStrategy(out, code);
   }
 
   function tableContext(spotKind, code, data, key) {
@@ -10043,8 +10192,13 @@ window.PT_NASH_PUSH_JSON = {
     return ctx;
   }
 
-  global.GTOPreflopSolver = { enhancePreflopStrategy, refineMixStrategy, tableContext };
-})(window);
+  global.GTOPreflopSolver = {
+    enhancePreflopStrategy: enhancePreflopStrategy,
+    refineMixStrategy: refineMixStrategy,
+    softenPureStrategy: softenPureStrategy,
+    tableContext: tableContext
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
  * facingBet.js — Frecuencias fold/call/raise ante apuesta postflop.
@@ -10858,6 +11012,10 @@ window.PT_NASH_PUSH_JSON = {
     if (street === 'river' && info.ev && info.ev.category === 0) tier = 'air';
 
     let f = Object.assign({}, base[tier] || base.medium);
+    /* Top pair+ / strong: forzar mix de value bet (evitar check 100%). */
+    if ((tier === 'strong' || tier === 'nuts') && (f.bet || 0) < 0.35) {
+      f.bet = street === 'river' ? 0.48 : 0.55;
+    }
     f.bet = (f.bet || 0) * (STREET_PROBE_SCALE[street] || 1);
     if (texture.paired) f.bet *= street === 'river' ? (tier === 'air' ? 0.32 : 0.55) : 0.88;
     if (street === 'river' && tier === 'air' && input.initiative === 'aggressor' && input.inPosition) {
@@ -13169,13 +13327,40 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function buildOptionBreakdown(strategy, availableActions) {
-    const order = availableActions || Object.keys(strategy);
-    return order.map((id) => ({
+    const order = availableActions || Object.keys(strategy || {});
+    let rows = order.map((id) => ({
       id,
       label: formatActionLabel(id),
       frequency: strategy[id] || 0,
       pct: Math.round((strategy[id] || 0) * 100)
     })).sort((a, b) => b.frequency - a.frequency);
+
+    /* Conservar al menos 2–3 acciones visibles aunque alguna freq sea residual. */
+    const positive = rows.filter((r) => r.frequency >= 0.005);
+    if (positive.length >= 2) {
+      rows = positive;
+    } else if (rows.length > 1) {
+      const top = rows.slice(0, Math.min(3, rows.length)).map((r, i) => {
+        if (i === 0) return r;
+        if (r.frequency < 0.02) {
+          return Object.assign({}, r, {
+            frequency: Math.max(r.frequency, 0.04),
+            pct: Math.max(r.pct, 4)
+          });
+        }
+        return r;
+      });
+      /* Renormalizar pct del leader tras inyectar residuales. */
+      const extra = top.slice(1).reduce((s, r) => s + r.frequency, 0);
+      if (top[0] && extra > 0) {
+        top[0] = Object.assign({}, top[0], {
+          frequency: Math.max(0.5, 1 - extra),
+          pct: Math.max(50, Math.round((1 - extra) * 100))
+        });
+      }
+      rows = top;
+    }
+    return rows;
   }
 
   function formatActionLabel(id) {
