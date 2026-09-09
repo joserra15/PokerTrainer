@@ -14,7 +14,11 @@ test.describe('Share page y contacto @smoke', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
     await goTab(page, 'contact');
+<<<<<<< HEAD
     await page.waitForSelector('#tab-contact', { timeout: 15000 });
+=======
+    await page.waitForSelector('#tab-contact.active', { timeout: 15000 });
+>>>>>>> origin/main
     await expect(page.locator('#contact-pending-modal')).toBeAttached();
     await expect(page.locator('#contact-pending-body')).toBeAttached();
   });
