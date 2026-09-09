@@ -36403,7 +36403,8 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function isMobileNav() {
-    return window.matchMedia('(max-width: 680px)').matches;
+    // La app usa siempre el drawer/sándwich; la cuenta va embebida en el menú.
+    return true;
   }
 
   function closeAccountDropdown() {
@@ -36448,7 +36449,7 @@ window.PT_NASH_PUSH_JSON = {
 
     trigger.onclick = function (e) {
       e.stopPropagation();
-      if (window.matchMedia('(max-width: 680px)').matches) return;
+      if (isMobileNav()) return;
       const dropdown = $('#account-dropdown');
       if (!dropdown) return;
       const open = dropdown.classList.toggle('hidden');
@@ -37049,7 +37050,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function bindUi() {
     document.addEventListener('click', function () {
-      if (window.matchMedia('(max-width: 680px)').matches) return;
+      if (isMobileNav()) return;
       const dropdown = $('#account-dropdown');
       const trigger = $('#account-trigger');
       if (dropdown) dropdown.classList.add('hidden');
@@ -39754,7 +39755,7 @@ window.PT_NASH_PUSH_JSON = {
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
     const panel = $('#tab-' + tabId);
     if (panel) panel.classList.add('active');
-    if (isMobileLayout()) closeMobileNav();
+    closeMobileNav();
     /* Mesa torneo: no dejar body.trn-table-active al salir del tab (evita padding/footer rotos). */
     if (tabId !== 'tournaments') {
       document.body.classList.remove('trn-table-active');
@@ -40051,7 +40052,6 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function portalMobileNav() {
-    if (!isMobileLayout()) return;
     const nav = $('#topbar-nav');
     const backdrop = $('#nav-backdrop');
     if (!nav || !backdrop || nav.parentElement === document.body) return;
@@ -40098,10 +40098,11 @@ window.PT_NASH_PUSH_JSON = {
     const nav = $('#topbar-nav');
     if (!toggle) return;
 
-    if (isMobileLayout()) portalMobileNav();
+    // Drawer/sándwich siempre (escritorio y móvil).
+    portalMobileNav();
 
     function openNav() {
-      if (isMobileLayout()) portalMobileNav();
+      portalMobileNav();
       document.body.classList.add('nav-open');
       toggle.setAttribute('aria-expanded', 'true');
       if (nav) nav.setAttribute('aria-hidden', 'false');
@@ -40118,8 +40119,7 @@ window.PT_NASH_PUSH_JSON = {
     if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
     if (backdrop) backdrop.addEventListener('click', closeMobileNav);
     window.addEventListener('resize', () => {
-      if (isMobileLayout()) portalMobileNav();
-      else restoreMobileNav();
+      portalMobileNav();
       syncPlayMobileStage();
       if (hand) renderTable();
     });
