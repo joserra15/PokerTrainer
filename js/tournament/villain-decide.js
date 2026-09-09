@@ -1,6 +1,7 @@
 /*
  * tournament/villain-decide.js — Villanos de torneo con motor Pro+ del entrenador.
  * Estilos fish/nit/tag/lag/maniac/pro sobre dificultad pro (keepArchetype).
+ * Fuerza relativa al board, push/fold, steals, check-raise y presión de línea.
  */
 (function (global) {
   'use strict';
@@ -13,6 +14,13 @@
     if (!c) return '';
     if (typeof c === 'string') return c;
     return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  function toCodes(cards) {
+    if (!cards || !cards.length) return [];
+    return cards.map(function (c) {
+      return typeof c === 'string' ? c : cardCode(c);
+    }).filter(Boolean);
   }
 
   function handCode(cards) {
@@ -42,18 +50,17 @@
 
   /**
    * Estilos de mesa = sesgo sobre motor Pro+, no pasividad extrema.
-   * Fish/nit del entrenador son muy check/fold; en torneo eso se siente
-   * "todo check / overfold". Subimos suelos de agresión y defensa.
+   * Tag/pro: más c-bet / bluff / raise; lag/maniac siguen muy agresivos.
    */
   function tournamentPostflopFloor(role, postflop) {
     var pf = Object.assign({}, postflop || {});
     var floors = {
       fish:   { bet: 1.05, bluff: 0.85, raise: 0.95, call: 1.4, fold: 0.7 },
       nit:    { bet: 0.92, bluff: 0.55, raise: 0.85, call: 0.95, fold: 0.95 },
-      tag:    { bet: 1.2,  bluff: 1.0,  raise: 1.25, call: 1.0, fold: 0.95 },
+      tag:    { bet: 1.35, bluff: 1.2,  raise: 1.4,  call: 1.0, fold: 0.95 },
       lag:    { bet: 1.55, bluff: 1.55, raise: 1.55, call: 1.1, fold: 0.65 },
       maniac: { bet: 1.75, bluff: 1.9,  raise: 1.85, call: 1.15, fold: 0.5 },
-      pro:    { bet: 1.2,  bluff: 1.05, raise: 1.3,  call: 1.0, fold: 0.95 }
+      pro:    { bet: 1.35, bluff: 1.25, raise: 1.45, call: 1.0, fold: 0.95 }
     };
     var f = floors[role] || floors.tag;
     function floor(key, minV, maxV) {
@@ -119,40 +126,93 @@
     ));
   }
 
+  function highHoleRank01(hole) {
+    var ranks = '23456789TJQKA';
+    var a = Math.max(0, ranks.indexOf(cardCode(hole[0]).charAt(0)));
+    var b = Math.max(0, ranks.indexOf(cardCode(hole[1]).charAt(0)));
+    return Math.max(a, b) / 12;
+  }
+
   /**
-   * Cards.evaluate devuelve { category: 0..8, rank: [category, ...] } (mayor = mejor),
-   * no un rank 1..7462. Mapear mal → NaN/basura → overfold y solo check.
+   * Fuerza board-relative. Preferir GTOEquityMadeHand.relativeStrength01;
+   * fallback: nunca tratar two-pair del board como 0.58+.
    */
-  function strength01(hole, board) {
+  function strength01(hole, board, street) {
     var C = global.Cards;
+    var Made = global.GTOEquityMadeHand;
     board = board || [];
     var holeStr = holeStrength01(hole);
     if (!hole || hole.length < 2) return 0.1;
-    if (C && C.evaluate && board.length >= 3) {
+
+    var holeCodes = toCodes(hole);
+    var boardCodes = toCodes(board);
+
+    if (Made && typeof Made.relativeStrength01 === 'function' && boardCodes.length >= 3) {
       try {
-        var codes = hole.concat(board).map(function (c) {
-          return typeof c === 'string' ? c : cardCode(c);
-        });
-        var ev = C.evaluate(codes);
+        var rel = Made.relativeStrength01(holeCodes, boardCodes, street || 'flop');
+        if (rel != null && isFinite(Number(rel))) {
+          return Math.max(0.06, Math.min(0.98, Number(rel)));
+        }
+      } catch (eRel) { /* fallback abajo */ }
+    }
+
+    if (C && C.evaluate && boardCodes.length >= 3) {
+      try {
+        var full = C.evaluate(holeCodes.concat(boardCodes));
+        var boardOnly = C.evaluate(boardCodes.slice());
         var cat = null;
-        if (ev && ev.category != null && isFinite(Number(ev.category))) {
-          cat = Number(ev.category);
-        } else if (ev && Array.isArray(ev.rank) && isFinite(Number(ev.rank[0])) && Number(ev.rank[0]) <= 8) {
-          cat = Number(ev.rank[0]);
-        } else if (ev && typeof ev.rank === 'number' && ev.rank > 20) {
-          return Math.max(0.05, Math.min(0.98, 1 - (ev.rank / 7462)));
+        if (full && full.category != null && isFinite(Number(full.category))) {
+          cat = Number(full.category);
+        } else if (full && Array.isArray(full.rank) && isFinite(Number(full.rank[0])) && Number(full.rank[0]) <= 8) {
+          cat = Number(full.rank[0]);
+        } else if (full && typeof full.rank === 'number' && full.rank > 20) {
+          return Math.max(0.05, Math.min(0.98, 1 - (full.rank / 7462)));
+        }
+        var bcat = boardOnly && boardOnly.category != null ? Number(boardOnly.category) : -1;
+        var fullPri = (full && Array.isArray(full.rank)) ? (full.rank[1] || 0) : 0;
+        var boardPri = (boardOnly && Array.isArray(boardOnly.rank)) ? (boardOnly.rank[1] || 0) : 0;
+        var sameCat = cat != null && cat === bcat;
+        var primaryMatch = sameCat && fullPri === boardPri;
+
+        /* Playing the board / solo kicker → débil 0.10–0.30. */
+        if (sameCat && primaryMatch) {
+          var kick = highHoleRank01(hole);
+          return Math.max(0.10, Math.min(0.30, 0.10 + kick * 0.20));
         }
         if (cat != null && cat >= 0 && cat <= 8) {
           var made = 0.16 + (cat / 8) * 0.72;
-          /* High card / pareja débil: mezclar fuerza de hole (AK high ≠ 72o). */
           if (cat <= 0) made = Math.max(made, 0.2 + holeStr * 0.5);
           else if (cat === 1) made = Math.max(made, 0.42 + holeStr * 0.25);
-          else if (cat === 2) made = Math.max(made, 0.58);
+          else if (cat === 2) {
+            /* Nunca scorear two-pair del board como value fuerte. */
+            if (bcat === 2) made = Math.min(made, 0.30);
+            else made = Math.max(made, 0.58);
+          }
           return Math.max(0.08, Math.min(0.98, made));
         }
       } catch (e) { /* */ }
     }
     return holeStr;
+  }
+
+  function aliveSeats(hand) {
+    return (hand && hand.seats ? hand.seats : []).filter(function (s) {
+      return s && !s.folded;
+    });
+  }
+
+  function isHeadsUp(hand) {
+    var seats = hand && hand.seats ? hand.seats : [];
+    if (seats.length === 2) return true;
+    return aliveSeats(hand).length === 2;
+  }
+
+  function callEdgeForRole(role) {
+    if (role === 'fish') return 0.04;
+    if (role === 'nit') return 0.12;
+    if (role === 'lag' || role === 'maniac') return 0.06;
+    if (role === 'pro') return 0.10;
+    return 0.08; /* tag */
   }
 
   function rangeCtx(hand, seat) {
@@ -213,7 +273,6 @@
       heroSessionStats: heroStats,
       proStyle: (seat && seat.proStyle) || null
     };
-    // Si el campo está en burbuja, alinear fase efectiva para FormatAdjust / charts.
     if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
       && ctx.mttStructureSituation === 'bubble') {
       ctx.mttPhase = 'bubble';
@@ -238,7 +297,7 @@
           ctx.resolvedPhase = norm.effectivePhase || phase;
         }
         ctx.isTournament = true;
-        if (norm.stackBB != null) ctx.stackBB = stackBB; // keep seat stack
+        if (norm.stackBB != null) ctx.stackBB = stackBB;
       } catch (e3) { /* */ }
     }
     return ctx;
@@ -249,11 +308,14 @@
     var Ex = global.GTOVillainProExploit;
     var r = rnd != null ? rnd : Math.random();
     var m = (FA && typeof FA.multipliers === 'function') ? (FA.multipliers(ctx) || {}) : {};
-    // Fold bias by ICM/bubble; PKO softens fold (más call vs stacks cortos).
     var foldPush = (Number(m.fold) || 1) - 1;
     if (ctx.tournamentType === 'pko' || ctx.tournamentType === 'mystery') {
       foldPush *= 0.55;
       if (ctx.stackBB <= 20 && strength > 0.28) foldPush -= 0.08;
+    }
+    /* HU TAG: menos fold bias. */
+    if (ctx.isHeadsUp && profile && profile.id === 'tag') {
+      foldPush *= 0.55;
     }
     if (face === 'call' && foldPush > 0.05 && r < foldPush * 0.55) return 'fold';
     if (face === 'fold' && foldPush < -0.02 && strength > potOdds) return 'call';
@@ -262,7 +324,6 @@
     }
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
 
-    // Exploit vs perfil Hero (pros exploit_pool).
     var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
     if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
       var exCtx = Object.assign({}, ctx || {}, {
@@ -374,27 +435,175 @@
     return Math.min(maxTo, r2(t));
   }
 
+  function allInTo(seat) {
+    return r2(seat.streetInvested + seat.stack);
+  }
+
+  function isPushPhaseCtx(ctx) {
+    var PF = global.GTOPushFold;
+    if (PF && typeof PF.isPushPhase === 'function') {
+      try {
+        return !!PF.isPushPhase({
+          stackBB: ctx.stackBB,
+          formatHub: ctx.formatHub,
+          gameType: ctx.gameType,
+          mttPhase: ctx.effectivePhase || ctx.mttPhase,
+          rangeContext: ctx
+        });
+      } catch (e) { /* */ }
+    }
+    return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 12;
+  }
+
+  function isLateStealPos(pos) {
+    return pos === 'BTN' || pos === 'CO' || pos === 'SB';
+  }
+
+  function sampleStealAction(weights, rnd) {
+    var r = rnd != null ? rnd : Math.random();
+    var allin = Number(weights && weights.allin) || 0;
+    var raise = Number(weights && weights.raise) || 0;
+    if (r < allin) return 'allin';
+    if (r < allin + raise) return 'raise';
+    return 'fold';
+  }
+
+  function defendFn(VPF) {
+    if (!VPF) return null;
+    if (typeof VPF.defendVsOpen === 'function') return VPF.defendVsOpen.bind(VPF);
+    if (typeof VPF.defend === 'function') return VPF.defend.bind(VPF);
+    return null;
+  }
+
+  /**
+   * Agresión del héroe en flop/turn/river a partir de hand.log.
+   * streetsAgg = calles distintas con bet/raise; checks = checks del héroe.
+   */
+  function heroLinePressure(hand) {
+    var hero = (hand.seats || []).find(function (s) { return s && s.isHero; });
+    var heroId = hero && hero.id;
+    var aggStreets = {};
+    var checkCount = 0;
+    var betRaiseCount = 0;
+    (hand.log || []).forEach(function (e) {
+      if (!e || (e.street !== 'flop' && e.street !== 'turn' && e.street !== 'river')) return;
+      var isHero = heroId != null
+        ? e.id === heroId
+        : !!(hand.seats || []).find(function (s) { return s && s.id === e.id && s.isHero; });
+      if (!isHero) return;
+      if (e.action === 'bet' || e.action === 'raise') {
+        aggStreets[e.street] = true;
+        betRaiseCount += 1;
+      } else if (e.action === 'check') {
+        checkCount += 1;
+      }
+    });
+    var multiStreetAgg = Object.keys(aggStreets).length;
+    return {
+      multiStreetAgg: multiStreetAgg,
+      betRaiseCount: betRaiseCount,
+      checkCount: checkCount,
+      passive: checkCount >= 2 && betRaiseCount === 0,
+      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2
+    };
+  }
+
+  function isInPosition(hand, seat) {
+    var order = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+    var alive = aliveSeats(hand);
+    if (alive.length <= 1) return true;
+    var myIdx = order.indexOf(seat.pos);
+    if (myIdx < 0) myIdx = 0;
+    var maxOther = -1;
+    for (var i = 0; i < alive.length; i++) {
+      if (alive[i].id === seat.id) continue;
+      maxOther = Math.max(maxOther, order.indexOf(alive[i].pos));
+    }
+    return myIdx > maxOther;
+  }
+
   function decidePreflop(hand, seat) {
     var VPF = global.GTOVillainPreflop;
+    var PF = global.GTOPushFold;
     var profile = profileForSeat(seat);
+    var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var code = handCode(seat.cards);
     var ctx = rangeCtx(hand, seat);
     var raises = raiseCount(hand);
+    var hu = isHeadsUp(hand);
+    ctx.isHeadsUp = hu;
+    var holeStr = holeStrength01(seat.cards);
+    var stackBB = ctx.stackBB;
+    var pushPhase = isPushPhaseCtx(ctx);
 
+    /* ---------- Sin opener: open / shove / steal ---------- */
     if (!hand.openerId) {
       if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
+
+      /* Push/fold corto o fase push. */
+      if ((stackBB <= 12 || pushPhase) && PF && typeof PF.shouldOpenShove === 'function' && code) {
+        try {
+          if (PF.shouldOpenShove(code, seat.pos, stackBB, { rangeContext: ctx, formatHub: ctx.formatHub })) {
+            return { id: 'raise', amount: allInTo(seat) };
+          }
+        } catch (eShove) { /* */ }
+        if (stackBB <= 12 || pushPhase) {
+          return tc > 0 ? { id: 'fold' } : { id: 'check' };
+        }
+      }
+
+      /* Steal folded-to late, 12–25 bb. */
+      if (isLateStealPos(seat.pos) && stackBB > 12 && stackBB <= 25
+        && PF && typeof PF.stealOpenStrategy === 'function' && code) {
+        try {
+          var steal = PF.stealOpenStrategy({
+            handCode: code,
+            position: seat.pos,
+            heroPos: seat.pos,
+            rangeContext: ctx,
+            effStack: stackBB,
+            stackBB: stackBB,
+            formatHub: ctx.formatHub
+          });
+          var stealAct = sampleStealAction(steal, Math.random());
+          if (stealAct === 'allin') {
+            return { id: 'raise', amount: allInTo(seat) };
+          }
+          if (stealAct === 'raise') {
+            return {
+              id: 'raise',
+              amount: Math.min(
+                allInTo(seat),
+                r2(hand.bb * openSizeBb(seat, profile))
+              )
+            };
+          }
+        } catch (eSteal) { /* */ }
+      }
+
       var open = false;
       if (VPF && typeof VPF.isInOpenRange === 'function' && code) {
         try { open = !!VPF.isInOpenRange(code, seat.pos, ctx); } catch (e) { open = false; }
       } else {
-        open = strength01(seat.cards, []) > 0.58;
+        open = holeStr > 0.58;
       }
+
+      /* HU: abrir más ancho desde BTN/SB si no está en chart. */
+      if (!open && hu && (seat.pos === 'BTN' || seat.pos === 'SB')) {
+        var huOpenThr = 0.40;
+        if (role === 'tag') huOpenThr = 0.32;
+        else if (role === 'lag' || role === 'pro' || role === 'maniac') huOpenThr = 0.28;
+        else if (role === 'nit') huOpenThr = 0.40;
+        else if (role === 'fish') huOpenThr = 0.30;
+        if (holeStr > huOpenThr) open = true;
+      }
+
       if (open) {
         return {
           id: 'raise',
           amount: Math.min(
-            seat.streetInvested + seat.stack,
+            allInTo(seat),
             r2(hand.bb * openSizeBb(seat, profile))
           )
         };
@@ -402,7 +611,30 @@
       return tc > 0 ? { id: 'fold' } : { id: 'check' };
     }
 
+    /* ---------- Facing open / 3bet / shove ---------- */
+    var opener = (hand.seats || []).find(function (s) { return s && s.id === hand.openerId; });
+    var openerAllIn = !!(opener && (opener.allIn || opener.stack <= 0));
+    var facingShove = openerAllIn || (tc > 0 && tc >= seat.stack * 0.85);
+
+    if ((hu && stackBB <= 12) || facingShove || (pushPhase && facingShove)) {
+      if (PF && typeof PF.shouldCallShove === 'function' && code) {
+        try {
+          var callShove = PF.shouldCallShove(
+            code, seat.pos, stackBB, hand.openerPos || (opener && opener.pos) || 'BTN',
+            { rangeContext: ctx, formatHub: ctx.formatHub }
+          );
+          if (callShove) return { id: 'call' };
+        } catch (eCs) { /* */ }
+      }
+      if (facingShove || (hu && stackBB <= 12 && pushesOrShort(stackBB, pushPhase))) {
+        /* Fuera de chart de call-shove: fold (salvo premium holeStr). */
+        if (holeStr > 0.82) return { id: 'call' };
+        return tc <= 0 ? { id: 'check' } : { id: 'fold' };
+      }
+    }
+
     var action = 'fold';
+    var defend = defendFn(VPF);
     if (VPF && code) {
       try {
         if (raises >= 3 && typeof VPF.villainVs4BetAction === 'function') {
@@ -410,8 +642,8 @@
         } else if (raises >= 2 && hand.openerId === seat.id &&
             typeof VPF.openerVs3BetAction === 'function') {
           action = VPF.openerVs3BetAction(code, profile, Math.random(), ctx) || 'fold';
-        } else if (typeof VPF.defendVsOpen === 'function') {
-          action = VPF.defendVsOpen(
+        } else if (defend) {
+          action = defend(
             code, profile, Math.random(), seat.pos, hand.openerPos || 'CO', ctx
           ) || 'fold';
         }
@@ -419,43 +651,137 @@
         action = 'fold';
       }
     } else {
-      var s0 = strength01(seat.cards, []);
+      var s0 = holeStr;
       if (s0 > 0.8) action = '3bet';
       else if (s0 > 0.55) action = 'call';
     }
 
+    /* HU: defender BB más ancho si el chart dice fold. */
+    if (hu && (action === 'fold' || !action) && (seat.pos === 'BB' || seat.pos === 'SB')) {
+      var defThr = 0.42;
+      if (role === 'tag') defThr = 0.38;
+      else if (role === 'pro' || role === 'lag' || role === 'maniac') defThr = 0.34;
+      else if (role === 'nit') defThr = 0.48;
+      else if (role === 'fish') defThr = 0.36;
+      if (holeStr > defThr) {
+        action = holeStr > defThr + 0.18 ? '3bet' : 'call';
+      }
+    }
+
     if (action === '3bet' || action === 'raise' || action === '4bet') {
       var mult = raises >= 2 ? 2.3 : (seat.pos === 'SB' || seat.pos === 'BB' ? 3.6 : 3.2);
+      if (stackBB <= 12 || pushPhase) {
+        return { id: 'raise', amount: allInTo(seat) };
+      }
       return { id: 'raise', amount: capRaiseTo(hand, seat, hand.currentBet * mult) };
     }
     if (action === 'call' || action === 'limp') {
-      action = applyFormatAdjustToFacing('call', strength01(seat.cards, []), tc > 0 ? tc / (hand.pot + tc) : 0, ctx, profile, Math.random());
+      action = applyFormatAdjustToFacing(
+        'call', holeStr, tc > 0 ? tc / (hand.pot + tc) : 0, ctx, profile, Math.random()
+      );
       if (action === 'fold') return tc <= 0 ? { id: 'check' } : { id: 'fold' };
       return tc <= 0 ? { id: 'check' } : { id: 'call' };
     }
-    action = applyFormatAdjustToFacing('fold', strength01(seat.cards, []), tc > 0 ? tc / (hand.pot + tc) : 0, ctx, profile, Math.random());
+    action = applyFormatAdjustToFacing(
+      'fold', holeStr, tc > 0 ? tc / (hand.pot + tc) : 0, ctx, profile, Math.random()
+    );
     if (action === 'call') return tc <= 0 ? { id: 'check' } : { id: 'call' };
     return tc <= 0 ? { id: 'check' } : { id: 'fold' };
   }
 
+  function pushesOrShort(stackBB, pushPhase) {
+    return stackBB <= 12 || !!pushPhase;
+  }
+
+  /**
+   * Reglas de fold postflop (sustituyen el anti-overfold tóxico).
+   * Retorna 'fold' forzoso, 'ok' si puede seguir, o ajusta call barato.
+   */
+  function applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd) {
+    var betFrac = pot > 0 ? tc / pot : 1;
+    rnd = rnd != null ? rnd : Math.random();
+
+    /* River air: fold vs ≥25% pot; potOdds minúsculo (<0.08) puede seguir. */
+    if (street === 'river' && strength < 0.28) {
+      if ((betFrac >= 0.25 || potOdds >= 0.20) && potOdds >= 0.08) return 'fold';
+    }
+    /* Bluffcatcher barato en river (potOdds tiny). */
+    if (street === 'river' && potOdds < 0.08 && strength > 0.35 && face === 'fold') {
+      return 'call';
+    }
+
+    /* Board-only / kicker-only en turn/river vs ≥33% pot. */
+    if ((street === 'turn' || street === 'river') && strength < 0.32) {
+      if (betFrac >= 0.33 || potOdds >= 0.248) return 'fold';
+    }
+
+    /* Calls baratos solo con edge según rol. */
+    if (face === 'call' || face === 'fold') {
+      var edge = callEdgeForRole(role);
+      if (strength > potOdds + edge) {
+        if (face === 'fold' && potOdds < 0.28 && rnd < 0.55) return 'call';
+        return face === 'fold' ? face : 'call';
+      }
+      if (face === 'call' && strength <= potOdds + edge) {
+        /* Sin edge suficiente: fold salvo raises value / semi. */
+        if (strength < 0.55) return 'fold';
+      }
+    }
+    return face;
+  }
+
   function decidePostflop(hand, seat) {
     var VP = global.GTOVillainProfiles;
+    var LP = global.GTOVillainLinePolicy;
+    var Made = global.GTOEquityMadeHand;
+    var Track = global.GTOVillainTracking;
     var profile = profileForSeat(seat);
+    var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
-    var strength = strength01(seat.cards, hand.board || []);
+    var street = hand.street || 'flop';
+    var strength = strength01(seat.cards, hand.board || [], street);
     var pot = Math.max(hand.pot || 1, 1);
     var potOdds = tc > 0 ? tc / (pot + tc) : 0;
-    var street = hand.street || 'flop';
     var rnd = Math.random();
     var ctx = rangeCtx(hand, seat);
+    ctx.isHeadsUp = isHeadsUp(hand);
+    var heroLine = heroLinePressure(hand);
+    var inPos = isInPosition(hand, seat);
+    var wasAgg = !!(hand.openerId && hand.openerId === seat.id);
+    var initiative = wasAgg ? 'aggressor' : 'caller';
+
+    var madeInfo = null;
+    if (Made && typeof Made.classifyMadeHand === 'function') {
+      try {
+        madeInfo = Made.classifyMadeHand(toCodes(seat.cards), toCodes(hand.board || []));
+      } catch (eM) { madeInfo = null; }
+    }
+
     var opts = {
       street: street,
       tier: strength > 0.7 ? 'strong' : (strength < 0.35 ? 'weak' : 'medium'),
       formatHub: ctx.formatHub,
       stackBB: ctx.stackBB,
-      mttPhase: ctx.effectivePhase || ctx.mttPhase
+      mttPhase: ctx.effectivePhase || ctx.mttPhase,
+      madeCategory: madeInfo && madeInfo.ev ? madeInfo.ev.category : null,
+      holeStrength: holeStrength01(seat.cards)
     };
 
+    /* Tracking opcional (no bloquea si el shape de hand.log no encaja). */
+    if (Track && typeof Track.inferVillainLineContext === 'function') {
+      try {
+        var lineCtx = Track.inferVillainLineContext({
+          hand: hand,
+          street: street,
+          boardSoFar: hand.board || []
+        });
+        if (lineCtx && lineCtx.villainLastAction) {
+          ctx.villainLastAction = lineCtx.villainLastAction;
+        }
+      } catch (eT) { /* */ }
+    }
+
+    /* ---------- Facing bet ---------- */
     if (tc > 0) {
       var face = 'fold';
       if (VP && typeof VP.postflopFacingBet === 'function') {
@@ -464,20 +790,62 @@
         } catch (e) { face = 'fold'; }
       } else if (strength > 0.78) {
         face = 'raise';
-      } else if (strength > potOdds + 0.08) {
-        face = 'call';
-      } else if (strength > potOdds - 0.02 && rnd < 0.55) {
+      } else if (strength > potOdds + callEdgeForRole(role)) {
         face = 'call';
       }
-      /* Anti-overfold: a tamaños chicos / medio-chicos seguir mucho más. */
-      if (face === 'fold') {
-        if (potOdds < 0.12 && strength > 0.12) face = 'call';
-        else if (potOdds < 0.18 && strength > 0.18) face = rnd < 0.92 ? 'call' : 'fold';
-        else if (potOdds < 0.24 && strength > 0.22) face = rnd < 0.82 ? 'call' : 'fold';
-        else if (potOdds < 0.3 && strength > 0.32) face = rnd < 0.68 ? 'call' : 'fold';
-        else if (potOdds < 0.36 && strength > 0.48) face = rnd < 0.55 ? 'call' : 'fold';
+
+      /* Check-raise follow-through. */
+      if (seat._lineIntent === 'checkRaise') {
+        var xrBoost = false;
+        if (LP && typeof LP.adjustFacing === 'function') {
+          try {
+            var freqs = { fold: 0.45, call: 0.35, raise: 0.2 };
+            if (face === 'raise') freqs = { fold: 0.15, call: 0.25, raise: 0.6 };
+            else if (face === 'call') freqs = { fold: 0.25, call: 0.5, raise: 0.25 };
+            else freqs = { fold: 0.55, call: 0.3, raise: 0.15 };
+            var adj = LP.adjustFacing(freqs, {
+              lineIntent: 'checkRaise',
+              street: street,
+              strength: strength,
+              formatHub: ctx.formatHub,
+              stackBB: ctx.stackBB,
+              band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
+            });
+            var rXr = Math.random();
+            if (rXr < (adj.raise || 0)) face = 'raise';
+            else if (rXr < (adj.raise || 0) + (adj.call || 0)) face = 'call';
+            else face = 'fold';
+            xrBoost = true;
+          } catch (eXr) { xrBoost = false; }
+        }
+        if (!xrBoost) {
+          var drawish = (street === 'flop' || street === 'turn')
+            && strength >= 0.38 && strength <= 0.52;
+          if (strength > 0.55 || drawish) {
+            if (Math.random() < (strength > 0.55 ? 0.62 : 0.42)) face = 'raise';
+          }
+        }
+        seat._lineIntent = null;
       }
+
+      /* Semibluff raises flop/turn medium strength. */
+      if ((street === 'flop' || street === 'turn')
+        && strength >= 0.38 && strength <= 0.52
+        && (role === 'tag' || role === 'pro' || role === 'lag')
+        && face === 'call' && Math.random() < 0.28) {
+        face = 'raise';
+      }
+
+      /* Hero multi-street aggression → más fold con manos medias. */
+      if (heroLine.aggressive && strength < 0.45 && face !== 'raise') {
+        if (Math.random() < 0.55) face = 'fold';
+      }
+
+      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd);
       face = applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd);
+      /* Reaplicar disciplina tras format-adjust (evitar reintroducir calls tóxicos). */
+      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, Math.random());
+
       if (face === 'raise') {
         return {
           id: 'raise',
@@ -492,7 +860,30 @@
       return { id: 'fold' };
     }
 
-    var wasAgg = !!(hand.openerId && hand.openerId === seat.id);
+    /* ---------- Lead (tc === 0) ---------- */
+    if (LP && typeof LP.decideLead === 'function') {
+      try {
+        var leadLine = LP.decideLead({
+          street: street,
+          board: toCodes(hand.board || []),
+          strength: strength,
+          role: role,
+          inPosition: inPos,
+          initiative: initiative,
+          band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge'),
+          formatHub: ctx.formatHub,
+          stackBB: ctx.stackBB,
+          madeCategory: opts.madeCategory,
+          spr: pot > 0 ? ctx.stackBB / (pot / Math.max(1, hand.bb || 1)) : ctx.stackBB
+        }, rnd);
+        if (leadLine && (leadLine.forceCheck || leadLine.intent === 'checkRaise')) {
+          seat._lineIntent = 'checkRaise';
+          return { id: 'check' };
+        }
+        if (leadLine && leadLine.intent) seat._lineIntent = leadLine.intent;
+      } catch (eLead) { /* */ }
+    }
+
     var lead = 'check';
     if (VP && typeof VP.postflopLead === 'function') {
       try {
@@ -502,10 +893,9 @@
       lead = 'bet';
     }
 
-    /* Suelo de c-bet / value-bet: evita mesas de solo check. */
+    /* Suelo de c-bet / value-bet. */
     if (lead === 'check') {
       var force = 0;
-      var role = profile && profile.id;
       if (wasAgg && strength > 0.38) force = 0.62;
       else if (wasAgg && strength > 0.22) force = 0.48;
       else if (strength > 0.68) force = 0.58;
@@ -513,9 +903,26 @@
       else if (strength > 0.36) force = 0.22;
       if (role === 'lag' || role === 'maniac') force = Math.min(0.85, force + 0.18);
       if (role === 'nit') force *= 0.75;
+      /* Semibluff flop/turn. */
+      if ((street === 'flop' || street === 'turn')
+        && strength >= 0.38 && strength <= 0.52
+        && (role === 'tag' || role === 'pro' || role === 'lag')) {
+        force = Math.min(0.82, force + 0.22);
+      }
+      /* Hero pasivo → más presión de bet (pro/tag). */
+      if (heroLine.passive && (role === 'pro' || role === 'tag') && strength > 0.28) {
+        force = Math.min(0.85, force + 0.2);
+      }
       if (rnd < force) lead = 'bet';
     }
+
     lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd, profile);
+
+    /* Hero pasivo + pro/tag: empujar bet tras format adjust. */
+    if (lead === 'check' && heroLine.passive && (role === 'pro' || role === 'tag')
+      && strength > 0.28 && Math.random() < 0.35) {
+      lead = 'bet';
+    }
 
     if (lead === 'bet') {
       var frac = sampleBetFrac(profile, street, strength);
@@ -526,14 +933,14 @@
         if (mLead.jamBias > 1.3 && ctx.stackBB <= 14 && strength > 0.5) {
           return {
             id: 'raise',
-            amount: seat.streetInvested + seat.stack
+            amount: allInTo(seat)
           };
         }
       }
       return {
         id: 'bet',
         amount: Math.min(
-          seat.streetInvested + seat.stack,
+          allInTo(seat),
           Math.max(hand.bb, r2(pot * frac))
         )
       };

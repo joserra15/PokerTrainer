@@ -73,9 +73,7 @@
     var rank = Seat && Seat.heroFieldRank ? Seat.heroFieldRank(state) : null;
     var left = St && St.playersLeft ? St.playersLeft(state) : 0;
     var pos = rank != null ? (rank + 'º/' + left) : ('—/' + left);
-    var prog = until == null
-      ? ('Nv.' + lv.level + ' fin')
-      : ('Nv.' + lv.level + ' ' + into + '/' + lv.hands);
+    var prog = 'Nv.' + lv.level + ' ' + into + '/' + lv.hands;
     return prog + ' · ' + pos;
   }
 
@@ -156,7 +154,7 @@
 
     var pool = Cfg && Cfg.prizePool ? Cfg.prizePool(cfg) : ((cfg.buyInEur || 0) * (cfg.entries || 0));
     var progressHands = until == null
-      ? ('Nivel ' + lv.level + ' · último nivel')
+      ? ('Nivel ' + lv.level + ' · ' + into + '/' + lv.hands + ' manos')
       : ('Nivel ' + lv.level + ' · ' + into + '/' + lv.hands + ' manos hasta ciegas');
 
     var blindsNow = lv.sb + '/' + lv.bb + (lv.ante > 0 ? (' ante ' + lv.ante) : '');

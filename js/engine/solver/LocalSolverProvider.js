@@ -324,13 +324,40 @@
   }
 
   function buildOptionBreakdown(strategy, availableActions) {
-    const order = availableActions || Object.keys(strategy);
-    return order.map((id) => ({
+    const order = availableActions || Object.keys(strategy || {});
+    let rows = order.map((id) => ({
       id,
       label: formatActionLabel(id),
       frequency: strategy[id] || 0,
       pct: Math.round((strategy[id] || 0) * 100)
     })).sort((a, b) => b.frequency - a.frequency);
+
+    /* Conservar al menos 2–3 acciones visibles aunque alguna freq sea residual. */
+    const positive = rows.filter((r) => r.frequency >= 0.005);
+    if (positive.length >= 2) {
+      rows = positive;
+    } else if (rows.length > 1) {
+      const top = rows.slice(0, Math.min(3, rows.length)).map((r, i) => {
+        if (i === 0) return r;
+        if (r.frequency < 0.02) {
+          return Object.assign({}, r, {
+            frequency: Math.max(r.frequency, 0.04),
+            pct: Math.max(r.pct, 4)
+          });
+        }
+        return r;
+      });
+      /* Renormalizar pct del leader tras inyectar residuales. */
+      const extra = top.slice(1).reduce((s, r) => s + r.frequency, 0);
+      if (top[0] && extra > 0) {
+        top[0] = Object.assign({}, top[0], {
+          frequency: Math.max(0.5, 1 - extra),
+          pct: Math.max(50, Math.round((1 - extra) * 100))
+        });
+      }
+      rows = top;
+    }
+    return rows;
   }
 
   function formatActionLabel(id) {

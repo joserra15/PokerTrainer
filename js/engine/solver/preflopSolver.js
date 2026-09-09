@@ -92,25 +92,67 @@
   }
 
   /**
+   * Suaviza estrategias 100/0 en el borde para que el paso a paso muestre mixes.
+   * Pure raise/call/check → residual visible. Pure fold se deja intacto: inyectar
+   * call material (~5%+) reclasifica traps claros (p. ej. A9o BB vs UTG) como
+   * «aceptable» en lugar de error.
+   */
+  function softenPureStrategy(base, code) {
+    if (!base) return base;
+    const out = Object.assign({}, base);
+    const keys = Object.keys(out);
+    let dom = null;
+    let domVal = -1;
+    keys.forEach(function (k) {
+      const v = out[k] || 0;
+      if (v > domVal) { domVal = v; dom = k; }
+    });
+    if (!dom || domVal < 0.97) return base;
+    /* Fold puro = fold puro (pedagogía + guest traps). */
+    if (dom === 'fold') return base;
+    const s = HS && HS.handStrength01 ? HS.handStrength01(code) : 0.5;
+    if (dom === 'raise' || dom === 'allin') {
+      const keep = clamp(0.82 + s * 0.12, 0.82, 0.94);
+      out[dom] = keep;
+      const rem = 1 - keep;
+      if (out.fold != null || rem > 0) out.fold = (out.fold || 0) + rem * 0.7;
+      if (out.call != null || rem > 0) out.call = (out.call || 0) + rem * 0.3;
+    } else if (dom === 'call') {
+      const keep = clamp(0.84 + s * 0.1, 0.84, 0.94);
+      out.call = keep;
+      const rem = 1 - keep;
+      out.fold = (out.fold || 0) + rem * 0.65;
+      out.raise = (out.raise || 0) + rem * 0.35;
+    } else if (dom === 'check') {
+      const keep = clamp(0.85 + (1 - s) * 0.08, 0.82, 0.94);
+      out.check = keep;
+      const rem = 1 - keep;
+      out.bet = (out.bet || 0) + rem;
+      out.raise = (out.raise || 0);
+    }
+    return normalize(out);
+  }
+
+  /**
    * Refina estrategia preflop según tipo de spot y si la mano está en zona mix.
    */
   function enhancePreflopStrategy(base, code, spotKind, tableCtx) {
     tableCtx = tableCtx || {};
     if (!base || !code) return base;
 
+    let out = base;
     if (spotKind === 'RFI' && tableCtx.inMix) {
-      return refineMixStrategy(base, code, 'rfi_mix');
+      out = refineMixStrategy(base, code, 'rfi_mix');
+    } else if (spotKind === 'vsRFI') {
+      if (tableCtx.inThreeBetMix) out = refineMixStrategy(base, code, 'threebet_mix');
+      else if (tableCtx.inCallMix) out = refineMixStrategy(base, code, 'call_mix');
+    } else if (spotKind === 'squeeze') {
+      out = refineMixStrategy(base, code, 'squeeze');
+    } else if (spotKind === 'isoLimp' || spotKind === 'vsLimp') {
+      out = refineMixStrategy(base, code, 'iso');
     }
 
-    if (spotKind === 'vsRFI') {
-      if (tableCtx.inThreeBetMix) return refineMixStrategy(base, code, 'threebet_mix');
-      if (tableCtx.inCallMix) return refineMixStrategy(base, code, 'call_mix');
-    }
-
-    if (spotKind === 'squeeze') return refineMixStrategy(base, code, 'squeeze');
-    if (spotKind === 'isoLimp' || spotKind === 'vsLimp') return refineMixStrategy(base, code, 'iso');
-
-    return base;
+    return softenPureStrategy(out, code);
   }
 
   function tableContext(spotKind, code, data, key) {
@@ -128,5 +170,10 @@
     return ctx;
   }
 
-  global.GTOPreflopSolver = { enhancePreflopStrategy, refineMixStrategy, tableContext };
-})(window);
+  global.GTOPreflopSolver = {
+    enhancePreflopStrategy: enhancePreflopStrategy,
+    refineMixStrategy: refineMixStrategy,
+    softenPureStrategy: softenPureStrategy,
+    tableContext: tableContext
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
