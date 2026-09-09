@@ -1,6 +1,7 @@
 # Lote 3 — Carruseles educativos
 
-**13 carruseles × 5 slides = 65 imágenes** (ratio 3:4 ≈ 4:5 Instagram).
+**20 carruseles × 5 slides** (B1–B8, B10–B21; ratio 3:4 ≈ 4:5 Instagram).  
+Lote sprint FOUNDER: **B15–B21** (ver también [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](../07-sprint-founder-oct/CARRUSELES_NUEVOS.md)).
 
 Hashtags base: `#pokertips #pokerstrategy #GTO #pokerespañol #pokerforgeai #estudiopoker`
 
@@ -199,6 +200,35 @@ Prioriza push/fold e iso vs limp antes que c-bets fancy.
 
 ---
 
+---
+
+## Sprint FOUNDER — B15–B21 (nuevos)
+
+### B15 — SPR
+`edu-b15-01` … `edu-b15-05` — stack-to-pot y plan postflop.
+
+### B16 — Odds implícitas / set mining
+`edu-b16-01` … `edu-b16-05`
+
+### B17 — Barrel en turn
+`edu-b17-01` … `edu-b17-05`
+
+### B18 — Overbet
+`edu-b18-01` … `edu-b18-05`
+
+### B19 — Multiway
+`edu-b19-01` … `edu-b19-05`
+
+### B20 — Blockers básicos
+`edu-b20-01` … `edu-b20-05`
+
+### B21 — Torneo entero vs drill
+`edu-b21-01` … `edu-b21-05` — Torneos IA · coach al lado mano a mano.
+
+Captions y orden del sprint: [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](../07-sprint-founder-oct/CARRUSELES_NUEVOS.md).
+
+---
+
 ## Orden sugerido de publicación (1 carrusel / semana educativa)
 
 | Semana | Carrusel | Nivel |
@@ -216,3 +246,4 @@ Prioriza push/fold e iso vs limp antes que c-bets fancy.
 | 11 | B14 Check-raise | Intermedio |
 | 12 | B8 ICM | Intermedio |
 | 13 | B10 Spins | Intermedio |
+| Sprint oct | B15 · B21 · B16 · B17 | Sprint FOUNDER |

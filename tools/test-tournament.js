@@ -1368,10 +1368,12 @@ console.log('OK tournament-result-polish');
 {
   const Lb = g.PTTournamentLeaderboard;
   assert.ok(Lb && Lb.renderHtml, 'leaderboard module');
+  assert.strictEqual(Lb.TOP_N, 10, 'top 10 en clasificación');
   g.PTTournamentWallet.setBalance(200, { type: 'test_lb' });
   g.PTTournamentWallet.setTournamentsPlayed(0);
-  /* Sin torneos jugados no aparece en ranking */
-  assert.strictEqual(Lb.rankings(20).length, 0, 'sin torneos → ranking vacío');
+  /* Todos los usuarios de la comunidad (incl. Hero sin torneos) aparecen con sus Koins */
+  assert.strictEqual(Lb.rankings(20).length, 1, 'hero con 0 torneos sigue en ranking');
+  assert.ok(Lb.rankings(20)[0].isHero, 'única fila es hero');
   g.PTTournamentWallet.noteTournamentPlayed();
   const html = Lb.renderHtml();
   assert.ok(/trn-leaderboard/.test(html), 'leaderboard html');
@@ -1404,10 +1406,41 @@ console.log('OK tournament-result-polish');
   assert.strictEqual(g.PTTournamentWallet.getBalance(), 0);
 
   const ranks = Lb.rankings(20);
-  assert.ok(ranks.length >= 1, 'ranking con jugadores que jugaron');
+  assert.ok(ranks.length >= 1, 'ranking con jugadores de la comunidad');
   assert.ok(ranks.every(function (r) { return String(r.id).indexOf('c_seed_') !== 0; }), 'no fake seed ids');
-  assert.ok(ranks.every(function (r) { return (r.tournamentsPlayed || 0) >= 1; }), 'solo ≥1 torneo');
   assert.ok(!/MesaNorte|RangeLab|ICMPulse|FeltWalker/.test(html), 'no invented peer names');
+
+  /* Top 10 + Hero debajo si queda fuera */
+  const cid = Lb.communityId();
+  const boardKey = 'pt_tournament_leaderboard_v1_' + cid;
+  const peers = [];
+  for (var i = 0; i < 12; i++) {
+    peers.push({
+      id: 'peer_' + i,
+      name: 'Peer' + i,
+      koins: 1000 - i * 10,
+      tournamentsPlayed: 1,
+      updatedAt: new Date().toISOString()
+    });
+  }
+  g.localStorage.setItem(boardKey, JSON.stringify(peers));
+  g.PTTournamentWallet.setBalance(5, { type: 'test_lb_outside' });
+  g.PTTournamentWallet.setTournamentsPlayed(1);
+  const top = Lb.rankings();
+  assert.strictEqual(top.length, 10, 'rankings() limita a top 10');
+  assert.ok(!top.some(function (r) { return r.isHero; }), 'hero no está en top 10');
+  const standing = Lb.heroStanding();
+  assert.ok(standing && standing.isHero, 'heroStanding devuelve hero');
+  assert.ok(standing.rank > 10, 'hero tiene posición real > 10');
+  const htmlOut = Lb.renderHtml();
+  assert.ok(/trn-lb-separator/.test(htmlOut), 'separador cuando hero está fuera');
+  assert.ok(new RegExp('>' + standing.rank + '<').test(htmlOut) ||
+    htmlOut.indexOf('>' + standing.rank + '</span>') >= 0,
+    'posición real de hero en HTML');
+  assert.ok(/\(Hero\)/.test(htmlOut), 'etiqueta Hero fuera del top');
+  /* Limpia peers para no contaminar tests posteriores */
+  g.localStorage.setItem(boardKey, JSON.stringify([]));
+  g.PTTournamentWallet.setBalance(0, { type: 'test_lb_reset' });
 
   console.log('OK leaderboard-and-legend');
 }

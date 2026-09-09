@@ -1800,6 +1800,12 @@
     window.addEventListener('pt-entitlements-updated', function () {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      if ($('#tab-home') && $('#tab-home').classList.contains('active')) {
+        var homeOptsEnt = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+        var communityShellEnt = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
+        mountHomeFounderPromo(communityShellEnt, homeOptsEnt);
+        markFounderPricingTabBadge();
+      }
     });
     window.addEventListener('pt-plan-changed', function () {
       renderPricing();
@@ -1915,7 +1921,15 @@
     }
     var Promo = window.PTBillingPromo;
     var paused = !!(Promo && Promo.purchasesPaused && Promo.purchasesPaused());
-    var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+    var Ent = window.PTEntitlements;
+    /* No mostrar hasta saber entitlements: si ya es Founder, el banner parpadeaba
+       durante el boot y luego se ocultaba. */
+    if (Ent && typeof Ent.isLoaded === 'function' && !Ent.isLoaded()) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
+    var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
     if (!paused || hidePricing || isFounder || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';
@@ -2210,7 +2224,7 @@
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
     const panel = $('#tab-' + tabId);
     if (panel) panel.classList.add('active');
-    if (isMobileLayout()) closeMobileNav();
+    closeMobileNav();
     /* Mesa torneo: no dejar body.trn-table-active al salir del tab (evita padding/footer rotos). */
     if (tabId !== 'tournaments') {
       document.body.classList.remove('trn-table-active');
@@ -2507,7 +2521,6 @@
   }
 
   function portalMobileNav() {
-    if (!isMobileLayout()) return;
     const nav = $('#topbar-nav');
     const backdrop = $('#nav-backdrop');
     if (!nav || !backdrop || nav.parentElement === document.body) return;
@@ -2554,10 +2567,11 @@
     const nav = $('#topbar-nav');
     if (!toggle) return;
 
-    if (isMobileLayout()) portalMobileNav();
+    // Drawer/sándwich siempre (escritorio y móvil).
+    portalMobileNav();
 
     function openNav() {
-      if (isMobileLayout()) portalMobileNav();
+      portalMobileNav();
       document.body.classList.add('nav-open');
       toggle.setAttribute('aria-expanded', 'true');
       if (nav) nav.setAttribute('aria-hidden', 'false');
@@ -2574,8 +2588,7 @@
     if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
     if (backdrop) backdrop.addEventListener('click', closeMobileNav);
     window.addEventListener('resize', () => {
-      if (isMobileLayout()) portalMobileNav();
-      else restoreMobileNav();
+      portalMobileNav();
       syncPlayMobileStage();
       if (hand) renderTable();
     });

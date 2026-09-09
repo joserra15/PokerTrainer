@@ -2645,6 +2645,13 @@
   font-size: 11px;
   opacity: .85;
 }
+.trn-leaderboard-table tr.trn-lb-separator td {
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255,255,255,.18);
+  height: 10px;
+  line-height: 0;
+  font-size: 0;
+}
 /* Solo lobby: no pisar .trn-stat-cell del resumen final (valores oro). */
 .trn-lobby-stats .trn-stat-val,
 .trn-lobby-row .trn-stat-val {

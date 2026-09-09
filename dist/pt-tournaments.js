@@ -3905,13 +3905,15 @@
 
 /*
  * tournament/leaderboard.js — Clasificación de Koins de la comunidad (usuarios reales).
- * Solo jugadores con ≥1 torneo jugado en esa comunidad.
+ * Top 10 por Koins; si Hero no está entre ellos, aparece debajo con su posición real.
+ * Incluye a todos los usuarios de la comunidad con sus puntos actuales.
  * Koins / ranking independientes por community_id.
  */
 (function (global) {
   'use strict';
 
   var KEY = 'pt_tournament_leaderboard_v1';
+  var TOP_N = 10;
   var _fetchInFlight = null;
   var _lastFetchAt = 0;
 
@@ -3963,11 +3965,6 @@
     if (id.indexOf('c_seed_') === 0 || id.indexOf('seed_') === 0) return true;
     if (row.seed || row.fake) return true;
     return false;
-  }
-
-  function hasPlayed(row) {
-    if (!row) return false;
-    return (Number(row.tournamentsPlayed != null ? row.tournamentsPlayed : row.tournaments_played) || 0) >= 1;
   }
 
   function heroIdentity() {
@@ -4031,8 +4028,7 @@
   }
 
   /**
-   * Publica el saldo del Hero en el board local.
-   * Sync cloud solo si ha jugado ≥1 torneo (o forceCloud).
+   * Publica el saldo del Hero en el board local y sincroniza cloud.
    */
   function publishHero(opts) {
     opts = opts || {};
@@ -4062,7 +4058,7 @@
     });
     var list = mergeRows(others, [row]);
     writeBoard(list);
-    if (played >= 1 || opts.forceCloud) {
+    if (!opts.skipCloud) {
       try {
         var c = supabaseClient();
         if (c && c.rpc) {
@@ -4093,7 +4089,7 @@
         isHero: false
       };
     }).filter(Boolean);
-    var list = mergeRows(publishHero(), rows);
+    var list = mergeRows(publishHero({ skipCloud: true }), rows);
     writeBoard(list);
     return list;
   }
@@ -4121,17 +4117,16 @@
     return _fetchInFlight;
   }
 
-  function rankings(limit) {
-    limit = limit || 20;
+  function sortedBoard() {
     var hero = heroIdentity();
-    var list = publishHero().slice().filter(function (x) {
-      return !isFakeSeed(x) && hasPlayed(x);
+    var list = publishHero({ skipCloud: true }).slice().filter(function (x) {
+      return !isFakeSeed(x);
     });
     list.sort(function (a, b) {
       if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
       return String(a.name || '').localeCompare(String(b.name || ''));
     });
-    return list.slice(0, limit).map(function (row, i) {
+    return list.map(function (row, i) {
       return {
         rank: i + 1,
         id: row.id,
@@ -4144,6 +4139,19 @@
     });
   }
 
+  function rankings(limit) {
+    limit = limit == null ? TOP_N : limit;
+    return sortedBoard().slice(0, limit);
+  }
+
+  function heroStanding() {
+    var all = sortedBoard();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].isHero) return all[i];
+    }
+    return null;
+  }
+
   function medalGlyph(medal) {
     if (medal === 'gold') return '🥇';
     if (medal === 'silver') return '🥈';
@@ -4151,21 +4159,29 @@
     return '';
   }
 
+  function rowHtml(r) {
+    var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
+      medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
+    return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
+      '<td>' + medal + '</td>' +
+      '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
+      '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
+  }
+
   function renderHtml() {
     try { refreshFromCloud(); } catch (e) { /* */ }
-    var rows = rankings(15);
+    var rows = rankings(TOP_N);
+    var hero = heroStanding();
+    var heroInTop = rows.some(function (r) { return r.isHero; });
     var body;
     if (!rows.length) {
-      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores con torneos en esta comunidad.</td></tr>';
+      body = '<tr><td colspan="3" class="muted">Aún no hay jugadores en esta comunidad.</td></tr>';
     } else {
-      body = rows.map(function (r) {
-        var medal = r.medal ? ('<span class="trn-lb-medal trn-lb-medal-' + r.medal + '" title="' + r.medal + '">' +
-          medalGlyph(r.medal) + '</span>') : ('<span class="trn-lb-medal">' + r.rank + '</span>');
-        return '<tr class="' + (r.isHero ? 'is-hero' : '') + '">' +
-          '<td>' + medal + '</td>' +
-          '<td>' + (r.isHero ? ('<strong>' + escapeHtml(r.name) + '</strong> <span class="trn-lb-you">(Hero)</span>') : escapeHtml(r.name)) + '</td>' +
-          '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
-      }).join('');
+      body = rows.map(rowHtml).join('');
+      if (hero && !heroInTop) {
+        body += '<tr class="trn-lb-separator" aria-hidden="true"><td colspan="3"></td></tr>';
+        body += rowHtml(hero);
+      }
     }
     return '<section class="trn-leaderboard" aria-label="Clasificación de Koins">' +
       '<h3>Clasificación de la comunidad</h3>' +
@@ -4195,10 +4211,13 @@
   global.PTTournamentLeaderboard = {
     publishHero: publishHero,
     rankings: rankings,
+    heroStanding: heroStanding,
+    sortedBoard: sortedBoard,
     renderHtml: renderHtml,
     legendHtml: legendHtml,
     communityId: communityId,
-    refreshFromCloud: refreshFromCloud
+    refreshFromCloud: refreshFromCloud,
+    TOP_N: TOP_N
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
