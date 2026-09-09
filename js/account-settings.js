@@ -215,6 +215,18 @@
       || {};
     if (global.PTProfile && global.PTProfile.applyTournamentAlias) {
       global.PTProfile.applyTournamentAlias(user, prof.tournament_alias);
+      try {
+        if (user && !user.isGuest && user.sub) {
+          localStorage.setItem('pt_auth_v1', JSON.stringify(user));
+        }
+      } catch (ePers) { /* noop */ }
+      try {
+        if (typeof global.dispatchEvent === 'function') {
+          global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
+            detail: { alias: (user && user.tournamentAlias) || prof.tournament_alias || null }
+          }));
+        }
+      } catch (eEv) { /* noop */ }
     }
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];

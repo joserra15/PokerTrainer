@@ -74,4 +74,67 @@ assert.ok(/edit-alias|trn-alias|aliasChipHtml|save-alias/.test(uiSrc), 'lobby al
 assert.ok(/getTournamentDisplayName|getTournamentAlias/.test(uiSrc), 'ui uses alias');
 assert.ok(/getTournamentDisplayName|getTournamentAlias/.test(lbSrc), 'leaderboard uses alias');
 
+/* TOKEN_REFRESHED no debe borrar el alias hidratado del perfil. */
+const bootSrc = fs.readFileSync(path.join(root, 'js/auth-bootstrap.js'), 'utf8');
+const authSrc = fs.readFileSync(path.join(root, 'js/auth.js'), 'utf8');
+assert.ok(/carryHydratedProfile|PT_carryHydratedProfile/.test(bootSrc), 'bootstrap carries profile');
+assert.ok(/TOKEN_REFRESHED/.test(bootSrc) || /carryHydratedProfile/.test(bootSrc),
+  'bootstrap documents token refresh carry');
+assert.ok(/PT_carryHydratedProfile|tournamentAlias/.test(authSrc), 'enterApp soft path keeps alias');
+assert.ok(/persistAuthUserSession|pt_auth_v1/.test(profileSrc), 'profile persists alias in session');
+assert.ok(/emitTournamentAliasChanged|pt-tournament-alias-changed/.test(profileSrc),
+  'profile notifies lobby after touchAndApply');
+
+const carrySandbox = {
+  window: {},
+  console,
+  atob: function (s) { return Buffer.from(s, 'base64').toString('binary'); },
+  escape: encodeURIComponent,
+  matchMedia: function () { return { matches: false, addListener: function () {}, addEventListener: function () {} }; },
+  navigator: { maxTouchPoints: 0 },
+  localStorage: {
+    getItem() { return null; },
+    setItem() {},
+    removeItem() {}
+  },
+  sessionStorage: {
+    getItem() { return null; },
+    setItem() {},
+    removeItem() {}
+  },
+  document: {
+    readyState: 'complete',
+    body: { classList: { add() {}, remove() {}, contains() { return false; } } },
+    getElementById() { return null; },
+    querySelector() { return null; },
+    addEventListener() {}
+  },
+  location: { origin: 'https://example.com', pathname: '/', href: 'https://example.com/' },
+  setTimeout: function (fn) { return 0; },
+  clearTimeout: function () {},
+  Promise: Promise,
+  CustomEvent: function CustomEvent(name, init) { this.type = name; this.detail = init && init.detail; },
+  dispatchEvent() {},
+  PT_E2E_MODE: true
+};
+carrySandbox.global = carrySandbox;
+carrySandbox.window = carrySandbox;
+vm.createContext(carrySandbox);
+vm.runInContext(bootSrc, carrySandbox, { filename: 'auth-bootstrap.js' });
+assert.ok(carrySandbox.PT_carryHydratedProfile, 'exported carryHydratedProfile');
+const fresh = { sub: 'u1', email: 'a@b.c', name: 'José', authProvider: 'supabase' };
+const hydrated = {
+  sub: 'u1', email: 'a@b.c', name: 'José', tournamentAlias: 'KazeDj',
+  displayName: 'KazeDj', plan: 'premium', isAdmin: true
+};
+carrySandbox.PT_carryHydratedProfile(hydrated, fresh);
+assert.strictEqual(fresh.tournamentAlias, 'KazeDj', 'soft refresh keeps alias');
+assert.strictEqual(fresh.displayName, 'KazeDj', 'soft refresh keeps displayName');
+assert.strictEqual(fresh.plan, 'premium', 'soft refresh keeps plan');
+assert.strictEqual(fresh.isAdmin, true, 'soft refresh keeps isAdmin');
+const other = { sub: 'other', tournamentAlias: 'Nope' };
+const target = { sub: 'u1', email: 'a@b.c' };
+carrySandbox.PT_carryHydratedProfile(other, target);
+assert.strictEqual(target.tournamentAlias, undefined, 'different sub does not carry');
+
 console.log('*** tournament-alias OK ***');

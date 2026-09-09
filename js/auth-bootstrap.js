@@ -43,6 +43,26 @@
     return user;
   }
 
+  /**
+   * TOKEN_REFRESHED / bootstrap recrean el user desde el JWT sin campos de
+   * perfil (alias, plan, admin…). Conserva los ya hidratados del mismo sub.
+   */
+  var HYDRATED_PROFILE_KEYS = [
+    'tournamentAlias', 'tournament_alias', 'displayName',
+    'isAdmin', 'isFounder', 'isFounderStudy', 'isFounderCoach',
+    'founderRequestedAt', 'founderStudyRequestedAt', 'founderCoachRequestedAt',
+    'plan', 'planLabel', 'aiDailyLimit', 'subscriptionStatus', 'paidActive'
+  ];
+
+  function carryHydratedProfile(from, to) {
+    if (!from || !to || !from.sub || from.sub !== to.sub) return to;
+    for (var i = 0; i < HYDRATED_PROFILE_KEYS.length; i++) {
+      var k = HYDRATED_PROFILE_KEYS[i];
+      if (to[k] == null && from[k] != null) to[k] = from[k];
+    }
+    return to;
+  }
+
   function redirectUri() {
     var origin = location.origin;
     var path = location.pathname || '/';
@@ -106,6 +126,16 @@
   async function enterFromBootstrap(user) {
     user = normalizeUser(user);
     hideGuestChrome();
+    // Conservar alias/plan/admin ya hidratados: el JWT no los trae y un
+    // TOKEN_REFRESHED no debe hacer desaparecer el alias en el lobby.
+    var prev = global.PT_AUTH_USER;
+    var saved = null;
+    try {
+      var raw = localStorage.getItem(SESSION_KEY);
+      if (raw) saved = normalizeUser(JSON.parse(raw));
+    } catch (ePrev) { /* noop */ }
+    carryHydratedProfile(saved, user);
+    carryHydratedProfile(prev, user);
     // Guardar sesión YA: requireAuth no debe reabrir invitado mientras el age-gate espera.
     global.PT_AUTH_USER = user;
     saveLegacySession(user);
@@ -659,6 +689,7 @@
   global.PT_decodeJwt = decodeJwt;
   global.PT_fixUtf8Text = fixUtf8Text;
   global.PT_normalizeUser = normalizeUser;
+  global.PT_carryHydratedProfile = carryHydratedProfile;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { boot(); });
