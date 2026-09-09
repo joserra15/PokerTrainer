@@ -1,5 +1,9 @@
 # Calendario Instagram PokerForgeAI — Semanas 2 a 8
 
+> **Sprint lanzamiento FOUNDER (22 sep – 5 oct):** usa el overlay  
+> [`../07-sprint-founder-oct/CALENDARIO_14_DIAS.md`](../07-sprint-founder-oct/CALENDARIO_14_DIAS.md)  
+> (Torneos IA · Reto IA Pro · FOUNDER 1 oct). Este calendario 2–8 sigue válido fuera de esa ventana.
+
 Cadencia: **4–5 posts/semana** (3 reels + 1 carrusel + stories diarias).  
 Regla: **máx. 1 CTA de producto cada 3 publicaciones**.  
 UTM bio: `?utm_source=instagram&utm_medium=bio&utm_campaign=5manos`

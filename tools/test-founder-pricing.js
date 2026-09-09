@@ -112,7 +112,7 @@ assert.ok(/id="landing-promo-pill"/.test(html), 'host landing-promo-pill tras he
 assert.ok(/landing-founder-promo-host hidden/.test(html) || /id="landing-promo-pill"[^>]*\bhidden\b/.test(html),
   'landing promo empieza oculto (evita flash post-login)');
 assert.ok(/id="home-founder-promo"/.test(html), 'host home-founder-promo en Inicio');
-assert.ok(/próximas semanas/i.test(billingCfgSrc), 'config: lanzamiento próximas semanas');
+assert.ok(/1 de octubre/i.test(billingCfgSrc) && /2026-10-01/.test(billingCfgSrc), 'config: lanzamiento 1 de octubre');
 assert.ok(/ctaPlanes/.test(billingCfgSrc), 'config: ctaPlanes');
 assert.ok(/founderStripHtml|homePromoHtml|founderNavBadgeHtml/.test(billingCfgSrc),
   'PTBillingPromo strip/home/nav helpers');
