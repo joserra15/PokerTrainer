@@ -1294,8 +1294,16 @@ body.guest-mode .play-setup-extras { display: none !important; }
   .founder-promo-strip-body {
     flex-direction: column;
     align-items: stretch;
-    padding: 16px 16px;
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 14px 14px;
   }
+  /* En columna, flex-basis: 240px del desktop se interpreta como altura y
+     deja un hueco enorme entre el texto y el CTA. */
+  .founder-promo-strip-main {
+    flex: 0 1 auto;
+  }
+  .founder-promo-brand { margin-bottom: 6px; }
   .founder-promo-cta {
     width: 100%;
     justify-content: center;
