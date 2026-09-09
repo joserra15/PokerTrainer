@@ -32296,6 +32296,26 @@ window.PT_NASH_PUSH_JSON = {
     return user;
   }
 
+  function persistAuthUserSession(user) {
+    if (!user || user.isGuest || !user.sub) return;
+    try {
+      if (global.PT_AUTH_USER && global.PT_AUTH_USER.sub === user.sub) {
+        global.PT_AUTH_USER = user;
+      }
+      localStorage.setItem('pt_auth_v1', JSON.stringify(user));
+    } catch (ePers) { /* noop */ }
+  }
+
+  function emitTournamentAliasChanged(alias) {
+    try {
+      if (typeof global.dispatchEvent === 'function') {
+        global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
+          detail: { alias: alias || null }
+        }));
+      }
+    } catch (eEv) { /* */ }
+  }
+
   function getTournamentAlias(user) {
     var u = user || (global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null)
       || global.PT_AUTH_USER || null;
@@ -32383,13 +32403,8 @@ window.PT_NASH_PUSH_JSON = {
       }
       var user = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : global.PT_AUTH_USER;
       applyTournamentAlias(user, data.alias);
-      try {
-        if (typeof global.dispatchEvent === 'function') {
-          global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
-            detail: { alias: data.alias || null }
-          }));
-        }
-      } catch (eEv) { /* */ }
+      persistAuthUserSession(user);
+      emitTournamentAliasChanged(data.alias || null);
       return { ok: true, alias: data.alias || null };
     } catch (e) {
       return {
@@ -32431,8 +32446,14 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   async function touchAndApply(user) {
+    var prevAlias = getTournamentAlias(user);
     var profile = await touchProfile(user);
     if (profile) applyProfileToUser(user, profile);
+    persistAuthUserSession(user);
+    var nextAlias = getTournamentAlias(user);
+    if (nextAlias !== prevAlias) {
+      emitTournamentAliasChanged(nextAlias || null);
+    }
     if (global.PTEntitlements && global.PTEntitlements.refresh) {
       await global.PTEntitlements.refresh();
     }
@@ -35909,6 +35930,18 @@ window.PT_NASH_PUSH_JSON = {
       || {};
     if (global.PTProfile && global.PTProfile.applyTournamentAlias) {
       global.PTProfile.applyTournamentAlias(user, prof.tournament_alias);
+      try {
+        if (user && !user.isGuest && user.sub) {
+          localStorage.setItem('pt_auth_v1', JSON.stringify(user));
+        }
+      } catch (ePers) { /* noop */ }
+      try {
+        if (typeof global.dispatchEvent === 'function') {
+          global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
+            detail: { alias: (user && user.tournamentAlias) || prof.tournament_alias || null }
+          }));
+        }
+      } catch (eEv) { /* noop */ }
     }
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
@@ -36625,8 +36658,15 @@ window.PT_NASH_PUSH_JSON = {
     user = normalizeUser(user);
     if (enterAppLock && enterAppLock.sub === user.sub) return enterAppLock.promise;
     /* Ya dentro de la app con el mismo usuario: no re-gate ni syncOnLogin
-       (TOKEN_REFRESHED / focus). Conserva la comunidad activa. */
+       (TOKEN_REFRESHED / focus). Conserva la comunidad activa y el perfil
+       hidratado (alias de torneos, plan, admin…): el user del JWT llega vacío. */
     if (appEnteredSub === user.sub && currentUser && currentUser.sub === user.sub) {
+      if (global.PT_carryHydratedProfile) {
+        global.PT_carryHydratedProfile(currentUser, user);
+      } else if (currentUser.tournamentAlias && user.tournamentAlias == null) {
+        user.tournamentAlias = currentUser.tournamentAlias;
+        if (currentUser.displayName != null) user.displayName = currentUser.displayName;
+      }
       currentUser = user;
       global.PT_AUTH_USER = user;
       try { localStorage.setItem(SESSION_KEY, JSON.stringify(user)); } catch (eSoft) { /* noop */ }

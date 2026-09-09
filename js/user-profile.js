@@ -66,6 +66,26 @@
     return user;
   }
 
+  function persistAuthUserSession(user) {
+    if (!user || user.isGuest || !user.sub) return;
+    try {
+      if (global.PT_AUTH_USER && global.PT_AUTH_USER.sub === user.sub) {
+        global.PT_AUTH_USER = user;
+      }
+      localStorage.setItem('pt_auth_v1', JSON.stringify(user));
+    } catch (ePers) { /* noop */ }
+  }
+
+  function emitTournamentAliasChanged(alias) {
+    try {
+      if (typeof global.dispatchEvent === 'function') {
+        global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
+          detail: { alias: alias || null }
+        }));
+      }
+    } catch (eEv) { /* */ }
+  }
+
   function getTournamentAlias(user) {
     var u = user || (global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null)
       || global.PT_AUTH_USER || null;
@@ -153,13 +173,8 @@
       }
       var user = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : global.PT_AUTH_USER;
       applyTournamentAlias(user, data.alias);
-      try {
-        if (typeof global.dispatchEvent === 'function') {
-          global.dispatchEvent(new CustomEvent('pt-tournament-alias-changed', {
-            detail: { alias: data.alias || null }
-          }));
-        }
-      } catch (eEv) { /* */ }
+      persistAuthUserSession(user);
+      emitTournamentAliasChanged(data.alias || null);
       return { ok: true, alias: data.alias || null };
     } catch (e) {
       return {
@@ -201,8 +216,14 @@
   }
 
   async function touchAndApply(user) {
+    var prevAlias = getTournamentAlias(user);
     var profile = await touchProfile(user);
     if (profile) applyProfileToUser(user, profile);
+    persistAuthUserSession(user);
+    var nextAlias = getTournamentAlias(user);
+    if (nextAlias !== prevAlias) {
+      emitTournamentAliasChanged(nextAlias || null);
+    }
     if (global.PTEntitlements && global.PTEntitlements.refresh) {
       await global.PTEntitlements.refresh();
     }
