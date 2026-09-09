@@ -124,10 +124,17 @@ assert.ok(/pt-auth-boot-done/.test(landingSrc), 'landing escucha pt-auth-boot-do
 assert.ok(/landing-promo-pill/.test(landingSrc) && /showPricing === false/.test(landingSrc),
   'landing oculta strip si comunidad sin pricing');
 assert.ok(/mountHomeFounderPromo/.test(appSrc), 'app monta promo Founder en Inicio');
+assert.ok(/mountHomeAnnualUpsell/.test(appSrc), 'app monta upsell anual junto a Founder');
 assert.ok(/isLoaded/.test(appSrc) && /pt-entitlements-updated/.test(appSrc),
   'home promo espera entitlements y se remonta al actualizar');
+assert.ok(/NO borrar un FOUNDER|!host\.innerHTML/.test(appSrc),
+  'no borra FOUNDER visible mientras entitlements refrescan');
 assert.ok(/markFounderPricingTabBadge|founderNavBadgeHtml/.test(appSrc),
   'app marca badge en tab Planes');
+
+const entSrc = fs.readFileSync(path.join(__dirname, '..', 'js/entitlements.js'), 'utf8');
+assert.ok(!/async function refresh\(\)\s*\{\s*state = null/.test(entSrc),
+  'refresh de entitlements no pone state=null al inicio');
 assert.ok(/\.founder-promo-strip/.test(css) && /\.founder-nav-badge/.test(css),
   'CSS strip y badge Founder');
 assert.ok(/\.founder-promo-title/.test(css) && /\.founder-promo-brand/.test(css),

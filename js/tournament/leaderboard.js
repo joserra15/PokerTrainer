@@ -11,6 +11,9 @@
   var TOP_N = 10;
   var _fetchInFlight = null;
   var _lastFetchAt = 0;
+  var _retryTimer = null;
+  var _retryAttempts = 0;
+  var MAX_CLOUD_RETRIES = 10;
 
   function communityId() {
     try {
@@ -199,11 +202,35 @@
     } catch (e) { /* */ }
   }
 
+  function clearRetry() {
+    if (_retryTimer) {
+      try { clearTimeout(_retryTimer); } catch (e) { /* */ }
+      _retryTimer = null;
+    }
+  }
+
+  /**
+   * En móvil/PWA el chunk de Torneos suele cargar cuando auth/Supabase aún
+   * no están listos: sin reintento programado el lobby se queda solo con Hero.
+   */
+  function scheduleCloudRetry(delayMs) {
+    if (_retryAttempts >= MAX_CLOUD_RETRIES) return;
+    if (_retryTimer) return;
+    _retryAttempts += 1;
+    var wait = delayMs != null
+      ? delayMs
+      : Math.min(4000, 300 * Math.pow(2, Math.max(0, _retryAttempts - 1)));
+    _retryTimer = setTimeout(function () {
+      _retryTimer = null;
+      refreshFromCloud({ force: true });
+    }, wait);
+  }
+
   /**
    * Trae la clasificación cloud. opts.force omite el throttle de 15s.
    * Solo marca éxito (throttle) si el RPC responde bien — si falla o aún no
-   * hay cliente, el próximo paint reintenta. Al actualizar el board emite
-   * pt-tournament-leaderboard-updated para que el lobby se repinte.
+   * hay cliente, reintenta con backoff (crítico en app instalada móvil).
+   * Al actualizar el board emite pt-tournament-leaderboard-updated.
    */
   function refreshFromCloud(opts) {
     opts = opts || {};
@@ -214,25 +241,37 @@
       return Promise.resolve(readBoard());
     }
     var c = supabaseClient();
-    if (!c || !c.rpc) return Promise.resolve(publishHero());
+    if (!c || !c.rpc) {
+      scheduleCloudRetry(400);
+      return Promise.resolve(publishHero());
+    }
     _fetchInFlight = Promise.resolve(c.rpc('pt_list_community_tournament_koins', {
       p_community_id: communityId()
     })).then(function (res) {
       _fetchInFlight = null;
       if (res && !res.error && res.data) {
-        var members = res.data.members || res.data.rows || res.data;
+        var raw = res.data;
+        if (typeof raw === 'string') {
+          try { raw = JSON.parse(raw); } catch (eParse) { raw = null; }
+        }
+        var members = raw && (raw.members || raw.rows || raw);
         if (Array.isArray(members)) {
           applyRemoteMembers(members);
           _lastFetchAt = Date.now();
+          _retryAttempts = 0;
+          clearRetry();
           /* Siempre notificar tras un fetch OK: la 1ª visita pinta el HTML
              antes de que llegue el cloud; el lobby debe repintarse. */
           notifyUpdated();
+          return readBoard();
         }
       }
-      /* Error de auth/RPC: no tocar _lastFetchAt → reintento en el próximo paint. */
+      /* Error de auth/RPC o forma inesperada: reintento con backoff. */
+      scheduleCloudRetry();
       return readBoard();
     }).catch(function () {
       _fetchInFlight = null;
+      scheduleCloudRetry();
       return readBoard();
     });
     return _fetchInFlight;

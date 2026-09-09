@@ -148,7 +148,8 @@
   }
 
   async function refresh() {
-    state = null;
+    /* No poner state=null al empezar: isLoaded() parpadeaba y el Home borraba
+       el banner FOUNDER justo cuando aparecía el upsell anual (móvil). */
     if (e2eBypass() || !useAuth()) {
       state = localFallback();
       return state;

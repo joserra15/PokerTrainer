@@ -3916,6 +3916,9 @@
   var TOP_N = 10;
   var _fetchInFlight = null;
   var _lastFetchAt = 0;
+  var _retryTimer = null;
+  var _retryAttempts = 0;
+  var MAX_CLOUD_RETRIES = 10;
 
   function communityId() {
     try {
@@ -4104,11 +4107,35 @@
     } catch (e) { /* */ }
   }
 
+  function clearRetry() {
+    if (_retryTimer) {
+      try { clearTimeout(_retryTimer); } catch (e) { /* */ }
+      _retryTimer = null;
+    }
+  }
+
+  /**
+   * En móvil/PWA el chunk de Torneos suele cargar cuando auth/Supabase aún
+   * no están listos: sin reintento programado el lobby se queda solo con Hero.
+   */
+  function scheduleCloudRetry(delayMs) {
+    if (_retryAttempts >= MAX_CLOUD_RETRIES) return;
+    if (_retryTimer) return;
+    _retryAttempts += 1;
+    var wait = delayMs != null
+      ? delayMs
+      : Math.min(4000, 300 * Math.pow(2, Math.max(0, _retryAttempts - 1)));
+    _retryTimer = setTimeout(function () {
+      _retryTimer = null;
+      refreshFromCloud({ force: true });
+    }, wait);
+  }
+
   /**
    * Trae la clasificación cloud. opts.force omite el throttle de 15s.
    * Solo marca éxito (throttle) si el RPC responde bien — si falla o aún no
-   * hay cliente, el próximo paint reintenta. Al actualizar el board emite
-   * pt-tournament-leaderboard-updated para que el lobby se repinte.
+   * hay cliente, reintenta con backoff (crítico en app instalada móvil).
+   * Al actualizar el board emite pt-tournament-leaderboard-updated.
    */
   function refreshFromCloud(opts) {
     opts = opts || {};
@@ -4119,25 +4146,37 @@
       return Promise.resolve(readBoard());
     }
     var c = supabaseClient();
-    if (!c || !c.rpc) return Promise.resolve(publishHero());
+    if (!c || !c.rpc) {
+      scheduleCloudRetry(400);
+      return Promise.resolve(publishHero());
+    }
     _fetchInFlight = Promise.resolve(c.rpc('pt_list_community_tournament_koins', {
       p_community_id: communityId()
     })).then(function (res) {
       _fetchInFlight = null;
       if (res && !res.error && res.data) {
-        var members = res.data.members || res.data.rows || res.data;
+        var raw = res.data;
+        if (typeof raw === 'string') {
+          try { raw = JSON.parse(raw); } catch (eParse) { raw = null; }
+        }
+        var members = raw && (raw.members || raw.rows || raw);
         if (Array.isArray(members)) {
           applyRemoteMembers(members);
           _lastFetchAt = Date.now();
+          _retryAttempts = 0;
+          clearRetry();
           /* Siempre notificar tras un fetch OK: la 1ª visita pinta el HTML
              antes de que llegue el cloud; el lobby debe repintarse. */
           notifyUpdated();
+          return readBoard();
         }
       }
-      /* Error de auth/RPC: no tocar _lastFetchAt → reintento en el próximo paint. */
+      /* Error de auth/RPC o forma inesperada: reintento con backoff. */
+      scheduleCloudRetry();
       return readBoard();
     }).catch(function () {
       _fetchInFlight = null;
+      scheduleCloudRetry();
       return readBoard();
     });
     return _fetchInFlight;
@@ -6624,6 +6663,7 @@
         /* Evitar quedarnos con un resumePrompt o state de mesa obsoleto en hub. */
         if (ui.view === VIEW.hub) {
           ui.resumePrompt = false;
+          refreshHubLeaderboard(true);
           if (ui.state && ui.state.status !== 'finished') {
             var latest = global.PTTournamentStore && PTTournamentStore.loadActive
               ? PTTournamentStore.loadActive()
@@ -6675,19 +6715,23 @@
     } catch (e) { /* */ }
   }
 
+  function refreshHubLeaderboard(force) {
+    try {
+      if (!ui.root || ui.view !== VIEW.hub) return;
+      if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.refreshFromCloud) {
+        PTTournamentLeaderboard.refreshFromCloud({ force: !!force });
+      }
+    } catch (eRef) { /* */ }
+  }
+
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
       global.addEventListener('pt-tournament-leaderboard-updated', onLeaderboardUpdated);
-      /* Si el auth termina después del 1er paint del lobby, forzar re-fetch. */
-      global.addEventListener('pt-auth-ready', function () {
-        try {
-          if (!ui.root || ui.view !== VIEW.hub) return;
-          if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.refreshFromCloud) {
-            PTTournamentLeaderboard.refreshFromCloud({ force: true });
-          }
-        } catch (eAuth) { /* */ }
-      });
+      /* Auth / sync suelen terminar ANTES de cargar el chunk en PWA móvil. */
+      global.addEventListener('pt-auth-ready', function () { refreshHubLeaderboard(true); });
+      global.addEventListener('pt-auth-boot-done', function () { refreshHubLeaderboard(true); });
+      global.addEventListener('pt-entitlements-updated', function () { refreshHubLeaderboard(false); });
       global.addEventListener('pt-tournament-alias-changed', function (ev) {
         var alias = ev && ev.detail ? ev.detail.alias : null;
         applyAliasToActiveHero(alias);
@@ -6700,6 +6744,12 @@
           paint();
         }
       });
+      /* Chunk lazy: si la sesión ya estaba lista, no llegará otro pt-auth-ready. */
+      if (global.PT_AUTH_BOOT_DONE ||
+          (global.PTAuth && PTAuth.getUser && PTAuth.getUser()) ||
+          global.PT_AUTH_USER) {
+        setTimeout(function () { refreshHubLeaderboard(true); }, 0);
+      }
     }
   } catch (eBind) { /* */ }
 

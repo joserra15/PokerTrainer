@@ -70,6 +70,7 @@
         /* Evitar quedarnos con un resumePrompt o state de mesa obsoleto en hub. */
         if (ui.view === VIEW.hub) {
           ui.resumePrompt = false;
+          refreshHubLeaderboard(true);
           if (ui.state && ui.state.status !== 'finished') {
             var latest = global.PTTournamentStore && PTTournamentStore.loadActive
               ? PTTournamentStore.loadActive()
@@ -121,19 +122,23 @@
     } catch (e) { /* */ }
   }
 
+  function refreshHubLeaderboard(force) {
+    try {
+      if (!ui.root || ui.view !== VIEW.hub) return;
+      if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.refreshFromCloud) {
+        PTTournamentLeaderboard.refreshFromCloud({ force: !!force });
+      }
+    } catch (eRef) { /* */ }
+  }
+
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
       global.addEventListener('pt-tournament-leaderboard-updated', onLeaderboardUpdated);
-      /* Si el auth termina después del 1er paint del lobby, forzar re-fetch. */
-      global.addEventListener('pt-auth-ready', function () {
-        try {
-          if (!ui.root || ui.view !== VIEW.hub) return;
-          if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.refreshFromCloud) {
-            PTTournamentLeaderboard.refreshFromCloud({ force: true });
-          }
-        } catch (eAuth) { /* */ }
-      });
+      /* Auth / sync suelen terminar ANTES de cargar el chunk en PWA móvil. */
+      global.addEventListener('pt-auth-ready', function () { refreshHubLeaderboard(true); });
+      global.addEventListener('pt-auth-boot-done', function () { refreshHubLeaderboard(true); });
+      global.addEventListener('pt-entitlements-updated', function () { refreshHubLeaderboard(false); });
       global.addEventListener('pt-tournament-alias-changed', function (ev) {
         var alias = ev && ev.detail ? ev.detail.alias : null;
         applyAliasToActiveHero(alias);
@@ -146,6 +151,12 @@
           paint();
         }
       });
+      /* Chunk lazy: si la sesión ya estaba lista, no llegará otro pt-auth-ready. */
+      if (global.PT_AUTH_BOOT_DONE ||
+          (global.PTAuth && PTAuth.getUser && PTAuth.getUser()) ||
+          global.PT_AUTH_USER) {
+        setTimeout(function () { refreshHubLeaderboard(true); }, 0);
+      }
     }
   } catch (eBind) { /* */ }
 

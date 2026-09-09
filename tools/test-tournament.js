@@ -32,6 +32,8 @@ function createSandbox() {
     RegExp,
     Set,
     Map,
+    setTimeout,
+    clearTimeout,
     localStorage: {
       getItem(k) { return Object.prototype.hasOwnProperty.call(localStorageData, k) ? localStorageData[k] : null; },
       setItem(k, v) { localStorageData[k] = String(v); },
@@ -1447,6 +1449,10 @@ console.log('OK tournament-result-polish');
   assert.ok(/pt-tournament-leaderboard-updated/.test(uiSrc),
     'ui escucha leaderboard-updated');
   assert.ok(/skipRefresh:\s*true/.test(uiSrc), 'repinta leaderboard con skipRefresh');
+  assert.ok(/PT_AUTH_BOOT_DONE/.test(uiSrc), 'reintenta si auth ya estaba listo (PWA)');
+  assert.ok(/scheduleCloudRetry|refreshHubLeaderboard/.test(
+    fs.readFileSync(path.join(ROOT, 'js/tournament/leaderboard.js'), 'utf8') + uiSrc
+  ), 'reintento cloud / refresh hub en móvil');
 
   console.log('OK leaderboard-and-legend');
 }
@@ -2627,6 +2633,34 @@ console.log('OK pushfold-freq-100');
     'incluye miembro con 0 koins');
   const htmlAfter = Lb.renderHtml({ skipRefresh: true });
   assert.ok(/Alice/.test(htmlAfter) && /Bob/.test(htmlAfter), 'HTML tras cloud con peers');
+
+  /* 3) Sin cliente Supabase: programa reintento (caso PWA móvil) */
+  g.localStorage.setItem(boardKey, JSON.stringify([]));
+  let lateCalls = 0;
+  let clientReady = false;
+  g.PTSupabase = {
+    getClient: function () {
+      if (!clientReady) return null;
+      return {
+        rpc: function () {
+          lateCalls += 1;
+          return Promise.resolve({
+            data: { ok: true, members: remoteMembers },
+            error: null
+          });
+        }
+      };
+    }
+  };
+  notified = 0;
+  await Lb.refreshFromCloud({ force: true });
+  assert.strictEqual(lateCalls, 0, 'sin cliente no llama RPC');
+  assert.strictEqual(Lb.rankings(20).length, 1, 'solo hero sin cliente');
+  clientReady = true;
+  await new Promise(function (resolve) { setTimeout(resolve, 500); });
+  assert.ok(lateCalls >= 1, 'reintenta cuando aparece el cliente');
+  assert.ok(notified >= 1, 'notifica tras reintento con cliente');
+  assert.ok(Lb.rankings(20).length >= 4, 'board completo tras reintento');
 
   g.localStorage.setItem(boardKey, JSON.stringify([]));
   g.PTSupabase = null;
