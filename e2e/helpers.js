@@ -227,15 +227,26 @@ async function clickFirstPlayAction(page) {
   await actionBtn.first().click();
 }
 
+async function openAppNav(page) {
+  const alreadyOpen = await page.evaluate(() => document.body.classList.contains('nav-open'));
+  if (alreadyOpen) return;
+  const toggle = page.locator('#nav-toggle');
+  if (!(await toggle.isVisible().catch(() => false))) return;
+  await toggle.click();
+  await page.waitForFunction(() => document.body.classList.contains('nav-open'), { timeout: 5000 }).catch(() => {});
+}
+
 async function goTab(page, tab) {
   if (tab === 'account') {
+    await openAppNav(page);
     const settings = page.locator('#account-settings');
     if (await settings.isVisible().catch(() => false)) {
       await settings.click({ force: true }).catch(() => {});
     }
   }
   /* Con Torneos visible la nav puede clippear tabs; no confiar en click DOM.
-   * No usar :not(.hidden): los paneles usan display:none vía .tab-panel, sin clase hidden. */
+   * No usar :not(.hidden): los paneles usan display:none vía .tab-panel, sin clase hidden.
+   * El menú es siempre drawer: preferir window.goToTab (no requiere viewport). */
   const panel = page.locator('#tab-' + tab + '.active');
   for (let attempt = 0; attempt < 3; attempt++) {
     await page.evaluate((t) => {
@@ -278,6 +289,7 @@ module.exports = {
   waitForAppShell,
   expectAnyVisible,
   goTab,
+  openAppNav,
   openPlaySetupAdvanced,
   playActionButtons,
   playSkipButton,
