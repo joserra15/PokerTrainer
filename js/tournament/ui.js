@@ -101,9 +101,39 @@
     } catch (e) { /* */ }
   }
 
+  function onLeaderboardUpdated() {
+    try {
+      if (!ui.root || ui.view !== VIEW.hub) return;
+      /* Solo refrescar el bloque de clasificación: evita reset de scroll del lobby
+         y no vuelve a disparar refreshFromCloud (renderHtml skipRefresh). */
+      var host = ui.root.querySelector('.trn-leaderboard');
+      var Lb = global.PTTournamentLeaderboard;
+      if (host && Lb && typeof Lb.renderHtml === 'function') {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = Lb.renderHtml({ skipRefresh: true });
+        var next = wrap.querySelector('.trn-leaderboard');
+        if (next) {
+          host.replaceWith(next);
+          return;
+        }
+      }
+      paint();
+    } catch (e) { /* */ }
+  }
+
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
+      global.addEventListener('pt-tournament-leaderboard-updated', onLeaderboardUpdated);
+      /* Si el auth termina después del 1er paint del lobby, forzar re-fetch. */
+      global.addEventListener('pt-auth-ready', function () {
+        try {
+          if (!ui.root || ui.view !== VIEW.hub) return;
+          if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.refreshFromCloud) {
+            PTTournamentLeaderboard.refreshFromCloud({ force: true });
+          }
+        } catch (eAuth) { /* */ }
+      });
       global.addEventListener('pt-tournament-alias-changed', function (ev) {
         var alias = ev && ev.detail ? ev.detail.alias : null;
         applyAliasToActiveHero(alias);
