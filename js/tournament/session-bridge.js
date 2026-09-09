@@ -220,21 +220,33 @@
     };
   }
 
-  function buildPositions(seats) {
+  function seatDisplayName(s, heroName) {
+    if (!s) return '';
+    if (s.isHero) return heroName || s.name || s.id || '';
+    var name = s.name || s.id || '';
+    if (heroName && name && String(name).toLowerCase() === String(heroName).toLowerCase()) {
+      return String(name) + '_' + String(s.id || 'v').replace(/^v/, '');
+    }
+    return name;
+  }
+
+  function buildPositions(seats, heroName) {
     var positions = {};
     (seats || []).forEach(function (s) {
-      var name = s.name || s.id;
+      var name = seatDisplayName(s, heroName);
       if (name && s.pos) positions[name] = s.pos;
     });
     return positions;
   }
 
-  function buildShows(seats, holeCards) {
+  /** Cartas visibles en showdown; el héroe se pinta aparte → no entra en shows. */
+  function buildShows(seats, holeCards, heroName) {
     var shows = {};
     (seats || []).forEach(function (s) {
+      if (s.isHero) return;
       var cards = (holeCards && holeCards[s.id]) || s.cards;
       if (!s.folded && cards && cards.length >= 2) {
-        shows[s.name || s.id] = cards.map(cardCode);
+        shows[seatDisplayName(s, heroName) || s.id] = cards.map(cardCode);
       }
     });
     return shows;
@@ -316,11 +328,12 @@
     var boardObj = buildBoardObj(boardCards);
     var log = source.log || [];
     var streets = buildStreetsFromLog(log, seats);
-    var positions = buildPositions(seats);
     var holeCards = (source.result && source.result.holeCards) || {};
-    var shows = buildShows(seats, holeCards);
     var heroName = meta.heroName || heroSeat.name || 'Hero';
-    var heroCards = (heroSeat.cards || []).map(cardCode);
+    var heroSeatName = heroSeat.name || heroSeat.id || '';
+    var positions = buildPositions(seats, heroName);
+    var shows = buildShows(seats, holeCards, heroName);
+    var heroCards = ((holeCards && holeCards[heroSeat.id]) || heroSeat.cards || []).map(cardCode);
     var decisions = (source.decisions || []).map(function (d) {
       return normalizeDecision(d, bb);
     }).filter(Boolean);
@@ -359,11 +372,15 @@
     var handNamesByPlayer = {};
     var srcHandNames = (source.result && source.result.handNames) || source.handNames || {};
     seats.forEach(function (s) {
-      var nm = s.name || s.id;
+      var nm = seatDisplayName(s, heroName);
       var byId = srcHandNames[s.id];
       if (byId) handNamesByPlayer[nm] = byId;
     });
     Object.keys(srcHandNames).forEach(function (k) {
+      if (k === heroSeat.id || k === heroSeatName) {
+        if (srcHandNames[k]) handNamesByPlayer[heroName] = srcHandNames[k];
+        return;
+      }
       if (!handNamesByPlayer[k] && srcHandNames[k]) handNamesByPlayer[k] = srcHandNames[k];
     });
 
@@ -372,7 +389,7 @@
     var winnerIds = (res.winners || []).slice();
     var winnerNames = [];
     var seatOutcomes = seats.map(function (s) {
-      var name = s.isHero ? heroName : (s.name || s.id);
+      var name = seatDisplayName(s, heroName);
       var deltaChips = Number(deltasRaw[s.id]) || 0;
       var endStack = s.stack != null ? Number(s.stack)
         : (s.startStack != null ? Number(s.startStack) + deltaChips : null);
@@ -403,6 +420,7 @@
       id: id,
       datetime: new Date().toISOString(),
       hero: heroName,
+      heroSeatName: heroSeatName,
       heroPos: heroSeat.pos || 'BTN',
       heroCards: heroCards,
       heroCode: resolveHandCode(heroCards),
@@ -417,12 +435,14 @@
       positions: positions,
       seats: seats.map(function (s) {
         return {
-          name: s.name || s.id,
+          id: s.id,
+          name: seatDisplayName(s, heroName),
           stack: s.startStack != null ? s.startStack : s.stack,
           pos: s.pos,
           cards: ((source.result && source.result.holeCards && source.result.holeCards[s.id])
             || s.cards || []).map(cardCode).filter(Boolean),
-          folded: !!s.folded
+          folded: !!s.folded,
+          isHero: !!s.isHero
         };
       }),
       streets: streets,

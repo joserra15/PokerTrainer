@@ -37,17 +37,40 @@
     return a;
   }
 
-  /** Devuelve `count` nicks únicos. Si hace falta, añade sufijos. */
-  function pickUnique(count, rnd) {
+  function normKey(s) {
+    return String(s || '').trim().toLowerCase();
+  }
+
+  /**
+   * Devuelve `count` nicks únicos. Si hace falta, añade sufijos.
+   * @param {number} count
+   * @param {function} [rnd]
+   * @param {string[]|string} [exclude] nicks a no usar (p.ej. alias del héroe)
+   */
+  function pickUnique(count, rnd, exclude) {
     var n = Math.max(0, Math.min(200, Number(count) || 0));
-    var pool = shuffle(POOL, rnd);
+    var blocked = {};
+    (Array.isArray(exclude) ? exclude : (exclude ? [exclude] : [])).forEach(function (x) {
+      var k = normKey(x);
+      if (k) blocked[k] = true;
+    });
+    var pool = shuffle(POOL, rnd).filter(function (nm) {
+      return !blocked[normKey(nm)];
+    });
     var out = [];
     var i = 0;
     while (out.length < n) {
       if (i < pool.length) {
-        out.push(pool[i++]);
+        var cand = pool[i++];
+        blocked[normKey(cand)] = true;
+        out.push(cand);
       } else {
-        out.push('Villain_' + (out.length + 1));
+        var fallback = 'Villain_' + (out.length + 1);
+        while (blocked[normKey(fallback)]) {
+          fallback = 'Villain_' + (out.length + 1) + '_' + Math.floor((rnd || Math.random)() * 1e4);
+        }
+        blocked[normKey(fallback)] = true;
+        out.push(fallback);
       }
     }
     return out;

@@ -164,9 +164,31 @@
     try {
       if (!ui.state || !ui.state.players) return;
       var name = alias || resolveHeroNameOpt();
+      var lower = String(name || '').trim().toLowerCase();
       ui.state.players.forEach(function (p) {
-        if (p && p.isHero) p.name = name;
+        if (!p) return;
+        if (p.isHero) {
+          p.name = name;
+          return;
+        }
+        /* Evitar colisión con un bot que ya lleve el alias (pool FoldFam, etc.). */
+        if (lower && p.name && String(p.name).trim().toLowerCase() === lower) {
+          p.name = String(p.name) + '_' + String(p.id || 'v').replace(/^v/, '');
+        }
       });
+      var live = ui.state._liveHand;
+      if (live && live.seats) {
+        live.seats.forEach(function (s) {
+          if (!s) return;
+          if (s.isHero) {
+            s.name = name;
+            return;
+          }
+          if (lower && s.name && String(s.name).trim().toLowerCase() === lower) {
+            s.name = String(s.name) + '_' + String(s.id || 'v').replace(/^v/, '');
+          }
+        });
+      }
     } catch (e) { /* */ }
   }
 
