@@ -4094,21 +4094,47 @@
     return list;
   }
 
-  function refreshFromCloud() {
+  function notifyUpdated() {
+    try {
+      if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+        global.dispatchEvent(new CustomEvent('pt-tournament-leaderboard-updated', {
+          detail: { communityId: communityId() }
+        }));
+      }
+    } catch (e) { /* */ }
+  }
+
+  /**
+   * Trae la clasificación cloud. opts.force omite el throttle de 15s.
+   * Solo marca éxito (throttle) si el RPC responde bien — si falla o aún no
+   * hay cliente, el próximo paint reintenta. Al actualizar el board emite
+   * pt-tournament-leaderboard-updated para que el lobby se repinte.
+   */
+  function refreshFromCloud(opts) {
+    opts = opts || {};
+    var force = !!opts.force;
     var now = Date.now();
     if (_fetchInFlight) return _fetchInFlight;
-    if (now - _lastFetchAt < 15000) return Promise.resolve(readBoard());
+    if (!force && _lastFetchAt && now - _lastFetchAt < 15000) {
+      return Promise.resolve(readBoard());
+    }
     var c = supabaseClient();
     if (!c || !c.rpc) return Promise.resolve(publishHero());
-    _lastFetchAt = now;
     _fetchInFlight = Promise.resolve(c.rpc('pt_list_community_tournament_koins', {
       p_community_id: communityId()
     })).then(function (res) {
       _fetchInFlight = null;
       if (res && !res.error && res.data) {
         var members = res.data.members || res.data.rows || res.data;
-        if (Array.isArray(members)) applyRemoteMembers(members);
+        if (Array.isArray(members)) {
+          applyRemoteMembers(members);
+          _lastFetchAt = Date.now();
+          /* Siempre notificar tras un fetch OK: la 1ª visita pinta el HTML
+             antes de que llegue el cloud; el lobby debe repintarse. */
+          notifyUpdated();
+        }
       }
+      /* Error de auth/RPC: no tocar _lastFetchAt → reintento en el próximo paint. */
       return readBoard();
     }).catch(function () {
       _fetchInFlight = null;
@@ -4168,8 +4194,12 @@
       '<td>' + escapeHtml(String(r.koins)) + '</td></tr>';
   }
 
-  function renderHtml() {
-    try { refreshFromCloud(); } catch (e) { /* */ }
+  function renderHtml(opts) {
+    opts = opts || {};
+    /* skipRefresh: re-pintado tras pt-tournament-leaderboard-updated (evita bucles). */
+    if (!opts.skipRefresh) {
+      try { refreshFromCloud(opts); } catch (e) { /* */ }
+    }
     var rows = rankings(TOP_N);
     var hero = heroStanding();
     var heroInTop = rows.some(function (r) { return r.isHero; });
@@ -6625,9 +6655,39 @@
     } catch (e) { /* */ }
   }
 
+  function onLeaderboardUpdated() {
+    try {
+      if (!ui.root || ui.view !== VIEW.hub) return;
+      /* Solo refrescar el bloque de clasificación: evita reset de scroll del lobby
+         y no vuelve a disparar refreshFromCloud (renderHtml skipRefresh). */
+      var host = ui.root.querySelector('.trn-leaderboard');
+      var Lb = global.PTTournamentLeaderboard;
+      if (host && Lb && typeof Lb.renderHtml === 'function') {
+        var wrap = document.createElement('div');
+        wrap.innerHTML = Lb.renderHtml({ skipRefresh: true });
+        var next = wrap.querySelector('.trn-leaderboard');
+        if (next) {
+          host.replaceWith(next);
+          return;
+        }
+      }
+      paint();
+    } catch (e) { /* */ }
+  }
+
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
+      global.addEventListener('pt-tournament-leaderboard-updated', onLeaderboardUpdated);
+      /* Si el auth termina después del 1er paint del lobby, forzar re-fetch. */
+      global.addEventListener('pt-auth-ready', function () {
+        try {
+          if (!ui.root || ui.view !== VIEW.hub) return;
+          if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.refreshFromCloud) {
+            PTTournamentLeaderboard.refreshFromCloud({ force: true });
+          }
+        } catch (eAuth) { /* */ }
+      });
       global.addEventListener('pt-tournament-alias-changed', function (ev) {
         var alias = ev && ev.detail ? ev.detail.alias : null;
         applyAliasToActiveHero(alias);
