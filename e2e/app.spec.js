@@ -41,7 +41,7 @@ test.describe('Importar sesión', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="sessions"]');
+    await goTab(page, 'sessions');
     await page.waitForSelector('#session-file', { timeout: 10000 });
 
     const fixture = path.join(__dirname, '..', 'tools', 'fixtures', 'Winamax-sample.txt');

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { mockAuthenticatedUser, waitForAppShell, goTab } = require('./helpers');
 
 test.describe('Share page y contacto @smoke', () => {
   test('share.html carga CTA / unavailable', async ({ page }) => {
@@ -13,8 +13,8 @@ test.describe('Share page y contacto @smoke', () => {
   test('contacto tab y modal pendiente en DOM', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
-    await page.click('button.tab[data-tab="contact"]');
-    await page.waitForSelector('#tab-contact', { timeout: 15000 });
+    await goTab(page, 'contact');
+    await expect(page.locator('#tab-contact.active')).toBeVisible({ timeout: 15000 });
     await expect(page.locator('#contact-pending-modal')).toBeAttached();
     await expect(page.locator('#contact-pending-body')).toBeAttached();
   });
