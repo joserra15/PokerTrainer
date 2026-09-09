@@ -340,14 +340,16 @@
   <script>
   (function () {
     var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
-    var s = document.createElement('script');
-    s.src = '../js/legal-config.js' + v;
-    s.onerror = function () {
-      var fb = document.createElement('script');
-      fb.src = '../js/legal-config.example.js' + v;
-      document.body.appendChild(fb);
-    };
-    document.body.appendChild(s);
+    // Sync load so PT_LEGAL exists before legal-page.js fills [data-legal].
+    document.write('<script src="../js/legal-config.js' + v + '"><\/script>');
+  })();
+  </script>
+  <script>
+  (function () {
+    if (!window.PT_LEGAL) {
+      var v = '?v=' + encodeURIComponent(window.PT_BUILD || '1');
+      document.write('<script src="../js/legal-config.example.js' + v + '"><\/script>');
+    }
   })();
   </script>
   <script>
