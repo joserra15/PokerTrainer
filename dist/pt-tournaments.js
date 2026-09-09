@@ -1157,6 +1157,30 @@
     return id;
   }
 
+  /**
+   * All-in que no llega al min-raise legal (o ni siquiera iguala): en la práctica
+   * es un call con las fichas que quedan. Evaluarlo como raise/shove marca Error
+   * cuando el chart es CALL 100% pese a que el incremento es irrelevante.
+   */
+  function isIncompleteAllIn(hand, heroSeat, action) {
+    if (!hand || !heroSeat || !action) return false;
+    var id = action.id || action;
+    if (id !== 'allin' && id !== 'raise') return false;
+    var prev = Number(hand.currentBet) || 0;
+    var streetInv = Number(heroSeat.streetInvested) || 0;
+    var stackLeft = Number(heroSeat.stack) || 0;
+    var maxAfford = streetInv + stackLeft;
+    var amount = action.amount != null ? Number(action.amount) : maxAfford;
+    if (!isFinite(amount) || amount <= 0) amount = maxAfford;
+    var target = Math.min(maxAfford, Math.max(amount, streetInv));
+    /* Call corto (all-in por debajo de la apuesta) o raise incompleto (< min-raise). */
+    if (target <= prev + 0.001) return target > streetInv + 0.001 || stackLeft > 0;
+    var raiseSize = target - prev;
+    var minRaise = Number(hand.minRaise);
+    if (!(minRaise > 0)) minRaise = Number(hand.bb) || 0;
+    return raiseSize < minRaise - 0.001;
+  }
+
   function availableFromOptions(opts, preferAllin) {
     return (opts || []).map(function (o) {
       /* Conservar allin: en MTT short el shove no es un raise cash. */
@@ -1315,7 +1339,8 @@
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
 
     var street = hand.street === 'preflop' ? 'preflop' : hand.street;
-    var preferAllin = pushPhase || (action && action.id === 'allin' && shortPhase);
+    var incompleteAllIn = toCall > 0 && isIncompleteAllIn(hand, heroSeat, action);
+    var preferAllin = !incompleteAllIn && (pushPhase || (action && action.id === 'allin' && shortPhase));
     var avail = availableFromOptions(hand.heroOptions, preferAllin);
     if (!avail.length) {
       avail = preferAllin ? ['fold', 'allin'] : ['fold', 'check', 'call', 'bet', 'raise'];
@@ -1323,8 +1348,13 @@
     if (preferAllin && avail.indexOf('allin') < 0) avail.push('allin');
 
     var chosen = mapActionId(action, { pushPhase: pushPhase, preferAllin: preferAllin });
-    /* Shove a stack corto: si el motor lo mapeó a raise, forzar allin en push. */
-    if (preferAllin && action && action.id === 'allin') chosen = 'allin';
+    /* All-in incompleto frente a apuesta: evaluar como call (mismo pago esencial). */
+    if (incompleteAllIn) {
+      chosen = 'call';
+      if (avail.indexOf('call') < 0) avail.push('call');
+    } else if (preferAllin && action && action.id === 'allin') {
+      chosen = 'allin';
+    }
     if (avail.indexOf(chosen) < 0) avail.push(chosen);
 
     var aliveCount = (hand.seats || []).filter(function (s) { return !s.folded; }).length;
@@ -1368,7 +1398,7 @@
       aliveCount: aliveCount,
       phaseNote: 'Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb'
     };
-    if (action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
+    if (!incompleteAllIn && action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
     }
     return input;
@@ -1392,11 +1422,15 @@
     var input = null;
     try { input = buildInput(hand, heroSeat, action); } catch (eBuild) { input = null; }
     var chosen = (input && input.chosenAction) || mapActionId(action, { preferAllin: true });
+    var labelAmount = action && action.amount;
+    if (chosen === 'call' && input && input.toCallBB != null) {
+      labelAmount = input.toCallBB * (Number(hand.bb) || 1);
+    }
     var base = {
       street: hand.street,
       action: chosen,
       chosen: chosen,
-      label: actionLabel(chosen, action && action.amount, hand.bb),
+      label: actionLabel(chosen, labelAmount, hand.bb),
       amount: action && action.amount,
       pos: heroSeat.pos,
       pot: hand.pot,
@@ -1419,7 +1453,8 @@
     try {
       var result = GTO.evaluateSpot(input);
       var graded = gradeFromEval(result, chosen);
-      /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta. */
+      /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta.
+         No aplica a all-in incompleto ya remapeado a call. */
       if ((graded.class === 'error' || graded.frequency < 0.05)
         && chosen === 'raise' && action && action.id === 'allin'
         && input.pushFold) {
@@ -1527,7 +1562,8 @@
     mapClass: mapClass,
     resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
-    isFirstInOpen: isFirstInOpen
+    isFirstInOpen: isFirstInOpen,
+    isIncompleteAllIn: isIncompleteAllIn
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -2315,6 +2351,7 @@
       pot: 0,
       currentBet: 0,
       minRaise: Number(blinds.bb) || 20,
+      lastRaiseWasFull: true,
       openerId: null,
       openerPos: null,
       lastAggressorId: null,
@@ -2458,16 +2495,49 @@
   }
   function doRaiseTo(hand, seat, toAmt) {
     var prev = hand.currentBet;
-    var target = Math.max(prev + hand.minRaise, Number(toAmt) || 0);
-    target = Math.min(target, seat.streetInvested + seat.stack);
+    var maxAfford = r2(seat.streetInvested + seat.stack);
+    var requested = Number(toAmt) || 0;
+    /* Un raise voluntario se fuerza al mínimo legal; un all-in corto se queda
+       en el stack (raise incompleto o call corto). */
+    var target = Math.max(prev + hand.minRaise, requested);
+    target = Math.min(target, maxAfford);
+    if (target < seat.streetInvested) target = seat.streetInvested;
+
+    /* All-in por debajo (o igual) de la apuesta actual: es un call corto, no
+       un raise. No toca currentBet/minRaise ni reabre la acción. */
+    if (target <= prev + 0.001) {
+      var before = seat.streetInvested;
+      putIn(hand, seat, target);
+      logAct(hand, seat, 'call', r2(seat.streetInvested - before));
+      return;
+    }
+
     putIn(hand, seat, target);
-    hand.minRaise = Math.max(hand.bb, seat.streetInvested - prev);
+    var raiseSize = r2(seat.streetInvested - prev);
+    var fullRaise = raiseSize >= hand.minRaise - 0.001;
+
     hand.currentBet = seat.streetInvested;
     if (!hand.openerId && hand.street === 'preflop') {
       hand.openerId = seat.id;
       hand.openerPos = seat.pos;
     }
-    logAct(hand, seat, prev > 0 ? 'raise' : 'bet', seat.streetInvested);
+    /* All-in incompleto: en mesa/log como allin (no «raise»), coherente con TDA. */
+    var logAction = seat.allIn && !fullRaise
+      ? 'allin'
+      : (prev > 0 ? 'raise' : 'bet');
+    logAct(hand, seat, logAction, seat.streetInvested);
+
+    /* Raise incompleto (all-in < min-raise): sube currentBet para quien aún
+       debe igualar, pero NO reabre a quien ya había actuado (TDA). Tampoco
+       reduce minRaise: el próximo raise completo sigue necesitando el tamaño
+       legal previo. */
+    if (!fullRaise) {
+      hand.lastRaiseWasFull = false;
+      return;
+    }
+
+    hand.minRaise = Math.max(hand.bb, raiseSize);
+    hand.lastRaiseWasFull = true;
     /* Tras un raise la acción sigue al jugador siguiente al agresor (no
        reinicia en UTG): si no, un limp en CO foldaría antes que la BB. */
     hand.lastAggressorId = seat.id;
@@ -2536,6 +2606,7 @@
     hand.seats.forEach(function (s) { s.streetInvested = 0; });
     hand.currentBet = 0;
     hand.minRaise = hand.bb;
+    hand.lastRaiseWasFull = true;
     hand.acted = {};
     hand.lastAggressorId = null;
     return null;
@@ -2690,44 +2761,49 @@
         amount: Math.min(tc, seat.stack)
       });
       if (seat.stack > tc) {
-        if (hand.street === 'preflop') {
-          var raises = 0;
-          (hand.log || []).forEach(function (e) {
-            if (e.street === 'preflop' && (e.action === 'raise' || e.action === 'bet')) raises += 1;
-          });
-          if (!hand.openerId) {
-            [2, 2.5, 3].forEach(function (x) {
-              var to = Math.min(maxTo, r2(bb * x));
-              if (to > hand.currentBet + 0.001 && to < maxTo - 0.001) {
-                opts.push({
-                  id: 'raise',
-                  label: x + ' bb',
-                  min: Math.min(maxTo, hand.currentBet + hand.minRaise),
-                  max: maxTo,
-                  suggested: to,
-                  amount: to
-                });
-              }
+        /* Raise incompleto (all-in corto): quien ya había actuado solo puede
+           call/fold/all-in; no se reabre el betting para subir de nuevo. */
+        var mayRaise = !(hand.acted[seat.id] && hand.lastRaiseWasFull === false);
+        if (mayRaise) {
+          if (hand.street === 'preflop') {
+            var raises = 0;
+            (hand.log || []).forEach(function (e) {
+              if (e.street === 'preflop' && (e.action === 'raise' || e.action === 'bet')) raises += 1;
             });
+            if (!hand.openerId) {
+              [2, 2.5, 3].forEach(function (x) {
+                var to = Math.min(maxTo, r2(bb * x));
+                if (to > hand.currentBet + 0.001 && to < maxTo - 0.001) {
+                  opts.push({
+                    id: 'raise',
+                    label: x + ' bb',
+                    min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+                    max: maxTo,
+                    suggested: to,
+                    amount: to
+                  });
+                }
+              });
+            } else {
+              var mults = raises >= 2 ? [2.2, 2.6, 3.0] : [2.5, 3.0, 3.5];
+              mults.forEach(function (m) {
+                pushRaise(m, (raises >= 2 ? '4bet ' : '3bet ') + m + 'x');
+              });
+            }
           } else {
-            var mults = raises >= 2 ? [2.2, 2.6, 3.0] : [2.5, 3.0, 3.5];
-            mults.forEach(function (m) {
-              pushRaise(m, (raises >= 2 ? '4bet ' : '3bet ') + m + 'x');
-            });
-          }
-        } else {
-          pushRaise(2.5, 'Raise 2.5x');
-          pushRaise(3.2, 'Raise 3.2x');
-          var potRaise = Math.min(maxTo, r2(hand.currentBet + pot));
-          if (potRaise > hand.currentBet + hand.minRaise && potRaise < maxTo - 0.001) {
-            opts.push({
-              id: 'raise',
-              label: 'Raise pot',
-              min: Math.min(maxTo, hand.currentBet + hand.minRaise),
-              max: maxTo,
-              suggested: potRaise,
-              amount: potRaise
-            });
+            pushRaise(2.5, 'Raise 2.5x');
+            pushRaise(3.2, 'Raise 3.2x');
+            var potRaise = Math.min(maxTo, r2(hand.currentBet + pot));
+            if (potRaise > hand.currentBet + hand.minRaise && potRaise < maxTo - 0.001) {
+              opts.push({
+                id: 'raise',
+                label: 'Raise pot',
+                min: Math.min(maxTo, hand.currentBet + hand.minRaise),
+                max: maxTo,
+                suggested: potRaise,
+                amount: potRaise
+              });
+            }
           }
         }
         pushAllIn();
