@@ -2,8 +2,9 @@
  * tournament/seating.js — Asignación de mesas, bust-outs y rebalance / FT.
  *
  * Los rivales de la mesa del Hero se mantienen entre manos. Solo entran
- * jugadores nuevos al liberarse un asiento (eliminación) o al fusionar mesas
- * hacia la mesa final. No se baraja el field en cada mano.
+ * jugadores nuevos al liberarse un asiento (eliminación), al fusionar mesas
+ * hacia la mesa final, o al equilibrar tamaños entre mesas (p. ej. 9+3 → 6+6).
+ * No se baraja el field en cada mano.
  */
 (function (global) {
   'use strict';
@@ -111,8 +112,9 @@
   }
 
   /**
-   * Tras eliminaciones: quita busteds, fusiona mesas si hace falta y rellena
-   * huecos. No baraja rivales de la mesa Hero entre manos.
+   * Tras eliminaciones: quita busteds, fusiona mesas si hace falta, rellena
+   * huecos y equilibra tamaños entre mesas. No baraja rivales de la mesa Hero
+   * entre manos salvo que haga falta mover fichas para equilibrar (p. ej. 9+3 → 6+6).
    */
   function rebalance(state) {
     var cfg = state.config || {};
@@ -295,6 +297,66 @@
         reindexSeats(tb, alive);
       });
     }
+
+    /**
+     * Equilibra el número de jugadores por mesa (p. ej. 12 vivos → 6+6, no 9+3).
+     * Mueve solo no-Hero; prioriza donar desde mesas que no son la del Hero.
+     * La frecuencia de rebalance no cambia: solo el criterio de destino.
+     */
+    function equalizeTableSizes() {
+      if (tables.length <= 1) return;
+      var eqGuard = 0;
+      while (eqGuard++ < 200) {
+        tables.forEach(function (tb) {
+          tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
+        });
+
+        var sorted = tables.slice().sort(function (a, b) {
+          if (a.seatIds.length !== b.seatIds.length) return a.seatIds.length - b.seatIds.length;
+          return String(a.id).localeCompare(String(b.id));
+        });
+        var smallest = sorted[0];
+        var largest = sorted[sorted.length - 1];
+        if (!smallest || !largest) break;
+        if (largest.seatIds.length - smallest.seatIds.length <= 1) break;
+        if (openSeats(smallest) <= 0) break;
+
+        var maxLen = largest.seatIds.length;
+        var donors = tables
+          .filter(function (tb) { return tb.seatIds.length === maxLen && tb.id !== smallest.id; })
+          .sort(function (a, b) {
+            if (a.isHeroTable !== b.isHeroTable) return a.isHeroTable ? 1 : -1;
+            return String(a.id).localeCompare(String(b.id));
+          });
+
+        var mover = null;
+        var donor = null;
+        for (var d = 0; d < donors.length && !mover; d++) {
+          var candDonor = donors[d];
+          for (var di = 0; di < candDonor.seatIds.length; di++) {
+            var candId = candDonor.seatIds[di];
+            if (hero && candId === hero.id) continue;
+            var p = playerById(alive, candId);
+            if (!p) continue;
+            donor = candDonor;
+            mover = p;
+            break;
+          }
+        }
+        if (!mover || !donor) break;
+
+        detachPlayer(tables, mover);
+        seatPlayer(smallest, mover, alive);
+      }
+    }
+
+    equalizeTableSizes();
+
+    tables = tables.filter(function (tb) { return tb.seatIds && tb.seatIds.length; });
+    tables.forEach(function (tb) {
+      tb.isHeroTable = !!(hero && tb.seatIds.indexOf(hero.id) >= 0);
+      reindexSeats(tb, alive);
+    });
 
     state.tables = tables;
     var merged = needTables === 1 && prevCount > 1;
