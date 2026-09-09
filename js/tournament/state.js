@@ -46,11 +46,12 @@
     })(seed);
 
     var villainCount = cfg.entries - 1;
-    var names = Names.pickUnique(villainCount, rnd);
+    var heroName = (opts.heroName && String(opts.heroName).trim()) || 'Héroe';
+    var names = Names.pickUnique(villainCount, rnd, [heroName, 'Héroe', 'Hero', 'Jugador']);
     var players = [];
     players.push({
       id: 'hero',
-      name: (opts.heroName && String(opts.heroName)) || 'Héroe',
+      name: heroName,
       stack: cfg.startingStack,
       roleId: null,
       proStyle: null,

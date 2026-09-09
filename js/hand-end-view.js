@@ -169,6 +169,8 @@
   /**
    * Asientos rivales con cartas visibles (showdown) o mensaje si no enseñaron.
    * Usa analyzed.shows / seats / handNames / positions / seatOutcomes.
+   * El héroe se renderiza aparte (isHero / heroSeatName); no ocultar a un bot
+   * que por colisión de nick coincida con el alias del héroe.
    */
   function villainSeatsHtml(analyzed) {
     if (!analyzed) return '';
@@ -179,13 +181,39 @@
     var seats = analyzed.seats || [];
     var outcomes = analyzed.seatOutcomes || [];
     var outcomeByName = {};
+    var nonHeroNames = {};
     outcomes.forEach(function (o) {
-      if (o && o.name) outcomeByName[o.name] = o;
+      if (!o || !o.name) return;
+      if (o.isHero) return;
+      nonHeroNames[String(o.name)] = true;
+      outcomeByName[o.name] = o;
+    });
+    outcomes.forEach(function (o) {
+      if (o && o.isHero && o.name && !outcomeByName[o.name]) {
+        outcomeByName[o.name] = o;
+      }
     });
     var rows = [];
 
+    function isHeroDuplicateName(name) {
+      if (!name) return false;
+      if (nonHeroNames[String(name)]) return false;
+      if (name === heroName) return true;
+      if (analyzed.heroSeatName && name === analyzed.heroSeatName) return true;
+      if (name === 'Héroe' || name === 'Hero') return true;
+      for (var i = 0; i < seats.length; i++) {
+        if (seats[i] && seats[i].isHero && seats[i].name === name) return true;
+      }
+      for (var j = 0; j < outcomes.length; j++) {
+        if (outcomes[j] && outcomes[j].isHero && outcomes[j].name === name) return true;
+      }
+      return false;
+    }
+
     function pushRow(name, pos, cards, handName, showed) {
+      if (isHeroDuplicateName(name)) return;
       var oc = outcomeByName[name] || null;
+      if (oc && oc.isHero && !nonHeroNames[String(name)]) return;
       rows.push({
         name: name,
         pos: pos || '',
@@ -199,7 +227,7 @@
     }
 
     Object.keys(shows).forEach(function (name) {
-      if (name === heroName) return;
+      if (isHeroDuplicateName(name)) return;
       var cards = shows[name];
       if (!cards || !cards.length) return;
       pushRow(name, positions[name] || '', cards, handNames[name] || null, true);
@@ -208,7 +236,7 @@
     if (!rows.length && seats.length) {
       seats.forEach(function (s) {
         var name = s.name || s.id;
-        if (!name || name === heroName) return;
+        if (!name || s.isHero || isHeroDuplicateName(name)) return;
         if (s.folded) return;
         var cards = (s.cards || []).map(cardCode).filter(Boolean);
         if (cards.length >= 2) {
@@ -220,17 +248,20 @@
     /* Sin showdown: aún mostrar ganador(es) y eliminados con delta de bote. */
     if (!rows.length && outcomes.length) {
       outcomes.forEach(function (o) {
-        if (!o || o.isHero || o.name === heroName) return;
+        if (!o || o.isHero || isHeroDuplicateName(o.name)) return;
         if (!o.isWinner && !o.eliminated && !(o.deltaBB > 0.02)) return;
         pushRow(o.name, o.pos || positions[o.name] || '', o.cards || [], o.handName || null, !!(o.cards && o.cards.length >= 2));
       });
     }
 
     if (!rows.length) {
-      var winnerOnly = (analyzed.winners || []).filter(function (n) { return n && n !== heroName; });
+      var winnerOnly = (analyzed.winners || []).filter(function (n) {
+        return n && !isHeroDuplicateName(n);
+      });
       if (winnerOnly.length) {
         winnerOnly.forEach(function (n) {
           var oc = outcomeByName[n];
+          if (oc && oc.isHero && !nonHeroNames[String(n)]) return;
           pushRow(n, (oc && oc.pos) || positions[n] || '', (oc && oc.cards) || [], null, false);
         });
       }
@@ -297,11 +328,13 @@
       return o && (o.isHero || o.name === analyzed.hero);
     })[0] || { deltaBB: net, eliminated: false, isWinner: net > 0.02 };
     var multiVillains = Object.keys(analyzed.shows || {}).filter(function (n) {
-      return n !== analyzed.hero;
+      return n && n !== analyzed.hero && n !== analyzed.heroSeatName &&
+        n !== 'Héroe' && n !== 'Hero';
     }).length > 1 || ((analyzed.seatOutcomes || []).filter(function (o) {
       return o && !o.isHero && (o.isWinner || o.eliminated || (o.cards && o.cards.length));
     }).length > 1);
     var villainsBlock = villainSeatsHtml(analyzed);
+    var heroLabel = analyzed.hero || 'Héroe';
 
     var html = '<div class="hand-end-view hand-end-popup">' +
       '<div class="hand-end-view-head hand-end-popup-head">' +
@@ -315,7 +348,7 @@
       '<div class="hand-end-seat is-hero' +
       (heroOutcome.isWinner ? ' is-winner' : '') +
       (heroOutcome.eliminated ? ' is-eliminated' : '') + '">' +
-      '<div class="hand-end-seat-label">Héroe · ' + esc(analyzed.heroPos || '') +
+      '<div class="hand-end-seat-label">' + esc(heroLabel) + ' · ' + esc(analyzed.heroPos || '') +
       (heroOutcome.isWinner ? ' · Gana' : '') + '</div>' +
       '<div class="hand-end-cards">' + cardsHtml(analyzed.heroCards) + '</div>' +
       (heroHandName ? ('<div class="hand-end-handname">' + esc(heroHandName) + '</div>') : '') +

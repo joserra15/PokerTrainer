@@ -2294,6 +2294,73 @@ console.log('OK pushfold-freq-100');
   console.log('OK hand-end-winner-eliminated-gto');
 }
 
+// --- Hand-end: alias del héroe + sin mano duplicada al ganar ---
+{
+  const source = {
+    handIndex: 12,
+    bb: 50,
+    sb: 25,
+    board: ['5h', '8s', '2d', 'Td', '8d'],
+    seats: [
+      {
+        id: 'hero', name: 'José', isHero: true, pos: 'BB',
+        cards: ['Ts', 'Jh'], stack: 1848, startStack: 1500, folded: false
+      },
+      {
+        id: 'v1', name: 'José_bot', isHero: false, pos: 'SB',
+        cards: ['Qs', 'As'], stack: 1152, startStack: 1500, folded: false
+      }
+    ],
+    log: [],
+    decisions: [],
+    result: {
+      deltas: { hero: 348, v1: -348 },
+      winners: ['hero'],
+      showdown: true,
+      tied: false,
+      pot: 696,
+      heroNet: 348,
+      holeCards: { hero: ['Ts', 'Jh'], v1: ['Qs', 'As'] },
+      board: ['5h', '8s', '2d', 'Td', '8d'],
+      handNames: { hero: 'Doble pareja', v1: 'Pareja' }
+    }
+  };
+  const hand = g.PTTournamentSessionBridge.handFromTournament(source, {
+    tournamentId: 't_alias', handIndex: 12, heroName: 'FoldFam'
+  });
+  assert.strictEqual(hand.hero, 'FoldFam', 'bridged hero uses alias');
+  assert.ok(!hand.shows.FoldFam && !hand.shows['José'] && !hand.shows['Héroe'],
+    'shows excludes hero under alias/raw/Héroe keys');
+  assert.ok(hand.shows['José_bot'], 'shows keeps villain');
+  const html = g.PTHandEndView.renderHandEndHtml(hand, { title: 'Ganas en showdown' });
+  assert.ok(/FoldFam/.test(html), 'hand-end label uses alias');
+  assert.ok(!/>\s*Héroe\s*·/.test(html) && !/hand-end-seat-label">Héroe/.test(html),
+    'no hardcoded Héroe label');
+  const heroBlocks = html.match(/hand-end-seat is-hero/g) || [];
+  assert.strictEqual(heroBlocks.length, 1, 'single hero seat block');
+  const foldFamLabels = html.match(/FoldFam/g) || [];
+  assert.ok(foldFamLabels.length >= 1 && foldFamLabels.length <= 2,
+    'FoldFam appears as hero label (not also as villain)');
+  assert.ok(/José_bot/.test(html), 'villain still shown');
+  assert.ok(!/hand-end-seat-label">José\s*·/.test(html),
+    'raw seat name José not duplicated as villain');
+
+  /* Colisión pool: alias excluido de nicks de villanos */
+  const st = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), {
+    seed: 7, heroName: 'FoldFam'
+  });
+  const villainNames = st.players.filter(function (p) { return !p.isHero; }).map(function (p) {
+    return p.name;
+  });
+  assert.ok(villainNames.indexOf('FoldFam') < 0, 'no bot named like hero alias');
+  assert.strictEqual(g.PTTournamentState.hero(st).name, 'FoldFam', 'hero keeps alias');
+
+  const picked = g.PTTournamentNames.pickUnique(5, function () { return 0.1; }, ['FoldFam', 'RiverRat']);
+  assert.ok(picked.indexOf('FoldFam') < 0 && picked.indexOf('RiverRat') < 0,
+    'pickUnique honors exclude list');
+  console.log('OK hand-end-hero-alias-no-dup');
+}
+
 // --- ForgeCoach en resumen final del torneo ---
 {
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
