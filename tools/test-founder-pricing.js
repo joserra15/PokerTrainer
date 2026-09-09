@@ -109,26 +109,37 @@ assert.ok(/para siempre/i.test(html), 'index.html promete el precio para siempre
 
 // --- Publicidad Founder: hosts landing + Inicio + helpers --------------------
 assert.ok(/id="landing-promo-pill"/.test(html), 'host landing-promo-pill tras hero');
+assert.ok(/landing-founder-promo-host hidden/.test(html) || /id="landing-promo-pill"[^>]*\bhidden\b/.test(html),
+  'landing promo empieza oculto (evita flash post-login)');
 assert.ok(/id="home-founder-promo"/.test(html), 'host home-founder-promo en Inicio');
 assert.ok(/1 de octubre/i.test(billingCfgSrc) && /2026-10-01/.test(billingCfgSrc), 'config: lanzamiento 1 de octubre');
 assert.ok(/ctaPlanes/.test(billingCfgSrc), 'config: ctaPlanes');
 assert.ok(/founderStripHtml|homePromoHtml|founderNavBadgeHtml/.test(billingCfgSrc),
   'PTBillingPromo strip/home/nav helpers');
-assert.ok(/pillHost\.innerHTML\s*=\s*Promo\.pillHtml/.test(landingSrc),
-  'landing rellena pill/strip Founder');
+assert.ok(/founder-promo-title|founder-promo-brand/.test(billingCfgSrc),
+  'strip Founder con título/marca visibles');
+assert.ok(/pillHost\.innerHTML/.test(landingSrc) && /shouldShowLandingPromo|PT_AUTH_BOOT_DONE|pt_auth_v1/.test(landingSrc),
+  'landing rellena promo solo tras auth boot / sin sesión');
+assert.ok(/pt-auth-boot-done/.test(landingSrc), 'landing escucha pt-auth-boot-done');
 assert.ok(/landing-promo-pill/.test(landingSrc) && /showPricing === false/.test(landingSrc),
   'landing oculta strip si comunidad sin pricing');
 assert.ok(/mountHomeFounderPromo/.test(appSrc), 'app monta promo Founder en Inicio');
+assert.ok(/isLoaded/.test(appSrc) && /pt-entitlements-updated/.test(appSrc),
+  'home promo espera entitlements y se remonta al actualizar');
 assert.ok(/markFounderPricingTabBadge|founderNavBadgeHtml/.test(appSrc),
   'app marca badge en tab Planes');
 assert.ok(/\.founder-promo-strip/.test(css) && /\.founder-nav-badge/.test(css),
   'CSS strip y badge Founder');
+assert.ok(/\.founder-promo-title/.test(css) && /\.founder-promo-brand/.test(css),
+  'CSS título y marca Founder');
 
 const promoSb = loadPricing(billingCfgSrc);
 assert.ok(promoSb.PTBillingPromo.homePromoHtml().indexOf('Ir a Planes') >= 0,
   'homePromoHtml CTA Ir a Planes');
 assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-strip') >= 0,
   'pillHtml es la banda Founder');
+assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-title') >= 0,
+  'pillHtml incluye título de oferta');
 assert.ok(promoSb.PTBillingPromo.founderNavBadgeHtml().indexOf('−40%') >= 0,
   'nav badge −40%');
 promoSb.PT_BILLING.purchasesPaused = false;

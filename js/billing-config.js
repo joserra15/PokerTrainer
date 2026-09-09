@@ -102,17 +102,24 @@ window.PT_BILLING = {
     var href = opts.href || '#landing-pricing';
     var cta = opts.cta || f.ctaPlanes || 'Solicita tu plaza en Planes';
     var ctaAttr = opts.ctaAttr || '';
+    var discount = String(f.discount || '40%').replace(/^−|^-/, '');
     var ctaTag = opts.button
       ? ('<button type="button" class="btn btn-primary founder-promo-cta"' + ctaAttr + '>' + esc(cta) + '</button>')
       : ('<a class="btn btn-primary founder-promo-cta" href="' + esc(href) + '"' + ctaAttr + '>' + esc(cta) + '</a>');
     return '<aside class="founder-promo-strip" role="note" aria-label="FOUNDER">' +
+      '<div class="founder-promo-strip-glow" aria-hidden="true"></div>' +
+      '<div class="founder-promo-strip-body">' +
       '<div class="founder-promo-strip-main">' +
-      '<p class="founder-promo-kicker"><strong>FOUNDER</strong> · ' + esc(f.seatsNote || 'Plazas limitadas') +
-      ' <span class="founder-promo-badge">−' + esc(String(f.discount || '40%').replace(/^−|^-/, '')) + '</span></p>' +
+      '<p class="founder-promo-brand">' +
+      '<span class="founder-promo-brand-name">FOUNDER</span>' +
+      '<span class="founder-promo-badge">−' + esc(discount) + '</span>' +
+      '</p>' +
+      '<p class="founder-promo-title">' + esc(discount) + ' de descuento para siempre</p>' +
       '<p class="founder-promo-lead">Lanzamiento en <strong>' + esc(f.launchLabel || 'próximas semanas') +
-      '</strong> · <strong>' + esc(f.discount || '40%') + ' de descuento para siempre</strong></p>' +
+      '</strong> · ' + esc(f.seatsNote || 'Plazas limitadas') +
+      ' · Study y Coach</p>' +
       '</div>' + ctaTag +
-      '</aside>';
+      '</div></aside>';
   }
   function founderPillHtml() {
     return founderStripHtml({ href: '#landing-pricing' });

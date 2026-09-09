@@ -39330,6 +39330,12 @@ window.PT_NASH_PUSH_JSON = {
     window.addEventListener('pt-entitlements-updated', function () {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      if ($('#tab-home') && $('#tab-home').classList.contains('active')) {
+        var homeOptsEnt = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
+        var communityShellEnt = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
+        mountHomeFounderPromo(communityShellEnt, homeOptsEnt);
+        markFounderPricingTabBadge();
+      }
     });
     window.addEventListener('pt-plan-changed', function () {
       renderPricing();
@@ -39445,7 +39451,15 @@ window.PT_NASH_PUSH_JSON = {
     }
     var Promo = window.PTBillingPromo;
     var paused = !!(Promo && Promo.purchasesPaused && Promo.purchasesPaused());
-    var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
+    var Ent = window.PTEntitlements;
+    /* No mostrar hasta saber entitlements: si ya es Founder, el banner parpadeaba
+       durante el boot y luego se ocultaba. */
+    if (Ent && typeof Ent.isLoaded === 'function' && !Ent.isLoaded()) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
+    var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
     if (!paused || hidePricing || isFounder || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';

@@ -86,8 +86,9 @@
   }
 
   function contactThreadsRpcArgs() {
-    var cid = contactCommunityParam();
-    return cid ? { p_community_id: cid } : {};
+    // Siempre enviar p_community_id (null = PokerForge) para evitar ambigüedad
+    // con overloads antiguos pt_contact_my_threads() / (text default null).
+    return { p_community_id: contactCommunityParam() };
   }
 
   async function fetchUnreadCount() {
