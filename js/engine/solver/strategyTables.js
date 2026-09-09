@@ -390,6 +390,10 @@
     if (street === 'river' && info.ev && info.ev.category === 0) tier = 'air';
 
     let f = Object.assign({}, base[tier] || base.medium);
+    /* Top pair+ / strong: forzar mix de value bet (evitar check 100%). */
+    if ((tier === 'strong' || tier === 'nuts') && (f.bet || 0) < 0.35) {
+      f.bet = street === 'river' ? 0.48 : 0.55;
+    }
     f.bet = (f.bet || 0) * (STREET_PROBE_SCALE[street] || 1);
     if (texture.paired) f.bet *= street === 'river' ? (tier === 'air' ? 0.32 : 0.55) : 0.88;
     if (street === 'river' && tier === 'air' && input.initiative === 'aggressor' && input.inPosition) {

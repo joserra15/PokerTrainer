@@ -352,6 +352,15 @@
       }
     }
 
+    /* Value/nuts: nunca check≈100% con equity alta (paso a paso mostraba 100/0). */
+    if ((band === 'nuts' || band === 'value') && equity >= 0.55) {
+      const minValueBet = street === 'river' ? 0.42 : (street === 'turn' ? 0.48 : 0.55);
+      betTotal = Math.max(betTotal, minValueBet);
+      if (band === 'nuts') betTotal = Math.max(betTotal, 0.68);
+    } else if (band === 'merge' && equity >= 0.58 && inPosition) {
+      betTotal = Math.max(betTotal, street === 'flop' ? 0.28 : 0.22);
+    }
+
     if (band === 'bluffcatch' || (band === 'merge' && equity < 0.42)) {
       betTotal = Math.min(betTotal, street === 'river' ? 0.12 : 0.28);
     }

@@ -28,14 +28,14 @@
 
   function defaultScheduleForSeats(seats) {
     var hands = handsPerLevelForSeats(seats);
-    return DEFAULT_LEVELS.map(function (lv, i) {
-      var isLast = i === DEFAULT_LEVELS.length - 1;
+    /* Niveles base 1–10; blinds.js continúa geométricamente después. */
+    return DEFAULT_LEVELS.map(function (lv) {
       return {
         level: lv.level,
         sb: lv.sb,
         bb: lv.bb,
         ante: lv.ante,
-        hands: isLast ? Math.max(hands, 10) : hands
+        hands: hands
       };
     });
   }
@@ -138,8 +138,8 @@
       placesPaid: 3,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
-      exploitProPct: 0,
+      roleWeights: { fish: 18, nit: 14, tag: 30, lag: 18, maniac: 8, pro: 12 },
+      exploitProPct: 0.05,
       onBust: 'simulate'
     },
     medium: {
@@ -154,8 +154,8 @@
       placesPaid: 4,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
-      exploitProPct: 0.15,
+      roleWeights: { fish: 6, nit: 10, tag: 30, lag: 24, maniac: 6, pro: 24 },
+      exploitProPct: 0.28,
       onBust: 'simulate'
     },
     hard: {
@@ -170,8 +170,8 @@
       placesPaid: 7,
       payoutLadder: 'topheavy',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
-      exploitProPct: 0.4,
+      roleWeights: { fish: 2, nit: 5, tag: 18, lag: 12, maniac: 3, pro: 60 },
+      exploitProPct: 0.7,
       onBust: 'simulate'
     },
     mttPro: {
@@ -186,8 +186,8 @@
       placesPaid: 16,
       payoutLadder: 'topheavy',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 0, nit: 0, tag: 12, lag: 8, maniac: 0, pro: 80 },
-      exploitProPct: 0.85,
+      roleWeights: { fish: 0, nit: 0, tag: 5, lag: 5, maniac: 0, pro: 90 },
+      exploitProPct: 0.95,
       onBust: 'simulate'
     },
     sng6: {
@@ -202,8 +202,8 @@
       placesPaid: 2,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
-      exploitProPct: 0.1,
+      roleWeights: { fish: 12, nit: 12, tag: 32, lag: 22, maniac: 6, pro: 16 },
+      exploitProPct: 0.2,
       onBust: 'simulate'
     },
     sng9: {
@@ -218,8 +218,8 @@
       placesPaid: 3,
       payoutLadder: 'standard',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 },
-      exploitProPct: 0.15,
+      roleWeights: { fish: 10, nit: 12, tag: 32, lag: 22, maniac: 6, pro: 18 },
+      exploitProPct: 0.25,
       onBust: 'simulate'
     },
     sngPro: {
@@ -250,8 +250,8 @@
       placesPaid: 1,
       payoutLadder: 'topheavy',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 28, nit: 18, tag: 24, lag: 16, maniac: 8, pro: 6 },
-      exploitProPct: 0,
+      roleWeights: { fish: 18, nit: 14, tag: 30, lag: 18, maniac: 8, pro: 12 },
+      exploitProPct: 0.05,
       onBust: 'simulate'
     },
     spinMedium: {
@@ -266,8 +266,8 @@
       placesPaid: 1,
       payoutLadder: 'topheavy',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 12, nit: 14, tag: 28, lag: 22, maniac: 8, pro: 16 },
-      exploitProPct: 0.15,
+      roleWeights: { fish: 6, nit: 10, tag: 30, lag: 24, maniac: 6, pro: 24 },
+      exploitProPct: 0.28,
       onBust: 'simulate'
     },
     spinHard: {
@@ -282,8 +282,8 @@
       placesPaid: 1,
       payoutLadder: 'topheavy',
       blindSchedule: DEFAULT_SCHEDULE,
-      roleWeights: { fish: 5, nit: 10, tag: 25, lag: 20, maniac: 5, pro: 35 },
-      exploitProPct: 0.4,
+      roleWeights: { fish: 2, nit: 5, tag: 18, lag: 12, maniac: 3, pro: 60 },
+      exploitProPct: 0.7,
       onBust: 'simulate'
     },
     spinPro: {
