@@ -18,6 +18,7 @@ function createSandbox() {
     Math,
     Date,
     JSON,
+    Promise,
     parseFloat,
     parseInt,
     isNaN,
@@ -1284,6 +1285,11 @@ console.log('OK tournament-result-polish');
   g.localStorage.setItem(boardKey, JSON.stringify([]));
   g.PTTournamentWallet.setBalance(0, { type: 'test_lb_reset' });
 
+  /* Contrato: ui repinta al llegar el cloud (sin salir de la app) */
+  assert.ok(/pt-tournament-leaderboard-updated/.test(uiSrc),
+    'ui escucha leaderboard-updated');
+  assert.ok(/skipRefresh:\s*true/.test(uiSrc), 'repinta leaderboard con skipRefresh');
+
   console.log('OK leaderboard-and-legend');
 }
 
@@ -2381,4 +2387,95 @@ console.log('OK pushfold-freq-100');
   console.log('OK exit-save-fail-keeps-table-source');
 }
 
-console.log('*** test-tournament OK ***');
+// --- Primera carga: cloud async + evento para repintar lobby ---
+(async function testLeaderboardFirstLoad() {
+  const Lb = g.PTTournamentLeaderboard;
+  const cid = Lb.communityId();
+  const boardKey = 'pt_tournament_leaderboard_v1_' + cid;
+  g.localStorage.setItem(boardKey, JSON.stringify([]));
+  g.PTTournamentWallet.setBalance(10, { type: 'test_lb_async' });
+  g.PTTournamentWallet.setTournamentsPlayed(0);
+
+  const listeners = Object.create(null);
+  g.CustomEvent = function CustomEvent(type, init) {
+    this.type = type;
+    this.detail = init && init.detail;
+  };
+  g.addEventListener = function (type, fn) {
+    (listeners[type] = listeners[type] || []).push(fn);
+  };
+  g.dispatchEvent = function (ev) {
+    (listeners[ev.type] || []).slice().forEach(function (fn) { fn(ev); });
+    return true;
+  };
+
+  let notified = 0;
+  g.addEventListener('pt-tournament-leaderboard-updated', function () { notified += 1; });
+
+  /* 1) Fallo de auth: no throttle → el siguiente paint reintenta */
+  let failCalls = 0;
+  g.PTSupabase = {
+    getClient: function () {
+      return {
+        rpc: function () {
+          failCalls += 1;
+          return Promise.resolve({ data: null, error: { message: 'not authenticated' } });
+        }
+      };
+    }
+  };
+  await Lb.refreshFromCloud({ force: true });
+  assert.strictEqual(failCalls, 1, 'primer intento fallido');
+  await Lb.refreshFromCloud();
+  assert.strictEqual(failCalls, 2, 'tras error reintenta sin esperar 15s');
+
+  /* 2) Éxito async: 1ª pintura sin peers; tras await, board completo + evento */
+  let rpcCalls = 0;
+  const remoteMembers = [
+    { user_id: 'u1', display_name: 'Alice', koins: 50, tournaments_played: 2 },
+    { user_id: 'u2', display_name: 'Bob', koins: 30, tournaments_played: 1 },
+    { user_id: 'u3', display_name: 'Cara', koins: 0, tournaments_played: 0 }
+  ];
+  let resolveRpc;
+  const pendingRpc = new Promise(function (resolve) { resolveRpc = resolve; });
+  g.PTSupabase = {
+    getClient: function () {
+      return {
+        rpc: function (name) {
+          rpcCalls += 1;
+          assert.strictEqual(name, 'pt_list_community_tournament_koins');
+          return pendingRpc.then(function () {
+            return { data: { ok: true, members: remoteMembers }, error: null };
+          });
+        }
+      };
+    }
+  };
+
+  notified = 0;
+  const htmlFirst = Lb.renderHtml({ force: true });
+  assert.ok(/is-hero/.test(htmlFirst), 'primera pintura incluye hero');
+  assert.ok(!/Alice|Bob|Cara/.test(htmlFirst), 'primera pintura aún sin peers cloud');
+  assert.strictEqual(Lb.rankings(20).length, 1, 'antes del resolve solo hero');
+
+  resolveRpc();
+  await Lb.refreshFromCloud();
+  assert.ok(rpcCalls >= 1, 'RPC community koins llamado');
+  assert.ok(notified >= 1, 'emite pt-tournament-leaderboard-updated tras fetch OK');
+  const after = Lb.rankings(20);
+  assert.ok(after.length >= 4, 'tras cloud: hero + 3 miembros');
+  assert.ok(after.some(function (r) { return r.name === 'Alice'; }), 'incluye Alice');
+  assert.ok(after.some(function (r) { return r.name === 'Cara' && r.koins === 0; }),
+    'incluye miembro con 0 koins');
+  const htmlAfter = Lb.renderHtml({ skipRefresh: true });
+  assert.ok(/Alice/.test(htmlAfter) && /Bob/.test(htmlAfter), 'HTML tras cloud con peers');
+
+  g.localStorage.setItem(boardKey, JSON.stringify([]));
+  g.PTSupabase = null;
+  g.PTTournamentWallet.setBalance(0, { type: 'test_lb_async_reset' });
+  console.log('OK leaderboard-first-load-refresh');
+  console.log('*** test-tournament OK ***');
+})().catch(function (err) {
+  console.error('FAIL leaderboard-first-load-refresh', err);
+  process.exitCode = 1;
+});
