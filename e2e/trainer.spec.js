@@ -55,7 +55,7 @@ test.describe('Entrenamiento completo @smoke', () => {
       if (await close.isVisible().catch(() => false)) await close.click().catch(() => {});
     }
 
-    await page.click('button.tab[data-tab="history"]');
+    await goTab(page, 'history');
     await page.waitForSelector('#history-list', { timeout: 15000 });
     const items = page.locator('#history-list .record-item, #history-list [data-replay-id], #history-list button, #history-list .history-card');
     // Al menos un nodo de contenido o texto de mano
