@@ -93,7 +93,9 @@
 
   /**
    * Suaviza estrategias 100/0 en el borde para que el paso a paso muestre mixes.
-   * Pure raise → ~86–92% + residual fold; pure fold → deja 4–8% raise en hands medias.
+   * Pure raise/call/check → residual visible. Pure fold se deja intacto: inyectar
+   * call material (~5%+) reclasifica traps claros (p. ej. A9o BB vs UTG) como
+   * «aceptable» en lugar de error.
    */
   function softenPureStrategy(base, code) {
     if (!base) return base;
@@ -106,6 +108,8 @@
       if (v > domVal) { domVal = v; dom = k; }
     });
     if (!dom || domVal < 0.97) return base;
+    /* Fold puro = fold puro (pedagogía + guest traps). */
+    if (dom === 'fold') return base;
     const s = HS && HS.handStrength01 ? HS.handStrength01(code) : 0.5;
     if (dom === 'raise' || dom === 'allin') {
       const keep = clamp(0.82 + s * 0.12, 0.82, 0.94);
@@ -119,13 +123,6 @@
       const rem = 1 - keep;
       out.fold = (out.fold || 0) + rem * 0.65;
       out.raise = (out.raise || 0) + rem * 0.35;
-    } else if (dom === 'fold') {
-      if (s < 0.42) return normalize(out);
-      const keep = clamp(0.88 - (s - 0.42) * 0.15, 0.78, 0.94);
-      out.fold = keep;
-      const rem = 1 - keep;
-      out.raise = (out.raise || 0) + rem * (s > 0.62 ? 0.55 : 0.25);
-      out.call = (out.call || 0) + rem * (s > 0.62 ? 0.45 : 0.75);
     } else if (dom === 'check') {
       const keep = clamp(0.85 + (1 - s) * 0.08, 0.82, 0.94);
       out.check = keep;
