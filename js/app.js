@@ -2224,7 +2224,7 @@
     $$('.tab-panel').forEach((x) => x.classList.remove('active'));
     const panel = $('#tab-' + tabId);
     if (panel) panel.classList.add('active');
-    if (isMobileLayout()) closeMobileNav();
+    closeMobileNav();
     /* Mesa torneo: no dejar body.trn-table-active al salir del tab (evita padding/footer rotos). */
     if (tabId !== 'tournaments') {
       document.body.classList.remove('trn-table-active');
@@ -2521,7 +2521,6 @@
   }
 
   function portalMobileNav() {
-    if (!isMobileLayout()) return;
     const nav = $('#topbar-nav');
     const backdrop = $('#nav-backdrop');
     if (!nav || !backdrop || nav.parentElement === document.body) return;
@@ -2568,10 +2567,11 @@
     const nav = $('#topbar-nav');
     if (!toggle) return;
 
-    if (isMobileLayout()) portalMobileNav();
+    // Drawer/sándwich siempre (escritorio y móvil).
+    portalMobileNav();
 
     function openNav() {
-      if (isMobileLayout()) portalMobileNav();
+      portalMobileNav();
       document.body.classList.add('nav-open');
       toggle.setAttribute('aria-expanded', 'true');
       if (nav) nav.setAttribute('aria-hidden', 'false');
@@ -2588,8 +2588,7 @@
     if (closeBtn) closeBtn.addEventListener('click', closeMobileNav);
     if (backdrop) backdrop.addEventListener('click', closeMobileNav);
     window.addEventListener('resize', () => {
-      if (isMobileLayout()) portalMobileNav();
-      else restoreMobileNav();
+      portalMobileNav();
       syncPlayMobileStage();
       if (hand) renderTable();
     });

@@ -103,7 +103,8 @@
   }
 
   function isMobileNav() {
-    return window.matchMedia('(max-width: 680px)').matches;
+    // La app usa siempre el drawer/sándwich; la cuenta va embebida en el menú.
+    return true;
   }
 
   function closeAccountDropdown() {
@@ -148,7 +149,7 @@
 
     trigger.onclick = function (e) {
       e.stopPropagation();
-      if (window.matchMedia('(max-width: 680px)').matches) return;
+      if (isMobileNav()) return;
       const dropdown = $('#account-dropdown');
       if (!dropdown) return;
       const open = dropdown.classList.toggle('hidden');
@@ -749,7 +750,7 @@
 
   function bindUi() {
     document.addEventListener('click', function () {
-      if (window.matchMedia('(max-width: 680px)').matches) return;
+      if (isMobileNav()) return;
       const dropdown = $('#account-dropdown');
       const trigger = $('#account-trigger');
       if (dropdown) dropdown.classList.add('hidden');
