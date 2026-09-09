@@ -1,6 +1,6 @@
 const path = require('path');
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { mockAuthenticatedUser, waitForAppShell, goTab } = require('./helpers');
 
 test.describe('Replay sesión importada', () => {
   test('Volver a jugar desde mano importada', async ({ page }) => {
@@ -8,7 +8,7 @@ test.describe('Replay sesión importada', () => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
 
-    await page.click('button.tab[data-tab="sessions"]');
+    await goTab(page, 'sessions');
     await page.waitForSelector('#session-file', { timeout: 10000 });
     const fixture = path.join(__dirname, '..', 'tools', 'fixtures', 'Winamax-sample.txt');
     await page.setInputFiles('#session-file', fixture);

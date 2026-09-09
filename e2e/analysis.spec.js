@@ -1,11 +1,11 @@
 const { test, expect } = require('@playwright/test');
-const { mockAuthenticatedUser, waitForAppShell } = require('./helpers');
+const { mockAuthenticatedUser, waitForAppShell, goTab } = require('./helpers');
 
 test.describe('Análisis manual → entrenador', () => {
   test('formulario muestra jugadores en mesa y stacks', async ({ page }) => {
     await mockAuthenticatedUser(page);
     await waitForAppShell(page);
-    await page.click('button.tab[data-tab="analysis"]');
+    await goTab(page, 'analysis');
     await page.waitForSelector('#analysis-content', { timeout: 15000 });
     await page.evaluate(() => {
       if (window.PTHandAnalysis && window.PTHandAnalysis.render) {
@@ -60,7 +60,7 @@ test.describe('Análisis manual → entrenador', () => {
     });
     expect(seeded.ok, seeded.error || 'seed failed').toBeTruthy();
 
-    await page.click('button.tab[data-tab="analysis"]');
+    await goTab(page, 'analysis');
     await page.waitForSelector('#analysis-content', { timeout: 15000 });
     await page.evaluate(() => {
       if (window.PTHandAnalysis && window.PTHandAnalysis.render) {
