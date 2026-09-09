@@ -33373,7 +33373,8 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   async function refresh() {
-    state = null;
+    /* No poner state=null al empezar: isLoaded() parpadeaba y el Home borraba
+       el banner FOUNDER justo cuando aparecía el upsell anual (móvil). */
     if (e2eBypass() || !useAuth()) {
       state = localFallback();
       return state;
@@ -39328,13 +39329,17 @@ window.PT_NASH_PUSH_JSON = {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
     });
-    window.addEventListener('pt-entitlements-updated', function () {
+    window.addEventListener('pt-entitlements-updated', function (ev) {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) {
         var homeOptsEnt = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
         var communityShellEnt = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
+        var entEv = (ev && ev.detail) ||
+          (window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null);
+        /* Remontar ambos juntos: el upsell anual no debe dejar el FOUNDER a medias. */
         mountHomeFounderPromo(communityShellEnt, homeOptsEnt);
+        mountHomeAnnualUpsell(communityShellEnt, homeOptsEnt, entEv);
         markFounderPricingTabBadge();
       }
     });
@@ -39453,11 +39458,11 @@ window.PT_NASH_PUSH_JSON = {
     var Promo = window.PTBillingPromo;
     var paused = !!(Promo && Promo.purchasesPaused && Promo.purchasesPaused());
     var Ent = window.PTEntitlements;
-    /* No mostrar hasta saber entitlements: si ya es Founder, el banner parpadeaba
-       durante el boot y luego se ocultaba. */
+    /* No pintar hasta saber entitlements (evita flash Founder→oculto).
+       Durante un refresh en vuelo NO borrar un FOUNDER ya visible: si no,
+       el upsell anual aparece y el banner FOUNDER “se oculta” en móvil. */
     if (Ent && typeof Ent.isLoaded === 'function' && !Ent.isLoaded()) {
-      host.innerHTML = '';
-      host.classList.add('hidden');
+      if (!host.innerHTML) host.classList.add('hidden');
       return;
     }
     var ent = Ent && Ent.get ? Ent.get() : null;
@@ -39469,6 +39474,20 @@ window.PT_NASH_PUSH_JSON = {
     }
     host.innerHTML = Promo.homePromoHtml();
     host.classList.toggle('hidden', !host.innerHTML);
+  }
+
+  function mountHomeAnnualUpsell(communityShell, homeOpts, ent) {
+    if (!(window.PTBilling && PTBilling.mountAnnualUpsell)) return;
+    var upsell = $('#home-annual-upsell');
+    if (!upsell) return;
+    if (communityShell && homeOpts && homeOpts.hideAnnualUpsell) {
+      upsell.innerHTML = '';
+      upsell.classList.add('hidden');
+      return;
+    }
+    /* FOUNDER y upsell anual pueden coexistir: no ocultar uno al montar el otro. */
+    PTBilling.mountAnnualUpsell(upsell, ent ||
+      (window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null));
   }
 
   function markFounderPricingTabBadge() {
@@ -39581,18 +39600,11 @@ window.PT_NASH_PUSH_JSON = {
     maybeFinishHomeBoot(false);
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#home-usage'));
     mountHomeFounderPromo(communityShellCoach, homeOptsCoach);
-    if (window.PTBilling && PTBilling.mountAnnualUpsell) {
-      if (communityShellCoach && homeOptsCoach.hideAnnualUpsell) {
-        var upsell = $('#home-annual-upsell');
-        if (upsell) {
-          upsell.innerHTML = '';
-          upsell.classList.add('hidden');
-        }
-      } else {
-        var ent = window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null;
-        PTBilling.mountAnnualUpsell($('#home-annual-upsell'), ent);
-      }
-    }
+    mountHomeAnnualUpsell(
+      communityShellCoach,
+      homeOptsCoach,
+      window.PTEntitlements && PTEntitlements.get ? PTEntitlements.get() : null
+    );
     markFounderPricingTabBadge();
     if (window.PTOnboarding) {
       PTOnboarding.bind($('#home-onboarding'));

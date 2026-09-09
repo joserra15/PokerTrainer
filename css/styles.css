@@ -524,6 +524,12 @@ body.guest-mode .play-setup-extras { display: none !important; }
 .landing-founder-promo-host.hidden,
 .home-founder-promo-host.hidden { display: none; }
 .home-founder-promo-host { margin: 0 0 16px; }
+/* FOUNDER y upsell anual coexisten en columna; el host no debe colapsar. */
+.home-founder-promo-host:not(.hidden),
+.annual-upsell-host:not(.hidden) {
+  display: block;
+  min-height: 0;
+}
 .founder-promo-strip {
   position: relative;
   overflow: hidden;
@@ -1361,6 +1367,10 @@ body.guest-mode .play-setup-extras { display: none !important; }
   }
   .founder-promo-title { font-size: 18px; }
   .founder-promo-lead { font-size: 13px; }
+  /* Ambos banners visibles en móvil: evitar que el strip se coma el upsell. */
+  .home-founder-promo-host:not(.hidden) { margin-bottom: 12px; }
+  .annual-upsell-host:not(.hidden) { margin-top: 0; margin-bottom: 12px; }
+  .annual-upsell-banner { padding: 10px 12px; font-size: 13px; }
   .landing-features-grid,
   .landing-pricing-grid,
   .landing-install-grid {
