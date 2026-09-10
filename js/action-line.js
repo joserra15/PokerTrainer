@@ -56,7 +56,7 @@
     if (!code || code.length < 2) return '';
     var suit = code[code.length - 1];
     var red = suit === 'h' || suit === 'd';
-    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : ('suit-' + suit);
+    var sc = (global.Cards && global.Cards.suitClass) ? global.Cards.suitClass(suit) : ('suit-' + suit);
     return '<span class="action-line-card' + (red ? ' is-red' : '') + (sc ? ' ' + sc : '') + '">' +
       esc(cardText(code)) + '</span>';
   }

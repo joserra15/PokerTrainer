@@ -686,7 +686,7 @@ function reducedMotion() {
     var suit = code.charAt(1);
     var red = suit === 'h' || suit === 'd';
     var suitSym = { c: '♣', d: '♦', h: '♥', s: '♠' }[suit] || suit;
-    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : ('suit-' + suit);
+    var sc = (global.Cards && global.Cards.suitClass) ? global.Cards.suitClass(suit) : ('suit-' + suit);
     return '<span class="card' + (red ? ' card-red' : ' card-black') + (sc ? ' ' + sc : '') + '">' +
       '<span class="card-rank">' + esc(rank) + '</span>' +
       '<span class="card-suit">' + suitSym + '</span></span>';

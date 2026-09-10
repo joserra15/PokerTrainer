@@ -240,9 +240,11 @@
     { level: 10, sb: 500, bb: 1000, ante: 100 }
   ];
 
-  /** Mesas cortas/medias (≤6): 8 manos/nivel. Mesas largas (9-max): 15. */
+  /** Mesas HU: 6 manos/nivel. Cortas/medias (≤6): 8. Largas (9-max): 15. */
   function handsPerLevelForSeats(seats) {
-    return Number(seats) >= 9 ? 15 : 8;
+    var n = Number(seats) || 6;
+    if (n <= 2) return 6;
+    return n >= 9 ? 15 : 8;
   }
 
   function defaultScheduleForSeats(seats) {
@@ -332,16 +334,20 @@
    */
   var PRESET_MIN_PLAN = {
     spinEasy: 'free',
+    huEasy: 'free',
     easy: 'pro',
     medium: 'pro',
     sng6: 'pro',
     sng9: 'pro',
     spinMedium: 'pro',
+    huMedium: 'pro',
+    huHard: 'pro',
     hard: 'premium',
     mttPro: 'premium',
     sngPro: 'premium',
     spinHard: 'premium',
-    spinPro: 'premium'
+    spinPro: 'premium',
+    huPro: 'premium'
   };
 
   var PRESETS = {
@@ -520,21 +526,99 @@
       roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
       exploitProPct: 1,
       onBust: 'simulate'
+    },
+    huEasy: {
+      id: 'huEasy',
+      name: 'Fácil · Heads-Up',
+      kind: 'hu',
+      minPlan: 'free',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 5,
+      startingStack: 1500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 25, tag: 40, lag: 20, maniac: 0, pro: 15 },
+      exploitProPct: 0,
+      aiLevel: 'solid',
+      onBust: 'simulate'
+    },
+    huMedium: {
+      id: 'huMedium',
+      name: 'Medio · Heads-Up',
+      kind: 'hu',
+      minPlan: 'pro',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 11,
+      startingStack: 2000,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 10, tag: 25, lag: 25, maniac: 5, pro: 35 },
+      exploitProPct: 0.28,
+      aiLevel: 'strong',
+      onBust: 'simulate'
+    },
+    huHard: {
+      id: 'huHard',
+      name: 'Difícil · Heads-Up',
+      kind: 'hu',
+      minPlan: 'pro',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 22,
+      startingStack: 2500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 5, tag: 15, lag: 15, maniac: 5, pro: 60 },
+      exploitProPct: 0.6,
+      aiLevel: 'elite',
+      onBust: 'simulate'
+    },
+    huPro: {
+      id: 'huPro',
+      name: 'Pro · Heads-Up',
+      kind: 'hu',
+      minPlan: 'premium',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 44,
+      startingStack: 3000,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
+      exploitProPct: 1,
+      aiLevel: 'exploit_pro',
+      onBust: 'simulate'
     }
   };
 
+  function normalizeAiLevel(v) {
+    if (v === 'solid' || v === 'strong' || v === 'elite' || v === 'exploit_pro') return v;
+    return 'elite';
+  }
+
   function normalize(raw) {
     raw = raw || {};
-    var kind = raw.kind === 'sng' ? 'sng' : (raw.kind === 'spin' ? 'spin' : 'mtt');
+    var kind = raw.kind === 'sng' ? 'sng'
+      : (raw.kind === 'spin' ? 'spin'
+        : (raw.kind === 'hu' ? 'hu' : 'mtt'));
     var seatsRaw = Number(raw.seatsPerTable);
-    var seats = seatsRaw === 9 ? 9 : (seatsRaw === 3 || kind === 'spin' ? 3 : 6);
+    var seats = seatsRaw === 9 ? 9
+      : (seatsRaw === 2 || kind === 'hu' ? 2
+        : (seatsRaw === 3 || kind === 'spin' ? 3 : 6));
     if (kind === 'spin') seats = 3;
+    if (kind === 'hu') seats = 2;
     var entries = clamp(raw.entries != null ? raw.entries : seats, seats, MAX_ENTRIES);
-    if (kind === 'sng' || kind === 'spin') entries = seats;
-    var placesPaidDefault = kind === 'spin' ? 1 : Math.max(1, Math.floor(entries / 5));
+    if (kind === 'sng' || kind === 'spin' || kind === 'hu') entries = seats;
+    var placesPaidDefault = (kind === 'spin' || kind === 'hu') ? 1 : Math.max(1, Math.floor(entries / 5));
     var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
-    if (kind === 'spin' && entries <= 2) placesPaid = 1;
-    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15. */
+    if ((kind === 'spin' || kind === 'hu') && entries <= 2) placesPaid = 1;
+    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15; HU a 6. */
     var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
       ? normalizeSchedule(raw.blindSchedule, seats)
       : defaultScheduleForSeats(seats);
@@ -566,6 +650,7 @@
       blindSchedule: blindSchedule,
       roleWeights: normalizeWeights(raw.roleWeights),
       exploitProPct: clamp(raw.exploitProPct != null ? raw.exploitProPct : 0, 0, 1),
+      aiLevel: normalizeAiLevel(raw.aiLevel),
       onBust: normalizeOnBust(raw.onBust)
     };
   }
@@ -593,7 +678,8 @@
     return [
       'easy', 'medium', 'hard', 'mttPro',
       'sng6', 'sng9', 'sngPro',
-      'spinEasy', 'spinMedium', 'spinHard', 'spinPro'
+      'spinEasy', 'spinMedium', 'spinHard', 'spinPro',
+      'huEasy', 'huMedium', 'huHard', 'huPro'
     ].map(function (id) {
       return normalize(clone(PRESETS[id]));
     });
@@ -1859,29 +1945,62 @@
     return pf;
   }
 
-  function profileForSeat(seat) {
+  function aiLevelOf(hand) {
+    var cfg = (hand && hand.tournamentConfig) || {};
+    var v = cfg.aiLevel || (hand && hand.state && hand.state.aiLevel);
+    if (v === 'solid' || v === 'strong' || v === 'elite' || v === 'exploit_pro') return v;
+    return 'elite';
+  }
+
+  function profileForSeat(seat, hand) {
     var VP = global.GTOVillainProfiles;
     var role = mapRoleId(seat && seat.roleId);
+    var aiLevel = aiLevelOf(hand);
     if (!VP || typeof VP.applyDifficulty !== 'function') {
       return {
         id: role,
-        preflopStrict: 0.92,
+        preflopStrict: aiLevel === 'solid' ? 0.85 : 0.92,
         postflop: tournamentPostflopFloor(role, {
           betFreqMult: 1.15, bluffFreqMult: 1, raiseFreqMult: 1.15, callMult: 1.05, foldMult: 0.9
         }),
-        proStyle: seat && seat.proStyle || null
+        proStyle: seat && seat.proStyle || null,
+        aiLevel: aiLevel
       };
     }
     var base = typeof VP.getProfile === 'function' ? VP.getProfile(role) : role;
-    var prof = VP.applyDifficulty(base, 'pro', { forced: true, keepArchetype: true });
-    prof = Object.assign({}, prof, {
-      postflop: tournamentPostflopFloor(role, prof.postflop)
-    });
+    var difficulty = (aiLevel === 'solid' || aiLevel === 'strong') ? 'intermediate' : 'pro';
+    var prof = VP.applyDifficulty(base, difficulty, { forced: true, keepArchetype: true });
+    if (aiLevel === 'strong') {
+      /* Entre intermediate y pro: más estricto preflop, menos leak. */
+      prof = Object.assign({}, prof, {
+        preflopStrict: Math.max(Number(prof.preflopStrict) || 0, 0.9),
+        leakRate: Math.min(Number(prof.leakRate) || 0.05, 0.015)
+      });
+    }
+    if (aiLevel === 'solid') {
+      /* Sólido (no fish): floors un poco más suaves que el pro de torneo. */
+      var softFloor = tournamentPostflopFloor(role, prof.postflop);
+      if (softFloor) {
+        softFloor = Object.assign({}, softFloor);
+        softFloor.betFreqMult = Math.max(0.85, (Number(softFloor.betFreqMult) || 1) * 0.92);
+        softFloor.raiseFreqMult = Math.max(0.85, (Number(softFloor.raiseFreqMult) || 1) * 0.9);
+        softFloor.bluffFreqMult = Math.max(0.7, (Number(softFloor.bluffFreqMult) || 1) * 0.88);
+        softFloor.foldMult = Math.min(1.15, (Number(softFloor.foldMult) || 1) * 1.05);
+      }
+      prof = Object.assign({}, prof, { postflop: softFloor });
+    } else {
+      prof = Object.assign({}, prof, {
+        postflop: tournamentPostflopFloor(role, prof.postflop)
+      });
+    }
     if (seat && seat.proStyle) {
       prof = Object.assign({}, prof, { proStyle: seat.proStyle });
     }
     // Pros explotativos: un poco más de agresividad postflop.
-    if (prof.proStyle === 'exploit_pool' && prof.postflop) {
+    if ((prof.proStyle === 'exploit_pool' || aiLevel === 'exploit_pro') && prof.postflop) {
+      if (aiLevel === 'exploit_pro' && !prof.proStyle) {
+        prof = Object.assign({}, prof, { proStyle: 'exploit_pool' });
+      }
       var pf = Object.assign({}, prof.postflop);
       pf.betFreqMult = Math.min(2.2, (Number(pf.betFreqMult) || 1) * 1.12);
       pf.raiseFreqMult = Math.min(2.2, (Number(pf.raiseFreqMult) || 1) * 1.14);
@@ -1889,6 +2008,7 @@
       pf.foldMult = Math.max(0.35, (Number(pf.foldMult) || 1) * 0.94);
       prof = Object.assign({}, prof, { postflop: pf });
     }
+    prof = Object.assign({}, prof, { aiLevel: aiLevel });
     return prof;
   }
 
@@ -2307,7 +2427,7 @@
   function decidePreflop(hand, seat) {
     var VPF = global.GTOVillainPreflop;
     var PF = global.GTOPushFold;
-    var profile = profileForSeat(seat);
+    var profile = profileForSeat(seat, hand);
     var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var code = handCode(seat.cards);
@@ -2761,7 +2881,7 @@
     var Made = global.GTOEquityMadeHand;
     var Track = global.GTOVillainTracking;
     var DC = global.GTODecisionContext;
-    var profile = profileForSeat(seat);
+    var profile = profileForSeat(seat, hand);
     var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var street = hand.street || 'flop';
@@ -4009,12 +4129,115 @@
     return runToHeroOrEnd(hand);
   }
 
-  function simulateTable(tableSeats, blinds) {
+  /**
+   * Copia contexto MTT/SNG/HU al hand (bubble, playersLeft, avg stack, etc.).
+   * Usado por la mesa hero y por mesas satélite en simulación.
+   */
+  function attachTourneyContext(hand, state) {
+    if (!hand || !state) return hand;
+    try {
+      var St = global.PTTournamentState;
+      var cfg = state.config || {};
+      var kind = cfg.kind || 'mtt';
+      var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      var left = St && St.playersLeft ? St.playersLeft(state)
+        : (state.players || []).filter(function (p) { return p && p.alive; }).length;
+      var paid = Number(cfg.placesPaid) || 0;
+      var bb = Number(hand.bb) || 1;
+      var ante = Number(hand.ante) || 0;
+      var anteBB = bb > 0 ? ante / bb : 0;
+      var seatedN = (hand.seats && hand.seats.length) || 0;
+      var tourneyType = cfg.tournamentType || 'unknown';
+      var avgStackBB = null;
+      var alive = (state.players || []).filter(function (p) { return p && p.alive && p.stack > 0; });
+      if (alive.length && bb > 0) {
+        var sum = 0;
+        alive.forEach(function (p) { sum += Number(p.stack) || 0; });
+        avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
+      }
+      var mttPhase = 'auto';
+      var mttStructureSituation = null;
+      var Tax = global.PTFormatTaxonomy;
+      var TC = global.PTTournamentContext;
+      if (avgStackBB != null) {
+        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
+        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
+      }
+      if (hub === 'mtt' && paid > 0 && left > 0) {
+        if (left === paid + 1) {
+          mttPhase = 'bubble';
+          mttStructureSituation = 'bubble';
+        } else if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney({
+          formatHub: hub, playersLeft: left, placesPaid: paid
+        })) {
+          if (mttPhase === 'auto' || mttPhase === 'early' || mttPhase === 'mid') {
+            mttStructureSituation = left <= paid ? 'mincash' : 'bubble';
+          }
+        }
+      }
+      hand.kind = kind;
+      hand.formatHub = hub;
+      hand.isTournament = true;
+      hand.tournamentType = tourneyType;
+      hand.playersSeated = seatedN;
+      hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
+      hand.mttPhase = mttPhase;
+      hand.anteBB = anteBB;
+      hand.avgStackBB = avgStackBB;
+      hand.playersLeft = left;
+      hand.placesPaid = paid;
+      hand.entries = cfg.entries != null ? cfg.entries : null;
+      hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
+      hand.mttStructureSituation = mttStructureSituation;
+      hand.tournamentConfig = cfg;
+      hand.aiLevel = cfg.aiLevel || 'elite';
+      var heroStatsPayload = null;
+      try {
+        var stStats = state.stats || {};
+        var hp = Number(stStats.handsPlayed) || 0;
+        var vpipH = Number(stStats.vpipHands) || 0;
+        var pfrH = Number(stStats.pfrHands) || 0;
+        heroStatsPayload = {
+          handsPlayed: hp,
+          hands: hp,
+          vpipHands: vpipH,
+          pfrHands: pfrH,
+          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
+          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
+        };
+      } catch (eStats) { heroStatsPayload = null; }
+      hand.heroSessionStats = heroStatsPayload;
+      hand.state = {
+        formatHub: hub,
+        kind: kind,
+        tournamentType: tourneyType,
+        playersLeft: left,
+        placesPaid: paid,
+        playersSeated: seatedN,
+        tableMax: hand.tableMax,
+        mttPhase: mttPhase,
+        mttStructureSituation: mttStructureSituation,
+        avgStackBB: avgStackBB,
+        anteBB: anteBB,
+        entries: hand.entries,
+        buyIn: hand.buyIn,
+        aiLevel: hand.aiLevel,
+        heroStats: heroStatsPayload,
+        heroSessionStats: heroStatsPayload
+      };
+    } catch (eMeta) { /* */ }
+    return hand;
+  }
+
+  function simulateTable(tableSeats, blinds, state) {
     var hand = createHand(tableSeats, blinds, null);
     hand.seats.forEach(function (s) { s.isHero = false; });
     hand.heroId = null;
     hand._noFrames = true;
     hand.decisions = [];
+    if (state) attachTourneyContext(hand, state);
     pushFrame(hand, { kind: 'deal' });
     runToHeroOrEnd(hand);
     hand._frames = [];
@@ -4030,6 +4253,7 @@
     runToHeroOrEnd: runToHeroOrEnd,
     heroAct: heroAct,
     simulateTable: simulateTable,
+    attachTourneyContext: attachTourneyContext,
     strength01: strength01,
     allDealtCards: allDealtCards,
     hasDuplicateCards: hasDuplicateCards,
@@ -4041,9 +4265,15 @@
 
 /*
  * tournament/other-tables.js — Simulación AI-vs-AI de mesas satélite.
+ * scheduleRound: job en background (idle) durante la mano hero / resumen.
+ * commitPending / simulateRound: aplicar resultados al field.
  */
 (function (global) {
   'use strict';
+
+  function r2(x) {
+    return Math.round((Number(x) || 0) * 100) / 100;
+  }
 
   function applyDeltas(state, hand) {
     var Seat = global.PTTournamentSeating;
@@ -4052,7 +4282,7 @@
     Object.keys(deltas).forEach(function (pid) {
       var p = (state.players || []).find(function (x) { return x.id === pid; });
       if (!p || !p.alive) return;
-      p.stack = Math.max(0, Math.round(((Number(p.stack) || 0) + (Number(deltas[pid]) || 0)) * 100) / 100);
+      p.stack = Math.max(0, r2((Number(p.stack) || 0) + (Number(deltas[pid]) || 0)));
       if (p.stack <= 0) {
         Seat.bustPlayer(state, pid);
         eliminated.push({ id: pid, name: p.name, place: p.bustPlace });
@@ -4061,10 +4291,270 @@
     return eliminated;
   }
 
-  /** Simula una ronda en todas las mesas no-Hero con ≥2 vivos. */
-  function simulateRound(state, blinds) {
+  function applyDeltaMap(state, deltas) {
+    var Seat = global.PTTournamentSeating;
+    var eliminated = [];
+    Object.keys(deltas || {}).forEach(function (pid) {
+      var p = (state.players || []).find(function (x) { return x.id === pid; });
+      if (!p || !p.alive) return;
+      p.stack = Math.max(0, r2((Number(p.stack) || 0) + (Number(deltas[pid]) || 0)));
+      if (p.stack <= 0) {
+        Seat.bustPlayer(state, pid);
+        eliminated.push({ id: pid, name: p.name, place: p.bustPlace });
+      }
+    });
+    return eliminated;
+  }
+
+  function mergeDeltas(into, from) {
+    Object.keys(from || {}).forEach(function (pid) {
+      into[pid] = r2((Number(into[pid]) || 0) + (Number(from[pid]) || 0));
+    });
+    return into;
+  }
+
+  /* Timers fuera del state (setTimeout no es JSON-serializable). */
+  var TIMERS = Object.create(null);
+
+  function timerKey(state) {
+    return (state && state.id) ? String(state.id) : '';
+  }
+
+  function cancelTimer(state) {
+    var key = timerKey(state);
+    var t = key && TIMERS[key];
+    if (!t) return;
+    if (t.idleId != null && typeof global.cancelIdleCallback === 'function') {
+      try { global.cancelIdleCallback(t.idleId); } catch (e) { /* */ }
+    }
+    if (t.timeoutId != null && typeof global.clearTimeout === 'function') {
+      try { global.clearTimeout(t.timeoutId); } catch (e2) { /* */ }
+    }
+    delete TIMERS[key];
+  }
+
+  /** Snapshot de botones de mesas satélite para restaurar si se cancela el pending. */
+  function snapshotButtons(state, tableIds) {
+    var snap = {};
+    (tableIds || []).forEach(function (tid) {
+      snap[tid] = {
+        id: state['_btnPlayer_' + tid] || null,
+        idx: state['_btn_' + tid]
+      };
+    });
+    return snap;
+  }
+
+  function restoreButtons(state, snap) {
+    if (!state || !snap) return;
+    Object.keys(snap).forEach(function (tid) {
+      var s = snap[tid] || {};
+      if (s.id != null) state['_btnPlayer_' + tid] = s.id;
+      else delete state['_btnPlayer_' + tid];
+      if (s.idx != null) state['_btn_' + tid] = s.idx;
+      else delete state['_btn_' + tid];
+    });
+  }
+
+  function scheduleIdle(fn, timeoutMs) {
+    if (typeof global.requestIdleCallback === 'function') {
+      return {
+        kind: 'idle',
+        id: global.requestIdleCallback(function () { fn(); }, { timeout: timeoutMs || 120 })
+      };
+    }
+    if (typeof global.setTimeout === 'function') {
+      return {
+        kind: 'timeout',
+        id: global.setTimeout(function () { fn(); }, 0)
+      };
+    }
+    /* Sandbox de test / sin timers: ejecutar en sync. */
+    fn();
+    return { kind: 'sync', id: null };
+  }
+
+  function blindsForNextHand(state) {
+    var Runner = global.PTTournamentRunner;
+    if (!Runner || typeof Runner.blindsFor !== 'function') {
+      return { sb: 10, bb: 20, ante: 0, level: 1 };
+    }
+    var saved = Number(state.handIndex) || 0;
+    state.handIndex = saved + 1;
+    var blinds = Runner.blindsFor(state);
+    state.handIndex = saved;
+    return blinds;
+  }
+
+  function satelliteTableIds(state) {
+    var Seat = global.PTTournamentSeating;
+    var ids = [];
+    (state.tables || []).forEach(function (tb) {
+      if (!tb || tb.isHeroTable) return;
+      var onTable = Seat.playersOnTable(state, tb.id);
+      if (onTable.length < 2) return;
+      ids.push(tb.id);
+    });
+    return ids;
+  }
+
+  function simulateOneTable(state, tableId, blinds) {
     var Seat = global.PTTournamentSeating;
     var Live = global.PTTournamentLiveHand;
+    var onTable = Seat.playersOnTable(state, tableId);
+    if (onTable.length < 2) return null;
+    var buttonId = Seat.assignButton(state, tableId);
+    var ordered = Seat.seatOrderWithButton(onTable, buttonId);
+    if (ordered.length < 2) return null;
+    var hand = Live.simulateTable(ordered, blinds, state);
+    return hand;
+  }
+
+  function processNext(state) {
+    var pending = state && state._satPending;
+    if (!pending || pending.cancelled || pending.done) return;
+    if (!pending.queue || !pending.queue.length) {
+      pending.done = true;
+      cancelTimer(pending);
+      return;
+    }
+    var tableId = pending.queue.shift();
+    try {
+      var hand = simulateOneTable(state, tableId, pending.blinds);
+      pending.tablesSimulated += 1;
+      if (hand && hand.result && hand.result.deltas) {
+        mergeDeltas(pending.deltasByPlayer, hand.result.deltas);
+        var Seat = global.PTTournamentSeating;
+        Object.keys(hand.result.deltas).forEach(function (pid) {
+          var p = (state.players || []).find(function (x) { return x.id === pid; });
+          if (!p || !p.alive) return;
+          var next = r2((Number(p.stack) || 0) + (Number(hand.result.deltas[pid]) || 0));
+          /* No mutar stacks vivos aún: solo anotar busts potenciales sobre stack actual. */
+          if (next <= 0) {
+            pending.bustIds[pid] = true;
+          }
+        });
+        void Seat;
+      }
+    } catch (eSim) { /* ignore table failure */ }
+
+    if (!pending.queue.length) {
+      pending.done = true;
+      cancelTimer(state);
+      return;
+    }
+    /* flushSync/boostPriority recorren el while; no encolar timers. */
+    if (pending.flushing) return;
+    enqueueContinue(state, !!pending.boost);
+  }
+
+  function enqueueContinue(state, boost) {
+    var pending = state && state._satPending;
+    if (!pending || pending.cancelled || pending.done || pending.flushing) return;
+    cancelTimer(state);
+    var key = timerKey(state);
+    var handle = scheduleIdle(function () {
+      if (key) delete TIMERS[key];
+      processNext(state);
+    }, boost ? 16 : 200);
+    if (handle.kind === 'sync' || !key) return;
+    TIMERS[key] = handle.kind === 'idle'
+      ? { idleId: handle.id, timeoutId: null }
+      : { idleId: null, timeoutId: handle.id };
+  }
+
+  /**
+   * Arranca simulación en background de 1 mano por mesa satélite.
+   * Usa blinds del handIndex+1 (mismo reloj que applyResults tras incrementar).
+   */
+  function scheduleRound(state) {
+    if (!state || state.status === 'finished') return null;
+    cancelPending(state);
+    var queue = satelliteTableIds(state);
+    var blinds = blindsForNextHand(state);
+    state._satPending = {
+      targetHandIndex: (Number(state.handIndex) || 0) + 1,
+      blinds: blinds,
+      queue: queue.slice(),
+      deltasByPlayer: {},
+      bustIds: {},
+      tablesSimulated: 0,
+      done: !queue.length,
+      cancelled: false,
+      boost: false,
+      buttonSnap: snapshotButtons(state, queue)
+    };
+    if (queue.length) enqueueContinue(state, false);
+    return state._satPending;
+  }
+
+  /** Vacía la cola con prioridad (p.ej. pantalla de resumen). */
+  function boostPriority(state) {
+    var pending = state && state._satPending;
+    if (!pending || pending.cancelled) return;
+    pending.boost = true;
+    if (pending.done) return;
+    cancelTimer(state);
+    pending.flushing = true;
+    try {
+      while (pending.queue && pending.queue.length && !pending.cancelled) {
+        processNext(state);
+      }
+    } finally {
+      pending.flushing = false;
+    }
+  }
+
+  function flushSync(state) {
+    var pending = state && state._satPending;
+    if (!pending || pending.cancelled) return pending;
+    cancelTimer(state);
+    pending.flushing = true;
+    try {
+      while (pending.queue && pending.queue.length && !pending.cancelled) {
+        processNext(state);
+      }
+    } finally {
+      pending.flushing = false;
+    }
+    pending.done = true;
+    return pending;
+  }
+
+  function cancelPending(state) {
+    if (!state || !state._satPending) return;
+    var pending = state._satPending;
+    pending.cancelled = true;
+    cancelTimer(state);
+    /* Si no se llegó a commit, restaurar botones (assignButton ya pudo avanzar). */
+    if (!pending.committed) restoreButtons(state, pending.buttonSnap);
+    state._satPending = null;
+  }
+
+  /**
+   * Aplica el pending si corresponde al handIndex actual; si no, simula sync.
+   * Devuelve { eliminated, tablesSimulated, fromPending }.
+   */
+  function commitPending(state, blinds) {
+    var Seat = global.PTTournamentSeating;
+    var pending = state && state._satPending;
+    var handIndex = Number(state.handIndex) || 0;
+    if (pending && !pending.cancelled && pending.targetHandIndex === handIndex) {
+      flushSync(state);
+      pending.committed = true;
+      var eliminated = applyDeltaMap(state, pending.deltasByPlayer);
+      var tablesSimulated = pending.tablesSimulated || 0;
+      state._satPending = null;
+      Seat.rebalance(state);
+      return { eliminated: eliminated, tablesSimulated: tablesSimulated, fromPending: true };
+    }
+    cancelPending(state);
+    return simulateRound(state, blinds);
+  }
+
+  /** Simula una ronda en todas las mesas no-Hero con ≥2 vivos (síncrono). */
+  function simulateRound(state, blinds) {
+    var Seat = global.PTTournamentSeating;
     var eliminated = [];
     var tablesSimulated = 0;
     var tables = (state.tables || []).slice();
@@ -4072,26 +4562,25 @@
 
     tables.forEach(function (tb) {
       if (!tb || tb.isHeroTable) return;
-      var onTable = Seat.playersOnTable(state, tb.id);
-      if (onTable.length < 2) return;
-
-      var buttonId = Seat.assignButton(state, tb.id);
-      var ordered = Seat.seatOrderWithButton(onTable, buttonId);
-      if (ordered.length < 2) return;
-
-      var hand = Live.simulateTable(ordered, blinds);
+      var hand = simulateOneTable(state, tb.id, blinds);
+      if (!hand) return;
       tablesSimulated += 1;
       var busted = applyDeltas(state, hand);
       eliminated = eliminated.concat(busted);
     });
 
     Seat.rebalance(state);
-    return { eliminated: eliminated, tablesSimulated: tablesSimulated };
+    return { eliminated: eliminated, tablesSimulated: tablesSimulated, fromPending: false };
   }
 
   global.PTTournamentOtherTables = {
     simulateRound: simulateRound,
-    applyDeltas: applyDeltas
+    applyDeltas: applyDeltas,
+    scheduleRound: scheduleRound,
+    boostPriority: boostPriority,
+    flushSync: flushSync,
+    commitPending: commitPending,
+    cancelPending: cancelPending
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -4799,7 +5288,9 @@
     var lv = currentBlinds(state);
     var bb = Math.max(1, Number(lv.bb) || 20);
     var stackBb = hero ? Math.round(((Number(hero.stack) || 0) / bb) * 10) / 10 : 0;
-    var kind = (cfg.kind === 'sng' ? 'SNG' : 'MTT');
+    var kind = (cfg.kind === 'sng' ? 'SNG'
+      : (cfg.kind === 'spin' ? 'SPIN'
+        : (cfg.kind === 'hu' ? 'HU' : 'MTT')));
     return [
       { text: kind, cls: 'trn-chip trn-chip-kind', title: cfg.name || kind },
       {
@@ -4895,7 +5386,9 @@
       : '—';
 
     return [
-      { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG' : 'MTT') },
+      { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG'
+        : (cfg.kind === 'spin' ? 'SPIN'
+          : (cfg.kind === 'hu' ? 'Heads-Up' : 'MTT'))) },
       { label: 'Avance', value: progressHands },
       { label: 'Posición', value: posLabel },
       { label: 'Stack Hero', value: fmtNum(heroStack) + ' (' + heroBb + ' bb)' },
@@ -5634,6 +6127,8 @@
       delete snap._liveHand._frames;
       if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
     }
+    /* Job satélite: se re-agenda al resume/beginHand; no persistir. */
+    delete snap._satPending;
     /* sessionHands hincha mucho el JSON (móvil/Safari ~5MB); priorizar reanudar.
        Al terminar, buildSessionFromTournament regenera desde handLog si hace falta. */
     if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 12) {
@@ -7037,17 +7532,36 @@
   function ensureLiveHand(state) {
     if (!state || state.status !== 'running') return null;
     var Live = global.PTTournamentLiveHand;
+    var Other = global.PTTournamentOtherTables;
     var hand = state._liveHand;
 
-    if (hand && hand.stage === 'complete' && hand.result) return hand;
+    function ensureSatJob() {
+      try {
+        if (Other && Other.scheduleRound && !(state._satPending && !state._satPending.cancelled)) {
+          Other.scheduleRound(state);
+        }
+      } catch (eSched) { /* */ }
+    }
+
+    if (hand && hand.stage === 'complete' && hand.result) {
+      ensureSatJob();
+      return hand;
+    }
 
     if (hand && hand.stage === 'playing' && isPlayableLiveHand(hand) && Live) {
       if (!hand.awaitingHero) {
         try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
         hand = state._liveHand;
-        if (hand && hand.stage === 'complete') return hand;
-        if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) return hand;
+        if (hand && hand.stage === 'complete') {
+          ensureSatJob();
+          return hand;
+        }
+        if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
+          ensureSatJob();
+          return hand;
+        }
       } else if (hand.heroOptions && hand.heroOptions.length) {
+        ensureSatJob();
         return hand;
       }
     }
@@ -7082,98 +7596,14 @@
     state.blindLevel = blinds.level || state.blindLevel;
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
-    try {
-      var cfg = state.config || {};
-      var kind = cfg.kind || 'mtt';
-      var hub = (kind === 'spin') ? 'spin' : 'mtt';
-      var left = St.playersLeft(state);
-      var paid = Number(cfg.placesPaid) || 0;
-      var bb = Number(blinds && blinds.bb) || Number(hand.bb) || 1;
-      var ante = Number(blinds && blinds.ante) || Number(hand.ante) || 0;
-      var anteBB = bb > 0 ? ante / bb : 0;
-      var seatedN = (hand.seats && hand.seats.length) || ordered.length;
-      var tourneyType = cfg.tournamentType || 'unknown';
-      var avgStackBB = null;
-      var alive = (state.players || []).filter(function (p) { return p && p.alive && p.stack > 0; });
-      if (alive.length && bb > 0) {
-        var sum = 0;
-        alive.forEach(function (p) { sum += Number(p.stack) || 0; });
-        avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
-      }
-      var mttPhase = 'auto';
-      var mttStructureSituation = null;
-      var Tax = global.PTFormatTaxonomy;
-      var TC = global.PTTournamentContext;
-      if (avgStackBB != null) {
-        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
-        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
-      }
-      // Burbuja / cerca de ITM: el campo manda sobre la fase por stack medio.
-      if (hub === 'mtt' && paid > 0 && left > 0) {
-        if (left === paid + 1) {
-          mttPhase = 'bubble';
-          mttStructureSituation = 'bubble';
-        } else if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney({
-          formatHub: hub, playersLeft: left, placesPaid: paid
-        })) {
-          if (mttPhase === 'auto' || mttPhase === 'early' || mttPhase === 'mid') {
-            mttStructureSituation = left <= paid ? 'mincash' : 'bubble';
-          }
-        }
-      }
-      hand.kind = kind;
-      hand.formatHub = hub;
-      hand.isTournament = true;
-      hand.tournamentType = tourneyType;
-      hand.playersSeated = seatedN;
-      hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
-      hand.mttPhase = mttPhase;
-      hand.anteBB = anteBB;
-      hand.avgStackBB = avgStackBB;
-      hand.playersLeft = left;
-      hand.placesPaid = paid;
-      hand.entries = cfg.entries != null ? cfg.entries : null;
-      hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
-      hand.mttStructureSituation = mttStructureSituation;
-      hand.tournamentConfig = cfg;
-      var heroStatsPayload = null;
-      try {
-        var stStats = state.stats || {};
-        var hp = Number(stStats.handsPlayed) || 0;
-        var vpipH = Number(stStats.vpipHands) || 0;
-        var pfrH = Number(stStats.pfrHands) || 0;
-        heroStatsPayload = {
-          handsPlayed: hp,
-          hands: hp,
-          vpipHands: vpipH,
-          pfrHands: pfrH,
-          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
-          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
-        };
-      } catch (eStats) { heroStatsPayload = null; }
-      hand.heroSessionStats = heroStatsPayload;
-      hand.state = {
-        formatHub: hub,
-        kind: kind,
-        tournamentType: tourneyType,
-        playersLeft: left,
-        placesPaid: paid,
-        playersSeated: seatedN,
-        tableMax: hand.tableMax,
-        mttPhase: mttPhase,
-        mttStructureSituation: mttStructureSituation,
-        avgStackBB: avgStackBB,
-        anteBB: anteBB,
-        entries: hand.entries,
-        buyIn: hand.buyIn,
-        heroStats: heroStatsPayload,
-        heroSessionStats: heroStatsPayload
-      };
-    } catch (eMeta) { /* */ }
+    if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
     Live.runToHeroOrEnd(hand);
     state._liveHand = hand;
+    /* Simulación satélite en background mientras el hero juega / lee el resumen. */
+    try {
+      var Other = global.PTTournamentOtherTables;
+      if (Other && Other.scheduleRound) Other.scheduleRound(state);
+    } catch (eSched) { /* */ }
     return hand;
   }
 
@@ -7246,7 +7676,8 @@
     syncBlindLevel(state);
 
     var blinds = blindsFor(state);
-    if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
+    if (Other && Other.commitPending) Other.commitPending(state, blinds);
+    else if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
 
     Seat.rebalance(state);
     try {
@@ -7577,6 +8008,22 @@
     for (var i = 0; i < alive.length; i++) {
       acc += weights[i];
       if (roll <= acc) { pick = alive[i]; break; }
+    }
+    /* Conservar fichas: transferir el stack del eliminado a un vivo (chip leader). */
+    var chipAmt = Math.max(0, Number(pick.stack) || 0);
+    if (chipAmt > 0) {
+      var recipients = Seat.alivePlayers(state).filter(function (p) {
+        return p && p.id !== pick.id;
+      });
+      if (recipients.length) {
+        var leader = recipients[0];
+        for (var r = 1; r < recipients.length; r++) {
+          if ((Number(recipients[r].stack) || 0) > (Number(leader.stack) || 0)) {
+            leader = recipients[r];
+          }
+        }
+        leader.stack = r2((Number(leader.stack) || 0) + chipAmt);
+      }
     }
     Seat.bustPlayer(state, pick.id);
     return pick;
@@ -8237,15 +8684,18 @@ function reducedMotion() {
 
   function lobbyBadges(cfg) {
     var badges = [];
-    var kindLabel = cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT');
+    var kindLabel = cfg.kind === 'sng' ? 'SNG'
+      : (cfg.kind === 'spin' ? 'SPIN'
+        : (cfg.kind === 'hu' ? 'HU' : 'MTT'));
     badges.push({ t: kindLabel, k: 'kind' });
     badges.push({ t: cfg.seatsPerTable + '-MAX', k: 'max' });
     badges.push({ t: "HOLD'EM NL", k: 'game' });
-    if (cfg.kind !== 'spin' && startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
-    if (cfg.id === 'easy' || cfg.id === 'spinEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
-    if (cfg.id === 'medium' || cfg.id === 'spinMedium') badges.push({ t: 'MEDIO', k: 'diff' });
-    if (cfg.id === 'hard' || cfg.id === 'spinHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
-    if (cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro') {
+    if (cfg.kind === 'hu') badges.push({ t: 'x2 ENTRADA', k: 'prize' });
+    if (cfg.kind !== 'spin' && cfg.kind !== 'hu' && startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy' || cfg.id === 'huEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium' || cfg.id === 'huMedium') badges.push({ t: 'MEDIO', k: 'diff' });
+    if (cfg.id === 'hard' || cfg.id === 'spinHard' || cfg.id === 'huHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    if (cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro' || cfg.id === 'huPro') {
       badges.push({ t: 'PRO', k: 'diff' });
     }
     var minPlan = cfg.minPlan ||
@@ -8257,12 +8707,13 @@ function reducedMotion() {
   }
 
   function lobbyTone(cfg) {
-    if (cfg.id === 'hard' || cfg.id === 'spinHard' ||
-        cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro') return 'hard';
-    if (cfg.id === 'medium' || cfg.id === 'spinMedium') return 'mid';
-    if (cfg.id === 'easy' || cfg.id === 'spinEasy') return 'easy';
+    if (cfg.id === 'hard' || cfg.id === 'spinHard' || cfg.id === 'huHard' ||
+        cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro' || cfg.id === 'huPro') return 'hard';
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium' || cfg.id === 'huMedium') return 'mid';
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy' || cfg.id === 'huEasy') return 'easy';
     if (cfg.kind === 'spin') return 'spin';
     if (cfg.kind === 'sng') return 'sng';
+    if (cfg.kind === 'hu') return 'sng';
     return 'mtt';
   }
 
@@ -8313,7 +8764,7 @@ function reducedMotion() {
     var suit = code.charAt(1);
     var red = suit === 'h' || suit === 'd';
     var suitSym = { c: '♣', d: '♦', h: '♥', s: '♠' }[suit] || suit;
-    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : ('suit-' + suit);
+    var sc = (global.Cards && global.Cards.suitClass) ? global.Cards.suitClass(suit) : ('suit-' + suit);
     return '<span class="card' + (red ? ' card-red' : ' card-black') + (sc ? ' ' + sc : '') + '">' +
       '<span class="card-rank">' + esc(rank) + '</span>' +
       '<span class="card-suit">' + suitSym + '</span></span>';
@@ -8628,7 +9079,9 @@ function reducedMotion() {
       return '<span class="trn-badge trn-badge-' + esc(b.k) + '">' + esc(b.t) + '</span>';
     }).join('');
     var bb = startingBb(p);
-    var kindLabel = p.kind === 'sng' ? 'SNG' : (p.kind === 'spin' ? 'SPIN' : 'MTT');
+    var kindLabel = p.kind === 'sng' ? 'SNG'
+      : (p.kind === 'spin' ? 'SPIN'
+        : (p.kind === 'hu' ? 'HU' : 'MTT'));
 
     var activeSum = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     var isActivePreset = !!(activeSum && (activeSum.presetId === p.id || activeSum.id === p.id));
@@ -8686,6 +9139,7 @@ function reducedMotion() {
       if (filter === 'mtt') return p.kind === 'mtt';
       if (filter === 'sng') return p.kind === 'sng';
       if (filter === 'spin') return p.kind === 'spin';
+      if (filter === 'hu') return p.kind === 'hu';
       return true;
     });
     var hist = (global.PTTournamentStore.list() || []).slice(0, 5);
@@ -8754,8 +9208,8 @@ function reducedMotion() {
         '<h3>Desbloquea este torneo</h3>' +
         '<p class="trn-upgrade-msg">' + esc(up.message) + '</p>' +
         '<ul class="trn-upgrade-perks">' +
-        '<li><strong>Gratis</strong> — Spin fácil</li>' +
-        '<li><strong>Study</strong> — MTT/SNG/Spins fáciles y medios</li>' +
+        '<li><strong>Gratis</strong> — Spin fácil y HU fácil</li>' +
+        '<li><strong>Study</strong> — MTT/SNG/Spins/HU fáciles–medios–difíciles</li>' +
         '<li><strong>Coach</strong> — Difíciles y Pro</li>' +
         '</ul>' +
         '<div class="trn-setup-actions">' +
@@ -8774,8 +9228,8 @@ function reducedMotion() {
     var planHint = planBypass
       ? '<p class="trn-lobby-plan-hint">Comunidad · todos los torneos desbloqueados para miembros.</p>'
       : '<p class="trn-lobby-plan-hint">' +
-        '<span class="trn-badge trn-badge-plan-free">Gratis</span> Spin fácil · ' +
-        '<span class="trn-badge trn-badge-plan-study">Study</span> fáciles y medios · ' +
+        '<span class="trn-badge trn-badge-plan-free">Gratis</span> Spin/HU fácil · ' +
+        '<span class="trn-badge trn-badge-plan-study">Study</span> fáciles, medios y HU difícil · ' +
         '<span class="trn-badge trn-badge-plan-coach">Coach</span> difíciles y pro' +
         '</p>';
 
@@ -8803,6 +9257,7 @@ function reducedMotion() {
       filterBtn('mtt', 'MTT') +
       filterBtn('sng', 'SNG') +
       filterBtn('spin', 'Spins') +
+      filterBtn('hu', 'Heads-Up') +
       '</div>' +
       '<p class="trn-lobby-count">' + filtered.length +
       ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
@@ -9330,7 +9785,7 @@ function reducedMotion() {
     var blinds = Hud.currentBlinds(state);
     var bb = hand ? hand.bb : (blinds.bb || 20);
     var kind = (state.config && state.config.kind) || 'mtt';
-    var formatLabel = kind === 'sng' ? 'SNG' : 'MTT';
+    var formatLabel = kind === 'sng' ? 'SNG' : (kind === 'spin' ? 'SPIN' : (kind === 'hu' ? 'HU' : 'MTT'));
 
     var chips = Hud.compactChips(state).map(function (c) {
       return '<span class="' + esc(c.cls) + '" title="' + esc(c.title) + '">' + esc(c.text) + '</span>';
@@ -9504,6 +9959,10 @@ function reducedMotion() {
 
     var handEndModal = '';
     if (hand && hand.stage === 'complete' && hand.result) {
+      try {
+        var OtherBg = global.PTTournamentOtherTables;
+        if (OtherBg && OtherBg.boostPriority) OtherBg.boostPriority(state);
+      } catch (eBoost) { /* */ }
       handEndModal = renderHandEndModal(hand, state, bb);
     }
 

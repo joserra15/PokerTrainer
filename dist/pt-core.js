@@ -19248,7 +19248,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!code || code.length < 2) return '';
     var suit = code[code.length - 1];
     var red = suit === 'h' || suit === 'd';
-    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : ('suit-' + suit);
+    var sc = (global.Cards && global.Cards.suitClass) ? global.Cards.suitClass(suit) : ('suit-' + suit);
     return '<span class="action-line-card' + (red ? ' is-red' : '') + (sc ? ' ' + sc : '') + '">' +
       esc(cardText(code)) + '</span>';
   }
@@ -41733,10 +41733,7 @@ window.PT_NASH_PUSH_JSON = {
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;
   window.syncFormatHubUI = syncFormatHubUI;
   window.syncCardStyleFromSettings = function (style) {
-    if (window.PTCardStyle && PTCardStyle.save) {
-      PTCardStyle.save(style);
-      PTCardStyle.apply(style);
-    }
+    if (window.PTCardStyle && PTCardStyle.save) PTCardStyle.save(style);
     const playActive = $('#play-active');
     const inTrainer = playActive && !playActive.classList.contains('hidden');
     if (!inTrainer) restoreUserCardStyle();
