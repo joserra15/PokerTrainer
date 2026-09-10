@@ -87,6 +87,24 @@ const facing = LP.adjustFacing(
 );
 assert.ok(facing.raise > 0.2, 'XR intent boosts raise');
 
+// --- LinePlan + nut advantage (motor Pro unificado) ---
+assert.ok(typeof LP.createLinePlan === 'function', 'createLinePlan');
+assert.ok(typeof LP.updateLinePlan === 'function', 'updateLinePlan');
+assert.ok(typeof LP.adjustLead === 'function', 'adjustLead');
+const RA = sandbox.window.GTORangeAdvantage;
+assert.ok(RA && typeof RA.computeNutAdvantage === 'function', 'computeNutAdvantage');
+const DC = sandbox.window.GTODecisionContext;
+assert.ok(DC, 'GTODecisionContext');
+assert.strictEqual(DC.usesStrategySample('pro'), true);
+assert.strictEqual(DC.usesStrategySample('fish'), false);
+const plan = LP.createLinePlan({
+  board: ['As', '8d', '3c'], initiative: 'aggressor', inPosition: true, street: 'flop', band: 'value', spr: 8
+});
+assert.ok(plan.mode === 'polar' || plan.mode === 'merge', 'line plan mode');
+const plan2 = LP.updateLinePlan(plan, { street: 'flop', intent: 'barrel', action: 'bet' });
+assert.ok(plan2.barrelCount >= 1, 'barrel count');
+assert.ok(plan2.intents.indexOf('barrel') >= 0, 'barrel intent');
+
 // --- Sample lead sizes include 33/66/100 ---
 const leadStrat = {
   check: 0.2,

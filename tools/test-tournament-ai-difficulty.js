@@ -137,6 +137,7 @@ const villainDeps = [
   'js/engine/villainPreflop.js',
   'js/engine/villainFormatAdjust.js',
   'js/engine/villainProExploit.js',
+  'js/engine/decisionContext.js',
   'js/engine/villainLinePolicy.js',
   'js/engine/villainSizing.js',
   'js/engine/boardCluster.js',
