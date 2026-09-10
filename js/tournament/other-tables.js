@@ -98,10 +98,15 @@
         id: global.requestIdleCallback(function () { fn(); }, { timeout: timeoutMs || 120 })
       };
     }
-    return {
-      kind: 'timeout',
-      id: global.setTimeout(function () { fn(); }, 0)
-    };
+    if (typeof global.setTimeout === 'function') {
+      return {
+        kind: 'timeout',
+        id: global.setTimeout(function () { fn(); }, 0)
+      };
+    }
+    /* Sandbox de test / sin timers: ejecutar en sync. */
+    fn();
+    return { kind: 'sync', id: null };
   }
 
   function blindsForNextHand(state) {
@@ -173,23 +178,24 @@
       cancelTimer(state);
       return;
     }
+    /* flushSync/boostPriority recorren el while; no encolar timers. */
+    if (pending.flushing) return;
     enqueueContinue(state, !!pending.boost);
   }
 
   function enqueueContinue(state, boost) {
     var pending = state && state._satPending;
-    if (!pending || pending.cancelled || pending.done) return;
+    if (!pending || pending.cancelled || pending.done || pending.flushing) return;
     cancelTimer(state);
     var key = timerKey(state);
     var handle = scheduleIdle(function () {
       if (key) delete TIMERS[key];
       processNext(state);
     }, boost ? 16 : 200);
-    if (key) {
-      TIMERS[key] = handle.kind === 'idle'
-        ? { idleId: handle.id, timeoutId: null }
-        : { idleId: null, timeoutId: handle.id };
-    }
+    if (handle.kind === 'sync' || !key) return;
+    TIMERS[key] = handle.kind === 'idle'
+      ? { idleId: handle.id, timeoutId: null }
+      : { idleId: null, timeoutId: handle.id };
   }
 
   /**
@@ -224,9 +230,13 @@
     pending.boost = true;
     if (pending.done) return;
     cancelTimer(state);
-    /* Flush síncrono: el coste es ms y el usuario está en el modal. */
-    while (pending.queue && pending.queue.length && !pending.cancelled) {
-      processNext(state);
+    pending.flushing = true;
+    try {
+      while (pending.queue && pending.queue.length && !pending.cancelled) {
+        processNext(state);
+      }
+    } finally {
+      pending.flushing = false;
     }
   }
 
@@ -234,8 +244,13 @@
     var pending = state && state._satPending;
     if (!pending || pending.cancelled) return pending;
     cancelTimer(state);
-    while (pending.queue && pending.queue.length && !pending.cancelled) {
-      processNext(state);
+    pending.flushing = true;
+    try {
+      while (pending.queue && pending.queue.length && !pending.cancelled) {
+        processNext(state);
+      }
+    } finally {
+      pending.flushing = false;
     }
     pending.done = true;
     return pending;
