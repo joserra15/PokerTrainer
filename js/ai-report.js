@@ -89,9 +89,9 @@
     { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
     { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
     { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05', 'D-01', 'Q-01', 'D-03'] },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07', 'O-01', 'E-01'] },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07', 'D-02', 'D-04'] }
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'C-21', 'C-22', 'C-24', 'R-05', 'D-01', 'Q-01', 'D-03'] },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'C-25', 'C-23', 'R-07', 'O-01', 'E-01'] },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'C-23', 'R-07', 'D-02', 'D-04'] }
   ];
 
   function cfg() {

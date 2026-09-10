@@ -9124,20 +9124,78 @@ window.PT_NASH_PUSH_JSON = {
     return Math.max(-1, Math.min(1, adv));
   }
 
+  /**
+   * Ventaja de nueces -1..+1 (distinta de range advantage).
+   * Boards monótonos / paired / broadway cambian quién tiene más nuts posibles.
+   */
+  function computeNutAdvantage(input) {
+    const board = input.board || [];
+    const initiative = input.initiative || 'caller';
+    const inPosition = input.inPosition !== false;
+    let nut = 0;
+
+    if (board.length < 3 || !Board) {
+      return initiative === 'aggressor' ? 0.1 : -0.05;
+    }
+
+    const tex = Board.boardTexture(board);
+
+    // Agresor preflop suele tener más AA/KK/AQ+ → más nuts en A/K-high
+    if (initiative === 'aggressor') nut += 0.12;
+    else nut -= 0.06;
+
+    if (tex.category === 'HIGH_BOARD' || tex.category === 'ACE_HIGH' || tex.category === 'KING_HIGH') {
+      if (initiative === 'aggressor') nut += 0.14;
+      else nut -= 0.08;
+    }
+
+    if (tex.category === 'MONOTONE') {
+      // Caller BB tiene más suited connectors / broadways suited → a veces más nut flush
+      if (initiative === 'caller') nut += 0.08;
+      else nut -= 0.05;
+    }
+
+    if (tex.paired) {
+      // Sets/fulls: agresor con overpairs/TT+ suele tener más boats en paired high
+      if (initiative === 'aggressor' && inPosition) nut += 0.1;
+      else if (!inPosition) nut -= 0.06;
+    }
+
+    if (tex.category === 'LOW_BOARD' || tex.category === 'MIDDLE_CONNECTED' || tex.category === 'TWO_TONE_DYNAMIC') {
+      // Caller conecta más straights/two-pair en low connected
+      if (initiative === 'caller') nut += 0.1;
+      else nut -= 0.08;
+    }
+
+    if (input.street === 'river') nut *= 1.12;
+
+    return Math.max(-1, Math.min(1, nut));
+  }
+
   /** Polarización del rango de apuesta 0 (merge) .. 1 (muy polar). */
   function betPolarization(input, band) {
     const adv = computeRangeAdvantage(input);
+    const nut = computeNutAdvantage(input);
     let pol = 0.35;
     if (band === 'nuts' || band === 'air') pol += 0.35;
     if (band === 'value') pol += 0.2;
     if (band === 'merge') pol -= 0.15;
     if (adv > 0.2) pol += 0.12;
     if (adv < -0.15) pol -= 0.1;
+    if (nut > 0.15) pol += 0.08;
+    if (nut < -0.1) pol -= 0.06;
     if (input.street === 'river') pol += 0.1;
+    if (input.spr != null && input.spr <= 3.5) pol += 0.12;
+    if (input.spr != null && input.spr >= 12) pol -= 0.08;
+    if (input.potType === '3bp' || input.potType === '4bp') pol += 0.1;
     return Math.max(0, Math.min(1, pol));
   }
 
-  global.GTORangeAdvantage = { computeRangeAdvantage, betPolarization };
+  global.GTORangeAdvantage = {
+    computeRangeAdvantage: computeRangeAdvantage,
+    computeNutAdvantage: computeNutAdvantage,
+    betPolarization: betPolarization
+  };
 })(window);
 
 /*
@@ -9796,6 +9854,7 @@ window.PT_NASH_PUSH_JSON = {
       ? input.handRank.percentile : equity;
     const rf = realizationFactor(street, inPosition);
     const rangeAdv = RA ? RA.computeRangeAdvantage(input) : 0;
+    const nutAdv = RA && RA.computeNutAdvantage ? RA.computeNutAdvantage(input) : 0;
     const polarization = RA ? RA.betPolarization(input, band) : 0.35;
     const texture = Board ? Board.boardTexture(input.board || []) : {};
     const streetScale = { flop: 1.0, turn: 0.76, river: 0.46 };
@@ -9838,6 +9897,17 @@ window.PT_NASH_PUSH_JSON = {
       if (band === 'nuts') betTotal = Math.max(betTotal, 0.72);
       if (rangeAdv > 0.25 && band !== 'air') betTotal = Math.min(betTotal + 0.08, 0.92);
       if (rangeAdv < -0.2 && !inPosition) betTotal *= 0.75;
+      if (nutAdv > 0.15 && band !== 'air') betTotal = Math.min(betTotal + 0.06, 0.94);
+      if (nutAdv < -0.12 && band === 'merge') betTotal *= 0.82;
+      // Protection OOP wet: value/merge medio apuesta más (niega equity)
+      if (!inPosition && texture.wet && (band === 'value' || band === 'merge')
+        && street === 'flop' && equity >= 0.45 && equity <= 0.72) {
+        betTotal = Math.max(betTotal, 0.42);
+      }
+      // Pot-control: nut disadvantage + merge → menos bet
+      if (nutAdv < -0.1 && band === 'merge' && !texture.wet) {
+        betTotal *= 0.78;
+      }
     } else if (bestBetEv > evCheckVal - margin * 0.5 && band === 'merge') {
       betTotal = clamp(0.18 + (bestBetEv - evCheckVal) / pot, 0.08, 0.35);
     } else {
@@ -10449,6 +10519,37 @@ window.PT_NASH_PUSH_JSON = {
 
     let freqs = normalize({ fold, call, raise });
     freqs = applyMDF(freqs, mdf, heroEquity, potOdds, band);
+
+    // Threshold defense vs oversized bets (≥85% pot): calls más selectivos, XR más polar
+    const ratio = betToPotRatio(currentPot, betSize);
+    if (ratio >= 0.85) {
+      if (band === 'nuts' || band === 'value') {
+        freqs.raise = (freqs.raise || 0) * 1.15;
+        freqs.call = (freqs.call || 0) * 0.92;
+      } else if (band === 'air') {
+        freqs.raise = (freqs.raise || 0) * 1.2;
+        freqs.call = (freqs.call || 0) * 0.55;
+        freqs.fold = (freqs.fold || 0) * 1.1;
+      } else {
+        freqs.call = (freqs.call || 0) * 0.78;
+        freqs.raise = (freqs.raise || 0) * 0.85;
+        freqs.fold = (freqs.fold || 0) * 1.12;
+      }
+      freqs = normalize(freqs);
+      freqs = applyMDF(freqs, mdf, heroEquity, potOdds, band);
+    }
+
+    // 3BP/4BP: menos calls merge, raises más polares
+    if (params.potType === '3bp' || params.potType === '4bp') {
+      if (band === 'merge' || band === 'bluffcatch') {
+        freqs.call = (freqs.call || 0) * 0.85;
+        freqs.fold = (freqs.fold || 0) * 1.08;
+      }
+      if (band === 'nuts' || band === 'air') {
+        freqs.raise = (freqs.raise || 0) * 1.12;
+      }
+      freqs = normalize(freqs);
+    }
 
     if (Block && params.heroCards) {
       freqs = Block.applyBlockerAdjustments(freqs, params.heroCards, board, { street, band, tier });
@@ -13159,6 +13260,39 @@ window.PT_NASH_PUSH_JSON = {
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
 
     const gtoStrategy = strategy;
+    // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain
+    const DC = global.GTODecisionContext;
+    const facing = (enriched.toCallBB || 0) > 0;
+    if (DC && enriched.street && enriched.street !== 'preflop') {
+      const ctx = DC.buildBase({
+        formatHub: enriched.formatHub,
+        gameType: enriched.gameType,
+        street: enriched.street,
+        potBB: enriched.potBB,
+        stackBB: enriched.heroStackBB != null ? enriched.heroStackBB : enriched.effStack,
+        spr: enriched.spr,
+        strength: enriched.heroEquity,
+        band: enriched.handRank && enriched.handRank.band,
+        initiative: enriched.initiative,
+        inPosition: enriched.inPosition,
+        board: enriched.board,
+        mttPhase: enriched.mttPhase || enriched.resolvedPhase,
+        effectivePhase: enriched.resolvedPhase || enriched.mttPhase,
+        mttStructureSituation: enriched.mttStructureSituation,
+        tournamentType: enriched.tournamentType,
+        playersLeft: enriched.playersLeft,
+        placesPaid: enriched.placesPaid,
+        icmStacksBB: enriched.icmStacksBB,
+        icmPayouts: enriched.icmPayouts,
+        multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,
+        potType: enriched.potType || 'srp',
+        stackRole: enriched.stackRole,
+        lineIntent: enriched.lineIntent || null
+      });
+      strategy = DC.applyIcmToFreqs(Object.assign({}, strategy), ctx, facing ? 'facing' : 'lead');
+      strategy = Classifier.filterStrategy(strategy, enriched.availableActions);
+    }
+
     let exploitMeta = null;
     const Exploit = global.GTOHeroExploitAdjust;
     if (Exploit && enriched.scoreMode === 'exploit') {
@@ -13168,6 +13302,56 @@ window.PT_NASH_PUSH_JSON = {
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
+
+    let driversMeta = { drivers: [], topDrivers: [], conceptTags: [] };
+    if (DC && DC.computeDrivers && enriched.street && enriched.street !== 'preflop') {
+      const Facing = global.GTOFacingBet;
+      const mdf = facing && Facing && Facing.calculateMDF
+        ? Facing.calculateMDF(enriched.potBeforeBB || enriched.potBB, enriched.toCallBB)
+        : null;
+      driversMeta = DC.computeDrivers(
+        {
+          band: enriched.handRank && enriched.handRank.band,
+          strength: enriched.heroEquity,
+          rangeAdvantage: global.GTORangeAdvantage
+            ? global.GTORangeAdvantage.computeRangeAdvantage(enriched)
+            : null,
+          nutAdvantage: global.GTORangeAdvantage && global.GTORangeAdvantage.computeNutAdvantage
+            ? global.GTORangeAdvantage.computeNutAdvantage(enriched)
+            : null,
+          spr: enriched.spr,
+          polarization: global.GTORangeAdvantage
+            ? global.GTORangeAdvantage.betPolarization(enriched, enriched.handRank && enriched.handRank.band)
+            : null,
+          lineIntent: enriched.lineIntent,
+          potType: enriched.potType,
+          bubbleFactor: DC.bubbleFactorFromCtx({
+            formatHub: enriched.formatHub,
+            gameType: enriched.gameType,
+            mttPhase: enriched.mttPhase,
+            effectivePhase: enriched.resolvedPhase || enriched.mttPhase,
+            mttStructureSituation: enriched.mttStructureSituation,
+            stackBB: enriched.heroStackBB || enriched.effStack,
+            icmStacksBB: enriched.icmStacksBB,
+            icmPayouts: enriched.icmPayouts,
+            playersLeft: enriched.playersLeft,
+            placesPaid: enriched.placesPaid
+          }),
+          stackRole: enriched.stackRole,
+          multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2
+        },
+        strategy,
+        {
+          facing: facing,
+          mdf: mdf,
+          potOdds: facing && Facing
+            ? Facing.calculatePotOdds(enriched.potBeforeBB || enriched.potBB, enriched.toCallBB)
+            : null,
+          exploitApplied: !!(exploitMeta && exploitMeta.applied),
+          exploitReasons: (exploitMeta && exploitMeta.reasons) || []
+        }
+      );
+    }
 
     const result = {
       strategy,
@@ -13184,7 +13368,11 @@ window.PT_NASH_PUSH_JSON = {
       villainType: enriched.villainType || null,
       exploitApplied: !!(exploitMeta && exploitMeta.applied),
       exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
-      explainDelta: (exploitMeta && exploitMeta.explainDelta) || []
+      explainDelta: (exploitMeta && exploitMeta.explainDelta) || [],
+      drivers: driversMeta.drivers || [],
+      topDrivers: driversMeta.topDrivers || [],
+      conceptTags: driversMeta.conceptTags || [],
+      bubbleFactor: driversMeta.bubbleFactor != null ? driversMeta.bubbleFactor : null
     };
 
     if (chosenAction != null) {
@@ -14390,15 +14578,32 @@ window.PT_NASH_PUSH_JSON = {
         out.bluff = clamp(out.bluff * 0.88, 0.35, 1.2);
         out.fold = clamp(out.fold * 1.06, 1, 1.35);
       }
-      // PKO / mystery: suavizar overfold ICM (bounty); no hay solver de EV bounty.
+      // PKO / mystery: suavizar overfold ICM + bias call/shove por bounty lite.
       const tType = String(ctx.tournamentType || '').toLowerCase();
       if (tType === 'pko' || tType === 'mystery') {
         out.fold = clamp(out.fold * 0.88, 0.85, 1.25);
         out.jamBias = clamp(out.jamBias * 1.08, 1, 1.7);
+        out.bountyCall = 1.12;
         if (stackBB <= 20) {
           out.bet = clamp(out.bet * 1.06, 0.9, 1.4);
           out.raise = clamp(out.raise * 1.05, 0.85, 1.35);
+          out.jamBias = clamp(out.jamBias * 1.06, 1, 1.85);
         }
+      }
+      // Roles de mesa (short / cover / mid) cuando el contexto los aporta
+      const role = ctx.stackRole || '';
+      if (role === 'short') {
+        out.jamBias = clamp(out.jamBias * 1.12, 1, 1.9);
+        out.bet = clamp(out.bet * 1.06, 0.9, 1.5);
+        out.bluff = clamp(out.bluff * 0.9, 0.35, 1.2);
+      } else if (role === 'cover') {
+        out.bet = clamp(out.bet * 1.1, 0.9, 1.55);
+        out.cbet = clamp(out.cbet * 1.08, 0.9, 1.5);
+        out.fold = clamp(out.fold * 0.95, 0.8, 1.3);
+      } else if (role === 'mid' && (phase === 'bubble' || situ === 'bubble')) {
+        out.fold = clamp(out.fold * 1.1, 1, 1.4);
+        out.bluff = clamp(out.bluff * 0.85, 0.35, 1.1);
+        out.thinValue = clamp(out.thinValue * 0.85, 0.5, 1.1);
       }
     }
 
@@ -14426,6 +14631,11 @@ window.PT_NASH_PUSH_JSON = {
         const shift = (1 - m.thinValue) * 0.12 * (out.call || 0);
         out.call = Math.max(0, (out.call || 0) - shift);
         out.fold = (out.fold || 0) + shift;
+      }
+      // PKO bounty lite: más calls vs shoves/all-ins cortos
+      if (m.bountyCall && out.call != null && (ctx.spr != null && ctx.spr <= 4 || ctx.stackBB <= 20)) {
+        out.call = (out.call || 0) * m.bountyCall;
+        out.fold = (out.fold || 0) * (2 - m.bountyCall);
       }
       // Bluff-raises: si strength/band air, reducir raise
       if (ctx.band === 'air' || ctx.band === 'bluffcatch' || (ctx.strength != null && ctx.strength < 0.4)) {
@@ -14701,7 +14911,7 @@ window.PT_NASH_PUSH_JSON = {
 
 /*
  * villainLinePolicy.js — Política de líneas del villano pro:
- * check-raise, delayed c-bet, probe, donk, overbet eligibility.
+ * check-raise, delayed c-bet, probe, donk, overbet, LinePlan multi-calle.
  * Heurística con frecuencias (no solver tree).
  */
 (function (global) {
@@ -14762,8 +14972,68 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
+   * Plan de línea multi-calle: polar|merge + intents + compromiso por calle.
+   */
+  function createLinePlan(ctx) {
+    ctx = ctx || {};
+    const RA = global.GTORangeAdvantage;
+    let polar = ctx.polarization;
+    if (polar == null && RA && RA.betPolarization) {
+      polar = RA.betPolarization(ctx, ctx.band || 'merge');
+    }
+    polar = polar != null ? polar : 0.4;
+    const mode = polar >= 0.52 ? 'polar' : 'merge';
+    return {
+      mode: mode,
+      polarization: polar,
+      intents: [],
+      streetCommit: {},
+      trapIp: false,
+      floatOop: false,
+      barrelCount: 0,
+      giveUp: false,
+      riverPlan: null
+    };
+  }
+
+  function updateLinePlan(plan, event) {
+    plan = plan || createLinePlan({});
+    event = event || {};
+    const street = event.street || 'flop';
+    const action = event.action || null;
+    const intent = event.intent || null;
+    if (intent && plan.intents.indexOf(intent) < 0) plan.intents.push(intent);
+    if (action) plan.streetCommit[street] = action;
+    if (action === 'bet' || action === 'raise') {
+      plan.barrelCount = (plan.barrelCount || 0) + 1;
+      plan.giveUp = false;
+    }
+    if (intent === 'checkRaise') plan.mode = 'polar';
+    if (intent === 'trap') plan.trapIp = true;
+    if (intent === 'float') plan.floatOop = true;
+    if (intent === 'giveUp') plan.giveUp = true;
+    if (street === 'river' && event.riverPlan) plan.riverPlan = event.riverPlan;
+    if (event.mode) plan.mode = event.mode;
+    return plan;
+  }
+
+  /**
+   * Decide river raise-call vs raise-fold plan según SPR / band.
+   */
+  function riverRaisePlan(ctx) {
+    const spr = ctx.spr != null ? ctx.spr : 8;
+    const band = ctx.band || '';
+    const strength = ctx.strength != null ? ctx.strength : 0.5;
+    if (band === 'nuts' || (ctx.isNuts && strength > 0.85)) return 'raise-call';
+    if (band === 'value' && strength > 0.75 && spr <= 4) return 'raise-call';
+    if (band === 'air' || strength < 0.3) return 'raise-fold';
+    if (band === 'merge' || band === 'bluffcatch') return spr <= 2.5 ? 'raise-call' : 'call';
+    return strength > 0.65 ? 'raise-call' : 'raise-fold';
+  }
+
+  /**
    * Decisión de lead (primero en actuar en la calle).
-   * Retorna { actionHint: 'check'|'bet'|'auto', intent, forceCheck, preferSizeKey, reason }
+   * Retorna { actionHint, intent, forceCheck, preferSizeKey, reason, linePlanPatch }
    */
   function decideLead(ctx, rnd) {
     ctx = ctx || {};
@@ -14777,18 +15047,114 @@ window.PT_NASH_PUSH_JSON = {
     const strength = ctx.strength != null ? ctx.strength : 0.5;
     const band = ctx.band || '';
     const priorChecks = !!ctx.priorStreetCheckCheck;
+    const plan = ctx.linePlan || null;
+    const rangeAdv = ctx.rangeAdvantage != null ? ctx.rangeAdvantage : 0;
+    const polar = (plan && plan.polarization != null)
+      ? plan.polarization
+      : (ctx.polarization != null ? ctx.polarization : 0.4);
+
+    // Give-up tras línea polar fallida (air en turn/river)
+    if (plan && plan.mode === 'polar' && (band === 'air' || strength < 0.28)
+      && (street === 'turn' || street === 'river') && plan.barrelCount >= 1) {
+      let giveFreq = clamp(0.55 - rangeAdv * 0.2, 0.35, 0.75);
+      if (m.bluff < 0.7) giveFreq += 0.1;
+      if (rnd < giveFreq) {
+        return {
+          actionHint: 'check',
+          intent: 'giveUp',
+          forceCheck: true,
+          preferSizeKey: null,
+          reason: 'polar_give_up',
+          linePlanPatch: { intent: 'giveUp', action: 'check' }
+        };
+      }
+    }
+
+    // Float OOP: tras check-call flop, probe turn si pasivo
+    if (plan && plan.floatOop && street === 'turn' && !isAgg && !inPos) {
+      if (strength > 0.42 || band === 'merge' || band === 'value') {
+        let probe = clamp(0.28 * m.cbet, 0.15, 0.4);
+        if (rnd < probe) {
+          return {
+            actionHint: 'bet',
+            intent: 'probe',
+            forceCheck: false,
+            preferSizeKey: 'bet_33',
+            reason: 'float_probe',
+            linePlanPatch: { intent: 'probe', action: 'bet' }
+          };
+        }
+      }
+    }
+
+    // Trap IP vs calling station
+    if (inPos && street === 'flop' && (band === 'nuts' || (band === 'value' && strength > 0.8))
+      && !texture.wet && m.bluff > 0.5) {
+      const heroFish = ctx.heroProfile === 'callingStation' || ctx.heroProfile === 'fish'
+        || ctx.heroProfile === 'station';
+      if (heroFish) {
+        let trapFreq = clamp(0.14 * (e.barrel || 1), 0.06, 0.22);
+        if (rnd < trapFreq) {
+          return {
+            actionHint: 'check',
+            intent: 'trap',
+            forceCheck: true,
+            preferSizeKey: null,
+            reason: 'trap_ip',
+            linePlanPatch: { intent: 'trap', action: 'check', mode: 'merge' }
+          };
+        }
+      }
+    }
 
     // Delayed c-bet: agresor, flop fue check-check, turn
     if (isAgg && priorChecks && street === 'turn') {
       let delayFreq = clamp(0.42 * m.cbet * (e.barrel || 1), 0.25, 0.62);
       if (texture.wet) delayFreq *= 0.85;
+      if (rangeAdv > 0.15) delayFreq = clamp(delayFreq + 0.08, 0.3, 0.72);
       if (strength > 0.55 || band === 'value' || band === 'nuts') delayFreq = clamp(delayFreq + 0.12, 0.3, 0.75);
       if (rnd < delayFreq) {
-        return { actionHint: 'bet', intent: 'delayedCbet', forceCheck: false, preferSizeKey: null, reason: 'delayed_cbet' };
+        return {
+          actionHint: 'bet',
+          intent: 'delayedCbet',
+          forceCheck: false,
+          preferSizeKey: polar > 0.55 ? 'bet_66' : 'bet_33',
+          reason: 'delayed_cbet',
+          linePlanPatch: { intent: 'delayedCbet', action: 'bet' }
+        };
       }
     }
 
-    // Donk: caller OOP, fuerte cambio / nutted, turn/river — raro
+    // Barrel / double barrel según polarización + range advantage
+    if (isAgg && street === 'turn' && plan && plan.barrelCount >= 1 && !priorChecks) {
+      let barrelFreq = clamp(0.38 + polar * 0.25 + rangeAdv * 0.15, 0.22, 0.72);
+      barrelFreq *= m.cbet * (e.barrel || 1);
+      if (band === 'air') barrelFreq *= m.bluff;
+      if (band === 'nuts' || band === 'value') barrelFreq = clamp(barrelFreq + 0.15, 0.3, 0.85);
+      if (texture.wet && band === 'merge') barrelFreq *= 0.75;
+      if (rnd < barrelFreq) {
+        return {
+          actionHint: 'bet',
+          intent: 'barrel',
+          forceCheck: false,
+          preferSizeKey: polar > 0.55 ? 'bet_66' : 'bet_33',
+          reason: 'double_barrel',
+          linePlanPatch: { intent: 'barrel', action: 'bet' }
+        };
+      }
+      if (band === 'air' || band === 'bluffcatch') {
+        return {
+          actionHint: 'check',
+          intent: 'giveUp',
+          forceCheck: true,
+          preferSizeKey: null,
+          reason: 'barrel_give_up',
+          linePlanPatch: { intent: 'giveUp', action: 'check' }
+        };
+      }
+    }
+
+    // Donk: caller OOP, fuerte / nutted, turn/river — raro
     if (!isAgg && !inPos && (street === 'turn' || street === 'river')) {
       const strong = strength > 0.78 || band === 'nuts' || band === 'value' || (ctx.madeCategory != null && ctx.madeCategory >= 3);
       if (strong) {
@@ -14796,36 +15162,96 @@ window.PT_NASH_PUSH_JSON = {
         if (street === 'river') donkFreq *= 1.15;
         if (m.bluff < 0.7) donkFreq *= 0.6;
         if (rnd < donkFreq) {
-          return { actionHint: 'bet', intent: 'donk', forceCheck: false, preferSizeKey: 'bet_66', reason: 'donk_strong' };
+          return {
+            actionHint: 'bet',
+            intent: 'donk',
+            forceCheck: false,
+            preferSizeKey: 'bet_66',
+            reason: 'donk_strong',
+            linePlanPatch: { intent: 'donk', action: 'bet' }
+          };
         }
       }
     }
 
-    // Check-raise setup: OOP en flop, textura mid/wet, no bubble extremo
-    if (!inPos && street === 'flop' && m.xr >= 0.5) {
+    // Check-raise setup: OOP flop (mid/wet) o turn (más raro, polar)
+    if (!inPos && m.xr >= 0.5) {
       const midWet = texture.wet || (!texture.paired && !texture.monotone);
       const canXrValue = strength > 0.62 || band === 'value' || band === 'nuts' || (ctx.madeCategory != null && ctx.madeCategory >= 2);
       const canXrBluff = (strength < 0.35 || band === 'air') && m.bluff > 0.65;
-      if (midWet && (canXrValue || canXrBluff)) {
+      if (street === 'flop' && midWet && (canXrValue || canXrBluff)) {
         let xrSetup = clamp(0.12 * m.xr * (e.xr || 1), 0.05, 0.22);
         if (canXrValue) xrSetup = clamp(xrSetup + 0.04, 0.06, 0.24);
         if (texture.paired) xrSetup *= 0.55;
+        if ((ctx.multiwayCount || 2) >= 3) xrSetup *= 0.45;
         if (rnd < xrSetup) {
-          return { actionHint: 'check', intent: 'checkRaise', forceCheck: true, preferSizeKey: null, reason: 'xr_setup' };
+          return {
+            actionHint: 'check',
+            intent: 'checkRaise',
+            forceCheck: true,
+            preferSizeKey: null,
+            reason: 'xr_setup',
+            linePlanPatch: { intent: 'checkRaise', action: 'check', mode: 'polar' }
+          };
         }
+      }
+      if (street === 'turn' && ((canXrValue && strength > 0.7) || (canXrBluff && polar > 0.55))) {
+        let xrTurn = clamp(0.07 * m.xr * (e.xr || 1), 0.03, 0.14);
+        if (texture.wet) xrTurn *= 1.15;
+        if ((ctx.multiwayCount || 2) >= 3) xrTurn *= 0.4;
+        if (rnd < xrTurn) {
+          return {
+            actionHint: 'check',
+            intent: 'checkRaise',
+            forceCheck: true,
+            preferSizeKey: null,
+            reason: 'xr_turn_setup',
+            linePlanPatch: { intent: 'checkRaise', action: 'check', mode: 'polar' }
+          };
+        }
+      }
+    }
+
+    // Protection bet OOP wet con value medio
+    if (!inPos && street === 'flop' && texture.wet && (band === 'value' || band === 'merge')
+      && strength >= 0.55 && strength <= 0.78 && isAgg) {
+      let prot = clamp(0.34 * m.cbet, 0.2, 0.48);
+      if (rnd < prot) {
+        return {
+          actionHint: 'bet',
+          intent: 'protection',
+          forceCheck: false,
+          preferSizeKey: 'bet_66',
+          reason: 'protection_wet',
+          linePlanPatch: { intent: 'protection', action: 'bet', mode: 'merge' }
+        };
       }
     }
 
     // Overbet lead river
     if (street === 'river' && overbetEligible(ctx)) {
       const w = overbetWeight(ctx);
-      // Solo fuerza size; la decisión bet/check sigue la estrategia
       if (w > 0.08 && rnd < w * 1.4) {
-        return { actionHint: 'auto', intent: 'overbet', forceCheck: false, preferSizeKey: 'overbet', reason: 'river_overbet' };
+        const rp = riverRaisePlan(ctx);
+        return {
+          actionHint: 'auto',
+          intent: 'overbet',
+          forceCheck: false,
+          preferSizeKey: 'overbet',
+          reason: 'river_overbet',
+          linePlanPatch: { intent: 'overbet', action: 'bet', riverPlan: rp }
+        };
       }
     }
 
-    return { actionHint: 'auto', intent: null, forceCheck: false, preferSizeKey: null, reason: 'default' };
+    return {
+      actionHint: 'auto',
+      intent: null,
+      forceCheck: false,
+      preferSizeKey: null,
+      reason: 'default',
+      linePlanPatch: null
+    };
   }
 
   /**
@@ -14844,6 +15270,7 @@ window.PT_NASH_PUSH_JSON = {
       const strength = ctx.strength != null ? ctx.strength : 0.5;
       if (strength < 0.38) boost *= m.bluff;
       if (strength > 0.7) boost *= 1.15;
+      if ((ctx.multiwayCount || 2) >= 3) boost *= 0.55;
       const raise = (out.raise || 0) + boost;
       const fold = Math.max(0, (out.fold || 0) * 0.75);
       const call = Math.max(0, 1 - raise - fold);
@@ -14852,9 +15279,19 @@ window.PT_NASH_PUSH_JSON = {
       out.call = call;
     }
 
-    // Raise polar river → boost overbet eligibility flag (sizing layer lo usa)
+    // Tras float: más fold a second barrel si air
+    if (ctx.linePlan && ctx.linePlan.floatOop && ctx.street === 'turn'
+      && (ctx.band === 'air' || (ctx.strength != null && ctx.strength < 0.35))) {
+      out.fold = (out.fold || 0) * 1.2;
+      out.call = (out.call || 0) * 0.75;
+    }
+
+    // Raise polar river → boost overbet eligibility flag
     if (ctx.street === 'river' && overbetEligible(ctx) && (out.raise || 0) > 0.05) {
       out._preferOverbetRaise = true;
+      if (ctx.linePlan) {
+        ctx.linePlan.riverPlan = riverRaisePlan(ctx);
+      }
     }
 
     let sum = (out.fold || 0) + (out.call || 0) + (out.raise || 0);
@@ -14866,14 +15303,709 @@ window.PT_NASH_PUSH_JSON = {
     return out;
   }
 
+  /** Ajuste opcional de lead freqs según LinePlan. */
+  function adjustLead(freqs, ctx) {
+    ctx = ctx || {};
+    const out = Object.assign({}, freqs || {});
+    const plan = ctx.linePlan;
+    if (!plan) return out;
+    const betKeys = ['bet_33', 'bet_66', 'bet_100', 'bet_125', 'overbet', 'bet'];
+    if (plan.giveUp) {
+      betKeys.forEach(function (k) {
+        if (out[k] != null) out[k] *= 0.35;
+      });
+      out.check = (out.check || 0) + 0.25;
+    } else if (plan.mode === 'polar' && (ctx.street === 'turn' || ctx.street === 'river')) {
+      if (out.bet_33 != null && out.bet_66 != null) {
+        const move = (out.bet_33 || 0) * 0.4;
+        out.bet_33 *= 0.6;
+        out.bet_100 = (out.bet_100 || 0) + move * 0.5;
+        out.overbet = (out.overbet || 0) + move * 0.5;
+      }
+    } else if (plan.mode === 'merge') {
+      if (out.overbet != null) {
+        out.bet_66 = (out.bet_66 || 0) + (out.overbet || 0) * 0.6;
+        out.overbet *= 0.4;
+      }
+    }
+    let sum = 0;
+    Object.keys(out).forEach(function (k) {
+      if (k.charAt(0) === '_') return;
+      sum += Math.max(0, out[k] || 0);
+    });
+    if (sum > 0) {
+      Object.keys(out).forEach(function (k) {
+        if (k.charAt(0) === '_') return;
+        out[k] = Math.max(0, out[k] || 0) / sum;
+      });
+    }
+    return out;
+  }
+
   global.GTOVillainLinePolicy = {
     overbetEligible: overbetEligible,
     overbetWeight: overbetWeight,
     decideLead: decideLead,
     adjustFacing: adjustFacing,
+    adjustLead: adjustLead,
+    createLinePlan: createLinePlan,
+    updateLinePlan: updateLinePlan,
+    riverRaisePlan: riverRaisePlan,
     boardTexture: boardTexture
   };
 })(typeof window !== 'undefined' ? window : global);
+
+/*
+ * decisionContext.js — Contexto unificado + sample/refine de estrategia Pro
+ * compartido entre entrenador, torneos, evaluateSpot (drivers) y Escuela.
+ * Heurística + charts + ICM lite; no es un árbol CFR.
+ */
+(function (global) {
+  'use strict';
+
+  function clamp(x, lo, hi) {
+    return Math.max(lo, Math.min(hi, x));
+  }
+
+  function normalize(freqs) {
+    var out = Object.assign({}, freqs || {});
+    var sum = 0;
+    Object.keys(out).forEach(function (k) {
+      if (k.charAt(0) === '_') return;
+      sum += Math.max(0, out[k] || 0);
+    });
+    if (sum <= 0) return freqs || out;
+    Object.keys(out).forEach(function (k) {
+      if (k.charAt(0) === '_') return;
+      out[k] = Math.max(0, out[k] || 0) / sum;
+    });
+    return out;
+  }
+
+  function bandFromMade(info, strength) {
+    var s = strength != null ? strength : 0.5;
+    if (info && info.ev && info.ev.category >= 4) return 'nuts';
+    if (info) {
+      if (info.tier === 'strong') return s > 0.82 ? 'nuts' : 'value';
+      if (info.tier === 'medium') return 'merge';
+      if (info.tier === 'weak') return 'bluffcatch';
+      return 'air';
+    }
+    if (s >= 0.88) return 'nuts';
+    if (s >= 0.68) return 'value';
+    if (s >= 0.45) return 'merge';
+    if (s >= 0.28) return 'bluffcatch';
+    return 'air';
+  }
+
+  /** Roles que samplean postflopStrategy (misma fuente que Hero / entrenador Pro). */
+  function usesStrategySample(profileOrRole) {
+    if (!profileOrRole) return false;
+    if (typeof profileOrRole === 'string') {
+      var r = String(profileOrRole).toLowerCase();
+      return r === 'pro' || r === 'tag' || r === 'lag';
+    }
+    var id = String(profileOrRole.id || profileOrRole.roleId || '').toLowerCase();
+    if (profileOrRole.preflopStrict >= 0.99) return true;
+    return id === 'pro' || id === 'tag' || id === 'lag';
+  }
+
+  function hubOf(ctx) {
+    var Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.normalizeHub) {
+      return Tax.normalizeHub(ctx.formatHub || Tax.hubFromGameType(ctx.gameType));
+    }
+    var g = String(ctx.gameType || ctx.formatHub || 'cash');
+    if (g.indexOf('spin') === 0) return 'spin';
+    if (g === 'mtt' || g.indexOf('mtt') === 0) return 'mtt';
+    return 'cash';
+  }
+
+  /**
+   * Bubble factor lite desde contexto (stacks/payouts o heurística de fase).
+   * En burbuja/FT usa al menos el suelo de fase (el BF Harville del short puede ser ~1).
+   */
+  function bubbleFactorFromCtx(ctx) {
+    ctx = ctx || {};
+    var Icm = global.GTOIcmEv;
+    var hub = hubOf(ctx);
+    var phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase || '';
+    var situ = ctx.mttStructureSituation || '';
+    var phaseFloor = 1;
+    if (hub === 'spin') phaseFloor = phase === 'push' ? 1.45 : 1.2;
+    else if (phase === 'bubble' || situ === 'bubble') phaseFloor = 1.55;
+    else if (situ === 'ft9' || situ === 'mincash') phaseFloor = 1.28;
+    else if (phase === 'push' || phase === 'short') phaseFloor = 1.22;
+
+    var computed = 1;
+    if (Icm && Icm.shouldApply && Icm.shouldApply(ctx) && Icm.bubbleFactor) {
+      try {
+        var stacks = ctx.icmStacksBB;
+        var payouts = ctx.icmPayouts;
+        if ((!stacks || !stacks.length) && Icm.contextForHand) {
+          var syn = Icm.contextForHand({
+            potBB: ctx.potBB,
+            effStack: ctx.stackBB,
+            playConfig: {
+              formatHub: hub,
+              gameType: ctx.gameType,
+              mttPhase: phase,
+              mttStructureSituation: situ,
+              stackBB: ctx.stackBB,
+              playersLeft: ctx.playersLeft,
+              placesPaid: ctx.placesPaid,
+              icmPayouts: ctx.icmPayouts,
+              icmStacksBB: ctx.icmStacksBB,
+              tournamentType: ctx.tournamentType
+            }
+          });
+          if (syn) {
+            stacks = syn.icmStacksBB;
+            payouts = syn.icmPayouts;
+          }
+        }
+        if (stacks && stacks.length >= 2 && payouts && payouts.length) {
+          computed = Icm.bubbleFactor(
+            stacks,
+            ctx.icmHeroIdx != null ? ctx.icmHeroIdx : 0,
+            ctx.icmVillainIdx != null ? ctx.icmVillainIdx : 1,
+            payouts
+          );
+        }
+      } catch (e) { /* fallthrough */ }
+    }
+    // Cover/big: BF alto; short en burbuja: sigue el suelo de fase (jobs de mesa).
+    if (ctx.stackRole === 'cover') phaseFloor = Math.max(phaseFloor, 1.35);
+    if (ctx.stackRole === 'short' && (phase === 'bubble' || situ === 'bubble')) {
+      phaseFloor = Math.max(1.15, phaseFloor * 0.85);
+    }
+    return Math.max(computed || 1, phaseFloor);
+  }
+
+  /**
+   * Repeso simétrico Hero↔Villain de freqs por ICM lite / bubble factor.
+   */
+  function applyIcmToFreqs(freqs, ctx, kind) {
+    var out = Object.assign({}, freqs || {});
+    var bf = bubbleFactorFromCtx(ctx);
+    if (bf <= 1.05) return normalize(out);
+    var over = clamp((bf - 1) / 1.8, 0, 1);
+    var facing = kind === 'facing' || kind === 'xr' || (out.fold != null || out.call != null);
+    if (facing) {
+      out.fold = (out.fold || 0) * (1 + 0.28 * over);
+      out.raise = (out.raise || 0) * (1 - 0.35 * over);
+      if (ctx.band === 'air' || ctx.band === 'bluffcatch' || (ctx.strength != null && ctx.strength < 0.45)) {
+        out.call = (out.call || 0) * (1 - 0.4 * over);
+        out.raise = (out.raise || 0) * (1 - 0.25 * over);
+      } else if (ctx.band === 'merge' || (ctx.strength != null && ctx.strength < 0.62)) {
+        out.call = (out.call || 0) * (1 - 0.18 * over);
+      }
+    } else {
+      var betKeys = ['bet_33', 'bet_66', 'bet_100', 'bet_125', 'overbet', 'bet'];
+      var bluffish = ctx.band === 'air' || ctx.band === 'bluffcatch' || (ctx.strength != null && ctx.strength < 0.38);
+      betKeys.forEach(function (k) {
+        if (out[k] == null) return;
+        if (bluffish) out[k] *= (1 - 0.42 * over);
+        else if (k === 'overbet' || k === 'bet_125') out[k] *= (1 - 0.25 * over);
+      });
+      out.check = (out.check || 0) + over * 0.08;
+    }
+    // Stack role: short más shove/jam bias en lead; cover más pressure bet; mid más fold
+    var role = ctx.stackRole || '';
+    if (role === 'short' && !facing) {
+      betKeys = ['bet_33', 'bet_66', 'bet_100', 'bet_125', 'overbet', 'bet'];
+      betKeys.forEach(function (k) {
+        if (out[k] != null) out[k] *= 1.08;
+      });
+    } else if (role === 'mid' && facing) {
+      out.fold = (out.fold || 0) * 1.1;
+      out.call = (out.call || 0) * 0.9;
+    } else if (role === 'cover' && !facing) {
+      betKeys = ['bet_33', 'bet_66', 'bet_100', 'overbet', 'bet'];
+      betKeys.forEach(function (k) {
+        if (out[k] != null) out[k] *= 1.1;
+      });
+      out.check = Math.max(0, (out.check || 0) * 0.9);
+    }
+    out._bubbleFactor = bf;
+    return normalize(out);
+  }
+
+  function inferStackRole(ctx) {
+    if (ctx.stackRole) return ctx.stackRole;
+    var bb = Number(ctx.stackBB) || 0;
+    var avg = Number(ctx.avgStackBB) || bb;
+    if (!bb) return null;
+    if (bb <= 12 || (avg > 0 && bb / avg <= 0.45)) return 'short';
+    if (avg > 0 && bb / avg >= 1.55) return 'cover';
+    if (ctx.effectivePhase === 'bubble' || ctx.mttStructureSituation === 'bubble') return 'mid';
+    return null;
+  }
+
+  function buildBase(extra) {
+    extra = extra || {};
+    var Board = global.GTOBoardCluster;
+    var RA = global.GTORangeAdvantage;
+    var board = extra.board ? extra.board.slice() : [];
+    var texture = extra.texture || (Board && Board.boardTexture ? Board.boardTexture(board) : {});
+    var strength = extra.strength != null ? extra.strength : 0.5;
+    var band = extra.band || bandFromMade(extra.madeHandInfo || extra.info, strength);
+    var ctx = Object.assign({
+      formatHub: 'cash',
+      gameType: null,
+      street: 'flop',
+      potBB: 10,
+      stackBB: 100,
+      spr: 8,
+      strength: strength,
+      band: band,
+      initiative: 'aggressor',
+      inPosition: true,
+      board: board,
+      texture: texture,
+      lineIntent: null,
+      actionLine: null,
+      multiwayCount: 2,
+      potType: 'srp',
+      stackRole: null,
+      bubbleFactor: 1
+    }, extra);
+    ctx.formatHub = hubOf(ctx);
+    ctx.hub = ctx.formatHub;
+    ctx.stackRole = inferStackRole(ctx);
+    if (RA) {
+      try {
+        ctx.rangeAdvantage = RA.computeRangeAdvantage({
+          board: ctx.board,
+          initiative: ctx.initiative,
+          inPosition: ctx.inPosition,
+          street: ctx.street
+        });
+        if (RA.computeNutAdvantage) {
+          ctx.nutAdvantage = RA.computeNutAdvantage({
+            board: ctx.board,
+            initiative: ctx.initiative,
+            inPosition: ctx.inPosition,
+            street: ctx.street
+          });
+        }
+        if (RA.betPolarization) {
+          ctx.polarization = RA.betPolarization({
+            board: ctx.board,
+            initiative: ctx.initiative,
+            inPosition: ctx.inPosition,
+            street: ctx.street,
+            spr: ctx.spr
+          }, band);
+        }
+      } catch (eRa) { /* */ }
+    }
+    ctx.bubbleFactor = bubbleFactorFromCtx(ctx);
+    return ctx;
+  }
+
+  /** Contexto desde mano del entrenador (API cercana a buildVillainSpotCtx). */
+  function buildFromTrainer(hand, extra) {
+    extra = extra || {};
+    var cfg = (hand && hand.playConfig) || {};
+    var Tax = global.PTFormatTaxonomy;
+    var hub = Tax && Tax.normalizeHub
+      ? Tax.normalizeHub(cfg.formatHub || Tax.hubFromGameType(cfg.gameType))
+      : (cfg.formatHub || 'cash');
+    return buildBase(Object.assign({
+      formatHub: hub,
+      gameType: cfg.gameType,
+      tournamentType: cfg.tournamentType || 'unknown',
+      playersLeft: cfg.playersLeft,
+      placesPaid: cfg.placesPaid,
+      mttStructureSituation: cfg.mttStructureSituation,
+      effectivePhase: cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase,
+      resolvedPhase: cfg.resolvedPhase,
+      mttPhase: cfg.mttPhase,
+      street: hand.stage || hand.street || 'flop',
+      potBB: Math.max(hand.potBB || 1, 0.1),
+      board: hand.board ? hand.board.slice() : [],
+      actionLine: hand.actionLine || null,
+      priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
+      lineIntent: hand._villainLineIntent || null,
+      multiwayCount: (hand.table && hand.table.inHand && hand.table.inHand.length) || 2,
+      potType: hand.potType || (hand._threeBetPot ? '3bp' : 'srp'),
+      icmStacksBB: cfg.icmStacksBB,
+      icmPayouts: cfg.icmPayouts
+    }, extra));
+  }
+
+  /** Contexto desde mano/asiento de torneo IA. */
+  function buildFromTournament(hand, seat, extra) {
+    extra = extra || {};
+    var bb = Math.max(1, hand.bb || 1);
+    var potBB = (hand.pot || 0) / bb;
+    var stackBB = seat && seat.stack != null ? seat.stack / bb : (extra.stackBB || 25);
+    var cfg = hand.config || hand.playConfig || {};
+    var remaining = seat && seat.stack != null ? seat.stack / bb : stackBB;
+    var spr = potBB > 0 ? remaining / potBB : remaining;
+    return buildBase(Object.assign({
+      formatHub: cfg.formatHub || hand.formatHub || 'mtt',
+      gameType: cfg.gameType || hand.gameType || 'mtt',
+      tournamentType: cfg.tournamentType || hand.tournamentType || 'unknown',
+      playersLeft: cfg.playersLeft != null ? cfg.playersLeft : hand.playersLeft,
+      placesPaid: cfg.placesPaid != null ? cfg.placesPaid : hand.placesPaid,
+      mttStructureSituation: cfg.mttStructureSituation || hand.mttStructureSituation,
+      effectivePhase: cfg.effectivePhase || hand.effectivePhase || cfg.mttPhase || hand.mttPhase,
+      mttPhase: cfg.mttPhase || hand.mttPhase,
+      street: hand.street || 'flop',
+      potBB: potBB,
+      stackBB: remaining,
+      spr: spr,
+      remainingBB: remaining,
+      board: (hand.board || []).map(function (c) {
+        return typeof c === 'string' ? c : (c.code || (c.r != null ? String(c.r) + c.s : ''));
+      }).filter(Boolean),
+      actionLine: hand.actionLine || null,
+      lineIntent: seat && seat._lineIntent || null,
+      multiwayCount: (hand.seats || []).filter(function (s) {
+        return s && s.inHand !== false && !(s.folded);
+      }).length || 2,
+      potType: hand.raisesPreflop >= 2 ? '3bp' : (hand.raisesPreflop >= 3 ? '4bp' : 'srp'),
+      avgStackBB: cfg.avgStackBB || hand.avgStackBB,
+      icmStacksBB: cfg.icmStacksBB || hand.icmStacksBB,
+      icmPayouts: cfg.icmPayouts || hand.icmPayouts
+    }, extra));
+  }
+
+  function refineLead(strat, ctx) {
+    var out = Object.assign({}, strat || {});
+    var FA = global.GTOVillainFormatAdjust;
+    var Ex = global.GTOVillainProExploit;
+    var LP = global.GTOVillainLinePolicy;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, 'lead');
+    out = applyIcmToFreqs(out, ctx, 'lead');
+    if (Ex && Ex.applyToLeadFreqs) out = Ex.applyToLeadFreqs(out, ctx);
+    if (LP && LP.adjustLead) out = LP.adjustLead(out, ctx);
+    // Multiway: menos bluff/c-bet
+    if ((ctx.multiwayCount || 2) >= 3) {
+      var betKeys = ['bet_33', 'bet_66', 'bet_100', 'bet_125', 'overbet', 'bet'];
+      var mw = ctx.multiwayCount >= 4 ? 0.55 : 0.7;
+      betKeys.forEach(function (k) {
+        if (out[k] != null) {
+          if (ctx.band === 'air' || ctx.band === 'bluffcatch') out[k] *= mw * 0.85;
+          else out[k] *= Math.min(1, mw + 0.15);
+        }
+      });
+      out.check = (out.check || 0) + 0.08;
+      out = normalize(out);
+    }
+    // 3BP/4BP: más polar, menos merge bets pequeños
+    if (ctx.potType === '3bp' || ctx.potType === '4bp') {
+      var scaleSmall = ctx.potType === '4bp' ? 0.55 : 0.72;
+      if (out.bet_33 != null) {
+        var move = (out.bet_33 || 0) * (1 - scaleSmall);
+        out.bet_33 *= scaleSmall;
+        out.bet_66 = (out.bet_66 || 0) + move * 0.4;
+        out.bet_100 = (out.bet_100 || 0) + move * 0.35;
+        out.overbet = (out.overbet || 0) + move * 0.25;
+      }
+      out = normalize(out);
+    }
+    return out;
+  }
+
+  function refineFacing(strat, ctx) {
+    var out = Object.assign({}, strat || {});
+    var FA = global.GTOVillainFormatAdjust;
+    var Ex = global.GTOVillainProExploit;
+    var LP = global.GTOVillainLinePolicy;
+    var kind = ctx.lineIntent === 'checkRaise' ? 'xr' : 'facing';
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, kind);
+    out = applyIcmToFreqs(out, ctx, kind);
+    if (Ex && Ex.applyToFacingFreqs) out = Ex.applyToFacingFreqs(out, ctx);
+    if (LP && LP.adjustFacing) out = LP.adjustFacing(out, ctx);
+    var preferOverbetRaise = !!out._preferOverbetRaise;
+    if (out._preferOverbetRaise) delete out._preferOverbetRaise;
+    // Multiway: menos raises, calls más selectivos
+    if ((ctx.multiwayCount || 2) >= 3) {
+      out.raise = (out.raise || 0) * 0.55;
+      if (ctx.band === 'air' || ctx.band === 'bluffcatch') {
+        out.call = (out.call || 0) * 0.7;
+        out.fold = (out.fold || 0) * 1.15;
+      }
+      out = normalize(out);
+    }
+    // Threshold defense vs oversized bets
+    var betRatio = ctx.villainBetRatio != null ? ctx.villainBetRatio
+      : (ctx.toCallBB > 0 && ctx.potBeforeBB > 0 ? ctx.toCallBB / ctx.potBeforeBB : null);
+    if (betRatio != null && betRatio >= 0.85) {
+      out.call = (out.call || 0) * 0.82;
+      if (ctx.band === 'nuts' || ctx.band === 'value' || ctx.band === 'air') {
+        out.raise = (out.raise || 0) * 1.12;
+      } else {
+        out.raise = (out.raise || 0) * 0.85;
+        out.fold = (out.fold || 0) * 1.1;
+      }
+      out = normalize(out);
+    }
+    return { freqs: out, preferOverbetRaise: preferOverbetRaise };
+  }
+
+  function sampleFacing(strat, rnd, opts) {
+    opts = opts || {};
+    var raiseP = strat.raise || 0;
+    var callP = strat.call || 0;
+    if (opts.neverFold) {
+      var rest = raiseP + callP;
+      if (rest <= 0) return 'call';
+      raiseP /= rest;
+      callP /= rest;
+    }
+    if (opts.canRaise !== false && rnd < raiseP) return 'raise';
+    if (rnd < raiseP + callP) return 'call';
+    return opts.neverFold ? 'call' : 'fold';
+  }
+
+  /**
+   * Drivers pedagógicos: por qué el mix se mueve.
+   * Orden fijo: band → range/nut adv → MDF/potOdds → blockers → SPR/line → format/ICM → exploit.
+   */
+  function computeDrivers(ctx, strategy, meta) {
+    meta = meta || {};
+    var drivers = [];
+    var tags = [];
+    ctx = ctx || {};
+    var facing = !!(meta.facing || (strategy && (strategy.fold != null || strategy.call != null)));
+
+    if (ctx.band) {
+      drivers.push({
+        id: 'band',
+        label: 'Banda ' + ctx.band,
+        value: ctx.strength != null ? Math.round(ctx.strength * 100) / 100 : null,
+        effect: ctx.band === 'nuts' || ctx.band === 'value' ? '+value' : (ctx.band === 'air' ? '+bluff/fold' : 'mix')
+      });
+      tags.push('band:' + ctx.band);
+    }
+
+    if (ctx.rangeAdvantage != null) {
+      var ra = ctx.rangeAdvantage;
+      drivers.push({
+        id: 'rangeAdvantage',
+        label: 'Range advantage',
+        value: Math.round(ra * 100) / 100,
+        effect: ra > 0.15 ? (facing ? '+raise/call' : '+cbet') : (ra < -0.1 ? (facing ? '+fold' : '+check') : 'neutral')
+      });
+      if (Math.abs(ra) > 0.12) tags.push('rangeAdv');
+    }
+
+    if (ctx.nutAdvantage != null && Math.abs(ctx.nutAdvantage) > 0.08) {
+      drivers.push({
+        id: 'nutAdvantage',
+        label: 'Nut advantage',
+        value: Math.round(ctx.nutAdvantage * 100) / 100,
+        effect: ctx.nutAdvantage > 0 ? '+bet/raise' : '+pot-control'
+      });
+      tags.push('nutAdv');
+    }
+
+    if (meta.mdf != null) {
+      drivers.push({
+        id: 'mdf',
+        label: 'MDF',
+        value: Math.round(meta.mdf * 100) / 100,
+        effect: '+defense floor'
+      });
+      tags.push('mdf');
+    } else if (meta.potOdds != null) {
+      drivers.push({
+        id: 'potOdds',
+        label: 'Pot odds',
+        value: Math.round(meta.potOdds * 100) / 100,
+        effect: 'call threshold'
+      });
+    }
+
+    if (meta.blockerScore != null && Math.abs(meta.blockerScore) > 0.05) {
+      drivers.push({
+        id: 'blockers',
+        label: 'Blockers',
+        value: Math.round(meta.blockerScore * 100) / 100,
+        effect: meta.blockerScore > 0 ? '+bluff/call' : '−bluff'
+      });
+      tags.push('blockers');
+    }
+
+    if (ctx.spr != null) {
+      drivers.push({
+        id: 'spr',
+        label: 'SPR',
+        value: Math.round(ctx.spr * 10) / 10,
+        effect: ctx.spr <= 3 ? '+jam/polar' : (ctx.spr >= 10 ? '+small/merge' : 'standard')
+      });
+      if (ctx.spr <= 4) tags.push('spr');
+    }
+
+    if (ctx.polarization != null && ctx.polarization > 0.5) {
+      drivers.push({
+        id: 'polarization',
+        label: 'Polarización',
+        value: Math.round(ctx.polarization * 100) / 100,
+        effect: '+overbet/XR'
+      });
+      tags.push('polar');
+    }
+
+    if (ctx.lineIntent) {
+      drivers.push({
+        id: 'lineIntent',
+        label: 'Línea ' + ctx.lineIntent,
+        value: 1,
+        effect: ctx.lineIntent === 'checkRaise' ? '+raise' : ctx.lineIntent
+      });
+      if (ctx.lineIntent === 'checkRaise') tags.push('xr');
+      tags.push('line');
+    }
+
+    if (ctx.potType && ctx.potType !== 'srp') {
+      drivers.push({
+        id: 'potType',
+        label: 'Bote ' + String(ctx.potType).toUpperCase(),
+        value: 1,
+        effect: '+polar sizes'
+      });
+      tags.push(ctx.potType);
+    }
+
+    var bf = ctx.bubbleFactor != null ? ctx.bubbleFactor : bubbleFactorFromCtx(ctx);
+    if (bf > 1.08) {
+      drivers.push({
+        id: 'icm',
+        label: 'ICM / bubble factor',
+        value: bf,
+        effect: facing ? '+fold −thin call' : '−bluff'
+      });
+      tags.push('icmBubble');
+    }
+
+    if (ctx.stackRole) {
+      drivers.push({
+        id: 'stackRole',
+        label: 'Rol ' + ctx.stackRole,
+        value: 1,
+        effect: ctx.stackRole === 'cover' ? '+pressure' : (ctx.stackRole === 'short' ? '+shove/steal' : 'survive')
+      });
+      tags.push('stackRole');
+    }
+
+    if ((ctx.multiwayCount || 2) >= 3) {
+      drivers.push({
+        id: 'multiway',
+        label: 'Multiway ×' + ctx.multiwayCount,
+        value: ctx.multiwayCount,
+        effect: '−bluff −XR'
+      });
+      tags.push('multiway');
+    }
+
+    if (meta.exploitApplied) {
+      drivers.push({
+        id: 'exploit',
+        label: 'Exploit',
+        value: 1,
+        effect: (meta.exploitReasons && meta.exploitReasons[0]) || 'vs tipo'
+      });
+      tags.push('exploit');
+    }
+
+    // Top 3 drivers más accionables primero (saltar band si hay otros)
+    var ranked = drivers.slice().sort(function (a, b) {
+      var pri = { rangeAdvantage: 0, nutAdvantage: 1, mdf: 2, icm: 3, lineIntent: 4, polarization: 5, spr: 6 };
+      var pa = pri[a.id] != null ? pri[a.id] : 20;
+      var pb = pri[b.id] != null ? pri[b.id] : 20;
+      return pa - pb;
+    });
+    return {
+      drivers: drivers,
+      topDrivers: ranked.slice(0, 3),
+      conceptTags: tags,
+      bubbleFactor: bf
+    };
+  }
+
+  /**
+   * Pipeline completo: strategy tables → refine → drivers.
+   * Usado por torneo Pro y tests de paridad.
+   */
+  function computePostflopMix(input) {
+    input = input || {};
+    var Strat = global.GTO && global.GTO.Strategy;
+    if (!Strat || !Strat.postflopStrategy) return null;
+    var ctx = buildBase(input.ctx || input);
+    var facing = (input.toCallBB || 0) > 0 || !!input.facing;
+    var strat = Strat.postflopStrategy({
+      toCallBB: input.toCallBB || 0,
+      potBB: input.potBB != null ? input.potBB : ctx.potBB,
+      potBeforeBB: input.potBeforeBB != null ? input.potBeforeBB : Math.max((ctx.potBB || 1) - (input.toCallBB || 0), 0.1),
+      heroEquity: input.heroEquity != null ? input.heroEquity : ctx.strength,
+      madeHandInfo: input.madeHandInfo || ctx.madeHandInfo,
+      board: ctx.board,
+      heroCards: input.heroCards,
+      initiative: ctx.initiative,
+      inPosition: ctx.inPosition,
+      spr: ctx.spr,
+      street: ctx.street,
+      villainLastAction: input.villainLastAction || null,
+      potType: ctx.potType
+    });
+    if (facing) {
+      var refined = refineFacing(strat, Object.assign({}, ctx, {
+        toCallBB: input.toCallBB || 0,
+        potBeforeBB: input.potBeforeBB,
+        villainBetRatio: input.villainBetRatio
+      }));
+      var drv = computeDrivers(ctx, refined.freqs, {
+        facing: true,
+        potOdds: input.toCallBB > 0
+          ? input.toCallBB / ((input.potBeforeBB || ctx.potBB) + input.toCallBB)
+          : null
+      });
+      return {
+        kind: 'facing',
+        freqs: refined.freqs,
+        preferOverbetRaise: refined.preferOverbetRaise,
+        ctx: ctx,
+        drivers: drv.drivers,
+        topDrivers: drv.topDrivers,
+        conceptTags: drv.conceptTags
+      };
+    }
+    var lead = refineLead(strat, ctx);
+    var drvL = computeDrivers(ctx, lead, { facing: false });
+    return {
+      kind: 'lead',
+      freqs: lead,
+      ctx: ctx,
+      drivers: drvL.drivers,
+      topDrivers: drvL.topDrivers,
+      conceptTags: drvL.conceptTags
+    };
+  }
+
+  global.GTODecisionContext = {
+    clamp: clamp,
+    normalize: normalize,
+    bandFromMade: bandFromMade,
+    usesStrategySample: usesStrategySample,
+    hubOf: hubOf,
+    bubbleFactorFromCtx: bubbleFactorFromCtx,
+    applyIcmToFreqs: applyIcmToFreqs,
+    inferStackRole: inferStackRole,
+    buildBase: buildBase,
+    buildFromTrainer: buildFromTrainer,
+    buildFromTournament: buildFromTournament,
+    refineLead: refineLead,
+    refineFacing: refineFacing,
+    sampleFacing: sampleFacing,
+    computeDrivers: computeDrivers,
+    computePostflopMix: computePostflopMix
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
  * villainSizing.js — Sampling de bet/raise size para villanos pro
@@ -15498,9 +16630,68 @@ window.PT_NASH_PUSH_JSON = {
     return 'fold';
   }
 
+  /**
+   * Cold 4-bet: jugador frío frente a open + 3-bet (no es el opener).
+   * Más tight que 4-bet del opener; se aprieta más en ICM / short.
+   */
+  function cold4BetAction(code, profile, rnd, ctx) {
+    ctx = ctx || {};
+    const r = rnd != null ? rnd : Math.random();
+    const strict = strictness(profile);
+    const w4 = handWeight(vs4betBuckets().fourBet, code);
+    const wCall = handWeight(vs4betBuckets().call, code);
+    const icm = tournamentFoldBias(ctx);
+    let fourFreq = 0;
+    if (w4 >= 1) fourFreq = strict >= 0.99 ? 0.55 : VP.adjustFourBetProb(0.48, profile);
+    else if (w4 >= 0.42) fourFreq = strict >= 0.99 ? w4 * 0.35 : VP.adjustFourBetProb(w4 * 0.28, profile);
+    else if (allowsLeak(profile, '4bet', r) && strict < 0.9) fourFreq = 0.04;
+
+    fourFreq *= clamp(1 - icm * 0.55, 0.35, 1);
+    if (ctx.stackBB != null && ctx.stackBB <= 25) fourFreq *= 0.7;
+    if (ctx.multiwayCount >= 3 || ctx.callersAhead >= 1) fourFreq *= 0.75;
+
+    if (r < fourFreq && isInFourBetRange(code, ctx)) return '4bet';
+
+    let callFreq = 0;
+    if (wCall >= 1 && (ctx.stackBB == null || ctx.stackBB >= 40)) {
+      callFreq = strict >= 0.99 ? 0.18 : VP.adjustCallProb(0.22, profile);
+      callFreq *= clamp(1 - icm * 0.7, 0.2, 1);
+    }
+    if (r < callFreq) return 'call';
+    return 'fold';
+  }
+
+  /**
+   * Squeeze vs multi-caller: más value, faroles más selectivos.
+   */
+  function squeezeAction(code, profile, rnd, ctx) {
+    ctx = ctx || {};
+    const r = rnd != null ? rnd : Math.random();
+    const data = D.SQUEEZE;
+    if (!data) return 'fold';
+    const wRaise = handWeight(bucketWeights({ raise: data.raise }), code);
+    const wCall = handWeight(bucketWeights({ call: data.call }), code);
+    const strict = strictness(profile);
+    const callers = ctx.callersAhead != null ? ctx.callersAhead
+      : (ctx.multiwayCount != null ? Math.max(0, ctx.multiwayCount - 2) : 1);
+    let raiseFreq = 0;
+    if (wRaise >= 1) raiseFreq = strict >= 0.99 ? 0.88 : VP.adjustThreeBetProb(0.82, profile);
+    else if (wRaise > 0) raiseFreq = strict >= 0.99 ? wRaise * 0.75 : VP.adjustThreeBetProb(wRaise * 0.65, profile);
+    if (callers >= 2) {
+      if (wRaise < 1) raiseFreq *= 0.55;
+      else raiseFreq = Math.min(1, raiseFreq * 1.05);
+    }
+    raiseFreq *= clamp(1 - tournamentFoldBias(ctx) * 0.4, 0.4, 1);
+    if (r < raiseFreq) return '3bet';
+    if (wCall >= 1 && r < (strict >= 0.99 ? 0.45 : 0.55)) return 'call';
+    if (wCall >= 0.42 && r < wCall * 0.35) return 'call';
+    return 'fold';
+  }
+
   global.GTOVillainPreflop = {
     defendVsOpen, openerVs3BetAction, villainVs4BetAction, villainVsAllInAction,
     limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
+    cold4BetAction, squeezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
@@ -17777,6 +18968,19 @@ window.PT_NASH_PUSH_JSON = {
       '</div>';
   }
 
+  function renderDrivers(drivers) {
+    if (!drivers || !drivers.length) return '';
+    var bits = drivers.slice(0, 3).map(function (d) {
+      var val = d.value != null ? ' ' + d.value : '';
+      var effect = d.effect ? ' → ' + d.effect : '';
+      return '<li><strong>' + escapeHtml(d.label || d.id) + '</strong>' +
+        escapeHtml(String(val)) + escapeHtml(effect) + '</li>';
+    }).join('');
+    return '<div class="live-advisor-drivers">' +
+      '<div class="live-advisor-rec-label">' + escapeHtml(t('advisor.whyPct')) + '</div>' +
+      '<ul class="live-advisor-drivers-list">' + bits + '</ul></div>';
+  }
+
   function renderPanel(host, hand, advice) {
     if (!host) return;
     if (!advice || !advice.recommended) {
@@ -17806,6 +19010,7 @@ window.PT_NASH_PUSH_JSON = {
       '<div class="muted-text">' + escapeHtml(t('advisor.gtoFreq', { n: freqPct })) +
       ' · EV ' + (rec.ev != null ? ((rec.ev >= 0 ? '+' : '') + fmtBB(rec.ev) + ' bb') : '—') + '</div>' +
       '</div>' +
+      renderDrivers(advice.drivers) +
       renderMath(rec.mathParams) +
       renderOptionEvList(advice.options, rec.actionId) +
       (rec.explanation ? '<p class="live-advisor-expl">' + escapeHtml(rec.explanation) + '</p>' : '') +
@@ -19224,6 +20429,11 @@ window.PT_NASH_PUSH_JSON = {
       polarization: isNuts || band === 'nuts' || band === 'air' ? 0.62 : 0.38,
       priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
       lineIntent: hand._villainLineIntent || null,
+      linePlan: hand._villainLinePlan || null,
+      multiwayCount: (hand.table && hand.table.inHand && hand.table.inHand.length)
+        || (hand.multiway ? ((hand._callersAtFlop || []).length + 2) : 2),
+      potType: hand.potType || (hand._threeBetPot ? '3bp' : (hand._fourBetPot ? '4bp' : 'srp')),
+      actionLine: hand.actionLine || null,
       proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
       heroProfile: heroProfile,
       heroSessionStats: heroStats,
@@ -20460,8 +21670,37 @@ window.PT_NASH_PUSH_JSON = {
     return h;
   }
 
-  /** Muestrea fold/call/raise. Nunca foldea las nuts absolutas. */
+  function refineVillainLeadStrategy(strat, ctx) {
+    const DC = global.GTODecisionContext;
+    if (DC && DC.refineLead) return DC.refineLead(strat, ctx);
+    let out = Object.assign({}, strat || {});
+    const FA = global.GTOVillainFormatAdjust;
+    const Ex = global.GTOVillainProExploit;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, 'lead');
+    if (Ex && Ex.applyToLeadFreqs) out = Ex.applyToLeadFreqs(out, ctx);
+    return out;
+  }
+
+  function refineVillainFacingStrategy(strat, ctx) {
+    const DC = global.GTODecisionContext;
+    if (DC && DC.refineFacing) return DC.refineFacing(strat, ctx);
+    let out = Object.assign({}, strat || {});
+    const FA = global.GTOVillainFormatAdjust;
+    const Ex = global.GTOVillainProExploit;
+    const LP = global.GTOVillainLinePolicy;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, ctx.lineIntent === 'checkRaise' ? 'xr' : 'facing');
+    if (Ex && Ex.applyToFacingFreqs) out = Ex.applyToFacingFreqs(out, ctx);
+    if (LP && LP.adjustFacing) out = LP.adjustFacing(out, ctx);
+    if (out._preferOverbetRaise) {
+      delete out._preferOverbetRaise;
+      return { freqs: out, preferOverbetRaise: true };
+    }
+    return { freqs: out, preferOverbetRaise: false };
+  }
+
   function sampleVillainFacingFromStrategy(strat, rnd, opts) {
+    const DC = global.GTODecisionContext;
+    if (DC && DC.sampleFacing) return DC.sampleFacing(strat, rnd, opts);
     opts = opts || {};
     let raiseP = strat.raise || 0;
     let callP = strat.call || 0;
@@ -20474,31 +21713,6 @@ window.PT_NASH_PUSH_JSON = {
     if (opts.canRaise !== false && rnd < raiseP) return 'raise';
     if (rnd < raiseP + callP) return 'call';
     return opts.neverFold ? 'call' : 'fold';
-  }
-
-  function refineVillainLeadStrategy(strat, ctx) {
-    let out = Object.assign({}, strat || {});
-    const FA = global.GTOVillainFormatAdjust;
-    const Ex = global.GTOVillainProExploit;
-    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, 'lead');
-    if (Ex && Ex.applyToLeadFreqs) out = Ex.applyToLeadFreqs(out, ctx);
-    return out;
-  }
-
-  function refineVillainFacingStrategy(strat, ctx) {
-    let out = Object.assign({}, strat || {});
-    const FA = global.GTOVillainFormatAdjust;
-    const Ex = global.GTOVillainProExploit;
-    const LP = global.GTOVillainLinePolicy;
-    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, ctx.lineIntent === 'checkRaise' ? 'xr' : 'facing');
-    if (Ex && Ex.applyToFacingFreqs) out = Ex.applyToFacingFreqs(out, ctx);
-    if (LP && LP.adjustFacing) out = LP.adjustFacing(out, ctx);
-    if (out._preferOverbetRaise) {
-      // flag for raise sizing; strip before sampling
-      delete out._preferOverbetRaise;
-      return { freqs: out, preferOverbetRaise: true };
-    }
-    return { freqs: out, preferOverbetRaise: false };
   }
 
   function villainPostflopAction(hand, node) {
@@ -22642,9 +23856,19 @@ window.PT_NASH_PUSH_JSON = {
       const spr = hand.potBB > 0 ? remV / hand.potBB : remV;
       const spotCtx = buildVillainSpotCtx(hand, { info: info, strength: strength, spr: spr, remainingBB: remV });
       const LP = global.GTOVillainLinePolicy;
+      if (LP && LP.createLinePlan && !hand._villainLinePlan) {
+        hand._villainLinePlan = LP.createLinePlan(spotCtx);
+      }
+      spotCtx.linePlan = hand._villainLinePlan || null;
       let line = { actionHint: 'auto', intent: null, forceCheck: false, preferSizeKey: null };
       if (LP && LP.decideLead) {
         line = LP.decideLead(spotCtx, rnd);
+      }
+      if (line.linePlanPatch && LP.updateLinePlan) {
+        hand._villainLinePlan = LP.updateLinePlan(hand._villainLinePlan || LP.createLinePlan(spotCtx), Object.assign({
+          street: hand.stage
+        }, line.linePlanPatch));
+        spotCtx.linePlan = hand._villainLinePlan;
       }
       if (line.forceCheck) {
         hand._villainLineIntent = line.intent || 'checkRaise';
@@ -23377,7 +24601,10 @@ window.PT_NASH_PUSH_JSON = {
         strategy: strategy,
         mathParams: mathParams
       },
-      options: optionEVs
+      options: optionEVs,
+      drivers: stratResult.topDrivers || stratResult.drivers || [],
+      conceptTags: stratResult.conceptTags || [],
+      bubbleFactor: stratResult.bubbleFactor != null ? stratResult.bubbleFactor : null
     };
   }
 
@@ -24301,9 +25528,9 @@ window.PT_NASH_PUSH_JSON = {
     { id: '4bet', label: '4-bet / cold 4-bet', scenario: '4bet', street: 'preflop', leakTypes: ['face4bet', 'cold4bet'], lessonId: 'C-26' },
     { id: 'iso', label: 'aislar limps (iso)', scenario: 'iso', street: 'preflop', leakTypes: ['sbLimp'], lessonId: 'C-11' },
     { id: 'bbvsb', label: 'BB contra limp del SB', scenario: 'bbvsb', street: 'preflop', leakTypes: ['bbVsSbLimp'], lessonId: 'C-12' },
-    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'R-05', 'D-01', 'Q-01', 'D-03'] },
-    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'R-07', 'O-01', 'E-01'] },
-    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'R-07', 'D-02', 'D-04'] }
+    { id: 'flop', label: 'flop: c-bets y defensa', scenario: 'random', street: 'flop', leakTypes: ['postflop'], streetFilter: 'flop', lessonId: 'C-15', lessonIds: ['C-15', 'C-21', 'C-22', 'C-24', 'R-05', 'D-01', 'Q-01', 'D-03'] },
+    { id: 'turn', label: 'turn: second barrel y pot control', scenario: 'random', street: 'turn', leakTypes: ['postflop'], streetFilter: 'turn', lessonId: 'C-18', lessonIds: ['C-18', 'C-25', 'C-23', 'R-07', 'O-01', 'E-01'] },
+    { id: 'river', label: 'river: value y bluffs', scenario: 'random', street: 'river', leakTypes: ['postflop'], streetFilter: 'river', lessonId: 'C-19', lessonIds: ['C-19', 'C-23', 'R-07', 'D-02', 'D-04'] }
   ];
 
   function cfg() {

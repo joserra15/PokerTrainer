@@ -52,6 +52,7 @@ const scripts = [
   'engine/villainFormatAdjust.js',
   'engine/villainProExploit.js',
   'engine/villainLinePolicy.js',
+  'engine/decisionContext.js',
   'engine/villainSizing.js',
   'engine/villainPreflop.js',
   'engine/stacks.js',

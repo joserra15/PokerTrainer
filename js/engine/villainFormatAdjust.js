@@ -151,15 +151,32 @@
         out.bluff = clamp(out.bluff * 0.88, 0.35, 1.2);
         out.fold = clamp(out.fold * 1.06, 1, 1.35);
       }
-      // PKO / mystery: suavizar overfold ICM (bounty); no hay solver de EV bounty.
+      // PKO / mystery: suavizar overfold ICM + bias call/shove por bounty lite.
       const tType = String(ctx.tournamentType || '').toLowerCase();
       if (tType === 'pko' || tType === 'mystery') {
         out.fold = clamp(out.fold * 0.88, 0.85, 1.25);
         out.jamBias = clamp(out.jamBias * 1.08, 1, 1.7);
+        out.bountyCall = 1.12;
         if (stackBB <= 20) {
           out.bet = clamp(out.bet * 1.06, 0.9, 1.4);
           out.raise = clamp(out.raise * 1.05, 0.85, 1.35);
+          out.jamBias = clamp(out.jamBias * 1.06, 1, 1.85);
         }
+      }
+      // Roles de mesa (short / cover / mid) cuando el contexto los aporta
+      const role = ctx.stackRole || '';
+      if (role === 'short') {
+        out.jamBias = clamp(out.jamBias * 1.12, 1, 1.9);
+        out.bet = clamp(out.bet * 1.06, 0.9, 1.5);
+        out.bluff = clamp(out.bluff * 0.9, 0.35, 1.2);
+      } else if (role === 'cover') {
+        out.bet = clamp(out.bet * 1.1, 0.9, 1.55);
+        out.cbet = clamp(out.cbet * 1.08, 0.9, 1.5);
+        out.fold = clamp(out.fold * 0.95, 0.8, 1.3);
+      } else if (role === 'mid' && (phase === 'bubble' || situ === 'bubble')) {
+        out.fold = clamp(out.fold * 1.1, 1, 1.4);
+        out.bluff = clamp(out.bluff * 0.85, 0.35, 1.1);
+        out.thinValue = clamp(out.thinValue * 0.85, 0.5, 1.1);
       }
     }
 
@@ -187,6 +204,11 @@
         const shift = (1 - m.thinValue) * 0.12 * (out.call || 0);
         out.call = Math.max(0, (out.call || 0) - shift);
         out.fold = (out.fold || 0) + shift;
+      }
+      // PKO bounty lite: más calls vs shoves/all-ins cortos
+      if (m.bountyCall && out.call != null && (ctx.spr != null && ctx.spr <= 4 || ctx.stackBB <= 20)) {
+        out.call = (out.call || 0) * m.bountyCall;
+        out.fold = (out.fold || 0) * (2 - m.bountyCall);
       }
       // Bluff-raises: si strength/band air, reducir raise
       if (ctx.band === 'air' || ctx.band === 'bluffcatch' || (ctx.strength != null && ctx.strength < 0.4)) {
