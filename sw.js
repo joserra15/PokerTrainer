@@ -1,7 +1,7 @@
 /* Service worker — PWA instalable. Assets con ?v=PT_REV(); version.js siempre fresco. */
 'use strict';
 
-var CACHE = 'pt-shell-v20';
+var CACHE = 'pt-shell-v21';
 var PRECACHE = [
   './offline.html',
   './apple-touch-icon.png',
@@ -9,6 +9,7 @@ var PRECACHE = [
   './icons/icon-192.png',
   './icons/logo-512.png',
   './icons/logo-header.png',
+  './icons/mttlab-logo-header.png',
   './site.webmanifest'
 ];
 
