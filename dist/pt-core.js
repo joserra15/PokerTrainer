@@ -9372,11 +9372,24 @@ window.PT_NASH_PUSH_JSON = {
     return true;
   }
 
-  /** Fold = 0 si la mano es la nuez absoluta (mezcla solo call/raise). */
+  /**
+   * Manos que nunca deben mezclar fold ante apuesta en river:
+   * - Nuts absolutas
+   * - Full house o mejor (aunque no sean la nuez: p. ej. TT full de K pierde
+   *   solo vs KK/TT en T-7-T-8-K; foldear vs pot es incoherente)
+   */
+  function isNeverFoldHand(heroCards, board) {
+    if (!heroCards || !board || board.length < 5 || !C || !C.evaluate) return false;
+    if (isAbsoluteNuts(heroCards, board)) return true;
+    const score = C.evaluate(heroCards.concat(board));
+    return !!(score && score.category >= 6);
+  }
+
+  /** Fold = 0 si la mano no debe foldear (nuts / full+). Mezcla solo call/raise. */
   function zeroFoldIfAbsoluteNuts(freqs, heroCards, board, _street) {
     if (!freqs) return freqs;
     if (!board || board.length < 5) return freqs;
-    if (!isAbsoluteNuts(heroCards, board)) return freqs;
+    if (!isNeverFoldHand(heroCards, board)) return freqs;
     const out = Object.assign({}, freqs);
     out.fold = 0;
     let sum = 0;
@@ -9482,15 +9495,18 @@ window.PT_NASH_PUSH_JSON = {
     if (dryTopTwo && eqEffective >= potOdds - 0.05) {
       const raiseW = clamp(0.18 + Math.max(0, eqEdge) * 0.2, 0.16, 0.28);
       return wrap({
-        fold: 0.02,
+        fold: 0,
         call: clamp(0.78 - raiseW * 0.35, 0.58, 0.78),
         raise: raiseW
       });
     }
 
+    // Full / set / escalera nut / top dos seco: no mezclar fold vs pot+ o shove.
+    // VillainStrategyAdjust puede inflar un fold residual y producir folds absurdos
+    // (p. ej. full casi-nuts foldea river vs pot en el motor Pro unificado).
     if (strongShowdown && eqEffective >= potOdds - 0.02) {
       return wrap({
-        fold: 0.04,
+        fold: 0,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
         raise: 0.06
       });
@@ -9541,7 +9557,9 @@ window.PT_NASH_PUSH_JSON = {
     isDryTopTwoValue,
     boardFlushPossible,
     isAbsoluteNuts,
+    isNeverFoldHand,
     zeroFoldIfAbsoluteNuts,
+    zeroFoldIfNeverFoldHand: zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
     isRiverShoveNode,
@@ -10057,7 +10075,8 @@ window.PT_NASH_PUSH_JSON = {
 
     if (action === 'bet' || action === 'raise') {
       if (ratio >= 0.85) {
-        if (out.fold != null) out.fold = clamp(out.fold * 1.08, 0, 0.85);
+        // No inflar fold si la estrategia base ya lo puso a 0 (nuts / full / showdown fuerte).
+        if (out.fold != null && out.fold > 0) out.fold = clamp(out.fold * 1.08, 0, 0.85);
         if (out.raise != null) out.raise *= 0.65;
         if (out.call != null) out.call *= 0.92;
       } else if (ratio >= 0.55) {
@@ -10070,12 +10089,12 @@ window.PT_NASH_PUSH_JSON = {
       }
 
       if (street === 'river' && ratio >= 0.65) {
-        if (out.fold != null) out.fold = clamp(out.fold + 0.04, 0, 0.9);
+        if (out.fold != null && out.fold > 0) out.fold = clamp(out.fold + 0.04, 0, 0.9);
         if (out.call != null) out.call = Math.max(0.02, (out.call || 0) - 0.03);
       }
 
       if (action === 'raise') {
-        if (out.fold != null) out.fold = clamp(out.fold * 1.12, 0, 0.88);
+        if (out.fold != null && out.fold > 0) out.fold = clamp(out.fold * 1.12, 0, 0.88);
         if (out.raise != null) out.raise *= 0.55;
       }
     }
@@ -15740,9 +15759,19 @@ window.PT_NASH_PUSH_JSON = {
         out.raise = (out.raise || 0) * 1.12;
       } else {
         out.raise = (out.raise || 0) * 0.85;
-        out.fold = (out.fold || 0) * 1.1;
+        if ((out.fold || 0) > 0) out.fold = (out.fold || 0) * 1.1;
       }
       out = normalize(out);
+    }
+    // Re-aplicar never-fold tras ICM / threshold (no reintroducir fold en full/nuts).
+    var RS = global.GTORiverShoveNode;
+    if (RS && RS.zeroFoldIfAbsoluteNuts && ctx.board && (ctx.heroCards || ctx.villainCards)) {
+      out = RS.zeroFoldIfAbsoluteNuts(
+        out,
+        ctx.heroCards || ctx.villainCards,
+        ctx.board,
+        ctx.street
+      );
     }
     return { freqs: out, preferOverbetRaise: preferOverbetRaise };
   }
@@ -20387,8 +20416,10 @@ window.PT_NASH_PUSH_JSON = {
     const Board = global.GTOBoardCluster;
     const texture = Board && Board.boardTexture ? Board.boardTexture(hand.board || []) : {};
     const RSNuts = global.GTORiverShoveNode;
-    const isNuts = !!(RSNuts && RSNuts.isAbsoluteNuts && hand.villain.cards
-      && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board));
+    const isNuts = !!(RSNuts && hand.villain.cards && hand.board && (
+      (RSNuts.isNeverFoldHand && RSNuts.isNeverFoldHand(hand.villain.cards, hand.board))
+      || (RSNuts.isAbsoluteNuts && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board))
+    ));
     // FormatAdjust / jamBias usan el stack restante del villano (no el de sesión).
     const stackForAdjust = (remV > 0) ? remV
       : (cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand));
@@ -20424,6 +20455,8 @@ window.PT_NASH_PUSH_JSON = {
       initiative: hand.heroIsAggressor ? 'caller' : 'aggressor',
       inPosition: !hand.heroInPosition,
       board: hand.board ? hand.board.slice() : [],
+      villainCards: hand.villain.cards ? hand.villain.cards.slice() : null,
+      heroCards: hand.villain.cards ? hand.villain.cards.slice() : null,
       texture: texture,
       isNuts: isNuts,
       polarization: isNuts || band === 'nuts' || band === 'air' ? 0.62 : 0.38,
@@ -21310,8 +21343,11 @@ window.PT_NASH_PUSH_JSON = {
       } catch (e) { /* ignore */ }
     }
     const RSNuts = global.GTORiverShoveNode;
-    const neverFold = !!(RSNuts && RSNuts.isAbsoluteNuts && hc && hand.board
-      && RSNuts.isAbsoluteNuts(hc, hand.board)) || guestNeverFoldVillain(hand);
+    const neverFoldHand = !!(RSNuts && hc && hand.board && hand.board.length >= 5 && (
+      (RSNuts.isNeverFoldHand && RSNuts.isNeverFoldHand(hc, hand.board))
+      || (RSNuts.isAbsoluteNuts && RSNuts.isAbsoluteNuts(hc, hand.board))
+    ));
+    const neverFold = neverFoldHand || guestNeverFoldVillain(hand);
     return {
       street: hand.stage,
       tier: info.tier,
@@ -21752,8 +21788,12 @@ window.PT_NASH_PUSH_JSON = {
         const refined = refineVillainFacingStrategy(strat, spotCtx);
         hand._villainPreferOverbetRaise = !!refined.preferOverbetRaise
           || (spotCtx.lineIntent === 'checkRaise' && hand.stage === 'river');
+        // Alinear con villainProfiles strict: dos parejas+ no foldea (el sample
+        // strategy del motor unificado perdía esta guarda y foldeaba fulls).
+        const neverFoldStrict = !!pfOpts.neverFold
+          || !!(info && info.ev && info.ev.category >= 2);
         const act = sampleVillainFacingFromStrategy(refined.freqs, rnd, {
-          neverFold: !!pfOpts.neverFold,
+          neverFold: neverFoldStrict,
           canRaise: villainToCall > 0
         });
         if (act !== 'raise') hand._villainLineIntent = null;

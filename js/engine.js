@@ -1061,8 +1061,10 @@
     const Board = global.GTOBoardCluster;
     const texture = Board && Board.boardTexture ? Board.boardTexture(hand.board || []) : {};
     const RSNuts = global.GTORiverShoveNode;
-    const isNuts = !!(RSNuts && RSNuts.isAbsoluteNuts && hand.villain.cards
-      && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board));
+    const isNuts = !!(RSNuts && hand.villain.cards && hand.board && (
+      (RSNuts.isNeverFoldHand && RSNuts.isNeverFoldHand(hand.villain.cards, hand.board))
+      || (RSNuts.isAbsoluteNuts && RSNuts.isAbsoluteNuts(hand.villain.cards, hand.board))
+    ));
     // FormatAdjust / jamBias usan el stack restante del villano (no el de sesión).
     const stackForAdjust = (remV > 0) ? remV
       : (cfg.stackBB != null ? cfg.stackBB : effStackForHand(hand));
@@ -1098,6 +1100,8 @@
       initiative: hand.heroIsAggressor ? 'caller' : 'aggressor',
       inPosition: !hand.heroInPosition,
       board: hand.board ? hand.board.slice() : [],
+      villainCards: hand.villain.cards ? hand.villain.cards.slice() : null,
+      heroCards: hand.villain.cards ? hand.villain.cards.slice() : null,
       texture: texture,
       isNuts: isNuts,
       polarization: isNuts || band === 'nuts' || band === 'air' ? 0.62 : 0.38,
@@ -1984,8 +1988,11 @@
       } catch (e) { /* ignore */ }
     }
     const RSNuts = global.GTORiverShoveNode;
-    const neverFold = !!(RSNuts && RSNuts.isAbsoluteNuts && hc && hand.board
-      && RSNuts.isAbsoluteNuts(hc, hand.board)) || guestNeverFoldVillain(hand);
+    const neverFoldHand = !!(RSNuts && hc && hand.board && hand.board.length >= 5 && (
+      (RSNuts.isNeverFoldHand && RSNuts.isNeverFoldHand(hc, hand.board))
+      || (RSNuts.isAbsoluteNuts && RSNuts.isAbsoluteNuts(hc, hand.board))
+    ));
+    const neverFold = neverFoldHand || guestNeverFoldVillain(hand);
     return {
       street: hand.stage,
       tier: info.tier,
@@ -2426,8 +2433,12 @@
         const refined = refineVillainFacingStrategy(strat, spotCtx);
         hand._villainPreferOverbetRaise = !!refined.preferOverbetRaise
           || (spotCtx.lineIntent === 'checkRaise' && hand.stage === 'river');
+        // Alinear con villainProfiles strict: dos parejas+ no foldea (el sample
+        // strategy del motor unificado perdía esta guarda y foldeaba fulls).
+        const neverFoldStrict = !!pfOpts.neverFold
+          || !!(info && info.ev && info.ev.category >= 2);
         const act = sampleVillainFacingFromStrategy(refined.freqs, rnd, {
-          neverFold: !!pfOpts.neverFold,
+          neverFold: neverFoldStrict,
           canRaise: villainToCall > 0
         });
         if (act !== 'raise') hand._villainLineIntent = null;

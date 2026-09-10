@@ -19,6 +19,7 @@ const Engine = sandbox.window.Engine;
 const PTPlayConfig = sandbox.window.PTPlayConfig;
 
 assert.ok(RS && RS.isAbsoluteNuts, 'isAbsoluteNuts');
+assert.ok(RS.isNeverFoldHand, 'isNeverFoldHand');
 assert.ok(GTO && GTO.Strategy && GTO.Strategy.postflopStrategy, 'postflopStrategy');
 assert.ok(Engine, 'Engine');
 
@@ -31,7 +32,9 @@ const heroScore = C.evaluate(HERO.concat(BOARD));
 assert.strictEqual(villainScore.category, 4, 'Villano debe tener escalera: ' + villainScore.name);
 assert.ok(C.compare(villainScore, heroScore) > 0, 'KhTh gana a QhTs');
 assert.strictEqual(RS.isAbsoluteNuts(VILLAIN, BOARD), true, 'KhTh es la nuez en A-Q-J-5-2');
+assert.strictEqual(RS.isNeverFoldHand(VILLAIN, BOARD), true, 'nuts absolutas ⇒ never-fold');
 assert.strictEqual(RS.isAbsoluteNuts(HERO, BOARD), false, 'QhTs (pareja) no es la nuez');
+assert.strictEqual(RS.isNeverFoldHand(HERO, BOARD), false, 'pareja no es never-fold');
 
 const BTS = sandbox.window.GTOBoardTextureShift;
 assert.ok(BTS.isNutStraight(VILLAIN, BOARD), 'KhTh es escalera nut');
