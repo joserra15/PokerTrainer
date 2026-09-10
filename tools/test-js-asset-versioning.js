@@ -54,7 +54,7 @@ assert(/version\.js\?t=/.test(index), 'index carga version.js con ?t=');
 
 const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 assert(/isVersionJs/.test(sw), 'SW trata version.js aparte');
-assert(/pt-shell-v20/.test(sw), 'SW cache v20');
+assert(/pt-shell-v21/.test(sw), 'SW cache v21');
 assert(/networkFirst\(req,\s*false,\s*false\)/.test(sw), 'version.js network-first no-store');
 
 const pwa = fs.readFileSync(path.join(root, 'js/pwa.js'), 'utf8');

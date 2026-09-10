@@ -8,8 +8,8 @@
   global.PT_COMMUNITY_CONFIGS.mttlab = {
     id: 'mttlab',
     siteName: 'MTT LAB',
-    logo: 'icons/mttlab-logo.jpg',
-    logoAuth: 'icons/mttlab-logo.jpg',
+    logo: 'icons/mttlab-logo-header.png',
+    logoAuth: 'icons/mttlab-logo-header.png',
     entryPath: '/mttlab/',
     requireMembership: true,
     landing: {

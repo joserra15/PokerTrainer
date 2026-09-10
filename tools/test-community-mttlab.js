@@ -17,8 +17,15 @@ assert.ok(fs.existsSync(path.join(root, 'js/community-config-pokerforge.js')), '
 assert.ok(fs.existsSync(path.join(root, 'js/school-data-mttlab.js')), 'school mttlab');
 assert.ok(fs.existsSync(path.join(root, 'js/manager-panel.js')), 'manager panel');
 assert.ok(fs.existsSync(path.join(root, 'mttlab/index.html')), 'entry /mttlab/');
-assert.ok(fs.existsSync(path.join(root, 'icons/mttlab-logo.jpg')) ||
-  fs.existsSync(path.join(root, 'icons/mttlab-logo.png')), 'logo mttlab');
+assert.ok(fs.existsSync(path.join(root, 'icons/mttlab-logo-header.png')), 'logo mttlab header');
+assert.ok(fs.existsSync(path.join(root, 'icons/mttlab-logo-source.jpg')), 'logo mttlab source');
+{
+  const headerStat = fs.statSync(path.join(root, 'icons/mttlab-logo-header.png'));
+  assert.ok(headerStat.size < 40 * 1024, 'logo mttlab header < 40KB (got ' + headerStat.size + ')');
+}
+assert.ok(/mttlab-logo-header\.png/.test(read('js/community-config-mttlab.js')),
+  'config mttlab usa header PNG');
+assert.ok(/mttlab-logo-header\.png/.test(read('sw.js')), 'SW precache logo mttlab');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/043_communities.sql')), 'migration 043');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/044_community_admin_ai_welcome.sql')), 'migration 044');
 
