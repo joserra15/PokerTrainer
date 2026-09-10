@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 /**
- * Genera JPG del sprint FOUNDER (carruseles B15–B21, extras, features F1–F10, FOUNDER).
+ * Genera JPG del sprint FOUNDER (extras, features F1–F10, FOUNDER).
  * Uso: node tools/instagram-sprint-founder-assets.js
+ *
+ * B15–B21 viven en estilo premium (texto grande, atmósfera poker) y NO se
+ * regeneran aquí por defecto. Para forzar el HTML plano: --force-html-edu
  */
 'use strict';
 
@@ -539,19 +542,24 @@ async function main() {
   const page = await browser.newPage();
   let n = 0;
 
-  for (const car of CAROUSELS) {
-    const total = car.slides.length;
-    for (let i = 0; i < total; i++) {
-      const slide = car.slides[i];
-      const label = `${i + 1}/${total}`;
-      const html = slideHtml(slide, label);
-      const eduPath = path.join(EDU, slide.file);
-      const copyPath = path.join(OUT_CAR, slide.file);
-      await shot(page, html, W_CAR, H_CAR, eduPath);
-      fs.copyFileSync(eduPath, copyPath);
-      n++;
-      process.stdout.write(`ok ${slide.file}\n`);
+  const forceHtmlEdu = process.argv.includes('--force-html-edu');
+  if (forceHtmlEdu) {
+    for (const car of CAROUSELS) {
+      const total = car.slides.length;
+      for (let i = 0; i < total; i++) {
+        const slide = car.slides[i];
+        const label = `${i + 1}/${total}`;
+        const html = slideHtml(slide, label);
+        const eduPath = path.join(EDU, slide.file);
+        const copyPath = path.join(OUT_CAR, slide.file);
+        await shot(page, html, W_CAR, H_CAR, eduPath);
+        fs.copyFileSync(eduPath, copyPath);
+        n++;
+        process.stdout.write(`ok ${slide.file}\n`);
+      }
     }
+  } else {
+    process.stdout.write('skip B15–B21 (premium assets; use --force-html-edu to overwrite)\n');
   }
 
   for (const car of EXTRA_CAROUSELS) {
