@@ -747,9 +747,13 @@
 
   function isNeverFoldNuts(cards, board) {
     var RS = global.GTORiverShoveNode;
-    if (RS && RS.isAbsoluteNuts) {
-      try { return !!RS.isAbsoluteNuts(toCodes(cards), toCodes(board || [])); } catch (e) { /* */ }
-    }
+    if (!RS) return false;
+    try {
+      var codes = toCodes(cards);
+      var boardCodes = toCodes(board || []);
+      if (RS.isNeverFoldHand) return !!RS.isNeverFoldHand(codes, boardCodes);
+      if (RS.isAbsoluteNuts) return !!RS.isAbsoluteNuts(codes, boardCodes);
+    } catch (e) { /* */ }
     return false;
   }
 
@@ -835,7 +839,7 @@
         refined.freqs = DC.normalize(refined.freqs);
       }
       var act = DC.sampleFacing(refined.freqs, rnd, {
-        neverFold: neverFold,
+        neverFold: neverFold || !!(madeInfo && madeInfo.ev && madeInfo.ev.category >= 2),
         canRaise: tc > 0
       });
       if (act !== 'raise') seat._lineIntent = null;

@@ -383,9 +383,19 @@
         out.raise = (out.raise || 0) * 1.12;
       } else {
         out.raise = (out.raise || 0) * 0.85;
-        out.fold = (out.fold || 0) * 1.1;
+        if ((out.fold || 0) > 0) out.fold = (out.fold || 0) * 1.1;
       }
       out = normalize(out);
+    }
+    // Re-aplicar never-fold tras ICM / threshold (no reintroducir fold en full/nuts).
+    var RS = global.GTORiverShoveNode;
+    if (RS && RS.zeroFoldIfAbsoluteNuts && ctx.board && (ctx.heroCards || ctx.villainCards)) {
+      out = RS.zeroFoldIfAbsoluteNuts(
+        out,
+        ctx.heroCards || ctx.villainCards,
+        ctx.board,
+        ctx.street
+      );
     }
     return { freqs: out, preferOverbetRaise: preferOverbetRaise };
   }

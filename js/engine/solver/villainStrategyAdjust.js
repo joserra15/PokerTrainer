@@ -45,7 +45,8 @@
 
     if (action === 'bet' || action === 'raise') {
       if (ratio >= 0.85) {
-        if (out.fold != null) out.fold = clamp(out.fold * 1.08, 0, 0.85);
+        // No inflar fold si la estrategia base ya lo puso a 0 (nuts / full / showdown fuerte).
+        if (out.fold != null && out.fold > 0) out.fold = clamp(out.fold * 1.08, 0, 0.85);
         if (out.raise != null) out.raise *= 0.65;
         if (out.call != null) out.call *= 0.92;
       } else if (ratio >= 0.55) {
@@ -58,12 +59,12 @@
       }
 
       if (street === 'river' && ratio >= 0.65) {
-        if (out.fold != null) out.fold = clamp(out.fold + 0.04, 0, 0.9);
+        if (out.fold != null && out.fold > 0) out.fold = clamp(out.fold + 0.04, 0, 0.9);
         if (out.call != null) out.call = Math.max(0.02, (out.call || 0) - 0.03);
       }
 
       if (action === 'raise') {
-        if (out.fold != null) out.fold = clamp(out.fold * 1.12, 0, 0.88);
+        if (out.fold != null && out.fold > 0) out.fold = clamp(out.fold * 1.12, 0, 0.88);
         if (out.raise != null) out.raise *= 0.55;
       }
     }

@@ -172,11 +172,24 @@
     return true;
   }
 
-  /** Fold = 0 si la mano es la nuez absoluta (mezcla solo call/raise). */
+  /**
+   * Manos que nunca deben mezclar fold ante apuesta en river:
+   * - Nuts absolutas
+   * - Full house o mejor (aunque no sean la nuez: p. ej. TT full de K pierde
+   *   solo vs KK/TT en T-7-T-8-K; foldear vs pot es incoherente)
+   */
+  function isNeverFoldHand(heroCards, board) {
+    if (!heroCards || !board || board.length < 5 || !C || !C.evaluate) return false;
+    if (isAbsoluteNuts(heroCards, board)) return true;
+    const score = C.evaluate(heroCards.concat(board));
+    return !!(score && score.category >= 6);
+  }
+
+  /** Fold = 0 si la mano no debe foldear (nuts / full+). Mezcla solo call/raise. */
   function zeroFoldIfAbsoluteNuts(freqs, heroCards, board, _street) {
     if (!freqs) return freqs;
     if (!board || board.length < 5) return freqs;
-    if (!isAbsoluteNuts(heroCards, board)) return freqs;
+    if (!isNeverFoldHand(heroCards, board)) return freqs;
     const out = Object.assign({}, freqs);
     out.fold = 0;
     let sum = 0;
@@ -282,15 +295,18 @@
     if (dryTopTwo && eqEffective >= potOdds - 0.05) {
       const raiseW = clamp(0.18 + Math.max(0, eqEdge) * 0.2, 0.16, 0.28);
       return wrap({
-        fold: 0.02,
+        fold: 0,
         call: clamp(0.78 - raiseW * 0.35, 0.58, 0.78),
         raise: raiseW
       });
     }
 
+    // Full / set / escalera nut / top dos seco: no mezclar fold vs pot+ o shove.
+    // VillainStrategyAdjust puede inflar un fold residual y producir folds absurdos
+    // (p. ej. full casi-nuts foldea river vs pot en el motor Pro unificado).
     if (strongShowdown && eqEffective >= potOdds - 0.02) {
       return wrap({
-        fold: 0.04,
+        fold: 0,
         call: clamp(0.82 + eqEdge * 0.15, 0.72, 0.92),
         raise: 0.06
       });
@@ -341,7 +357,9 @@
     isDryTopTwoValue,
     boardFlushPossible,
     isAbsoluteNuts,
+    isNeverFoldHand,
     zeroFoldIfAbsoluteNuts,
+    zeroFoldIfNeverFoldHand: zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
     isRiverShoveNode,
