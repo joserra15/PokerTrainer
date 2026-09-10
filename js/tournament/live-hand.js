@@ -1001,12 +1001,115 @@
     return runToHeroOrEnd(hand);
   }
 
-  function simulateTable(tableSeats, blinds) {
+  /**
+   * Copia contexto MTT/SNG/HU al hand (bubble, playersLeft, avg stack, etc.).
+   * Usado por la mesa hero y por mesas satélite en simulación.
+   */
+  function attachTourneyContext(hand, state) {
+    if (!hand || !state) return hand;
+    try {
+      var St = global.PTTournamentState;
+      var cfg = state.config || {};
+      var kind = cfg.kind || 'mtt';
+      var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      var left = St && St.playersLeft ? St.playersLeft(state)
+        : (state.players || []).filter(function (p) { return p && p.alive; }).length;
+      var paid = Number(cfg.placesPaid) || 0;
+      var bb = Number(hand.bb) || 1;
+      var ante = Number(hand.ante) || 0;
+      var anteBB = bb > 0 ? ante / bb : 0;
+      var seatedN = (hand.seats && hand.seats.length) || 0;
+      var tourneyType = cfg.tournamentType || 'unknown';
+      var avgStackBB = null;
+      var alive = (state.players || []).filter(function (p) { return p && p.alive && p.stack > 0; });
+      if (alive.length && bb > 0) {
+        var sum = 0;
+        alive.forEach(function (p) { sum += Number(p.stack) || 0; });
+        avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
+      }
+      var mttPhase = 'auto';
+      var mttStructureSituation = null;
+      var Tax = global.PTFormatTaxonomy;
+      var TC = global.PTTournamentContext;
+      if (avgStackBB != null) {
+        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
+        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
+      }
+      if (hub === 'mtt' && paid > 0 && left > 0) {
+        if (left === paid + 1) {
+          mttPhase = 'bubble';
+          mttStructureSituation = 'bubble';
+        } else if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney({
+          formatHub: hub, playersLeft: left, placesPaid: paid
+        })) {
+          if (mttPhase === 'auto' || mttPhase === 'early' || mttPhase === 'mid') {
+            mttStructureSituation = left <= paid ? 'mincash' : 'bubble';
+          }
+        }
+      }
+      hand.kind = kind;
+      hand.formatHub = hub;
+      hand.isTournament = true;
+      hand.tournamentType = tourneyType;
+      hand.playersSeated = seatedN;
+      hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
+      hand.mttPhase = mttPhase;
+      hand.anteBB = anteBB;
+      hand.avgStackBB = avgStackBB;
+      hand.playersLeft = left;
+      hand.placesPaid = paid;
+      hand.entries = cfg.entries != null ? cfg.entries : null;
+      hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
+      hand.mttStructureSituation = mttStructureSituation;
+      hand.tournamentConfig = cfg;
+      hand.aiLevel = cfg.aiLevel || 'elite';
+      var heroStatsPayload = null;
+      try {
+        var stStats = state.stats || {};
+        var hp = Number(stStats.handsPlayed) || 0;
+        var vpipH = Number(stStats.vpipHands) || 0;
+        var pfrH = Number(stStats.pfrHands) || 0;
+        heroStatsPayload = {
+          handsPlayed: hp,
+          hands: hp,
+          vpipHands: vpipH,
+          pfrHands: pfrH,
+          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
+          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
+        };
+      } catch (eStats) { heroStatsPayload = null; }
+      hand.heroSessionStats = heroStatsPayload;
+      hand.state = {
+        formatHub: hub,
+        kind: kind,
+        tournamentType: tourneyType,
+        playersLeft: left,
+        placesPaid: paid,
+        playersSeated: seatedN,
+        tableMax: hand.tableMax,
+        mttPhase: mttPhase,
+        mttStructureSituation: mttStructureSituation,
+        avgStackBB: avgStackBB,
+        anteBB: anteBB,
+        entries: hand.entries,
+        buyIn: hand.buyIn,
+        aiLevel: hand.aiLevel,
+        heroStats: heroStatsPayload,
+        heroSessionStats: heroStatsPayload
+      };
+    } catch (eMeta) { /* */ }
+    return hand;
+  }
+
+  function simulateTable(tableSeats, blinds, state) {
     var hand = createHand(tableSeats, blinds, null);
     hand.seats.forEach(function (s) { s.isHero = false; });
     hand.heroId = null;
     hand._noFrames = true;
     hand.decisions = [];
+    if (state) attachTourneyContext(hand, state);
     pushFrame(hand, { kind: 'deal' });
     runToHeroOrEnd(hand);
     hand._frames = [];
@@ -1022,6 +1125,7 @@
     runToHeroOrEnd: runToHeroOrEnd,
     heroAct: heroAct,
     simulateTable: simulateTable,
+    attachTourneyContext: attachTourneyContext,
     strength01: strength01,
     allDealtCards: allDealtCards,
     hasDuplicateCards: hasDuplicateCards,

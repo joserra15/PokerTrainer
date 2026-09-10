@@ -21,9 +21,11 @@
     { level: 10, sb: 500, bb: 1000, ante: 100 }
   ];
 
-  /** Mesas cortas/medias (≤6): 8 manos/nivel. Mesas largas (9-max): 15. */
+  /** Mesas HU: 6 manos/nivel. Cortas/medias (≤6): 8. Largas (9-max): 15. */
   function handsPerLevelForSeats(seats) {
-    return Number(seats) >= 9 ? 15 : 8;
+    var n = Number(seats) || 6;
+    if (n <= 2) return 6;
+    return n >= 9 ? 15 : 8;
   }
 
   function defaultScheduleForSeats(seats) {
@@ -113,16 +115,20 @@
    */
   var PRESET_MIN_PLAN = {
     spinEasy: 'free',
+    huEasy: 'free',
     easy: 'pro',
     medium: 'pro',
     sng6: 'pro',
     sng9: 'pro',
     spinMedium: 'pro',
+    huMedium: 'pro',
+    huHard: 'pro',
     hard: 'premium',
     mttPro: 'premium',
     sngPro: 'premium',
     spinHard: 'premium',
-    spinPro: 'premium'
+    spinPro: 'premium',
+    huPro: 'premium'
   };
 
   var PRESETS = {
@@ -301,21 +307,99 @@
       roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
       exploitProPct: 1,
       onBust: 'simulate'
+    },
+    huEasy: {
+      id: 'huEasy',
+      name: 'Fácil · Heads-Up',
+      kind: 'hu',
+      minPlan: 'free',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 5,
+      startingStack: 1500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 25, tag: 40, lag: 20, maniac: 0, pro: 15 },
+      exploitProPct: 0,
+      aiLevel: 'solid',
+      onBust: 'simulate'
+    },
+    huMedium: {
+      id: 'huMedium',
+      name: 'Medio · Heads-Up',
+      kind: 'hu',
+      minPlan: 'pro',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 11,
+      startingStack: 2000,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 10, tag: 25, lag: 25, maniac: 5, pro: 35 },
+      exploitProPct: 0.28,
+      aiLevel: 'strong',
+      onBust: 'simulate'
+    },
+    huHard: {
+      id: 'huHard',
+      name: 'Difícil · Heads-Up',
+      kind: 'hu',
+      minPlan: 'pro',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 22,
+      startingStack: 2500,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 5, tag: 15, lag: 15, maniac: 5, pro: 60 },
+      exploitProPct: 0.6,
+      aiLevel: 'elite',
+      onBust: 'simulate'
+    },
+    huPro: {
+      id: 'huPro',
+      name: 'Pro · Heads-Up',
+      kind: 'hu',
+      minPlan: 'premium',
+      entries: 2,
+      seatsPerTable: 2,
+      buyInEur: 44,
+      startingStack: 3000,
+      placesPaid: 1,
+      payoutLadder: 'topheavy',
+      blindSchedule: DEFAULT_SCHEDULE,
+      roleWeights: { fish: 0, nit: 0, tag: 0, lag: 0, maniac: 0, pro: 100 },
+      exploitProPct: 1,
+      aiLevel: 'exploit_pro',
+      onBust: 'simulate'
     }
   };
 
+  function normalizeAiLevel(v) {
+    if (v === 'solid' || v === 'strong' || v === 'elite' || v === 'exploit_pro') return v;
+    return 'elite';
+  }
+
   function normalize(raw) {
     raw = raw || {};
-    var kind = raw.kind === 'sng' ? 'sng' : (raw.kind === 'spin' ? 'spin' : 'mtt');
+    var kind = raw.kind === 'sng' ? 'sng'
+      : (raw.kind === 'spin' ? 'spin'
+        : (raw.kind === 'hu' ? 'hu' : 'mtt'));
     var seatsRaw = Number(raw.seatsPerTable);
-    var seats = seatsRaw === 9 ? 9 : (seatsRaw === 3 || kind === 'spin' ? 3 : 6);
+    var seats = seatsRaw === 9 ? 9
+      : (seatsRaw === 2 || kind === 'hu' ? 2
+        : (seatsRaw === 3 || kind === 'spin' ? 3 : 6));
     if (kind === 'spin') seats = 3;
+    if (kind === 'hu') seats = 2;
     var entries = clamp(raw.entries != null ? raw.entries : seats, seats, MAX_ENTRIES);
-    if (kind === 'sng' || kind === 'spin') entries = seats;
-    var placesPaidDefault = kind === 'spin' ? 1 : Math.max(1, Math.floor(entries / 5));
+    if (kind === 'sng' || kind === 'spin' || kind === 'hu') entries = seats;
+    var placesPaidDefault = (kind === 'spin' || kind === 'hu') ? 1 : Math.max(1, Math.floor(entries / 5));
     var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
-    if (kind === 'spin' && entries <= 2) placesPaid = 1;
-    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15. */
+    if ((kind === 'spin' || kind === 'hu') && entries <= 2) placesPaid = 1;
+    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15; HU a 6. */
     var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
       ? normalizeSchedule(raw.blindSchedule, seats)
       : defaultScheduleForSeats(seats);
@@ -347,6 +431,7 @@
       blindSchedule: blindSchedule,
       roleWeights: normalizeWeights(raw.roleWeights),
       exploitProPct: clamp(raw.exploitProPct != null ? raw.exploitProPct : 0, 0, 1),
+      aiLevel: normalizeAiLevel(raw.aiLevel),
       onBust: normalizeOnBust(raw.onBust)
     };
   }
@@ -374,7 +459,8 @@
     return [
       'easy', 'medium', 'hard', 'mttPro',
       'sng6', 'sng9', 'sngPro',
-      'spinEasy', 'spinMedium', 'spinHard', 'spinPro'
+      'spinEasy', 'spinMedium', 'spinHard', 'spinPro',
+      'huEasy', 'huMedium', 'huHard', 'huPro'
     ].map(function (id) {
       return normalize(clone(PRESETS[id]));
     });

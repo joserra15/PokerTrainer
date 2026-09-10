@@ -61,17 +61,36 @@
   function ensureLiveHand(state) {
     if (!state || state.status !== 'running') return null;
     var Live = global.PTTournamentLiveHand;
+    var Other = global.PTTournamentOtherTables;
     var hand = state._liveHand;
 
-    if (hand && hand.stage === 'complete' && hand.result) return hand;
+    function ensureSatJob() {
+      try {
+        if (Other && Other.scheduleRound && !(state._satPending && !state._satPending.cancelled)) {
+          Other.scheduleRound(state);
+        }
+      } catch (eSched) { /* */ }
+    }
+
+    if (hand && hand.stage === 'complete' && hand.result) {
+      ensureSatJob();
+      return hand;
+    }
 
     if (hand && hand.stage === 'playing' && isPlayableLiveHand(hand) && Live) {
       if (!hand.awaitingHero) {
         try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
         hand = state._liveHand;
-        if (hand && hand.stage === 'complete') return hand;
-        if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) return hand;
+        if (hand && hand.stage === 'complete') {
+          ensureSatJob();
+          return hand;
+        }
+        if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
+          ensureSatJob();
+          return hand;
+        }
       } else if (hand.heroOptions && hand.heroOptions.length) {
+        ensureSatJob();
         return hand;
       }
     }
@@ -106,98 +125,14 @@
     state.blindLevel = blinds.level || state.blindLevel;
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
-    try {
-      var cfg = state.config || {};
-      var kind = cfg.kind || 'mtt';
-      var hub = (kind === 'spin') ? 'spin' : 'mtt';
-      var left = St.playersLeft(state);
-      var paid = Number(cfg.placesPaid) || 0;
-      var bb = Number(blinds && blinds.bb) || Number(hand.bb) || 1;
-      var ante = Number(blinds && blinds.ante) || Number(hand.ante) || 0;
-      var anteBB = bb > 0 ? ante / bb : 0;
-      var seatedN = (hand.seats && hand.seats.length) || ordered.length;
-      var tourneyType = cfg.tournamentType || 'unknown';
-      var avgStackBB = null;
-      var alive = (state.players || []).filter(function (p) { return p && p.alive && p.stack > 0; });
-      if (alive.length && bb > 0) {
-        var sum = 0;
-        alive.forEach(function (p) { sum += Number(p.stack) || 0; });
-        avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
-      }
-      var mttPhase = 'auto';
-      var mttStructureSituation = null;
-      var Tax = global.PTFormatTaxonomy;
-      var TC = global.PTTournamentContext;
-      if (avgStackBB != null) {
-        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
-        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
-      }
-      // Burbuja / cerca de ITM: el campo manda sobre la fase por stack medio.
-      if (hub === 'mtt' && paid > 0 && left > 0) {
-        if (left === paid + 1) {
-          mttPhase = 'bubble';
-          mttStructureSituation = 'bubble';
-        } else if (Tax && Tax.mttStructureNearMoney && Tax.mttStructureNearMoney({
-          formatHub: hub, playersLeft: left, placesPaid: paid
-        })) {
-          if (mttPhase === 'auto' || mttPhase === 'early' || mttPhase === 'mid') {
-            mttStructureSituation = left <= paid ? 'mincash' : 'bubble';
-          }
-        }
-      }
-      hand.kind = kind;
-      hand.formatHub = hub;
-      hand.isTournament = true;
-      hand.tournamentType = tourneyType;
-      hand.playersSeated = seatedN;
-      hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
-      hand.mttPhase = mttPhase;
-      hand.anteBB = anteBB;
-      hand.avgStackBB = avgStackBB;
-      hand.playersLeft = left;
-      hand.placesPaid = paid;
-      hand.entries = cfg.entries != null ? cfg.entries : null;
-      hand.buyIn = cfg.buyInEur != null ? cfg.buyInEur : (cfg.buyIn != null ? cfg.buyIn : null);
-      hand.mttStructureSituation = mttStructureSituation;
-      hand.tournamentConfig = cfg;
-      var heroStatsPayload = null;
-      try {
-        var stStats = state.stats || {};
-        var hp = Number(stStats.handsPlayed) || 0;
-        var vpipH = Number(stStats.vpipHands) || 0;
-        var pfrH = Number(stStats.pfrHands) || 0;
-        heroStatsPayload = {
-          handsPlayed: hp,
-          hands: hp,
-          vpipHands: vpipH,
-          pfrHands: pfrH,
-          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
-          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
-        };
-      } catch (eStats) { heroStatsPayload = null; }
-      hand.heroSessionStats = heroStatsPayload;
-      hand.state = {
-        formatHub: hub,
-        kind: kind,
-        tournamentType: tourneyType,
-        playersLeft: left,
-        placesPaid: paid,
-        playersSeated: seatedN,
-        tableMax: hand.tableMax,
-        mttPhase: mttPhase,
-        mttStructureSituation: mttStructureSituation,
-        avgStackBB: avgStackBB,
-        anteBB: anteBB,
-        entries: hand.entries,
-        buyIn: hand.buyIn,
-        heroStats: heroStatsPayload,
-        heroSessionStats: heroStatsPayload
-      };
-    } catch (eMeta) { /* */ }
+    if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
     Live.runToHeroOrEnd(hand);
     state._liveHand = hand;
+    /* Simulación satélite en background mientras el hero juega / lee el resumen. */
+    try {
+      var Other = global.PTTournamentOtherTables;
+      if (Other && Other.scheduleRound) Other.scheduleRound(state);
+    } catch (eSched) { /* */ }
     return hand;
   }
 
@@ -270,7 +205,8 @@
     syncBlindLevel(state);
 
     var blinds = blindsFor(state);
-    if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
+    if (Other && Other.commitPending) Other.commitPending(state, blinds);
+    else if (Other && Other.simulateRound) Other.simulateRound(state, blinds);
 
     Seat.rebalance(state);
     try {
@@ -601,6 +537,22 @@
     for (var i = 0; i < alive.length; i++) {
       acc += weights[i];
       if (roll <= acc) { pick = alive[i]; break; }
+    }
+    /* Conservar fichas: transferir el stack del eliminado a un vivo (chip leader). */
+    var chipAmt = Math.max(0, Number(pick.stack) || 0);
+    if (chipAmt > 0) {
+      var recipients = Seat.alivePlayers(state).filter(function (p) {
+        return p && p.id !== pick.id;
+      });
+      if (recipients.length) {
+        var leader = recipients[0];
+        for (var r = 1; r < recipients.length; r++) {
+          if ((Number(recipients[r].stack) || 0) > (Number(leader.stack) || 0)) {
+            leader = recipients[r];
+          }
+        }
+        leader.stack = r2((Number(leader.stack) || 0) + chipAmt);
+      }
     }
     Seat.bustPlayer(state, pick.id);
     return pick;
