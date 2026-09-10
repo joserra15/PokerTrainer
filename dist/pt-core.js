@@ -13943,18 +13943,12 @@ window.PT_NASH_PUSH_JSON = {
     opts = opts || {};
     const street = opts.street || 'flop';
     const tier = opts.tier || 'medium';
-    const madeCat = opts.madeCategory != null ? opts.madeCategory : 0;
     const r = rnd != null ? rnd : Math.random();
     const strict = profile.preflopStrict != null && profile.preflopStrict >= 0.99;
     const mwFace = multiwayFacingScale(opts, profile);
 
     if (opts.neverFold) {
       if (r < 0.18) return 'raise';
-      return 'call';
-    }
-
-    if (strict && madeCat >= 2) {
-      if (r < 0.14) return 'raise';
       return 'call';
     }
 
@@ -21315,10 +21309,43 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   // ---------- Villano postflop ----------
-  function villainEquity01(hand) {
+  /**
+   * Equity del villano vs rango del héroe.
+   * Si afronta bet/raise, estrecha el rango (mismo narrowing que el héroe) y
+   * activa polarización MC — no usar BROAD_CONTINUE vs pot river.
+   */
+  function villainEquity01(hand, facingOpts) {
     if (!hand.villain.cards || !hand.board.length) return null;
-    const range = hand.villain.rangeStr || GTO.Ranges.data.BROAD_CONTINUE;
-    return equityVsRange(hand.villain.cards, hand.board, range, 180, { street: hand.stage });
+    facingOpts = facingOpts || {};
+    const toCallBB = Math.max(0, facingOpts.toCallBB || 0);
+    const potBeforeBB = facingOpts.potBeforeBB != null
+      ? facingOpts.potBeforeBB
+      : Math.max((hand.potBB || 1) - toCallBB, 0.1);
+    const street = hand.stage || 'flop';
+    const D = GTO.Ranges && GTO.Ranges.data ? GTO.Ranges.data : (global.GTORangesData || {});
+    const baseRange = hand.villain.rangeStr || D.BROAD_CONTINUE || '22+, A2s+';
+    let range = baseRange;
+    const facing = toCallBB > 0;
+    if (facing && VT && VT.estimateActiveRange) {
+      range = VT.estimateActiveRange({
+        baseRange: baseRange,
+        street: street,
+        lastAction: facingOpts.lastAction || 'bet',
+        betBB: toCallBB,
+        potBeforeBB: potBeforeBB,
+        board: hand.board,
+        tags: []
+      });
+    } else if (facing && street === 'river' && D.RANGE_FACING_RIVER_SHOVE) {
+      range = D.RANGE_FACING_RIVER_SHOVE;
+    }
+    return equityVsRange(hand.villain.cards, hand.board, range, 180, {
+      street: street,
+      facingBet: facing,
+      betBB: toCallBB,
+      potBeforeBB: potBeforeBB,
+      villainLastAction: facingOpts.lastAction || (facing ? 'bet' : null)
+    });
   }
 
   function villainPostflopStrength(info, eq) {
@@ -21326,10 +21353,12 @@ window.PT_NASH_PUSH_JSON = {
     let s = eq != null ? eq : (floors[info.tier] || 0.3);
     if (info && info.ev) {
       const cat = info.ev.category;
+      // Suelos solo para manos fuertes de showdown; dos pares usan equity MC
+      // (antes ≥0.84 hinchaba bottom two y bloqueaba folds vs overbet).
       if (cat >= 4) s = Math.max(s, 0.88);
-      else if (cat >= 3) s = Math.max(s, 0.86);
-      else if (cat >= 2) s = Math.max(s, 0.84);
-      else if (cat === 1 && info.tier === 'strong') s = Math.max(s, 0.76);
+      else if (cat >= 3) s = Math.max(s, 0.82);
+      else if (cat >= 2) s = Math.max(s, 0.58);
+      else if (cat === 1 && info.tier === 'strong') s = Math.max(s, 0.72);
     }
     return s;
   }
@@ -21756,15 +21785,22 @@ window.PT_NASH_PUSH_JSON = {
     if (forced) return forced;
     const profile = profileFor(hand, hand.villain.pos);
     const info = classifyMadeHand(hand.villain.cards, hand.board);
-    const eq = villainEquity01(hand);
+    const facingBet = node.heroLastAction === 'bet' || node.heroLastAction === 'raise';
+    const villainToCall = facingBet && hand.table && hand.table.streetBet && hand.hero.pos
+      ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
+    const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
+    const eq = villainEquity01(hand, facingBet && villainToCall > 0
+      ? {
+        toCallBB: villainToCall,
+        potBeforeBB: potBefore,
+        lastAction: node.heroLastAction || 'bet'
+      }
+      : null);
     const strength = villainPostflopStrength(info, eq);
     const rnd = C.rng.random();
     const pfOpts = villainPostflopOpts(hand, info, hand.villain.cards);
 
     if (profile.preflopStrict >= 0.99 && hand.villain.cards && GTO && GTO.Strategy) {
-      const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
-        ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
-      const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
       const remV = ST() && hand.stacks
         ? ST().remaining(hand, villainTableSeat(hand) || hand.villain.pos)
         : EFF;
@@ -21784,16 +21820,13 @@ window.PT_NASH_PUSH_JSON = {
         street: hand.stage,
         villainLastAction: node.heroLastAction || (hand.heroAction && hand.heroAction.type) || null
       });
-      if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
+      if (facingBet) {
         const refined = refineVillainFacingStrategy(strat, spotCtx);
         hand._villainPreferOverbetRaise = !!refined.preferOverbetRaise
           || (spotCtx.lineIntent === 'checkRaise' && hand.stage === 'river');
-        // Alinear con villainProfiles strict: dos parejas+ no foldea (el sample
-        // strategy del motor unificado perdía esta guarda y foldeaba fulls).
-        const neverFoldStrict = !!pfOpts.neverFold
-          || !!(info && info.ev && info.ev.category >= 2);
+        // Never-fold solo graves (nuts / full+ / guest); el fold sale de equity+freqs.
         const act = sampleVillainFacingFromStrategy(refined.freqs, rnd, {
-          neverFold: neverFoldStrict,
+          neverFold: !!pfOpts.neverFold,
           canRaise: villainToCall > 0
         });
         if (act !== 'raise') hand._villainLineIntent = null;
@@ -21817,11 +21850,8 @@ window.PT_NASH_PUSH_JSON = {
       return rnd < betP ? 'bet' : 'check';
     }
 
-    if (node.heroLastAction === 'bet' || node.heroLastAction === 'raise') {
-      const villainToCall = (hand.table && hand.table.streetBet && hand.hero.pos)
-        ? (hand.table.streetBet[hand.hero.pos] || 0) : 0;
-      const potBefore = Math.max(hand.potBB - villainToCall, 0.1);
-      const potOdds = villainToCall > 0 ? villainToCall / (potBefore + villainToCall) : 0.33;
+    if (facingBet) {
+      const potOdds = villainToCall > 0 ? villainToCall / (potBefore + 2 * villainToCall) : 0.33;
       if (pfOpts.neverFold) return rnd < 0.18 ? 'raise' : 'call';
       if (VP) return VP.postflopFacingBet(strength, potOdds, profile, rnd, pfOpts);
       if (strength > 0.72) return rnd < 0.22 ? 'raise' : 'call';

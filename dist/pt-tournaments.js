@@ -2511,12 +2511,35 @@
     try {
       if (global.GTOEquity && global.GTOEquity.equityVsRange && seat.cards) {
         var D = global.GTORangesData;
+        var baseRange = (D && D.BROAD_CONTINUE) || '22+,A2s+,K9s+,Q9s+,J9s+,T8s+,ATo+,KTo+,QJo';
+        var range = baseRange;
+        var VT = global.GTOVillainTracking;
+        var streetEq = hand.street || 'flop';
+        if (tcBB > 0 && VT && VT.estimateActiveRange) {
+          range = VT.estimateActiveRange({
+            baseRange: baseRange,
+            street: streetEq,
+            lastAction: ctx.villainLastAction || 'bet',
+            betBB: tcBB,
+            potBeforeBB: potBeforeBB,
+            board: toCodes(hand.board || []),
+            tags: []
+          });
+        } else if (tcBB > 0 && streetEq === 'river' && D && D.RANGE_FACING_RIVER_SHOVE) {
+          range = D.RANGE_FACING_RIVER_SHOVE;
+        }
         eq = global.GTOEquity.equityVsRange(
           toCodes(seat.cards),
           toCodes(hand.board || []),
-          (D && D.BROAD_CONTINUE) || '22+,A2s+,K9s+,Q9s+,J9s+,T8s+,ATo+,KTo+,QJo',
+          range,
           280,
-          { street: hand.street || 'flop' }
+          {
+            street: streetEq,
+            facingBet: tcBB > 0,
+            betBB: tcBB,
+            potBeforeBB: potBeforeBB,
+            villainLastAction: ctx.villainLastAction || (tcBB > 0 ? 'bet' : null)
+          }
         );
       }
     } catch (eEq) { eq = strength; }
@@ -2546,7 +2569,7 @@
         refined.freqs = DC.normalize(refined.freqs);
       }
       var act = DC.sampleFacing(refined.freqs, rnd, {
-        neverFold: neverFold || !!(madeInfo && madeInfo.ev && madeInfo.ev.category >= 2),
+        neverFold: neverFold,
         canRaise: tc > 0
       });
       if (act !== 'raise') seat._lineIntent = null;
