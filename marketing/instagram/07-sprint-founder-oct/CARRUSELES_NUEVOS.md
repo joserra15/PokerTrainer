@@ -3,6 +3,8 @@
 **7 carruseles × 5 slides.** Ratio 3:4 (720×1080).  
 Archivos canónicos: `../03-carruseles-edu/edu-bNN-*.jpg` (copia en `assets/carruseles/`).
 
+**Estilo visual:** mismo formato premium de los carruseles antiguos (p. ej. B8 ICM): tipografía enorme en blanco/oro, atmósfera de mesa, marco dorado, spade AI y marca PokerForgeAI abajo. Portadas con título dominante; interiores con highlight oro; CTA 5/5 con bombo y «5 manos gratis».
+
 Hashtags: `#pokertips #pokerstrategy #GTO #pokerespañol #pokerforgeai #estudiopoker`
 
 ---
