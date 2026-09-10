@@ -1035,7 +1035,9 @@
         if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
         else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
       }
-      if (hub === 'mtt' && paid > 0 && left > 0) {
+      /* HU WTA (2 jugadores, 1 pago): chip EV ≈ $EV — no etiquetar bubble/ICM. */
+      var huWta = kind === 'hu' || (left === 2 && paid <= 1) || (seatedN === 2 && paid <= 1);
+      if (hub === 'mtt' && paid > 0 && left > 0 && !huWta) {
         if (left === paid + 1) {
           mttPhase = 'bubble';
           mttStructureSituation = 'bubble';

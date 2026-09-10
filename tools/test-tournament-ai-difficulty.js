@@ -234,4 +234,58 @@ for (let i = 0; i < 40; i++) {
 assert.ok(opens >= 10, 'HU BTN K9o should open sometimes, opens=' + opens + '/40');
 console.log('OK HU steal/open pressure:', opens + '/40');
 
+/* HU Pro BB defense: less overfold vs open */
+let defends = 0;
+let threeBets = 0;
+for (let i = 0; i < 50; i++) {
+  const huDef = {
+    street: 'preflop',
+    bb: 100,
+    pot: 150,
+    currentBet: 250,
+    minRaise: 150,
+    openerId: 'h1',
+    openerPos: 'BTN',
+    board: [],
+    log: [{ street: 'preflop', id: 'h1', action: 'raise', amount: 250 }],
+    kind: 'hu',
+    formatHub: 'mtt',
+    playersSeated: 2,
+    placesPaid: 1,
+    playersLeft: 2,
+    seats: [
+      {
+        id: 'h1', cards: ['Ah', 'Kd'], pos: 'BTN', roleId: 'tag',
+        stack: 2500, streetInvested: 250, isHero: true, folded: false
+      },
+      {
+        id: 'v1', cards: ['Qh', 'Td'], pos: 'BB', roleId: 'pro',
+        stack: 2500, streetInvested: 100, folded: false,
+        proStyle: 'exploit_pool'
+      }
+    ]
+  };
+  const a = D.decide(huDef, huDef.seats[1]);
+  if (a && (a.id === 'call' || a.id === 'raise' || a.id === 'bet')) defends++;
+  if (a && (a.id === 'raise' || a.id === 'bet')) threeBets++;
+}
+assert.ok(defends >= 18, 'HU Pro BB QTo should defend often, defends=' + defends + '/50');
+console.log('OK HU Pro BB defense:', defends + '/50 threeBets=' + threeBets);
+
+/* Taxonomy / format adjust: HU WTA no bubble fold bias */
+const Tax = g.PTFormatTaxonomy;
+const FA = g.GTOVillainFormatAdjust;
+if (Tax && Tax.usesIcm) {
+  assert.strictEqual(Tax.usesIcm({
+    formatHub: 'mtt', kind: 'hu', placesPaid: 1, playersLeft: 2, playersSeated: 2
+  }), false, 'HU WTA no ICM');
+}
+if (FA && FA.multipliers) {
+  const m = FA.multipliers({
+    formatHub: 'mtt', isHeadsUp: true, playersSeated: 2, placesPaid: 1, stackBB: 35, kind: 'hu'
+  });
+  assert.ok(m.fold <= 1, 'HU fold multiplier chip-EV');
+  assert.ok(m.raise >= 1.1, 'HU raise multiplier aggressive');
+}
+
 console.log('\nAll tournament AI difficulty checks passed.');

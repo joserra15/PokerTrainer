@@ -526,6 +526,71 @@
     return hand;
   }
 
+  /**
+   * Stats mínimas para el grid de resultado cuando Importer.computeStats no está
+   * cargado (chunk sessions). Usa manos de sesión + resumen lite del torneo.
+   */
+  function synthesizeStatsFromHands(hands, tournamentStats) {
+    var list = hands || [];
+    var n = list.length;
+    var netBB = 0;
+    var evLoss = 0;
+    var decN = 0;
+    var goodN = 0;
+    var scoreSum = 0;
+    var scoreN = 0;
+    var wtsdN = 0;
+    var wonSdN = 0;
+    var sawFlopN = 0;
+    var GOOD = { optima: 1, aceptable: 1, green: 1, good: 1, strong: 1, correct: 1 };
+    list.forEach(function (h) {
+      if (!h) return;
+      netBB += Number(h.heroNetBB) || 0;
+      evLoss += Number(h.totalEvLoss) || 0;
+      if (h.handScore != null && isFinite(Number(h.handScore))) {
+        scoreSum += Number(h.handScore);
+        scoreN += 1;
+      }
+      (h.decisions || []).forEach(function (d) {
+        if (!d || d.unscored) return;
+        decN += 1;
+        if (d.ok || GOOD[d.class]) goodN += 1;
+      });
+      var boardLen = (h.board && h.board.length) || (h.boardAll && h.boardAll.length) || 0;
+      if (boardLen >= 3) sawFlopN += 1;
+      if (h.showdown) {
+        wtsdN += 1;
+        if ((Number(h.heroNetBB) || 0) > 0) wonSdN += 1;
+      }
+    });
+    var ts = tournamentStats || {};
+    var handsPlayed = ts.handsPlayed != null ? Number(ts.handsPlayed) : n;
+    function r1(x) { return Math.round(Number(x) * 10) / 10; }
+    function r2(x) { return Math.round(Number(x) * 100) / 100; }
+    var accuracy = decN ? Math.round((goodN / decN) * 100)
+      : (ts.gtoAccuracy != null ? Number(ts.gtoAccuracy) : null);
+    var vpipPct = ts.vpip != null ? Number(ts.vpip) : null;
+    var pfrPct = ts.pfr != null ? Number(ts.pfr) : null;
+    var wtsdPct = ts.wtsd != null ? Number(ts.wtsd)
+      : (sawFlopN ? r1((wtsdN / sawFlopN) * 100) : null);
+    var wsdPct = ts.wsd != null ? Number(ts.wsd)
+      : (wtsdN ? r1((wonSdN / wtsdN) * 100) : null);
+    var evLossBB = ts.evLoss != null && !n ? Number(ts.evLoss) : r2(evLoss);
+    return {
+      nHands: handsPlayed || n,
+      netBB: r2(netBB),
+      accuracy: accuracy,
+      avgHandScore: scoreN ? r1(scoreSum / scoreN) : null,
+      vpipPct: vpipPct,
+      pfrPct: pfrPct,
+      wtsdPct: wtsdPct,
+      wsdPct: wsdPct,
+      evLossBB: evLossBB,
+      bbPer100: (handsPlayed || n) ? r1((netBB / (handsPlayed || n)) * 100) : null,
+      synthesized: true
+    };
+  }
+
   function buildSessionFromTournament(state, opts) {
     opts = opts || {};
     if (!state) return null;
@@ -553,12 +618,6 @@
       hero = global.PTTournamentState && PTTournamentState.hero(state);
     } catch (e) { /* */ }
     var heroName = (hero && hero.name) || (hands[0] && hands[0].hero) || 'Hero';
-    var handStats = null;
-    try {
-      if (global.Importer && typeof global.Importer.computeStats === 'function') {
-        handStats = global.Importer.computeStats(hands);
-      }
-    } catch (e2) { /* */ }
 
     var cfg = state.config || {};
     var result = state.result || {};
@@ -568,6 +627,17 @@
     var prizeEur = trnMeta.prizeEur != null ? trnMeta.prizeEur
       : (result.prizeEur != null ? result.prizeEur : 0);
     var tournamentStats = trnMeta.stats || (result.stats || null);
+
+    var handStats = null;
+    try {
+      if (global.Importer && typeof global.Importer.computeStats === 'function') {
+        handStats = global.Importer.computeStats(hands);
+      }
+    } catch (e2) { /* */ }
+    if (!handStats || handStats.nHands == null) {
+      handStats = Object.assign({}, synthesizeStatsFromHands(hands, tournamentStats), handStats || {});
+    }
+
     var profit = tournamentStats && tournamentStats.profit != null
       ? tournamentStats.profit
       : ((Number(prizeEur) || 0) - (Number(cfg.buyInEur) || 0));
@@ -593,6 +663,7 @@
         ? tournamentStats.handsPlayed
         : (handStats && handStats.nHands)
     });
+    if (stats.nHands == null && stats.handsPlayed != null) stats.nHands = stats.handsPlayed;
 
     return {
       id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
@@ -635,6 +706,7 @@
   global.PTTournamentSessionBridge = {
     handFromTournament: handFromTournament,
     buildSessionFromTournament: buildSessionFromTournament,
+    synthesizeStatsFromHands: synthesizeStatsFromHands,
     metaFromState: metaFromState,
     normalizeDecision: normalizeDecision,
     mapClass: mapClass

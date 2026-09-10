@@ -3059,6 +3059,82 @@ console.log('OK pushfold-freq-100');
     console.log('OK tournament-iso-vs-limp');
   }
 
+  /* --- HU WTA: sin bubble/ICM + stats sin Importer --- */
+  {
+    const Tax = g.PTFormatTaxonomy;
+    assert.ok(Tax && Tax.isHeadsUpWta && Tax.usesIcm, 'taxonomy HU WTA helpers');
+    assert.strictEqual(Tax.isHeadsUpWta({ kind: 'hu', placesPaid: 1, playersLeft: 2 }), true, 'hu kind is WTA');
+    assert.strictEqual(Tax.isHeadsUpWta({ placesPaid: 1, playersSeated: 2 }), true, '2-max 1 paid is WTA');
+    assert.strictEqual(Tax.isHeadsUpWta({ placesPaid: 1, playersLeft: 2 }), true, '2 left 1 paid is WTA');
+    assert.strictEqual(Tax.isHeadsUpWta({ placesPaid: 12, playersLeft: 13 }), false, 'MTT bubble not HU WTA');
+    assert.strictEqual(Tax.usesIcm({
+      formatHub: 'mtt', kind: 'hu', placesPaid: 1, playersLeft: 2, playersSeated: 2, mttPhase: 'bubble'
+    }), false, 'HU WTA usesIcm=false even if phase bubble');
+    assert.strictEqual(Tax.usesIcm({
+      formatHub: 'mtt', placesPaid: 12, playersLeft: 13, mttPhase: 'mid'
+    }), true, 'MTT near money still ICM');
+
+    const Live = g.PTTournamentLiveHand;
+    const huState = g.PTTournamentRunner.create('huPro', { seed: 7, heroName: 'HUHero' });
+    const huHand = g.PTTournamentRunner.beginHand(huState);
+    assert.ok(huHand, 'huPro beginHand');
+    if (Live && Live.attachTourneyContext) Live.attachTourneyContext(huHand, huState);
+    assert.notStrictEqual(huHand.mttPhase, 'bubble', 'HU WTA no bubble phase got ' + huHand.mttPhase);
+    assert.ok(huHand.mttStructureSituation !== 'bubble', 'HU WTA no bubble structure');
+
+    const Bridge = g.PTTournamentSessionBridge;
+    assert.ok(Bridge.synthesizeStatsFromHands, 'synthesizeStatsFromHands exported');
+    const synthHands = [
+      {
+        heroNetBB: 2.5, totalEvLoss: 0.4, handScore: 7.5, showdown: true,
+        board: ['Ah', 'Kd', '2c'],
+        decisions: [
+          { class: 'optima', evLoss: 0 },
+          { class: 'imprecisa', evLoss: 0.4 }
+        ]
+      },
+      {
+        heroNetBB: -1, totalEvLoss: 0.2, handScore: 6, showdown: false,
+        board: ['7h', '7d', '2c', '9s'],
+        decisions: [{ class: 'aceptable', evLoss: 0.2 }]
+      }
+    ];
+    const prevImporter = g.Importer;
+    g.Importer = undefined;
+    const sessNoImp = Bridge.buildSessionFromTournament({
+      id: 'hu_test',
+      config: { kind: 'hu', name: 'HU Test', buyInEur: 44, entries: 2, placesPaid: 1 },
+      sessionHands: synthHands,
+      finishedAt: new Date().toISOString(),
+      result: { place: 1, prizeEur: 88, stats: { handsPlayed: 2, vpip: 55, pfr: 40, wtsd: 50, wsd: 100, gtoAccuracy: 66, evLoss: 0.6, profit: 44, roi: 100 } }
+    }, { tournamentMeta: { place: 1, prizeEur: 88, stats: { handsPlayed: 2, vpip: 55, pfr: 40, wtsd: 50, wsd: 100, gtoAccuracy: 66, evLoss: 0.6, profit: 44, roi: 100 } } });
+    g.Importer = prevImporter;
+    assert.ok(sessNoImp && sessNoImp.stats, 'session without Importer');
+    assert.strictEqual(sessNoImp.stats.nHands, 2, 'synth nHands');
+    assert.ok(sessNoImp.stats.vpipPct === 55, 'synth vpip from tourney summary');
+    assert.ok(sessNoImp.stats.pfrPct === 40, 'synth pfr');
+    assert.ok(sessNoImp.stats.netBB != null, 'synth netBB');
+    assert.ok(sessNoImp.stats.accuracy != null, 'synth accuracy');
+    assert.ok(sessNoImp.stats.evLossBB != null, 'synth evLossBB');
+    assert.ok(sessNoImp.stats.bbPer100 != null, 'synth bbPer100');
+
+    const FA = g.GTOVillainFormatAdjust;
+    if (FA && FA.multipliers) {
+      const mHu = FA.multipliers({
+        formatHub: 'mtt', isHeadsUp: true, playersSeated: 2, placesPaid: 1, playersLeft: 2,
+        stackBB: 40, kind: 'hu'
+      });
+      assert.ok(mHu.fold <= 1, 'HU fold mult <= 1 got ' + mHu.fold);
+      assert.ok(mHu.raise >= 1.1, 'HU raise mult aggressive got ' + mHu.raise);
+      const mBubble = FA.multipliers({
+        formatHub: 'mtt', mttPhase: 'bubble', mttStructureSituation: 'bubble',
+        playersLeft: 13, placesPaid: 12, stackBB: 25
+      });
+      assert.ok(mBubble.fold > 1, 'MTT bubble still overfolds got ' + mBubble.fold);
+    }
+    console.log('OK hu-wta-no-bubble-and-stats-fallback');
+  }
+
   console.log('*** test-tournament OK ***');
 })().catch(function (err) {
   console.error('FAIL leaderboard-first-load-refresh', err);

@@ -286,6 +286,7 @@
         || st.tournamentType
         || cfg.tournamentType
         || 'unknown',
+      kind: (hand && hand.kind) || cfg.kind || null,
       playersSeated: (hand && hand.playersSeated)
         || (hand && hand.seats && hand.seats.length)
         || st.playersSeated
@@ -307,7 +308,21 @@
       heroSessionStats: heroStats,
       proStyle: (seat && seat.proStyle) || null
     };
-    if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
+    ctx.isHeadsUp = !!(isHeadsUp(hand) || ctx.playersSeated === 2 || ctx.kind === 'hu'
+      || (ctx.playersLeft === 2 && ctx.placesPaid <= 1));
+    /* HU WTA: no forzar fase bubble ni ICM overfold. */
+    var huWta = (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx))
+      || (ctx.isHeadsUp && ctx.placesPaid <= 1);
+    if (huWta) {
+      ctx.mttStructureSituation = null;
+      if (phase === 'bubble') {
+        phase = (Tax && Tax.phaseFromStackBB) ? Tax.phaseFromStackBB(stackBB, hub) : 'mid';
+      }
+      ctx.mttPhase = phase;
+      ctx.resolvedPhase = phase;
+      ctx.effectivePhase = phase;
+      ctx.icmEnabled = false;
+    } else if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
       && ctx.mttStructureSituation === 'bubble') {
       ctx.mttPhase = 'bubble';
       ctx.resolvedPhase = 'bubble';
@@ -317,9 +332,9 @@
       ctx.resolvedPhase = phase;
       ctx.effectivePhase = phase;
     }
-    if (Tax && Tax.usesIcm) {
+    if (!huWta && Tax && Tax.usesIcm) {
       try { ctx.icmEnabled = !!Tax.usesIcm(ctx); } catch (e2) { ctx.icmEnabled = hub !== 'cash'; }
-    } else {
+    } else if (!huWta) {
       ctx.icmEnabled = true;
     }
     var RR = global.GTORangesRegistry;
@@ -347,9 +362,12 @@
       foldPush *= 0.55;
       if (ctx.stackBB <= 20 && strength > 0.28) foldPush -= 0.08;
     }
-    /* HU TAG: menos fold bias. */
-    if (ctx.isHeadsUp && profile && profile.id === 'tag') {
-      foldPush *= 0.55;
+    /* HU: menos fold bias en TAG/Pro/LAG/maniac (chip-EV, no bubble MTT). */
+    if (ctx.isHeadsUp && profile) {
+      var pid = profile.id;
+      if (pid === 'tag' || pid === 'pro' || pid === 'lag' || pid === 'maniac') {
+        foldPush *= 0.35;
+      }
     }
     if (face === 'call' && foldPush > 0.05 && r < foldPush * 0.55) return 'fold';
     if (face === 'fold' && foldPush < -0.02 && strength > potOdds) return 'call';
@@ -625,11 +643,11 @@
 
       /* HU: abrir más ancho desde BTN/SB si no está en chart. */
       if (!open && hu && (seat.pos === 'BTN' || seat.pos === 'SB')) {
-        var huOpenThr = 0.40;
-        if (role === 'tag') huOpenThr = 0.32;
-        else if (role === 'lag' || role === 'pro' || role === 'maniac') huOpenThr = 0.28;
-        else if (role === 'nit') huOpenThr = 0.40;
-        else if (role === 'fish') huOpenThr = 0.30;
+        var huOpenThr = 0.36;
+        if (role === 'tag') huOpenThr = 0.28;
+        else if (role === 'lag' || role === 'pro' || role === 'maniac') huOpenThr = 0.24;
+        else if (role === 'nit') huOpenThr = 0.36;
+        else if (role === 'fish') huOpenThr = 0.26;
         if (holeStr > huOpenThr) open = true;
       }
 
@@ -692,13 +710,13 @@
 
     /* HU: defender BB más ancho si el chart dice fold. */
     if (hu && (action === 'fold' || !action) && (seat.pos === 'BB' || seat.pos === 'SB')) {
-      var defThr = 0.42;
-      if (role === 'tag') defThr = 0.38;
-      else if (role === 'pro' || role === 'lag' || role === 'maniac') defThr = 0.34;
-      else if (role === 'nit') defThr = 0.48;
-      else if (role === 'fish') defThr = 0.36;
+      var defThr = 0.36;
+      if (role === 'tag') defThr = 0.32;
+      else if (role === 'pro' || role === 'lag' || role === 'maniac') defThr = 0.28;
+      else if (role === 'nit') defThr = 0.44;
+      else if (role === 'fish') defThr = 0.32;
       if (holeStr > defThr) {
-        action = holeStr > defThr + 0.18 ? '3bet' : 'call';
+        action = holeStr > defThr + 0.14 ? '3bet' : 'call';
       }
     }
 

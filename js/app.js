@@ -2361,7 +2361,8 @@
           '<p class="muted" style="padding:28px 16px;text-align:center">Cargando Torneos…</p>' +
           '</div>';
       }
-      withLazyChunk('tournaments', function () {
+      /* sessions: Importer.computeStats para stats finales del torneo (grid HU/MTT). */
+      withLazyChunk(['tournaments', 'sessions'], function () {
         if (window.PTTournaments && window.PTTournaments.menuVisible &&
             !window.PTTournaments.menuVisible()) {
           goToTab('home');
