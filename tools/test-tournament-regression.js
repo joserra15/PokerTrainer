@@ -269,8 +269,108 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
     ' tablesStart>=2 prize=' + state3.result.prizeEur);
 }
 
+/**
+ * Juega fold/check hasta que el torneo termine (bust natural o victoria).
+ * Ejercita mesas satélite en background + commit en applyResults.
+ */
+function playUntilFinished(g, state, maxHands) {
+  var R = g.PTTournamentRunner;
+  var Other = g.PTTournamentOtherTables;
+  var hands = 0;
+  var max = maxHands != null ? maxHands : 500;
+  var tablesStart = (state.tables || []).length;
+  var sawMulti = tablesStart >= 2;
+  var sawSatPending = false;
+  var sawSatCommit = false;
+  while (state.status === 'running' && hands < max) {
+    var hand = R.beginHand(state);
+    if (!hand) break;
+    if (state._satPending && state._satPending.queue) {
+      sawSatPending = true;
+    }
+    var guard = 0;
+    while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 80) {
+      var pick = pickHeroAction(hand);
+      R.heroAct(state, pick.id, pick.suggested != null ? pick.suggested : pick.amount);
+      hand = state._liveHand;
+    }
+    if (hand && hand.stage === 'complete' && state._liveHand) {
+      if (Other && Other.boostPriority) Other.boostPriority(state);
+      if (state._satPending && state._satPending.done && state._satPending.tablesSimulated > 0) {
+        sawSatCommit = true;
+      }
+      R.applyResults(state, hand);
+    }
+    if ((state.tables || []).length >= 2) sawMulti = true;
+    hands++;
+  }
+  return {
+    hands: hands,
+    tablesStart: tablesStart,
+    sawMulti: sawMulti,
+    sawSatPending: sawSatPending,
+    sawSatCommit: sawSatCommit
+  };
+}
+
 // ---------------------------------------------------------------------------
-// 4) Reloj de ciegas por manos
+// 4) MTT fácil completo (preset easy): jugar hasta finished sin force-bust
+// ---------------------------------------------------------------------------
+{
+  g.PTTournamentStore.clear();
+  var cfgEasy = g.PTTournamentConfig.normalize(Object.assign({}, g.PTTournamentConfig.fromPreset('easy'), {
+    onBust: 'simulate',
+    blindSchedule: fastSchedule()
+  }));
+  assert.strictEqual(cfgEasy.id, 'easy', 'preset easy');
+  assert.strictEqual(cfgEasy.kind, 'mtt', 'kind mtt');
+  assert.strictEqual(cfgEasy.entries, 18, '18 entries');
+  assert.strictEqual(cfgEasy.seatsPerTable, 6, '6-max');
+
+  var stateEasy = g.PTTournamentRunner.create(cfgEasy, { seed: 2026, heroName: 'MttEasyBot' });
+  assert.strictEqual(stateEasy.players.length, 18);
+  assert.ok(stateEasy.tables.length >= 2, 'multi-mesa al inicio: ' + stateEasy.tables.length);
+  guessRoles(g, stateEasy, 50);
+
+  var run = playUntilFinished(g, stateEasy, 500);
+  assert.ok(run.hands >= 5, 'jugó varias manos, got ' + run.hands);
+  assert.ok(run.sawMulti, 'vio multi-mesa');
+  assert.ok(run.sawSatPending, 'encoló simulación satélite en background');
+  assert.strictEqual(stateEasy.status, 'finished', 'MTT fácil finished, got ' + stateEasy.status);
+  assert.ok(stateEasy.result, 'result presente');
+  assert.ok(stateEasy.result.place >= 1 && stateEasy.result.place <= 18,
+    'place válido: ' + stateEasy.result.place);
+  assert.ok(stateEasy.handIndex >= run.hands, 'handIndex coherente');
+  assert.strictEqual(
+    g.PTTournamentState.playersLeft(stateEasy),
+    1,
+    'queda 1 campeón al cerrar'
+  );
+  if (stateEasy.result.place === 1) {
+    assert.ok(stateEasy.result.prizeEur > 0, 'ganador cobra');
+    assert.ok(stateEasy.result.reason === 'won' || stateEasy.result.reason === 'simulated_rest',
+      'reason win/sim: ' + stateEasy.result.reason);
+  } else {
+    assert.ok(
+      stateEasy.result.reason === 'simulated_rest' ||
+      stateEasy.result.reason === 'bust' ||
+      stateEasy.result.reason === 'won',
+      'reason cierre: ' + stateEasy.result.reason
+    );
+  }
+  var histEasy = g.PTTournamentStore.list();
+  assert.ok(histEasy.some(function (h) {
+    return h.entries === 18 && (h.name || '').indexOf('Fácil') >= 0;
+  }) || histEasy.some(function (h) { return h.entries === 18; }), 'histórico MTT fácil');
+  console.log('OK MTT fácil completo → #' + stateEasy.result.place +
+    ' hands=' + stateEasy.handIndex +
+    ' satPending=' + run.sawSatPending +
+    ' satCommit=' + run.sawSatCommit +
+    ' prize=' + stateEasy.result.prizeEur);
+}
+
+// ---------------------------------------------------------------------------
+// 5) Reloj de ciegas por manos
 // ---------------------------------------------------------------------------
 {
   var sched = fastSchedule();
@@ -282,7 +382,7 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 5) Info HUD
+// 6) Info HUD
 // ---------------------------------------------------------------------------
 {
   var state5 = g.PTTournamentRunner.create('sng6', { seed: 1 });
@@ -292,7 +392,7 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 6) Gate público (auth) + plan helpers
+// 7) Gate público (auth) + plan helpers
 // ---------------------------------------------------------------------------
 {
   assert.strictEqual(g.PTTournaments.menuVisible(), false, 'sin usuario → hidden');
@@ -303,7 +403,7 @@ assert.ok(typeof g.PTTournamentRunner.simulateRest === 'function', 'simulateRest
 }
 
 // ---------------------------------------------------------------------------
-// 7) Cap entries ≤ MAX_ENTRIES (180)
+// 8) Cap entries ≤ MAX_ENTRIES (180)
 // ---------------------------------------------------------------------------
 {
   var cfg7 = g.PTTournamentConfig.normalize({ entries: 500, seatsPerTable: 9, kind: 'mtt' });
