@@ -55,10 +55,21 @@
 
   function spotContext(input, spotKey) {
     const street = spotKey.street || input.street || 'preflop';
-    const pot = input.potBB != null ? `${input.potBB}bb` : '';
-    const facing = (input.toCallBB || 0) > 0 ? `afrontando ${input.toCallBB}bb` : 'sin apuesta previa';
+    const potN = input.potBB != null ? Math.round(Number(input.potBB) * 100) / 100 : null;
+    const pot = potN != null
+      ? ((Math.abs(potN - Math.round(potN)) < 0.005 ? String(Math.round(potN)) : potN.toFixed(2)) + 'bb')
+      : '';
+    const toCallN = (input.toCallBB || 0) > 0 ? Math.round(Number(input.toCallBB) * 100) / 100 : 0;
+    const facing = toCallN > 0
+      ? `afrontando ${toCallN}bb`
+      : (input.spotKind === 'isoLimp' || input.spotKind === 'bbVsSbLimp' || input.spotKind === 'vsLimp'
+        || spotKey.initiative === 'isolator'
+        ? 'vs limp'
+        : 'sin apuesta previa');
     const pos = input.inPosition ? 'en posición' : 'fuera de posición';
     const role = spotKey.initiative === 'aggressor' ? 'agresor preflop'
+      : (spotKey.initiative === 'isolator' || input.spotKind === 'isoLimp' || input.spotKind === 'bbVsSbLimp')
+        ? 'aislando limp'
       : spotKey.initiative === 'none' ? 'primero en hablar' : 'pagador preflop';
     const lead = leadSuffix(spotKey);
     return `${cap(street)} · bote ${pot} · ${role}${lead} · ${pos} · ${facing}.`;

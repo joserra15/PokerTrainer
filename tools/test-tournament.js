@@ -1164,7 +1164,9 @@ console.log('OK villain-aggression');
     'dist without old OK blind banner');
   assert.ok(dist.includes('PTTournamentSessionBridge'), 'dist includes session bridge');
   assert.ok(dist.includes('tournamentAi'), 'dist includes tournamentAi source');
-  assert.ok(dist.includes('handFromTournament'), 'dist includes handFromTournament');
+  assert.ok(dist.includes('computeSidePotsBySeat'), 'dist includes side pots settle');
+  assert.ok(dist.includes('findLimpers'), 'dist includes limp detection');
+  assert.ok(/n\s*<=\s*6/.test(dist), 'dist seatCoordsFor uses 9 slots for 7+');
 }
 console.log('OK dist-tournaments-bundle');
 
@@ -1345,6 +1347,13 @@ console.log('OK dist-tournaments-bundle');
   assert.ok(!openTrn.includes('setAnalysisReviewBackLabel'), 'does not use analysis back label');
   assert.ok(!/startInteractiveReplay|startInteractiveReplay/.test(openTrn),
     'tournament open does not start GTO replay');
+  /* Revisar desde informe de mejora: openHandReview no debe pisar el retorno a torneo. */
+  const openHr = appSrc.slice(appSrc.indexOf('function openHandReview'),
+    appSrc.indexOf('function openHandReview') + 900);
+  assert.ok(/if\s*\(\s*!tournamentReviewReturn\s*\)/.test(openHr),
+    'openHandReview preserves tournamentReviewReturn');
+  assert.ok(!/tournamentReviewReturn\s*=\s*false/.test(openHr),
+    'openHandReview no longer clears tournamentReviewReturn');
 }
 console.log('OK tournament-review-back');
 
@@ -2825,6 +2834,88 @@ console.log('OK pushfold-freq-100');
   g.PTSupabase = null;
   g.PTTournamentWallet.setBalance(0, { type: 'test_lb_async_reset' });
   console.log('OK leaderboard-first-load-refresh');
+
+  /* --- Side pots: empate con all-in corto + fold con más fichas --- */
+  {
+    const LH = g.PTTournamentLiveHand;
+    assert.ok(LH && LH.computeSidePotsBySeat && LH.settle, 'settle/side pots exportados');
+    const invested = { hero: 100, short: 50, folder: 100 };
+    const pots = LH.computeSidePotsBySeat(invested, ['hero', 'short']);
+    assert.ok(pots.length >= 2, 'main + side pot: ' + pots.length);
+    assert.ok(Math.abs(pots[0].amount - 150) < 0.02, 'main pot 150 got ' + pots[0].amount);
+    assert.ok(pots[0].eligible.indexOf('hero') >= 0 && pots[0].eligible.indexOf('short') >= 0,
+      'ambos en main pot');
+    assert.ok(Math.abs(pots[1].amount - 100) < 0.02, 'side pot 100 got ' + pots[1].amount);
+    assert.deepStrictEqual(pots[1].eligible, ['hero'], 'solo hero en side pot');
+
+    /* Empate AJ vs AJ: short all-in 50, hero+folder 100 cada uno.
+       Chop main → 75 cada uno; side 100 → hero. Nets: hero +75, short +25. */
+    const tieScore = { rank: [1, 14, 11, 10, 9, 6], name: 'Pareja' };
+    const hand = {
+      pot: 250,
+      board: ['Td', '5c', '6d', 'Ts', '9s'],
+      stage: 'playing',
+      seats: [
+        { id: 'hero', isHero: true, name: 'Hero', pos: 'BTN', startStack: 200, invested: 100, stack: 100, folded: false, cards: ['Ac', 'Jh'] },
+        { id: 'short', isHero: false, name: 'Short', pos: 'UTG', startStack: 50, invested: 50, stack: 0, folded: false, cards: ['As', 'Jd'] },
+        { id: 'folder', isHero: false, name: 'Folder', pos: 'BB', startStack: 200, invested: 100, stack: 100, folded: true, cards: ['2c', '2d'] }
+      ]
+    };
+    LH.settle(hand, ['hero', 'short'], true, {
+      handNames: { hero: 'Pareja', short: 'Pareja' },
+      scoreById: { hero: tieScore, short: tieScore }
+    });
+    assert.ok(hand.result && hand.result.sidePots && hand.result.sidePots.length >= 2,
+      'result.sidePots presentes');
+    assert.ok(Math.abs(hand.result.deltas.hero - 75) < 0.05,
+      'hero net +75bb equiv got ' + hand.result.deltas.hero);
+    assert.ok(Math.abs(hand.result.deltas.short - 25) < 0.05,
+      'short net +25 got ' + hand.result.deltas.short);
+    assert.ok(Math.abs((hand.result.deltas.folder || 0) + 100) < 0.05,
+      'folder pierde 100 got ' + hand.result.deltas.folder);
+    assert.ok(hand.result.deltas.hero > hand.result.deltas.short,
+      'en empate el stack mayor se lleva el side pot');
+    console.log('OK tournament-side-pots-chop');
+  }
+
+  /* --- 7-handed: coords no apilan villanos --- */
+  {
+    const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+    assert.ok(/n\s*<=\s*6/.test(uiSrc) && /SEAT_COORDS_MOBILE_9|SEAT_COORDS_9/.test(uiSrc),
+      'seatCoordsFor usa 9 slots para 7+');
+    const fnMatch = uiSrc.match(/function seatCoordsFor\(n\)\s*\{[\s\S]*?\n  \}/);
+    assert.ok(fnMatch, 'seatCoordsFor encontrado');
+    assert.ok(!/n\s*>=\s*8/.test(fnMatch[0]), 'ya no exige n>=8 para 9 coords');
+    console.log('OK tournament-seat-coords-7max');
+  }
+
+  /* --- Iso vs limp: no first-in --- */
+  {
+    const GEval = g.PTTournamentGtoEval;
+    assert.ok(GEval && GEval.findLimpers && GEval.isFirstInOpen, 'gto limp helpers');
+    const hero = { id: 'hero', isHero: true, pos: 'HJ', streetInvested: 0, stack: 2000, folded: false };
+    const limpHand = {
+      street: 'preflop',
+      bb: 20,
+      currentBet: 20,
+      openerId: null,
+      acted: { utg: true },
+      seats: [
+        { id: 'utg', isHero: false, pos: 'UTG', streetInvested: 20, stack: 1800, folded: false, name: 'NightOwl' },
+        hero,
+        { id: 'bb', isHero: false, pos: 'BB', streetInvested: 20, stack: 1980, folded: false },
+        { id: 'sb', isHero: false, pos: 'SB', streetInvested: 10, stack: 1990, folded: false }
+      ]
+    };
+    const limpers = GEval.findLimpers(limpHand, hero);
+    assert.ok(limpers.length >= 1 && limpers.some(function (s) { return s.pos === 'UTG'; }),
+      'detecta limper UTG');
+    assert.strictEqual(GEval.isFirstInOpen(limpHand, hero), false, 'iso vs limp no es first-in');
+    assert.strictEqual(GEval.resolvePreflopSpotKind(limpHand, hero, false), 'isoLimp',
+      'spotKind isoLimp');
+    console.log('OK tournament-iso-vs-limp');
+  }
+
   console.log('*** test-tournament OK ***');
 })().catch(function (err) {
   console.error('FAIL leaderboard-first-load-refresh', err);

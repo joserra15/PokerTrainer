@@ -3180,7 +3180,7 @@
       handCode: hand.heroCode || (hand.heroCards.length === 2 ? R.handCode(hand.heroCards[0], hand.heroCards[1]) : null),
       potBB: potEvalBB,
       toCallBB,
-      betSizeBB: d.betSizeBB || 0,
+      betSizeBB: d.betSizeBB || (d.input && d.input.betSizeBB) || 0,
       potBeforeBB,
       bbSizeEuro: hand.bb || 0,
       chosenAction,

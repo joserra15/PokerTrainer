@@ -141,10 +141,51 @@
   function isFirstInOpen(hand, heroSeat) {
     if (!hand || hand.street !== 'preflop') return false;
     if (hand.openerId) return false;
-    /* Solo ciegas en el bote: currentBet == bb y nadie ha abierto. */
+    if (findLimpers(hand, heroSeat).length) return false;
+    /* Solo ciegas en el bote: currentBet == bb y nadie ha abierto ni limpeado. */
     var bb = Math.max(1, Number(hand.bb) || 1);
     var cur = Number(hand.currentBet) || 0;
     return cur <= bb + 0.001;
+  }
+
+  /** Jugadores que limpearon (igualaron la BB sin raise previo). */
+  function findLimpers(hand, heroSeat) {
+    if (!hand || hand.street !== 'preflop' || hand.openerId) return [];
+    var bb = Math.max(1, Number(hand.bb) || 1);
+    var heroId = heroSeat && heroSeat.id;
+    return (hand.seats || []).filter(function (s) {
+      if (!s || s.folded || s.isHero) return false;
+      if (heroId && s.id === heroId) return false;
+      var inv = Number(s.streetInvested) || 0;
+      if (inv < bb - 0.001) return false;
+      /* La BB solo cuenta como limper si ya actuó (check detrás de limps). */
+      if (s.pos === 'BB' && !(hand.acted && hand.acted[s.id])) return false;
+      /* SB que completa hasta la BB cuenta como limper. */
+      return true;
+    });
+  }
+
+  function resolvePreflopSpotKind(hand, heroSeat, firstIn) {
+    if (hand.openerId && !firstIn) return 'vsRFI';
+    var limpers = findLimpers(hand, heroSeat);
+    if (limpers.length) {
+      if (heroSeat && heroSeat.pos === 'BB' && limpers.length === 1 && limpers[0].pos === 'SB') {
+        return 'bbVsSbLimp';
+      }
+      return 'isoLimp';
+    }
+    return 'RFI';
+  }
+
+  function limperVsPosition(hand, heroSeat) {
+    var limpers = findLimpers(hand, heroSeat);
+    if (!limpers.length) return vsPosition(hand, heroSeat);
+    /* Último limper (más late) como referencia del iso. */
+    var order = { UTG: 0, UTG1: 1, UTG2: 2, LJ: 3, HJ: 4, CO: 5, BTN: 6, SB: 7, BB: 8 };
+    limpers.sort(function (a, b) {
+      return (order[a.pos] != null ? order[a.pos] : 99) - (order[b.pos] != null ? order[b.pos] : 99);
+    });
+    return limpers[limpers.length - 1].pos || vsPosition(hand, heroSeat);
   }
 
   var CLASS_MAP = {
@@ -233,15 +274,18 @@
 
     var firstIn = isFirstInOpen(hand, heroSeat);
     var rawToCall = Math.max(0, (Number(hand.currentBet) || 0) - streetInv);
-    /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar). */
-    var toCall = firstIn ? 0 : rawToCall;
+    var street = hand.street === 'preflop' ? 'preflop' : hand.street;
+    /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar).
+       Iso vs limp: tampoco hay raise que igualar; el sizing es de open/iso. */
+    var limpers = street === 'preflop' ? findLimpers(hand, heroSeat) : [];
+    var isoSpot = !firstIn && !hand.openerId && limpers.length > 0;
+    var toCall = (firstIn || isoSpot) ? 0 : rawToCall;
 
     var hub = resolveFormatHub(hand);
     var phase = resolveTournamentPhase(stackBB, hand);
     var pushPhase = phase === 'push' || stackBB <= 12;
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
 
-    var street = hand.street === 'preflop' ? 'preflop' : hand.street;
     var incompleteAllIn = toCall > 0 && isIncompleteAllIn(hand, heroSeat, action);
     var preferAllin = !incompleteAllIn && (pushPhase || (action && action.id === 'allin' && shortPhase));
     var avail = availableFromOptions(hand.heroOptions, preferAllin);
@@ -265,18 +309,26 @@
     if (hand.ante != null) anteBB = Number(hand.ante) / bb;
     else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
 
-    var initiative = resolveInitiative(hand, heroSeat, firstIn);
+    var spotKind = street === 'preflop'
+      ? resolvePreflopSpotKind(hand, heroSeat, firstIn)
+      : 'postflop';
+    var vsPos = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp' || spotKind === 'vsLimp'
+      ? limperVsPosition(hand, heroSeat)
+      : vsPosition(hand, heroSeat);
+    var initiative = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp'
+      ? 'isolator'
+      : resolveInitiative(hand, heroSeat, firstIn);
     var input = {
-      spotKind: street === 'preflop' ? (hand.openerId && !firstIn ? 'vsRFI' : 'RFI') : 'postflop',
+      spotKind: spotKind,
       street: street,
       position: heroSeat.pos,
-      vsPosition: vsPosition(hand, heroSeat),
+      vsPosition: vsPos,
       heroCards: (heroSeat.cards || []).map(cardCode),
       handCode: handCode(heroSeat.cards),
       board: (hand.board || []).map(cardCode),
-      potBB: (Number(hand.pot) || 0) / bb,
+      potBB: Math.round(((Number(hand.pot) || 0) / bb) * 100) / 100,
       toCallBB: toCall / bb,
-      potBeforeBB: Math.max(((Number(hand.pot) || 0) - (firstIn ? 0 : rawToCall)) / bb, 0.1),
+      potBeforeBB: Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1),
       stackDepth: stackBB,
       stackBB: stackBB,
       effStack: stackBB,
@@ -356,6 +408,25 @@
     try {
       var result = GTO.evaluateSpot(input);
       var graded = gradeFromEval(result, chosen);
+      /* Raise ↔ allin: charts short/push a menudo concentran masa en uno solo.
+         Si el elegido sale Error/residual, reintenta con el hermano fungible. */
+      if ((graded.class === 'error' || graded.frequency < 0.05)
+        && (chosen === 'raise' || chosen === 'allin')) {
+        var alt = chosen === 'raise' ? 'allin' : 'raise';
+        var strat0 = graded.strategy || {};
+        var altFreq = Number(strat0[alt]) || 0;
+        var ownFreq = Number(strat0[chosen]) || 0;
+        if (altFreq >= 0.15 && altFreq > ownFreq + 0.02) {
+          input.chosenAction = alt;
+          if (input.availableActions.indexOf(alt) < 0) input.availableActions.push(alt);
+          result = GTO.evaluateSpot(input);
+          graded = gradeFromEval(result, alt);
+          chosen = alt;
+          base.action = chosen;
+          base.chosen = chosen;
+          base.label = actionLabel(chosen, action && action.amount, hand.bb);
+        }
+      }
       /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta.
          No aplica a all-in incompleto ya remapeado a call. */
       if ((graded.class === 'error' || graded.frequency < 0.05)
@@ -411,6 +482,7 @@
         potBeforeBB: input.potBeforeBB,
         stackBB: input.stackBB,
         stackDepth: input.stackDepth,
+        betSizeBB: input.betSizeBB,
         availableActions: (input.availableActions || []).slice(),
         chosenAction: input.chosenAction,
         initiative: input.initiative,
@@ -421,6 +493,7 @@
         pushFold: input.pushFold,
         preflopMode: input.preflopMode
       };
+      if (input.betSizeBB != null) base.betSizeBB = input.betSizeBB;
     } catch (e) {
       base.error = String(e && e.message || e);
     }
@@ -466,6 +539,8 @@
     resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
     isFirstInOpen: isFirstInOpen,
-    isIncompleteAllIn: isIncompleteAllIn
+    isIncompleteAllIn: isIncompleteAllIn,
+    findLimpers: findLimpers,
+    resolvePreflopSpotKind: resolvePreflopSpotKind
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
