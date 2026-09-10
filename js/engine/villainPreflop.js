@@ -407,9 +407,68 @@
     return 'fold';
   }
 
+  /**
+   * Cold 4-bet: jugador frío frente a open + 3-bet (no es el opener).
+   * Más tight que 4-bet del opener; se aprieta más en ICM / short.
+   */
+  function cold4BetAction(code, profile, rnd, ctx) {
+    ctx = ctx || {};
+    const r = rnd != null ? rnd : Math.random();
+    const strict = strictness(profile);
+    const w4 = handWeight(vs4betBuckets().fourBet, code);
+    const wCall = handWeight(vs4betBuckets().call, code);
+    const icm = tournamentFoldBias(ctx);
+    let fourFreq = 0;
+    if (w4 >= 1) fourFreq = strict >= 0.99 ? 0.55 : VP.adjustFourBetProb(0.48, profile);
+    else if (w4 >= 0.42) fourFreq = strict >= 0.99 ? w4 * 0.35 : VP.adjustFourBetProb(w4 * 0.28, profile);
+    else if (allowsLeak(profile, '4bet', r) && strict < 0.9) fourFreq = 0.04;
+
+    fourFreq *= clamp(1 - icm * 0.55, 0.35, 1);
+    if (ctx.stackBB != null && ctx.stackBB <= 25) fourFreq *= 0.7;
+    if (ctx.multiwayCount >= 3 || ctx.callersAhead >= 1) fourFreq *= 0.75;
+
+    if (r < fourFreq && isInFourBetRange(code, ctx)) return '4bet';
+
+    let callFreq = 0;
+    if (wCall >= 1 && (ctx.stackBB == null || ctx.stackBB >= 40)) {
+      callFreq = strict >= 0.99 ? 0.18 : VP.adjustCallProb(0.22, profile);
+      callFreq *= clamp(1 - icm * 0.7, 0.2, 1);
+    }
+    if (r < callFreq) return 'call';
+    return 'fold';
+  }
+
+  /**
+   * Squeeze vs multi-caller: más value, faroles más selectivos.
+   */
+  function squeezeAction(code, profile, rnd, ctx) {
+    ctx = ctx || {};
+    const r = rnd != null ? rnd : Math.random();
+    const data = D.SQUEEZE;
+    if (!data) return 'fold';
+    const wRaise = handWeight(bucketWeights({ raise: data.raise }), code);
+    const wCall = handWeight(bucketWeights({ call: data.call }), code);
+    const strict = strictness(profile);
+    const callers = ctx.callersAhead != null ? ctx.callersAhead
+      : (ctx.multiwayCount != null ? Math.max(0, ctx.multiwayCount - 2) : 1);
+    let raiseFreq = 0;
+    if (wRaise >= 1) raiseFreq = strict >= 0.99 ? 0.88 : VP.adjustThreeBetProb(0.82, profile);
+    else if (wRaise > 0) raiseFreq = strict >= 0.99 ? wRaise * 0.75 : VP.adjustThreeBetProb(wRaise * 0.65, profile);
+    if (callers >= 2) {
+      if (wRaise < 1) raiseFreq *= 0.55;
+      else raiseFreq = Math.min(1, raiseFreq * 1.05);
+    }
+    raiseFreq *= clamp(1 - tournamentFoldBias(ctx) * 0.4, 0.4, 1);
+    if (r < raiseFreq) return '3bet';
+    if (wCall >= 1 && r < (strict >= 0.99 ? 0.45 : 0.55)) return 'call';
+    if (wCall >= 0.42 && r < wCall * 0.35) return 'call';
+    return 'fold';
+  }
+
   global.GTOVillainPreflop = {
     defendVsOpen, openerVs3BetAction, villainVs4BetAction, villainVsAllInAction,
     limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
+    cold4BetAction, squeezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,

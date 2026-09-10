@@ -1,6 +1,6 @@
 /*
- * school-extra-spots.js — Amplía spots Cash M1/M2 (≥10–14) y sincroniza hands.
- * Cargar tras M1/M2 (bundle school).
+ * school-extra-spots.js — Amplía spots Cash M1/M2/M3 (≥10–14) y sincroniza hands.
+ * Cargar tras M1/M2/M3 (bundle school).
  */
 (function (global) {
   'use strict';
@@ -130,6 +130,36 @@
       flop('c20-14', 'BB', ['Qh', 'Jd'], ['Ts', '8c', '3h'], 30014, { facingBet: true, trapTag: 'dominated', teachBack: 'Examen: sin odds OOP → fold vs c-bet.' }),
       flop('c20-15', 'BTN', ['Ah', 'Kd'], ['Qs', '7h', '2c'], 30015, { teachBack: 'Examen: Q-high seco IP → c-bet pequeño con AK.' }),
       flop('c20-16', 'SB', ['Jh', 'Td'], ['As', '8c', '3d'], 30016, { trapTag: 'fancy_play', teachBack: 'Examen: air OOP A-high → check/cede, no inventes.' })
+    ],
+    'C-21': [
+      flop('c21-07', 'BTN', ['Ah', 'Jd'], ['Kd', '8c', '2h'], 32107, { teachBack: 'K-high seco: range advantage → c-bet pequeño IP.' }),
+      flop('c21-08', 'CO', ['Qh', 'Td'], ['As', '5d', '3c'], 32108, { teachBack: 'A-high seco: c-bet frecuente con ventaja de rango.' }),
+      flop('c21-09', 'BTN', ['7s', '6s'], ['9h', '8h', '2d'], 32109, { trapTag: 'fancy_play', teachBack: 'Two-tone conectado: menos ventaja → no autocbet.' }),
+      flop('c21-10', 'BTN', ['Kc', 'Qc'], ['Jh', '4d', '4s'], 32110, { teachBack: 'Paired seco: agresor suele c-bet; range advantage típico.' })
+    ],
+    'C-22': [
+      flop('c22-07', 'BB', ['8h', '8d'], ['8s', '7c', '2d'], 32207, { facingBet: true, teachBack: 'Set: raise value vs c-bet. XR/raise claro.' }),
+      flop('c22-08', 'BB', ['Ah', '2h'], ['Kh', '9h', '4c'], 32208, { facingBet: true, teachBack: 'Nut FD: raise semi-bluff vs c-bet frecuente.' }),
+      flop('c22-09', 'BB', ['Qc', '4d'], ['As', 'Kd', '2c'], 32209, { facingBet: true, trapTag: 'fancy_play', teachBack: 'Aire en AK seco: fold. No inventes XR.' }),
+      flop('c22-10', 'BB', ['Ts', '9s'], ['Jd', '8c', '3h'], 32210, { facingBet: true, teachBack: 'OESD: continue vs c-bet. Equity justifica defensa.' })
+    ],
+    'C-23': [
+      flop('c23-07', 'BTN', ['Ah', 'Ad'], ['As', '8c', '3d', '2h', '9s'], 32307, { street: 'river', teachBack: 'Nuez river: sizing polar grande / overbet mix.' }),
+      flop('c23-08', 'BTN', ['Jh', '9d'], ['As', 'Kd', 'Qc', '2h', '7s'], 32308, { street: 'river', trapTag: 'fancy_play', teachBack: 'Aire broadway: give up. No overbet sin blockers.' }),
+      flop('c23-09', 'CO', ['Kh', 'Kd'], ['Qc', '8s', '3h', '2d', '5c'], 32309, { street: 'river', teachBack: 'Overpair river: value merge (~66 %), no nuts overbet.' }),
+      flop('c23-10', 'BTN', ['9s', '8s'], ['7h', '6d', '2c', '5s', '3d'], 32310, { street: 'river', teachBack: 'Escalera: value polar. Cobra máximo.' })
+    ],
+    'C-24': [
+      flop('c24-07', 'BB', ['Kh', 'Qd'], ['As', '8c', '3h'], 32407, { facingBet: true, teachBack: 'Overcards vs c-bet pequeño: call mixto (MDF + outs).' }),
+      flop('c24-08', 'BB', ['7h', '6d'], ['As', 'Kd', '2c'], 32408, { facingBet: true, trapTag: 'fancy_play', teachBack: 'Sin equity: fold. MDF no defiende basura total.' }),
+      flop('c24-09', 'BB', ['Ts', '9s'], ['8h', '7d', '2c'], 32409, { facingBet: true, teachBack: 'Draw fuerte: call. Pot odds + MDF alineados.' }),
+      flop('c24-10', 'BB', ['Qc', 'Jc'], ['Qh', '8d', '3s'], 32410, { facingBet: true, teachBack: 'Top pair: defensa fuerte vs c-bet. Call frecuente.' })
+    ],
+    'C-25': [
+      flop('c25-07', 'BTN', ['As', 'Qd'], ['Kh', '8c', '2d', '3s'], 32507, { street: 'turn', teachBack: 'Turn blank tras c-bet: barrel value/farol mixto.' }),
+      flop('c25-08', 'BTN', ['8h', '7h'], ['As', 'Kd', '2c', '9s'], 32508, { street: 'turn', trapTag: 'fancy_play', teachBack: 'Air sin mejora: give up. No second barrel spew.' }),
+      flop('c25-09', 'CO', ['Jh', 'Jd'], ['Tc', '6s', '2h', '3d'], 32509, { street: 'turn', teachBack: 'Overpair: barrel value en turn seguro.' }),
+      flop('c25-10', 'BTN', ['Kd', 'Td'], ['Kh', '7s', '2c', '4d'], 32510, { street: 'turn', teachBack: 'Top pair: second barrel frecuente. Value + niega equity.' })
     ]
   };
 

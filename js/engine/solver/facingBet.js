@@ -248,6 +248,37 @@
     let freqs = normalize({ fold, call, raise });
     freqs = applyMDF(freqs, mdf, heroEquity, potOdds, band);
 
+    // Threshold defense vs oversized bets (≥85% pot): calls más selectivos, XR más polar
+    const ratio = betToPotRatio(currentPot, betSize);
+    if (ratio >= 0.85) {
+      if (band === 'nuts' || band === 'value') {
+        freqs.raise = (freqs.raise || 0) * 1.15;
+        freqs.call = (freqs.call || 0) * 0.92;
+      } else if (band === 'air') {
+        freqs.raise = (freqs.raise || 0) * 1.2;
+        freqs.call = (freqs.call || 0) * 0.55;
+        freqs.fold = (freqs.fold || 0) * 1.1;
+      } else {
+        freqs.call = (freqs.call || 0) * 0.78;
+        freqs.raise = (freqs.raise || 0) * 0.85;
+        freqs.fold = (freqs.fold || 0) * 1.12;
+      }
+      freqs = normalize(freqs);
+      freqs = applyMDF(freqs, mdf, heroEquity, potOdds, band);
+    }
+
+    // 3BP/4BP: menos calls merge, raises más polares
+    if (params.potType === '3bp' || params.potType === '4bp') {
+      if (band === 'merge' || band === 'bluffcatch') {
+        freqs.call = (freqs.call || 0) * 0.85;
+        freqs.fold = (freqs.fold || 0) * 1.08;
+      }
+      if (band === 'nuts' || band === 'air') {
+        freqs.raise = (freqs.raise || 0) * 1.12;
+      }
+      freqs = normalize(freqs);
+    }
+
     if (Block && params.heroCards) {
       freqs = Block.applyBlockerAdjustments(freqs, params.heroCards, board, { street, band, tier });
       freqs = normalize(freqs);

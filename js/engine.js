@@ -1103,6 +1103,11 @@
       polarization: isNuts || band === 'nuts' || band === 'air' ? 0.62 : 0.38,
       priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
       lineIntent: hand._villainLineIntent || null,
+      linePlan: hand._villainLinePlan || null,
+      multiwayCount: (hand.table && hand.table.inHand && hand.table.inHand.length)
+        || (hand.multiway ? ((hand._callersAtFlop || []).length + 2) : 2),
+      potType: hand.potType || (hand._threeBetPot ? '3bp' : (hand._fourBetPot ? '4bp' : 'srp')),
+      actionLine: hand.actionLine || null,
       proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
       heroProfile: heroProfile,
       heroSessionStats: heroStats,
@@ -2339,8 +2344,37 @@
     return h;
   }
 
-  /** Muestrea fold/call/raise. Nunca foldea las nuts absolutas. */
+  function refineVillainLeadStrategy(strat, ctx) {
+    const DC = global.GTODecisionContext;
+    if (DC && DC.refineLead) return DC.refineLead(strat, ctx);
+    let out = Object.assign({}, strat || {});
+    const FA = global.GTOVillainFormatAdjust;
+    const Ex = global.GTOVillainProExploit;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, 'lead');
+    if (Ex && Ex.applyToLeadFreqs) out = Ex.applyToLeadFreqs(out, ctx);
+    return out;
+  }
+
+  function refineVillainFacingStrategy(strat, ctx) {
+    const DC = global.GTODecisionContext;
+    if (DC && DC.refineFacing) return DC.refineFacing(strat, ctx);
+    let out = Object.assign({}, strat || {});
+    const FA = global.GTOVillainFormatAdjust;
+    const Ex = global.GTOVillainProExploit;
+    const LP = global.GTOVillainLinePolicy;
+    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, ctx.lineIntent === 'checkRaise' ? 'xr' : 'facing');
+    if (Ex && Ex.applyToFacingFreqs) out = Ex.applyToFacingFreqs(out, ctx);
+    if (LP && LP.adjustFacing) out = LP.adjustFacing(out, ctx);
+    if (out._preferOverbetRaise) {
+      delete out._preferOverbetRaise;
+      return { freqs: out, preferOverbetRaise: true };
+    }
+    return { freqs: out, preferOverbetRaise: false };
+  }
+
   function sampleVillainFacingFromStrategy(strat, rnd, opts) {
+    const DC = global.GTODecisionContext;
+    if (DC && DC.sampleFacing) return DC.sampleFacing(strat, rnd, opts);
     opts = opts || {};
     let raiseP = strat.raise || 0;
     let callP = strat.call || 0;
@@ -2353,31 +2387,6 @@
     if (opts.canRaise !== false && rnd < raiseP) return 'raise';
     if (rnd < raiseP + callP) return 'call';
     return opts.neverFold ? 'call' : 'fold';
-  }
-
-  function refineVillainLeadStrategy(strat, ctx) {
-    let out = Object.assign({}, strat || {});
-    const FA = global.GTOVillainFormatAdjust;
-    const Ex = global.GTOVillainProExploit;
-    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, 'lead');
-    if (Ex && Ex.applyToLeadFreqs) out = Ex.applyToLeadFreqs(out, ctx);
-    return out;
-  }
-
-  function refineVillainFacingStrategy(strat, ctx) {
-    let out = Object.assign({}, strat || {});
-    const FA = global.GTOVillainFormatAdjust;
-    const Ex = global.GTOVillainProExploit;
-    const LP = global.GTOVillainLinePolicy;
-    if (FA && FA.applyToFreqs) out = FA.applyToFreqs(out, ctx, ctx.lineIntent === 'checkRaise' ? 'xr' : 'facing');
-    if (Ex && Ex.applyToFacingFreqs) out = Ex.applyToFacingFreqs(out, ctx);
-    if (LP && LP.adjustFacing) out = LP.adjustFacing(out, ctx);
-    if (out._preferOverbetRaise) {
-      // flag for raise sizing; strip before sampling
-      delete out._preferOverbetRaise;
-      return { freqs: out, preferOverbetRaise: true };
-    }
-    return { freqs: out, preferOverbetRaise: false };
   }
 
   function villainPostflopAction(hand, node) {
@@ -4521,9 +4530,19 @@
       const spr = hand.potBB > 0 ? remV / hand.potBB : remV;
       const spotCtx = buildVillainSpotCtx(hand, { info: info, strength: strength, spr: spr, remainingBB: remV });
       const LP = global.GTOVillainLinePolicy;
+      if (LP && LP.createLinePlan && !hand._villainLinePlan) {
+        hand._villainLinePlan = LP.createLinePlan(spotCtx);
+      }
+      spotCtx.linePlan = hand._villainLinePlan || null;
       let line = { actionHint: 'auto', intent: null, forceCheck: false, preferSizeKey: null };
       if (LP && LP.decideLead) {
         line = LP.decideLead(spotCtx, rnd);
+      }
+      if (line.linePlanPatch && LP.updateLinePlan) {
+        hand._villainLinePlan = LP.updateLinePlan(hand._villainLinePlan || LP.createLinePlan(spotCtx), Object.assign({
+          street: hand.stage
+        }, line.linePlanPatch));
+        spotCtx.linePlan = hand._villainLinePlan;
       }
       if (line.forceCheck) {
         hand._villainLineIntent = line.intent || 'checkRaise';
@@ -5256,7 +5275,10 @@
         strategy: strategy,
         mathParams: mathParams
       },
-      options: optionEVs
+      options: optionEVs,
+      drivers: stratResult.topDrivers || stratResult.drivers || [],
+      conceptTags: stratResult.conceptTags || [],
+      bubbleFactor: stratResult.bubbleFactor != null ? stratResult.bubbleFactor : null
     };
   }
 

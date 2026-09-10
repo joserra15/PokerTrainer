@@ -156,6 +156,39 @@
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
 
     const gtoStrategy = strategy;
+    // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain
+    const DC = global.GTODecisionContext;
+    const facing = (enriched.toCallBB || 0) > 0;
+    if (DC && enriched.street && enriched.street !== 'preflop') {
+      const ctx = DC.buildBase({
+        formatHub: enriched.formatHub,
+        gameType: enriched.gameType,
+        street: enriched.street,
+        potBB: enriched.potBB,
+        stackBB: enriched.heroStackBB != null ? enriched.heroStackBB : enriched.effStack,
+        spr: enriched.spr,
+        strength: enriched.heroEquity,
+        band: enriched.handRank && enriched.handRank.band,
+        initiative: enriched.initiative,
+        inPosition: enriched.inPosition,
+        board: enriched.board,
+        mttPhase: enriched.mttPhase || enriched.resolvedPhase,
+        effectivePhase: enriched.resolvedPhase || enriched.mttPhase,
+        mttStructureSituation: enriched.mttStructureSituation,
+        tournamentType: enriched.tournamentType,
+        playersLeft: enriched.playersLeft,
+        placesPaid: enriched.placesPaid,
+        icmStacksBB: enriched.icmStacksBB,
+        icmPayouts: enriched.icmPayouts,
+        multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,
+        potType: enriched.potType || 'srp',
+        stackRole: enriched.stackRole,
+        lineIntent: enriched.lineIntent || null
+      });
+      strategy = DC.applyIcmToFreqs(Object.assign({}, strategy), ctx, facing ? 'facing' : 'lead');
+      strategy = Classifier.filterStrategy(strategy, enriched.availableActions);
+    }
+
     let exploitMeta = null;
     const Exploit = global.GTOHeroExploitAdjust;
     if (Exploit && enriched.scoreMode === 'exploit') {
@@ -165,6 +198,56 @@
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
+
+    let driversMeta = { drivers: [], topDrivers: [], conceptTags: [] };
+    if (DC && DC.computeDrivers && enriched.street && enriched.street !== 'preflop') {
+      const Facing = global.GTOFacingBet;
+      const mdf = facing && Facing && Facing.calculateMDF
+        ? Facing.calculateMDF(enriched.potBeforeBB || enriched.potBB, enriched.toCallBB)
+        : null;
+      driversMeta = DC.computeDrivers(
+        {
+          band: enriched.handRank && enriched.handRank.band,
+          strength: enriched.heroEquity,
+          rangeAdvantage: global.GTORangeAdvantage
+            ? global.GTORangeAdvantage.computeRangeAdvantage(enriched)
+            : null,
+          nutAdvantage: global.GTORangeAdvantage && global.GTORangeAdvantage.computeNutAdvantage
+            ? global.GTORangeAdvantage.computeNutAdvantage(enriched)
+            : null,
+          spr: enriched.spr,
+          polarization: global.GTORangeAdvantage
+            ? global.GTORangeAdvantage.betPolarization(enriched, enriched.handRank && enriched.handRank.band)
+            : null,
+          lineIntent: enriched.lineIntent,
+          potType: enriched.potType,
+          bubbleFactor: DC.bubbleFactorFromCtx({
+            formatHub: enriched.formatHub,
+            gameType: enriched.gameType,
+            mttPhase: enriched.mttPhase,
+            effectivePhase: enriched.resolvedPhase || enriched.mttPhase,
+            mttStructureSituation: enriched.mttStructureSituation,
+            stackBB: enriched.heroStackBB || enriched.effStack,
+            icmStacksBB: enriched.icmStacksBB,
+            icmPayouts: enriched.icmPayouts,
+            playersLeft: enriched.playersLeft,
+            placesPaid: enriched.placesPaid
+          }),
+          stackRole: enriched.stackRole,
+          multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2
+        },
+        strategy,
+        {
+          facing: facing,
+          mdf: mdf,
+          potOdds: facing && Facing
+            ? Facing.calculatePotOdds(enriched.potBeforeBB || enriched.potBB, enriched.toCallBB)
+            : null,
+          exploitApplied: !!(exploitMeta && exploitMeta.applied),
+          exploitReasons: (exploitMeta && exploitMeta.reasons) || []
+        }
+      );
+    }
 
     const result = {
       strategy,
@@ -181,7 +264,11 @@
       villainType: enriched.villainType || null,
       exploitApplied: !!(exploitMeta && exploitMeta.applied),
       exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
-      explainDelta: (exploitMeta && exploitMeta.explainDelta) || []
+      explainDelta: (exploitMeta && exploitMeta.explainDelta) || [],
+      drivers: driversMeta.drivers || [],
+      topDrivers: driversMeta.topDrivers || [],
+      conceptTags: driversMeta.conceptTags || [],
+      bubbleFactor: driversMeta.bubbleFactor != null ? driversMeta.bubbleFactor : null
     };
 
     if (chosenAction != null) {

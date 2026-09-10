@@ -257,6 +257,19 @@
       '</div>';
   }
 
+  function renderDrivers(drivers) {
+    if (!drivers || !drivers.length) return '';
+    var bits = drivers.slice(0, 3).map(function (d) {
+      var val = d.value != null ? ' ' + d.value : '';
+      var effect = d.effect ? ' → ' + d.effect : '';
+      return '<li><strong>' + escapeHtml(d.label || d.id) + '</strong>' +
+        escapeHtml(String(val)) + escapeHtml(effect) + '</li>';
+    }).join('');
+    return '<div class="live-advisor-drivers">' +
+      '<div class="live-advisor-rec-label">' + escapeHtml(t('advisor.whyPct')) + '</div>' +
+      '<ul class="live-advisor-drivers-list">' + bits + '</ul></div>';
+  }
+
   function renderPanel(host, hand, advice) {
     if (!host) return;
     if (!advice || !advice.recommended) {
@@ -286,6 +299,7 @@
       '<div class="muted-text">' + escapeHtml(t('advisor.gtoFreq', { n: freqPct })) +
       ' · EV ' + (rec.ev != null ? ((rec.ev >= 0 ? '+' : '') + fmtBB(rec.ev) + ' bb') : '—') + '</div>' +
       '</div>' +
+      renderDrivers(advice.drivers) +
       renderMath(rec.mathParams) +
       renderOptionEvList(advice.options, rec.actionId) +
       (rec.explanation ? '<p class="live-advisor-expl">' + escapeHtml(rec.explanation) + '</p>' : '') +

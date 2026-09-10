@@ -2437,11 +2437,228 @@
     return face;
   }
 
+  function ensureLinePlan(seat, spotCtx) {
+    var LP = global.GTOVillainLinePolicy;
+    if (!LP || !LP.createLinePlan) return null;
+    if (!seat._linePlan) seat._linePlan = LP.createLinePlan(spotCtx || {});
+    return seat._linePlan;
+  }
+
+  function patchLinePlan(seat, street, patch) {
+    var LP = global.GTOVillainLinePolicy;
+    if (!LP || !LP.updateLinePlan || !patch) return;
+    seat._linePlan = LP.updateLinePlan(seat._linePlan || LP.createLinePlan({}), Object.assign({
+      street: street
+    }, patch));
+  }
+
+  function isNeverFoldNuts(cards, board) {
+    var RS = global.GTORiverShoveNode;
+    if (RS && RS.isAbsoluteNuts) {
+      try { return !!RS.isAbsoluteNuts(toCodes(cards), toCodes(board || [])); } catch (e) { /* */ }
+    }
+    return false;
+  }
+
+  /**
+   * Path Pro: samplea postflopStrategy (misma fuente que entrenador / Hero).
+   * Retorna acción o null si no aplica / falla.
+   */
+  function decidePostflopFromStrategy(hand, seat, profile, role, strength, madeInfo, ctx, heroLine, inPos, initiative, rnd) {
+    var DC = global.GTODecisionContext;
+    var LP = global.GTOVillainLinePolicy;
+    var VS = global.GTOVillainSizing;
+    if (!DC || (!DC.usesStrategySample(profile) && !DC.usesStrategySample(role))) return null;
+    if (!global.GTO || !global.GTO.Strategy || !global.GTO.Strategy.postflopStrategy) return null;
+
+    var bb = Math.max(1, hand.bb || 1);
+    var tc = Math.max(0, hand.currentBet - seat.streetInvested);
+    var pot = Math.max(hand.pot || 1, 1);
+    var potBB = pot / bb;
+    var tcBB = tc / bb;
+    var potBeforeBB = Math.max(potBB - tcBB, 0.1);
+    var band = DC.bandFromMade(madeInfo, strength);
+    var neverFold = isNeverFoldNuts(seat.cards, hand.board);
+    var spotCtx = DC.buildFromTournament(hand, seat, {
+      strength: strength,
+      band: band,
+      madeHandInfo: madeInfo,
+      madeCategory: madeInfo && madeInfo.ev ? madeInfo.ev.category : null,
+      initiative: initiative,
+      inPosition: inPos,
+      lineIntent: seat._lineIntent || null,
+      formatHub: ctx.formatHub,
+      stackBB: ctx.stackBB,
+      effectivePhase: ctx.effectivePhase || ctx.mttPhase,
+      mttPhase: ctx.mttPhase,
+      mttStructureSituation: ctx.mttStructureSituation,
+      tournamentType: ctx.tournamentType,
+      playersLeft: ctx.playersLeft,
+      placesPaid: ctx.placesPaid,
+      proStyle: profile.proStyle || null,
+      heroProfile: ctx.heroProfile || null
+    });
+    spotCtx.linePlan = ensureLinePlan(seat, spotCtx);
+    spotCtx.toCallBB = tcBB;
+    spotCtx.potBeforeBB = potBeforeBB;
+    if (tcBB > 0) spotCtx.villainBetRatio = tcBB / potBeforeBB;
+
+    var eq = strength;
+    try {
+      if (global.GTOEquity && global.GTOEquity.equityVsRange && seat.cards) {
+        var D = global.GTORangesData;
+        eq = global.GTOEquity.equityVsRange(
+          toCodes(seat.cards),
+          toCodes(hand.board || []),
+          (D && D.BROAD_CONTINUE) || '22+,A2s+,K9s+,Q9s+,J9s+,T8s+,ATo+,KTo+,QJo',
+          280,
+          { street: hand.street || 'flop' }
+        );
+      }
+    } catch (eEq) { eq = strength; }
+
+    var strat = global.GTO.Strategy.postflopStrategy({
+      toCallBB: tcBB,
+      potBB: potBB,
+      potBeforeBB: potBeforeBB,
+      heroEquity: eq != null ? eq : strength,
+      madeHandInfo: madeInfo,
+      board: toCodes(hand.board || []),
+      heroCards: toCodes(seat.cards),
+      initiative: initiative,
+      inPosition: inPos,
+      spr: spotCtx.spr,
+      street: hand.street || 'flop',
+      villainLastAction: ctx.villainLastAction || null,
+      potType: spotCtx.potType
+    });
+
+    /* Facing */
+    if (tc > 0) {
+      var refined = DC.refineFacing(strat, spotCtx);
+      if (heroLine.aggressive && strength < 0.45) {
+        refined.freqs.fold = (refined.freqs.fold || 0) * 1.2;
+        refined.freqs.call = (refined.freqs.call || 0) * 0.85;
+        refined.freqs = DC.normalize(refined.freqs);
+      }
+      var act = DC.sampleFacing(refined.freqs, rnd, {
+        neverFold: neverFold,
+        canRaise: tc > 0
+      });
+      if (act !== 'raise') seat._lineIntent = null;
+      else if (seat._lineIntent === 'checkRaise') {
+        patchLinePlan(seat, hand.street, { intent: 'checkRaise', action: 'raise' });
+        seat._lineIntent = null;
+      }
+      if (act === 'call' && (hand.street === 'flop') && !inPos && strength >= 0.35 && strength <= 0.55) {
+        patchLinePlan(seat, hand.street, { intent: 'float', action: 'call' });
+        if (seat._linePlan) seat._linePlan.floatOop = true;
+      }
+      if (act === 'raise') {
+        var raiseAmt;
+        if (VS && VS.raiseSizeBB) {
+          raiseAmt = VS.raiseSizeBB(potBeforeBB * bb, tc, Object.assign({}, spotCtx, {
+            preferOverbetRaise: !!refined.preferOverbetRaise,
+            remainingBB: spotCtx.remainingBB || spotCtx.stackBB
+          }), Math.random());
+          raiseAmt = capRaiseTo(hand, seat, raiseAmt);
+        } else {
+          raiseAmt = capRaiseTo(hand, seat, Math.max(
+            hand.currentBet + hand.minRaise,
+            hand.currentBet * 2.4,
+            hand.currentBet + pot * 0.55
+          ));
+        }
+        patchLinePlan(seat, hand.street, { action: 'raise' });
+        return { id: 'raise', amount: raiseAmt };
+      }
+      if (act === 'call') {
+        patchLinePlan(seat, hand.street, { action: 'call' });
+        return { id: 'call' };
+      }
+      patchLinePlan(seat, hand.street, { action: 'fold' });
+      return { id: 'fold' };
+    }
+
+    /* Lead: line policy primero (XR setup / delayed / trap), luego sample */
+    if (LP && typeof LP.decideLead === 'function') {
+      try {
+        var leadLine = LP.decideLead(Object.assign({}, spotCtx, {
+          priorStreetCheckCheck: !!(hand._priorStreetCheckCheck || seat._priorStreetCheckCheck),
+          board: toCodes(hand.board || [])
+        }), rnd);
+        if (leadLine && leadLine.linePlanPatch) {
+          patchLinePlan(seat, hand.street, leadLine.linePlanPatch);
+          spotCtx.linePlan = seat._linePlan;
+        }
+        if (leadLine && (leadLine.forceCheck || leadLine.intent === 'checkRaise' || leadLine.intent === 'trap' || leadLine.intent === 'giveUp')) {
+          if (leadLine.intent) seat._lineIntent = leadLine.intent;
+          return { id: 'check' };
+        }
+        if (leadLine && leadLine.intent) seat._lineIntent = leadLine.intent;
+        if (leadLine && leadLine.preferSizeKey) seat._preferSizeKey = leadLine.preferSizeKey;
+        if (leadLine && leadLine.actionHint === 'bet') {
+          /* fuerza bet de delayed/donk/protection — sizing abajo */
+          var forcedFrac = 0.55;
+          if (VS && VS.fracForKey && leadLine.preferSizeKey) {
+            forcedFrac = VS.fracForKey(leadLine.preferSizeKey) || forcedFrac;
+          } else if (leadLine.preferSizeKey === 'bet_33') forcedFrac = 0.33;
+          else if (leadLine.preferSizeKey === 'bet_66') forcedFrac = 0.66;
+          else if (leadLine.preferSizeKey === 'overbet') forcedFrac = 1.25;
+          patchLinePlan(seat, hand.street, { action: 'bet', intent: leadLine.intent });
+          return {
+            id: 'bet',
+            amount: Math.min(allInTo(seat), Math.max(hand.bb, r2(pot * forcedFrac)))
+          };
+        }
+      } catch (eLead) { /* */ }
+    }
+
+    var leadFreqs = DC.refineLead(strat, spotCtx);
+    if (VS && VS.sampleLeadFromStrategy) {
+      var sampled = VS.sampleLeadFromStrategy(leadFreqs, potBB, Object.assign({}, spotCtx, {
+        preferSizeKey: seat._preferSizeKey || null
+      }), rnd);
+      seat._preferSizeKey = null;
+      if (sampled.action === 'bet') {
+        patchLinePlan(seat, hand.street, { action: 'bet' });
+        var FA = global.GTOVillainFormatAdjust;
+        if (FA && FA.multipliers) {
+          var mLead = FA.multipliers(spotCtx) || {};
+          if (mLead.jamBias > 1.3 && spotCtx.stackBB <= 14 && strength > 0.5) {
+            return { id: 'raise', amount: allInTo(seat) };
+          }
+        }
+        return {
+          id: 'bet',
+          amount: Math.min(allInTo(seat), Math.max(hand.bb, r2(pot * (sampled.frac || 0.55))))
+        };
+      }
+      patchLinePlan(seat, hand.street, { action: 'check' });
+      return { id: 'check' };
+    }
+
+    var betP = 0;
+    ['bet_100', 'bet_66', 'bet_33', 'overbet', 'bet'].forEach(function (k) {
+      betP += leadFreqs[k] || 0;
+    });
+    if (rnd < betP) {
+      patchLinePlan(seat, hand.street, { action: 'bet' });
+      return {
+        id: 'bet',
+        amount: Math.min(allInTo(seat), Math.max(hand.bb, r2(pot * sampleBetFrac(profile, hand.street, strength))))
+      };
+    }
+    patchLinePlan(seat, hand.street, { action: 'check' });
+    return { id: 'check' };
+  }
+
   function decidePostflop(hand, seat) {
     var VP = global.GTOVillainProfiles;
     var LP = global.GTOVillainLinePolicy;
     var Made = global.GTOEquityMadeHand;
     var Track = global.GTOVillainTracking;
+    var DC = global.GTODecisionContext;
     var profile = profileForSeat(seat);
     var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
@@ -2488,7 +2705,23 @@
       } catch (eT) { /* */ }
     }
 
-    /* ---------- Facing bet ---------- */
+    /* ---------- Path Pro: misma estrategia que entrenador ---------- */
+    if (DC && (DC.usesStrategySample(profile) || DC.usesStrategySample(role))) {
+      try {
+        var proAct = decidePostflopFromStrategy(
+          hand, seat, profile, role, strength, madeInfo, ctx, heroLine, inPos, initiative, rnd
+        );
+        if (proAct) {
+          /* Nuts absolutas nunca fold */
+          if (proAct.id === 'fold' && isNeverFoldNuts(seat.cards, hand.board)) {
+            return { id: 'call' };
+          }
+          return proAct;
+        }
+      } catch (ePro) { /* fallthrough heurística */ }
+    }
+
+    /* ---------- Facing bet (heurística fish/nit/maniac) ---------- */
     if (tc > 0) {
       var face = 'fold';
       if (VP && typeof VP.postflopFacingBet === 'function') {
@@ -2550,8 +2783,9 @@
 
       face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd);
       face = applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd);
-      /* Reaplicar disciplina tras format-adjust (evitar reintroducir calls tóxicos). */
       face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, Math.random());
+
+      if (face === 'fold' && isNeverFoldNuts(seat.cards, hand.board)) face = 'call';
 
       if (face === 'raise') {
         return {
@@ -2567,10 +2801,10 @@
       return { id: 'fold' };
     }
 
-    /* ---------- Lead (tc === 0) ---------- */
+    /* ---------- Lead (heurística) ---------- */
     if (LP && typeof LP.decideLead === 'function') {
       try {
-        var leadLine = LP.decideLead({
+        var leadLineH = LP.decideLead({
           street: street,
           board: toCodes(hand.board || []),
           strength: strength,
@@ -2581,13 +2815,17 @@
           formatHub: ctx.formatHub,
           stackBB: ctx.stackBB,
           madeCategory: opts.madeCategory,
-          spr: pot > 0 ? ctx.stackBB / (pot / Math.max(1, hand.bb || 1)) : ctx.stackBB
+          spr: pot > 0 ? ctx.stackBB / (pot / Math.max(1, hand.bb || 1)) : ctx.stackBB,
+          linePlan: seat._linePlan || null
         }, rnd);
-        if (leadLine && (leadLine.forceCheck || leadLine.intent === 'checkRaise')) {
+        if (leadLineH && leadLineH.linePlanPatch) {
+          patchLinePlan(seat, street, leadLineH.linePlanPatch);
+        }
+        if (leadLineH && (leadLineH.forceCheck || leadLineH.intent === 'checkRaise')) {
           seat._lineIntent = 'checkRaise';
           return { id: 'check' };
         }
-        if (leadLine && leadLine.intent) seat._lineIntent = leadLine.intent;
+        if (leadLineH && leadLineH.intent) seat._lineIntent = leadLineH.intent;
       } catch (eLead) { /* */ }
     }
 
@@ -2600,7 +2838,6 @@
       lead = 'bet';
     }
 
-    /* Suelo de c-bet / value-bet. */
     if (lead === 'check') {
       var force = 0;
       if (wasAgg && strength > 0.38) force = 0.62;
@@ -2610,13 +2847,11 @@
       else if (strength > 0.36) force = 0.22;
       if (role === 'lag' || role === 'maniac') force = Math.min(0.85, force + 0.18);
       if (role === 'nit') force *= 0.75;
-      /* Semibluff flop/turn. */
       if ((street === 'flop' || street === 'turn')
         && strength >= 0.38 && strength <= 0.52
         && (role === 'tag' || role === 'pro' || role === 'lag')) {
         force = Math.min(0.82, force + 0.22);
       }
-      /* Hero pasivo → más presión de bet (pro/tag). */
       if (heroLine.passive && (role === 'pro' || role === 'tag') && strength > 0.28) {
         force = Math.min(0.85, force + 0.2);
       }
@@ -2625,7 +2860,6 @@
 
     lead = applyFormatAdjustToLead(lead, strength, ctx, wasAgg, rnd, profile);
 
-    /* Hero pasivo + pro/tag: empujar bet tras format adjust. */
     if (lead === 'check' && heroLine.passive && (role === 'pro' || role === 'tag')
       && strength > 0.28 && Math.random() < 0.35) {
       lead = 'bet';
@@ -2633,11 +2867,11 @@
 
     if (lead === 'bet') {
       var frac = sampleBetFrac(profile, street, strength);
-      var FA = global.GTOVillainFormatAdjust;
-      if (FA && FA.multipliers) {
-        var mLead = FA.multipliers(ctx) || {};
-        if (mLead.sizeSimple) frac = Math.min(frac, 0.66);
-        if (mLead.jamBias > 1.3 && ctx.stackBB <= 14 && strength > 0.5) {
+      var FA2 = global.GTOVillainFormatAdjust;
+      if (FA2 && FA2.multipliers) {
+        var mLead2 = FA2.multipliers(ctx) || {};
+        if (mLead2.sizeSimple) frac = Math.min(frac, 0.66);
+        if (mLead2.jamBias > 1.3 && ctx.stackBB <= 14 && strength > 0.5) {
           return {
             id: 'raise',
             amount: allInTo(seat)

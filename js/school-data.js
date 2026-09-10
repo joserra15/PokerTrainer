@@ -712,6 +712,10 @@
     return lessonsForRoute('cash').filter(function (l) { return l.module === 'M2'; });
   }
 
+  function m3Lessons() {
+    return lessonsForRoute('cash').filter(function (l) { return l.module === 'M3'; });
+  }
+
   function lessonsForModule(routeId, moduleId) {
     return lessonsForRoute(routeId).filter(function (l) { return l.module === moduleId; });
   }
@@ -757,6 +761,7 @@
     m0Lessons: m0Lessons,
     m1Lessons: m1Lessons,
     m2Lessons: m2Lessons,
+    m3Lessons: m3Lessons,
     lessonsForModule: lessonsForModule,
     modulesInRoute: modulesInRoute,
     setRouteStatus: setRouteStatus,

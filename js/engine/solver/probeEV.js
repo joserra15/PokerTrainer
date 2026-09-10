@@ -300,6 +300,7 @@
       ? input.handRank.percentile : equity;
     const rf = realizationFactor(street, inPosition);
     const rangeAdv = RA ? RA.computeRangeAdvantage(input) : 0;
+    const nutAdv = RA && RA.computeNutAdvantage ? RA.computeNutAdvantage(input) : 0;
     const polarization = RA ? RA.betPolarization(input, band) : 0.35;
     const texture = Board ? Board.boardTexture(input.board || []) : {};
     const streetScale = { flop: 1.0, turn: 0.76, river: 0.46 };
@@ -342,6 +343,17 @@
       if (band === 'nuts') betTotal = Math.max(betTotal, 0.72);
       if (rangeAdv > 0.25 && band !== 'air') betTotal = Math.min(betTotal + 0.08, 0.92);
       if (rangeAdv < -0.2 && !inPosition) betTotal *= 0.75;
+      if (nutAdv > 0.15 && band !== 'air') betTotal = Math.min(betTotal + 0.06, 0.94);
+      if (nutAdv < -0.12 && band === 'merge') betTotal *= 0.82;
+      // Protection OOP wet: value/merge medio apuesta más (niega equity)
+      if (!inPosition && texture.wet && (band === 'value' || band === 'merge')
+        && street === 'flop' && equity >= 0.45 && equity <= 0.72) {
+        betTotal = Math.max(betTotal, 0.42);
+      }
+      // Pot-control: nut disadvantage + merge → menos bet
+      if (nutAdv < -0.1 && band === 'merge' && !texture.wet) {
+        betTotal *= 0.78;
+      }
     } else if (bestBetEv > evCheckVal - margin * 0.5 && band === 'merge') {
       betTotal = clamp(0.18 + (bestBetEv - evCheckVal) / pot, 0.08, 0.35);
     } else {

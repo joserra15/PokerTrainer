@@ -14,6 +14,7 @@ const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const schoolDataSrc = fs.readFileSync(path.join(root, 'js/school-data.js'), 'utf8');
 const schoolM1Src = fs.readFileSync(path.join(root, 'js/school-data-m1.js'), 'utf8');
 const schoolM2Src = fs.readFileSync(path.join(root, 'js/school-data-m2.js'), 'utf8');
+const schoolM3Src = fs.readFileSync(path.join(root, 'js/school-data-m3.js'), 'utf8');
 const schoolSpinSrc = fs.readFileSync(path.join(root, 'js/school-data-spin.js'), 'utf8');
 const schoolMttSrc = fs.readFileSync(path.join(root, 'js/school-data-mtt.js'), 'utf8');
 const schoolRangesSrc = fs.readFileSync(path.join(root, 'js/school-data-ranges.js'), 'utf8');
@@ -22,7 +23,7 @@ const schoolSrc = fs.readFileSync(path.join(root, 'js/school.js'), 'utf8');
 const aiReportSrc = fs.readFileSync(path.join(root, 'js/ai-report.js'), 'utf8');
 const leaksSrc = fs.readFileSync(path.join(root, 'js/leaks.js'), 'utf8');
 const allSchoolDataSrc = [
-  schoolDataSrc, schoolM1Src, schoolM2Src, schoolSpinSrc, schoolMttSrc, schoolRangesSrc, schoolProSrc
+  schoolDataSrc, schoolM1Src, schoolM2Src, schoolM3Src, schoolSpinSrc, schoolMttSrc, schoolRangesSrc, schoolProSrc
 ].join('\n');
 
 /** Normaliza theory[] (string | {title,body}) a texto plano para asserts. */
@@ -52,6 +53,7 @@ assert.ok(/demo-mode-active[^{]*#tab-school/.test(css) || /demo-mode-active #tab
 assert.ok(!/body:not\(\.pt-is-admin\) #tab-school/.test(css), 'CSS ya no oculta school a no-admin');
 assert.ok(/school:\s*\[/.test(chunks), 'chunk school');
 assert.ok(/school-data-m1\.js/.test(chunks) && /school-data-m2\.js/.test(chunks), 'chunk incluye M1/M2');
+assert.ok(/school-data-m3\.js/.test(chunks), 'chunk incluye M3 (C-21…C-25)');
 assert.ok(/school-data-spin\.js/.test(chunks) && /school-data-mtt\.js/.test(chunks), 'chunk Spins/MTT');
 assert.ok(/school-data-ranges\.js/.test(chunks) && /school-data-pro\.js/.test(chunks), 'chunk Rangos/Pro');
 assert.ok(/school-extra-spots\.js/.test(chunks), 'chunk extra spots (≥10 manos)');
@@ -202,6 +204,7 @@ const engineScripts = [
   'js/school-data.js',
   'js/school-data-m1.js',
   'js/school-data-m2.js',
+  'js/school-data-m3.js',
   'js/school-data-spin.js',
   'js/school-data-mtt.js',
   'js/school-data-ranges.js',
@@ -232,13 +235,19 @@ assert.ok(Data && School && Engine, 'APIs cargadas');
 assert.strictEqual(Data.SCHOOL_DATA_VERSION, 5, 'data version 5');
 
 const lessons = Data.lessonsForRoute('cash');
-assert.strictEqual(lessons.length, 44, 'Cash M0+M1+M2+Pro+Exploit = 44 lecciones');
+assert.strictEqual(lessons.length, 49, 'Cash M0+M1+M2+M3+Pro+Exploit = 49 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 19, 'Spins 19');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 24, 'MTT 24');
 assert.strictEqual(Data.lessonsForRoute('ranges').length, 36, 'Rangos 36');
 assert.strictEqual(Data.m0Lessons().length, 9, 'M0 9');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 14, 'M2 14');
+assert.strictEqual(Data.m3Lessons().length, 5, 'M3 5 (C-21…C-25)');
+['C-21', 'C-22', 'C-23', 'C-24', 'C-25'].forEach(function (id) {
+  var l = Data.getLesson(id);
+  assert.ok(l && l.module === 'M3', id + ' registrado en M3');
+  assert.ok(l.spots && l.spots.length >= 6, id + ' tiene spots');
+});
 assert.strictEqual(
   Data.m0Lessons().map(function (l) { return l.id; }).join(','),
   'C-00,C-01,C-02,C-03,C-04,C-05,C-06,F-01,Q-01',
@@ -1720,7 +1729,9 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   assert.strictEqual(AI.lessonFromLeak({ key: 'RFI|BTN|preflop' }), 'C-02', 'RFI→C-02');
   assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'RFI|BTN|preflop' })), JSON.stringify(['C-02', 'R-02', 'F-01']), 'RFI→C-02+R-02+F-01');
   assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'vsRFI|BB|preflop' })), JSON.stringify(['C-08', 'R-04', 'B-01']), 'vsRFI→C-08+R-04+B-01');
-  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'postflop|BTN|flop' })), JSON.stringify(['C-15', 'R-05', 'D-01', 'Q-01', 'D-03']), 'flop→virales');
+  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'postflop|BTN|flop' })), JSON.stringify(['C-15', 'C-21', 'C-22', 'C-24', 'R-05', 'D-01', 'Q-01', 'D-03']), 'flop→M3+virales');
+  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'postflop|BTN|turn' })), JSON.stringify(['C-18', 'C-25', 'C-23', 'R-07', 'O-01', 'E-01']), 'turn→M3+virales');
+  assert.strictEqual(JSON.stringify(AI.lessonsFromLeak({ key: 'postflop|BTN|river' })), JSON.stringify(['C-19', 'C-23', 'R-07', 'D-02', 'D-04']), 'river→M3+virales');
   assert.strictEqual(AI.lessonFromLeak({ key: 'vsRFI|BB|preflop' }), 'C-08', 'vsRFI→C-08');
   assert.strictEqual(AI.lessonFromLeak({ key: 'face3bet|BTN|preflop' }), 'C-09', 'face3bet→C-09');
   assert.strictEqual(AI.lessonFromLeak({ key: 'squeeze|BB|preflop' }), 'C-10', 'squeeze→C-10');
