@@ -42,7 +42,7 @@ assert.ok(/help-modal-content/.test(css) && /action-hotkey/.test(css), 'CSS ayud
 assert.ok(/action-hotkey\s*\{\s*display:\s*none/.test(css.replace(/\s+/g, ' ')) ||
   /@media[^{]*max-width:\s*720px[\s\S]*?\.action-hotkey\s*\{\s*display:\s*none/.test(css),
   'hotkeys ocultas en móvil');
-assert.ok(/PT_BUILD\s*=\s*'3\.1\.17'/.test(version), 'versión 3.1.17');
+assert.ok(/PT_BUILD\s*=\s*'3\.2\.0'/.test(version), 'versión 3.2.0');
 
 const localStore = {};
 const sandbox = {

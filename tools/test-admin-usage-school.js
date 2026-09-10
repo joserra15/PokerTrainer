@@ -28,7 +28,7 @@ assert.ok(/'tournaments', tournaments/.test(sqlTournaments), 'user detail con to
 assert.ok(/pt_admin_guest_funnel/.test(sqlFunnel) && /pt_guest_funnel_ingest/.test(sqlFunnel), 'migración embudo');
 assert.ok(/trackFeatureUsage/.test(storageSrc), 'Store.trackFeatureUsage');
 assert.ok(/trackFeatureUsage/.test(logSrc), 'PTLog → trackFeatureUsage');
-assert.ok(/PT_BUILD\s*=\s*'3\.1\.17'/.test(version), 'versión 3.1.17');
+assert.ok(/PT_BUILD\s*=\s*'3\.2\.0'/.test(version), 'versión 3.2.0');
 
 const localStore = {};
 const sandbox = {
