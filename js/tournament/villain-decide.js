@@ -77,29 +77,62 @@
     return pf;
   }
 
-  function profileForSeat(seat) {
+  function aiLevelOf(hand) {
+    var cfg = (hand && hand.tournamentConfig) || {};
+    var v = cfg.aiLevel || (hand && hand.state && hand.state.aiLevel);
+    if (v === 'solid' || v === 'strong' || v === 'elite' || v === 'exploit_pro') return v;
+    return 'elite';
+  }
+
+  function profileForSeat(seat, hand) {
     var VP = global.GTOVillainProfiles;
     var role = mapRoleId(seat && seat.roleId);
+    var aiLevel = aiLevelOf(hand);
     if (!VP || typeof VP.applyDifficulty !== 'function') {
       return {
         id: role,
-        preflopStrict: 0.92,
+        preflopStrict: aiLevel === 'solid' ? 0.85 : 0.92,
         postflop: tournamentPostflopFloor(role, {
           betFreqMult: 1.15, bluffFreqMult: 1, raiseFreqMult: 1.15, callMult: 1.05, foldMult: 0.9
         }),
-        proStyle: seat && seat.proStyle || null
+        proStyle: seat && seat.proStyle || null,
+        aiLevel: aiLevel
       };
     }
     var base = typeof VP.getProfile === 'function' ? VP.getProfile(role) : role;
-    var prof = VP.applyDifficulty(base, 'pro', { forced: true, keepArchetype: true });
-    prof = Object.assign({}, prof, {
-      postflop: tournamentPostflopFloor(role, prof.postflop)
-    });
+    var difficulty = (aiLevel === 'solid' || aiLevel === 'strong') ? 'intermediate' : 'pro';
+    var prof = VP.applyDifficulty(base, difficulty, { forced: true, keepArchetype: true });
+    if (aiLevel === 'strong') {
+      /* Entre intermediate y pro: más estricto preflop, menos leak. */
+      prof = Object.assign({}, prof, {
+        preflopStrict: Math.max(Number(prof.preflopStrict) || 0, 0.9),
+        leakRate: Math.min(Number(prof.leakRate) || 0.05, 0.015)
+      });
+    }
+    if (aiLevel === 'solid') {
+      /* Sólido (no fish): floors un poco más suaves que el pro de torneo. */
+      var softFloor = tournamentPostflopFloor(role, prof.postflop);
+      if (softFloor) {
+        softFloor = Object.assign({}, softFloor);
+        softFloor.betFreqMult = Math.max(0.85, (Number(softFloor.betFreqMult) || 1) * 0.92);
+        softFloor.raiseFreqMult = Math.max(0.85, (Number(softFloor.raiseFreqMult) || 1) * 0.9);
+        softFloor.bluffFreqMult = Math.max(0.7, (Number(softFloor.bluffFreqMult) || 1) * 0.88);
+        softFloor.foldMult = Math.min(1.15, (Number(softFloor.foldMult) || 1) * 1.05);
+      }
+      prof = Object.assign({}, prof, { postflop: softFloor });
+    } else {
+      prof = Object.assign({}, prof, {
+        postflop: tournamentPostflopFloor(role, prof.postflop)
+      });
+    }
     if (seat && seat.proStyle) {
       prof = Object.assign({}, prof, { proStyle: seat.proStyle });
     }
     // Pros explotativos: un poco más de agresividad postflop.
-    if (prof.proStyle === 'exploit_pool' && prof.postflop) {
+    if ((prof.proStyle === 'exploit_pool' || aiLevel === 'exploit_pro') && prof.postflop) {
+      if (aiLevel === 'exploit_pro' && !prof.proStyle) {
+        prof = Object.assign({}, prof, { proStyle: 'exploit_pool' });
+      }
       var pf = Object.assign({}, prof.postflop);
       pf.betFreqMult = Math.min(2.2, (Number(pf.betFreqMult) || 1) * 1.12);
       pf.raiseFreqMult = Math.min(2.2, (Number(pf.raiseFreqMult) || 1) * 1.14);
@@ -107,6 +140,7 @@
       pf.foldMult = Math.max(0.35, (Number(pf.foldMult) || 1) * 0.94);
       prof = Object.assign({}, prof, { postflop: pf });
     }
+    prof = Object.assign({}, prof, { aiLevel: aiLevel });
     return prof;
   }
 
@@ -525,7 +559,7 @@
   function decidePreflop(hand, seat) {
     var VPF = global.GTOVillainPreflop;
     var PF = global.GTOPushFold;
-    var profile = profileForSeat(seat);
+    var profile = profileForSeat(seat, hand);
     var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var code = handCode(seat.cards);
@@ -979,7 +1013,7 @@
     var Made = global.GTOEquityMadeHand;
     var Track = global.GTOVillainTracking;
     var DC = global.GTODecisionContext;
-    var profile = profileForSeat(seat);
+    var profile = profileForSeat(seat, hand);
     var role = profile.id || mapRoleId(seat.roleId);
     var tc = Math.max(0, hand.currentBet - seat.streetInvested);
     var street = hand.street || 'flop';

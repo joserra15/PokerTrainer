@@ -113,7 +113,7 @@ FILES.forEach(function (f) { load(g, f); });
   const cfg = g.PTTournamentConfig.normalize({ entries: 250, seatsPerTable: 9, kind: 'mtt' });
   assert.strictEqual(cfg.entries, 180, 'entries capped at 180');
   assert.ok(g.PTTournamentConfig.ROLE_IDS.indexOf('tag') >= 0, 'ROLE_IDS');
-  assert.ok(g.PTTournamentConfig.listPresets().length >= 11, 'presets include pro + spins');
+  assert.ok(g.PTTournamentConfig.listPresets().length >= 15, 'presets include HU + pro + spins');
   assert.strictEqual(g.PTTournamentConfig.MAX_ENTRIES, 180, 'MAX_ENTRIES 180');
   const pool = g.PTTournamentConfig.prizePool(g.PTTournamentConfig.fromPreset('sng6'));
   assert.ok(pool > 0, 'prizePool');
@@ -473,16 +473,22 @@ FILES.forEach(function (f) { load(g, f); });
   g.PTDemo = { isActive: function () { return false; } };
   assert.strictEqual(g.PTTournaments.canUseCustom(), false, 'free sin admin → no custom');
   assert.strictEqual(g.PTTournaments.canPlayPreset('spinEasy').ok, true, 'free → spinEasy ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('huEasy').ok, true, 'free → huEasy ok');
   assert.strictEqual(g.PTTournaments.canPlayPreset('easy').ok, false, 'free → MTT fácil bloqueado');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('huMedium').ok, false, 'free → huMedium bloqueado');
   assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, false, 'free → hard bloqueado');
   g.PTEntitlements = { get: function () { return { plan: 'pro' }; } };
   assert.strictEqual(g.PTTournaments.canPlayPreset('easy').ok, true, 'study → MTT fácil ok');
   assert.strictEqual(g.PTTournaments.canPlayPreset('spinMedium').ok, true, 'study → spin medio ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('huMedium').ok, true, 'study → huMedium ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('huHard').ok, true, 'study → huHard ok');
   assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, false, 'study → hard bloqueado');
   assert.strictEqual(g.PTTournaments.canPlayPreset('mttPro').ok, false, 'study → mttPro bloqueado');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('huPro').ok, false, 'study → huPro bloqueado');
   g.PTEntitlements = { get: function () { return { plan: 'premium' }; } };
   assert.strictEqual(g.PTTournaments.canPlayPreset('hard').ok, true, 'coach → hard ok');
   assert.strictEqual(g.PTTournaments.canPlayPreset('spinPro').ok, true, 'coach → spinPro ok');
+  assert.strictEqual(g.PTTournaments.canPlayPreset('huPro').ok, true, 'coach → huPro ok');
   /* Admin ve Personalizado */
   g.PTAuth = { getUser: function () { return { isAdmin: true, id: 'adm1', name: 'Admin', plan: 'free' }; } };
   g.PTAdmin = { hasAccess: function () { return true; } };
@@ -2708,6 +2714,143 @@ console.log('OK pushfold-freq-100');
   assert.ok(/applyPersistQuotaLevel/.test(storeSrc), 'slim por niveles de quota');
   assert.ok(/tryFreeStorage|freeStorageSpace/.test(storeSrc), 'libera espacio ante quota');
   console.log('OK exit-save-fail-keeps-table-source');
+}
+
+// --- Heads-Up presets + aiLevel + prize x2 ---
+{
+  const Cfg = g.PTTournamentConfig;
+  const hus = Cfg.listPresets().filter(function (p) { return p.kind === 'hu'; });
+  assert.strictEqual(hus.length, 4, '4 HU presets');
+  const easy = Cfg.fromPreset('huEasy');
+  const med = Cfg.fromPreset('huMedium');
+  const hard = Cfg.fromPreset('huHard');
+  const pro = Cfg.fromPreset('huPro');
+  assert.strictEqual(easy.entries, 2, 'huEasy entries');
+  assert.strictEqual(easy.seatsPerTable, 2, 'huEasy seats');
+  assert.strictEqual(easy.placesPaid, 1, 'huEasy placesPaid');
+  assert.strictEqual(easy.aiLevel, 'solid', 'huEasy aiLevel');
+  assert.strictEqual(easy.roleWeights.fish, 0, 'huEasy no fish');
+  assert.strictEqual(Cfg.prizePool(easy), 10, 'huEasy prize doubles buy-in');
+  assert.strictEqual(Cfg.payoutEuros(easy)[0], 10, 'huEasy winner takes pool');
+  assert.strictEqual(med.aiLevel, 'strong', 'huMedium aiLevel');
+  assert.strictEqual(hard.aiLevel, 'elite', 'huHard aiLevel');
+  assert.strictEqual(pro.aiLevel, 'exploit_pro', 'huPro aiLevel');
+  assert.strictEqual(pro.exploitProPct, 1, 'huPro full exploit');
+  assert.strictEqual(Cfg.requiredPlanForPreset('huEasy'), 'free');
+  assert.strictEqual(Cfg.requiredPlanForPreset('huMedium'), 'pro');
+  assert.strictEqual(Cfg.requiredPlanForPreset('huHard'), 'pro');
+  assert.strictEqual(Cfg.requiredPlanForPreset('huPro'), 'premium');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(2), 6, 'HU 6 hands/level');
+  const huState = g.PTTournamentRunner.create('huEasy', { seed: 42, heroName: 'Tester' });
+  assert.strictEqual(huState.players.length, 2, 'HU 2 players');
+  const hand = g.PTTournamentRunner.beginHand(huState);
+  assert.ok(hand && hand.seats && hand.seats.length === 2, 'HU hand 2 seats');
+  assert.ok(hand.seats.some(function (s) { return s.pos === 'BTN' || s.pos === 'SB'; }), 'HU BTN/SB');
+  assert.ok(hand.seats.some(function (s) { return s.pos === 'BB'; }), 'HU BB');
+  assert.strictEqual(hand.tournamentConfig.aiLevel, 'solid', 'hand carries aiLevel');
+  console.log('OK heads-up-presets');
+}
+
+// --- Background satellite sim + tourney context + chip conserve ---
+{
+  const Runner = g.PTTournamentRunner;
+  const Other = g.PTTournamentOtherTables;
+  const Live = g.PTTournamentLiveHand;
+  assert.ok(Other.scheduleRound && Other.commitPending && Other.boostPriority, 'bg API');
+  assert.ok(typeof Live.attachTourneyContext === 'function', 'attachTourneyContext');
+
+  const state = Runner.create('easy', { seed: 99, heroName: 'HeroBG' });
+  const hand0 = Runner.beginHand(state);
+  assert.ok(hand0, 'beginHand');
+  assert.ok(state._satPending, 'scheduleRound pending after beginHand');
+  assert.strictEqual(state._satPending.targetHandIndex, 1, 'pending targets next handIndex');
+  Other.boostPriority(state);
+  assert.ok(state._satPending.done, 'boost finishes queue');
+  assert.ok(state._satPending.tablesSimulated >= 1, 'simulated satellite tables');
+
+  /* Context on satellite hand */
+  const Seat = g.PTTournamentSeating;
+  const satTb = (state.tables || []).find(function (t) { return t && !t.isHeroTable; });
+  assert.ok(satTb, 'has satellite table');
+  const onSat = Seat.playersOnTable(state, satTb.id);
+  const ordered = Seat.seatOrderWithButton(onSat, Seat.assignButton(state, satTb.id));
+  const satHand = Live.simulateTable(ordered, { sb: 10, bb: 20, ante: 0 }, state);
+  assert.ok(satHand.playersLeft != null, 'sat hand has playersLeft');
+  assert.ok(satHand.formatHub === 'mtt', 'sat hand formatHub');
+  assert.ok(satHand.tournamentConfig, 'sat hand tournamentConfig');
+
+  /* Commit pending without double-apply: capture stacks then continue */
+  const beforeStacks = {};
+  state.players.forEach(function (p) { beforeStacks[p.id] = p.stack; });
+  /* Force complete hand result for apply */
+  if (hand0.stage !== 'complete') {
+    hand0.stage = 'complete';
+    hand0.result = hand0.result || {
+      deltas: {},
+      winners: [hand0.heroId || 'hero'],
+      pot: 0,
+      showdown: false
+    };
+    (hand0.seats || []).forEach(function (s) {
+      hand0.result.deltas[s.id] = 0;
+    });
+  }
+  const pendingSim = state._satPending.tablesSimulated;
+  Runner.applyResults(state, hand0);
+  assert.ok(!state._satPending, 'pending cleared after commit');
+  assert.strictEqual(state.handIndex, 1, 'handIndex advanced');
+
+  /* Chip conservation on eliminateWeighted via simulateRest fallback path */
+  const st2 = Runner.create({
+    kind: 'mtt', entries: 6, seatsPerTable: 6, buyInEur: 5, startingStack: 1000, placesPaid: 2
+  }, { seed: 7 });
+  /* Bust everyone except hero + 2 villains on separate 1-seat leftovers:
+     force all on hero table then kill multi-seat sims. */
+  const alive = st2.players.filter(function (p) { return p.alive; });
+  let chipsBefore = 0;
+  alive.forEach(function (p) { chipsBefore += Number(p.stack) || 0; });
+  /* Mark hero dead and leave 3 villains alive with no multi-seat tables */
+  const hero = alive.find(function (p) { return p.isHero; });
+  hero.alive = false;
+  hero.stack = 0;
+  hero.bustPlace = 6;
+  hero.tableId = null;
+  const villains = alive.filter(function (p) { return !p.isHero; }).slice(0, 3);
+  st2.players.forEach(function (p) {
+    if (p.isHero) return;
+    if (villains.indexOf(p) < 0) {
+      p.alive = false;
+      p.stack = 0;
+      p.tableId = null;
+    }
+  });
+  villains.forEach(function (v, i) {
+    v.alive = true;
+    v.stack = 1000 * (i + 1);
+    v.tableId = 'Tsolo' + i;
+    v.seat = 0;
+  });
+  st2.tables = villains.map(function (v, i) {
+    return { id: 'Tsolo' + i, seatIds: [v.id], isHeroTable: false };
+  });
+  let chipsMid = 0;
+  villains.forEach(function (p) { chipsMid += Number(p.stack) || 0; });
+  /* One weighted eliminate */
+  const sim = Other.simulateRound(st2, { sb: 10, bb: 20, ante: 0 });
+  assert.strictEqual(sim.tablesSimulated, 0, 'no multi-seat tables');
+  /* Call eliminateWeighted indirectly: simulateRest */
+  st2.status = 'running';
+  const result = Runner.simulateRest(st2);
+  assert.ok(result, 'simulateRest finishes');
+  let chipsAfter = 0;
+  st2.players.forEach(function (p) {
+    if (p.alive) chipsAfter += Number(p.stack) || 0;
+  });
+  assert.ok(Math.abs(chipsAfter - chipsMid) < 0.01,
+    'chip conserve: after=' + chipsAfter + ' mid=' + chipsMid);
+  void pendingSim;
+  void beforeStacks;
+  console.log('OK sat-background-and-chips');
 }
 
 // --- Primera carga: cloud async + evento para repintar lobby ---

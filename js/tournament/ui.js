@@ -606,15 +606,18 @@ function reducedMotion() {
 
   function lobbyBadges(cfg) {
     var badges = [];
-    var kindLabel = cfg.kind === 'sng' ? 'SNG' : (cfg.kind === 'spin' ? 'SPIN' : 'MTT');
+    var kindLabel = cfg.kind === 'sng' ? 'SNG'
+      : (cfg.kind === 'spin' ? 'SPIN'
+        : (cfg.kind === 'hu' ? 'HU' : 'MTT'));
     badges.push({ t: kindLabel, k: 'kind' });
     badges.push({ t: cfg.seatsPerTable + '-MAX', k: 'max' });
     badges.push({ t: "HOLD'EM NL", k: 'game' });
-    if (cfg.kind !== 'spin' && startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
-    if (cfg.id === 'easy' || cfg.id === 'spinEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
-    if (cfg.id === 'medium' || cfg.id === 'spinMedium') badges.push({ t: 'MEDIO', k: 'diff' });
-    if (cfg.id === 'hard' || cfg.id === 'spinHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
-    if (cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro') {
+    if (cfg.kind === 'hu') badges.push({ t: 'x2 ENTRADA', k: 'prize' });
+    if (cfg.kind !== 'spin' && cfg.kind !== 'hu' && startingBb(cfg) >= 100) badges.push({ t: 'DEEP', k: 'deep' });
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy' || cfg.id === 'huEasy') badges.push({ t: 'FÁCIL', k: 'diff' });
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium' || cfg.id === 'huMedium') badges.push({ t: 'MEDIO', k: 'diff' });
+    if (cfg.id === 'hard' || cfg.id === 'spinHard' || cfg.id === 'huHard') badges.push({ t: 'DIFÍCIL', k: 'diff' });
+    if (cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro' || cfg.id === 'huPro') {
       badges.push({ t: 'PRO', k: 'diff' });
     }
     var minPlan = cfg.minPlan ||
@@ -626,12 +629,13 @@ function reducedMotion() {
   }
 
   function lobbyTone(cfg) {
-    if (cfg.id === 'hard' || cfg.id === 'spinHard' ||
-        cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro') return 'hard';
-    if (cfg.id === 'medium' || cfg.id === 'spinMedium') return 'mid';
-    if (cfg.id === 'easy' || cfg.id === 'spinEasy') return 'easy';
+    if (cfg.id === 'hard' || cfg.id === 'spinHard' || cfg.id === 'huHard' ||
+        cfg.id === 'mttPro' || cfg.id === 'sngPro' || cfg.id === 'spinPro' || cfg.id === 'huPro') return 'hard';
+    if (cfg.id === 'medium' || cfg.id === 'spinMedium' || cfg.id === 'huMedium') return 'mid';
+    if (cfg.id === 'easy' || cfg.id === 'spinEasy' || cfg.id === 'huEasy') return 'easy';
     if (cfg.kind === 'spin') return 'spin';
     if (cfg.kind === 'sng') return 'sng';
+    if (cfg.kind === 'hu') return 'sng';
     return 'mtt';
   }
 
@@ -996,7 +1000,9 @@ function reducedMotion() {
       return '<span class="trn-badge trn-badge-' + esc(b.k) + '">' + esc(b.t) + '</span>';
     }).join('');
     var bb = startingBb(p);
-    var kindLabel = p.kind === 'sng' ? 'SNG' : (p.kind === 'spin' ? 'SPIN' : 'MTT');
+    var kindLabel = p.kind === 'sng' ? 'SNG'
+      : (p.kind === 'spin' ? 'SPIN'
+        : (p.kind === 'hu' ? 'HU' : 'MTT'));
 
     var activeSum = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     var isActivePreset = !!(activeSum && (activeSum.presetId === p.id || activeSum.id === p.id));
@@ -1054,6 +1060,7 @@ function reducedMotion() {
       if (filter === 'mtt') return p.kind === 'mtt';
       if (filter === 'sng') return p.kind === 'sng';
       if (filter === 'spin') return p.kind === 'spin';
+      if (filter === 'hu') return p.kind === 'hu';
       return true;
     });
     var hist = (global.PTTournamentStore.list() || []).slice(0, 5);
@@ -1122,8 +1129,8 @@ function reducedMotion() {
         '<h3>Desbloquea este torneo</h3>' +
         '<p class="trn-upgrade-msg">' + esc(up.message) + '</p>' +
         '<ul class="trn-upgrade-perks">' +
-        '<li><strong>Gratis</strong> — Spin fácil</li>' +
-        '<li><strong>Study</strong> — MTT/SNG/Spins fáciles y medios</li>' +
+        '<li><strong>Gratis</strong> — Spin fácil y HU fácil</li>' +
+        '<li><strong>Study</strong> — MTT/SNG/Spins/HU fáciles–medios–difíciles</li>' +
         '<li><strong>Coach</strong> — Difíciles y Pro</li>' +
         '</ul>' +
         '<div class="trn-setup-actions">' +
@@ -1142,8 +1149,8 @@ function reducedMotion() {
     var planHint = planBypass
       ? '<p class="trn-lobby-plan-hint">Comunidad · todos los torneos desbloqueados para miembros.</p>'
       : '<p class="trn-lobby-plan-hint">' +
-        '<span class="trn-badge trn-badge-plan-free">Gratis</span> Spin fácil · ' +
-        '<span class="trn-badge trn-badge-plan-study">Study</span> fáciles y medios · ' +
+        '<span class="trn-badge trn-badge-plan-free">Gratis</span> Spin/HU fácil · ' +
+        '<span class="trn-badge trn-badge-plan-study">Study</span> fáciles, medios y HU difícil · ' +
         '<span class="trn-badge trn-badge-plan-coach">Coach</span> difíciles y pro' +
         '</p>';
 
@@ -1171,6 +1178,7 @@ function reducedMotion() {
       filterBtn('mtt', 'MTT') +
       filterBtn('sng', 'SNG') +
       filterBtn('spin', 'Spins') +
+      filterBtn('hu', 'Heads-Up') +
       '</div>' +
       '<p class="trn-lobby-count">' + filtered.length +
       ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
@@ -1696,7 +1704,7 @@ function reducedMotion() {
     var blinds = Hud.currentBlinds(state);
     var bb = hand ? hand.bb : (blinds.bb || 20);
     var kind = (state.config && state.config.kind) || 'mtt';
-    var formatLabel = kind === 'sng' ? 'SNG' : 'MTT';
+    var formatLabel = kind === 'sng' ? 'SNG' : (kind === 'spin' ? 'SPIN' : (kind === 'hu' ? 'HU' : 'MTT'));
 
     var chips = Hud.compactChips(state).map(function (c) {
       return '<span class="' + esc(c.cls) + '" title="' + esc(c.title) + '">' + esc(c.text) + '</span>';
@@ -1870,6 +1878,10 @@ function reducedMotion() {
 
     var handEndModal = '';
     if (hand && hand.stage === 'complete' && hand.result) {
+      try {
+        var OtherBg = global.PTTournamentOtherTables;
+        if (OtherBg && OtherBg.boostPriority) OtherBg.boostPriority(state);
+      } catch (eBoost) { /* */ }
       handEndModal = renderHandEndModal(hand, state, bb);
     }
 

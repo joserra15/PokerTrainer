@@ -324,6 +324,8 @@
       delete snap._liveHand._frames;
       if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
     }
+    /* Job satélite: se re-agenda al resume/beginHand; no persistir. */
+    delete snap._satPending;
     /* sessionHands hincha mucho el JSON (móvil/Safari ~5MB); priorizar reanudar.
        Al terminar, buildSessionFromTournament regenera desde handLog si hace falta. */
     if (Array.isArray(snap.sessionHands) && snap.sessionHands.length > 12) {

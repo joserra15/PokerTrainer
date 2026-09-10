@@ -85,7 +85,9 @@
     var lv = currentBlinds(state);
     var bb = Math.max(1, Number(lv.bb) || 20);
     var stackBb = hero ? Math.round(((Number(hero.stack) || 0) / bb) * 10) / 10 : 0;
-    var kind = (cfg.kind === 'sng' ? 'SNG' : 'MTT');
+    var kind = (cfg.kind === 'sng' ? 'SNG'
+      : (cfg.kind === 'spin' ? 'SPIN'
+        : (cfg.kind === 'hu' ? 'HU' : 'MTT')));
     return [
       { text: kind, cls: 'trn-chip trn-chip-kind', title: cfg.name || kind },
       {
@@ -181,7 +183,9 @@
       : '—';
 
     return [
-      { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG' : 'MTT') },
+      { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG'
+        : (cfg.kind === 'spin' ? 'SPIN'
+          : (cfg.kind === 'hu' ? 'Heads-Up' : 'MTT'))) },
       { label: 'Avance', value: progressHands },
       { label: 'Posición', value: posLabel },
       { label: 'Stack Hero', value: fmtNum(heroStack) + ' (' + heroBb + ' bb)' },
