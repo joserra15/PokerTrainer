@@ -479,7 +479,25 @@
     return hub === 'spin' || hub === 'mtt';
   }
 
+  /**
+   * Heads-up winner-take-all: chip EV ≈ $EV (un solo pago).
+   * No aplicar ICM/bubble overfold en este spot.
+   */
+  function isHeadsUpWta(config) {
+    if (!config) return false;
+    if (config.kind === 'hu' || config.tournamentKind === 'hu') return true;
+    const paid = Number(config.placesPaid);
+    if (!(paid <= 1)) return false;
+    const seated = Number(
+      config.playersSeated != null ? config.playersSeated
+        : (config.tableMax != null ? config.tableMax : config.seatsPerTable)
+    );
+    const left = Number(config.playersLeft);
+    return seated === 2 || left === 2;
+  }
+
   function usesIcm(config) {
+    if (isHeadsUpWta(config)) return false;
     const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
     if (!isTournamentHub(hub)) return false;
     const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
@@ -560,6 +578,7 @@
     estimatePlacePrizes: estimatePlacePrizes,
     heroStackRank: heroStackRank,
     isTournamentHub: isTournamentHub,
+    isHeadsUpWta: isHeadsUpWta,
     usesIcm: usesIcm,
     spotTags: spotTags,
     formatSpotKey: formatSpotKey

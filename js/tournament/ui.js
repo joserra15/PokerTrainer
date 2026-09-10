@@ -2294,14 +2294,37 @@ function reducedMotion() {
     }).join('');
 
     var statsHtml = '';
+    var stats = r.stats || {};
+    /* Si sessionStats llegó sin nHands (Importer ausente), rellenar desde resumen lite. */
+    if (sessionStats && sessionStats.nHands == null && (stats.handsPlayed || (state.sessionHands && state.sessionHands.length))) {
+      try {
+        var BridgeStats = global.PTTournamentSessionBridge;
+        if (BridgeStats && BridgeStats.synthesizeStatsFromHands) {
+          sessionStats = Object.assign(
+            {},
+            BridgeStats.synthesizeStatsFromHands(state.sessionHands || [], stats),
+            sessionStats
+          );
+        } else {
+          sessionStats = Object.assign({}, sessionStats, {
+            nHands: stats.handsPlayed || (state.sessionHands && state.sessionHands.length) || 0,
+            vpipPct: stats.vpip != null ? stats.vpip : sessionStats.vpipPct,
+            pfrPct: stats.pfr != null ? stats.pfr : sessionStats.pfrPct,
+            accuracy: sessionStats.accuracy != null ? sessionStats.accuracy : (stats.gtoAccuracy != null ? stats.gtoAccuracy : gto.accuracy),
+            evLossBB: sessionStats.evLossBB != null ? sessionStats.evLossBB : (stats.evLoss != null ? stats.evLoss : gto.totalEvLoss),
+            wtsdPct: sessionStats.wtsdPct != null ? sessionStats.wtsdPct : stats.wtsd,
+            wsdPct: sessionStats.wsdPct != null ? sessionStats.wsdPct : stats.wsd
+          });
+        }
+      } catch (eFill) { /* */ }
+    }
     try {
       var HEV = global.PTHandEndView;
-      if (HEV && HEV.renderSessionStatsHtml && sessionStats) {
+      if (HEV && HEV.renderSessionStatsHtml && sessionStats && sessionStats.nHands != null) {
         statsHtml = HEV.renderSessionStatsHtml(sessionStats, { title: 'Estadísticas de sesión' });
       }
     } catch (eS) { statsHtml = ''; }
     if (!statsHtml) {
-      var stats = r.stats || {};
       statsHtml = '<div class="trn-result-stats trn-session-like"><div class="trn-stat-grid">' +
         '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.nHands != null ? sessionStats.nHands : (stats.handsPlayed || 0)) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
         '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.vpipPct != null ? sessionStats.vpipPct : (stats.vpip || 0)) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +

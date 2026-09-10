@@ -47,7 +47,13 @@
         mttPhase: phaseOf(ctx),
         resolvedPhase: phaseOf(ctx),
         stackBB: ctx.stackBB,
-        mttStructureSituation: ctx.mttStructureSituation
+        mttStructureSituation: ctx.mttStructureSituation,
+        playersLeft: ctx.playersLeft,
+        placesPaid: ctx.placesPaid,
+        playersSeated: ctx.playersSeated,
+        tableMax: ctx.tableMax,
+        kind: ctx.kind,
+        isHeadsUp: ctx.isHeadsUp
       });
     }
     const hub = hubOf(ctx);
@@ -83,6 +89,37 @@
       sizeSimple: false,
       cbet: 1
     };
+
+    /* HU WTA / heads-up: chip-EV — sin overfold de burbuja, más agresión. */
+    const TaxHu = global.PTFormatTaxonomy;
+    const huWta = (TaxHu && TaxHu.isHeadsUpWta && TaxHu.isHeadsUpWta(ctx))
+      || !!(ctx.isHeadsUp || ctx.isHeadsUp)
+      || Number(ctx.playersSeated) === 2
+      || Number(ctx.tableMax) === 2
+      || Number(ctx.playersLeft) === 2;
+    if (huWta && hub !== 'cash') {
+      out.fold = 0.9;
+      out.raise = 1.2;
+      out.cbet = 1.18;
+      out.xr = 1.15;
+      out.bluff = 1.1;
+      out.bet = 1.1;
+      out.thinValue = 1.08;
+      out.overbet = 1.05;
+      if (phase === 'push' || phase === 'short' || stackBB <= 14) {
+        out.jamBias = 1.45;
+        out.sizeSimple = true;
+        out.overbet = 0.35;
+      } else if (stackBB <= 25) {
+        out.jamBias = 1.2;
+        out.raise = 1.22;
+      }
+      if (spr < 3) {
+        out.jamBias = clamp(out.jamBias * 1.15, 1, 1.85);
+        out.sizeSimple = true;
+      }
+      return out;
+    }
 
     if (hub === 'cash') {
       if (stackBB >= 80) {
