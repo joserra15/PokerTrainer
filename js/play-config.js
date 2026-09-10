@@ -161,6 +161,8 @@
      */
     hideActionLine: false,
     tableTheme: 'emerald',
+    /** 'normal' | 'colored' — mazo bicolor clásico o cuatro colores (fondos por palo) */
+    cardStyle: 'normal',
     /** null/0 = sesión continua; 25/50/100 = bloque con resumen al final */
     handsTarget: 0,
     /** 'none' | 'standard' | 'custom' — rake estimado en EV/pot odds */
@@ -464,6 +466,13 @@
     c.seriousEvThreshold = thr;
     c.hideActionLine = !!c.hideActionLine;
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
+    if (raw && (raw.cardStyle === 'colored' || raw.cardStyle === 'normal')) {
+      c.cardStyle = raw.cardStyle;
+    } else if (global.PTCardStyle && typeof global.PTCardStyle.load === 'function') {
+      c.cardStyle = global.PTCardStyle.load();
+    } else {
+      c.cardStyle = c.cardStyle === 'colored' ? 'colored' : 'normal';
+    }
     var ht = Number(c.handsTarget);
     if (!HANDS_TARGETS[ht]) ht = 0;
     c.handsTarget = ht || 0;

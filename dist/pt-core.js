@@ -69,12 +69,19 @@
     return shuffle(deck, rnd);
   }
 
+  /** Clase CSS de palo para el mazo de cuatro colores (`suit-h`, …). */
+  function suitClass(suit) {
+    if (suit === 'h' || suit === 'd' || suit === 'c' || suit === 's') return 'suit-' + suit;
+    return '';
+  }
+
   /** Convierte un código de carta a HTML legible (símbolo + color). */
   function cardToHTML(code) {
     const suit = code[1];
     const red = suit === 'h' || suit === 'd';
     const rank = code[0] === 'T' ? '10' : code[0];
-    return `<span class="card ${red ? 'red' : 'black'}">${rank}${SUIT_SYMBOL[suit]}</span>`;
+    const sc = suitClass(suit);
+    return `<span class="card ${red ? 'red' : 'black'}${sc ? ' ' + sc : ''}">${rank}${SUIT_SYMBOL[suit]}</span>`;
   }
 
   /**
@@ -207,7 +214,8 @@
     const suit = code[1];
     const red = suit === 'h' || suit === 'd';
     const rank = code[0] === 'T' ? '10' : code[0];
-    return `<span class="card card-face ${red ? 'red' : 'black'}">`
+    const sc = suitClass(suit);
+    return `<span class="card card-face ${red ? 'red' : 'black'}${sc ? ' ' + sc : ''}">`
       + `<span class="card-rank">${rank}</span>`
       + `<span class="card-suit">${SUIT_SYMBOL[suit]}</span>`
       + '</span>';
@@ -218,10 +226,47 @@
     return '<span class="card card-back" title="Boca abajo"></span>';
   }
 
+  // ---- Estilo de mazo: normal | colored (preferencia de usuario) ----
+  const CARD_STYLE_KEY = 'pt_card_style_v1';
+
+  function normalizeCardStyle(v) {
+    return v === 'colored' ? 'colored' : 'normal';
+  }
+
+  function loadCardStyle() {
+    try {
+      return normalizeCardStyle(localStorage.getItem(CARD_STYLE_KEY));
+    } catch (e) {
+      return 'normal';
+    }
+  }
+
+  function saveCardStyle(style) {
+    const v = normalizeCardStyle(style);
+    try { localStorage.setItem(CARD_STYLE_KEY, v); } catch (e) { /* ignore */ }
+    return v;
+  }
+
+  /** Aplica `data-card-style` en un nodo (por defecto <html>). */
+  function applyCardStyle(style, root) {
+    const v = normalizeCardStyle(style);
+    const el = root || (typeof document !== 'undefined' ? document.documentElement : null);
+    if (el && el.setAttribute) el.setAttribute('data-card-style', v);
+    return v;
+  }
+
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
     makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
-    evaluate, compare, rng
+    suitClass, evaluate, compare, rng
+  };
+
+  global.PTCardStyle = {
+    KEY: CARD_STYLE_KEY,
+    normalize: normalizeCardStyle,
+    load: loadCardStyle,
+    save: saveCardStyle,
+    apply: applyCardStyle
   };
 })(window);
 
@@ -17623,6 +17668,8 @@ window.PT_NASH_PUSH_JSON = {
      */
     hideActionLine: false,
     tableTheme: 'emerald',
+    /** 'normal' | 'colored' — mazo bicolor clásico o cuatro colores (fondos por palo) */
+    cardStyle: 'normal',
     /** null/0 = sesión continua; 25/50/100 = bloque con resumen al final */
     handsTarget: 0,
     /** 'none' | 'standard' | 'custom' — rake estimado en EV/pot odds */
@@ -17926,6 +17973,13 @@ window.PT_NASH_PUSH_JSON = {
     c.seriousEvThreshold = thr;
     c.hideActionLine = !!c.hideActionLine;
     if (!TABLE_THEMES[c.tableTheme]) c.tableTheme = 'emerald';
+    if (raw && (raw.cardStyle === 'colored' || raw.cardStyle === 'normal')) {
+      c.cardStyle = raw.cardStyle;
+    } else if (global.PTCardStyle && typeof global.PTCardStyle.load === 'function') {
+      c.cardStyle = global.PTCardStyle.load();
+    } else {
+      c.cardStyle = c.cardStyle === 'colored' ? 'colored' : 'normal';
+    }
     var ht = Number(c.handsTarget);
     if (!HANDS_TARGETS[ht]) ht = 0;
     c.handsTarget = ht || 0;
@@ -19194,7 +19248,8 @@ window.PT_NASH_PUSH_JSON = {
     if (!code || code.length < 2) return '';
     var suit = code[code.length - 1];
     var red = suit === 'h' || suit === 'd';
-    return '<span class="action-line-card' + (red ? ' is-red' : '') + '">' +
+    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : ('suit-' + suit);
+    return '<span class="action-line-card' + (red ? ' is-red' : '') + (sc ? ' ' + sc : '') + '">' +
       esc(cardText(code)) + '</span>';
   }
 
@@ -37569,6 +37624,19 @@ window.PT_NASH_PUSH_JSON = {
       '</div>' +
       '</section>' +
 
+      '<section class="account-settings-card card-box">' +
+      '<h3>Estilo de cartas</h3>' +
+      '<p class="muted-text">Afecta a torneos y escuela, y es el valor por defecto del entrenador. En Avanzadas del entrenador puedes cambiarlo solo para esa sesión.</p>' +
+      '<div class="account-advisor-block">' +
+      '<span class="setup-label">Mazo</span>' +
+      '<div class="setup-chips" id="settings-card-style">' +
+      '<button type="button" class="setup-chip" data-val="normal">Normales</button>' +
+      '<button type="button" class="setup-chip" data-val="colored">De colores</button>' +
+      '</div>' +
+      '<p class="muted-text setup-hint">Colores: ♥ rojo, ♦ azul, ♣ verde, ♠ negro, con glifos blancos.</p>' +
+      '</div>' +
+      '</section>' +
+
       '<section class="account-settings-card card-box hidden" hidden aria-hidden="true">' +
       '<h3 data-i18n="settings.langTitle">Idioma / Language</h3>' +
       '<p class="muted-text" id="settings-lang-status"></p>' +
@@ -37647,6 +37715,11 @@ window.PT_NASH_PUSH_JSON = {
     });
     var thrEl = $('#settings-serious-threshold');
     if (thrEl) thrEl.value = String(thr);
+    var cardStyle = 'normal';
+    if (global.PTCardStyle && global.PTCardStyle.load) cardStyle = global.PTCardStyle.load();
+    host.querySelectorAll('#settings-card-style .setup-chip').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.val === cardStyle);
+    });
     if (global.PTI18n && global.PTI18n.apply) {
       global.PTI18n.apply(host);
     }
@@ -37706,6 +37779,20 @@ window.PT_NASH_PUSH_JSON = {
       thrEl.onchange = persistThr;
       thrEl.oninput = persistThr;
     }
+    root.querySelectorAll('#settings-card-style .setup-chip').forEach(function (chip) {
+      chip.onclick = function () {
+        root.querySelectorAll('#settings-card-style .setup-chip').forEach(function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+        var style = chip.dataset.val === 'colored' ? 'colored' : 'normal';
+        if (typeof global.syncCardStyleFromSettings === 'function') {
+          global.syncCardStyleFromSettings(style);
+        } else if (global.PTCardStyle) {
+          if (global.PTCardStyle.save) global.PTCardStyle.save(style);
+          if (global.PTCardStyle.apply) global.PTCardStyle.apply(style);
+        }
+      };
+    });
     root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
       btn.onclick = function (e) {
         if (e) {
@@ -39392,6 +39479,8 @@ window.PT_NASH_PUSH_JSON = {
       active.classList.remove('is-legendary-session');
     }
     setPlayTableActiveClass(false);
+    restoreUserCardStyle();
+    restoreCardStyleChip();
   }
 
   function showPlayTable() {
@@ -39406,6 +39495,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+      applyActiveCardStyle(cfg && cfg.cardStyle);
     }
     requestAnimationFrame(syncPlayMobileStage);
   }
@@ -39733,6 +39823,7 @@ window.PT_NASH_PUSH_JSON = {
     const typeEl = $('#setup-tournament-type .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
+    const csEl = $('#setup-card-style .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const mwPotEl = $('#setup-multiway-pot-type .setup-chip.active');
     const openSizeEl = $('#setup-open-size .setup-chip.active');
@@ -39800,6 +39891,11 @@ window.PT_NASH_PUSH_JSON = {
       mttStructureSituation: mttStruct.mttStructureSituation,
       anteBB: Tax && hub !== 'cash' ? null : 0,
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
+      cardStyle: csEl && csEl.dataset.val === 'colored'
+        ? 'colored'
+        : (csEl && csEl.dataset.val === 'normal'
+          ? 'normal'
+          : (window.PTCardStyle && PTCardStyle.load ? PTCardStyle.load() : 'normal')),
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
       liveAdvisor: laEl ? laEl.checked : false,
       advisorMode: advisorMode,
@@ -39866,6 +39962,29 @@ window.PT_NASH_PUSH_JSON = {
     document.querySelectorAll('#play-active .table-felt, .session-replay-table .table-felt').forEach((felt) => {
       felt.setAttribute('data-theme', t);
       applyTableFormatAttrs(felt, cfg);
+    });
+  }
+
+  function applyActiveCardStyle(style) {
+    if (!window.PTCardStyle || !PTCardStyle.apply) return;
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    const v = style != null
+      ? style
+      : (cfg && cfg.cardStyle) || (PTCardStyle.load ? PTCardStyle.load() : 'normal');
+    PTCardStyle.apply(v);
+  }
+
+  function restoreUserCardStyle() {
+    if (!window.PTCardStyle || !PTCardStyle.apply) return;
+    PTCardStyle.apply(PTCardStyle.load ? PTCardStyle.load() : 'normal');
+  }
+
+  function restoreCardStyleChip() {
+    const box = $('#setup-card-style');
+    if (!box || !window.PTCardStyle) return;
+    const saved = PTCardStyle.load ? PTCardStyle.load() : 'normal';
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === saved);
     });
   }
 
@@ -40568,6 +40687,9 @@ window.PT_NASH_PUSH_JSON = {
       activate('#setup-table-theme', cfg.tableTheme);
       saveTableTheme(cfg.tableTheme);
     }
+    if (cfg.cardStyle === 'colored' || cfg.cardStyle === 'normal') {
+      activate('#setup-card-style', cfg.cardStyle);
+    }
     const laEl = $('#setup-live-advisor');
     if (laEl && typeof cfg.liveAdvisor === 'boolean') laEl.checked = cfg.liveAdvisor;
     const mode = (cfg.advisorMode === 'serious') ? 'serious' : 'always';
@@ -40760,6 +40882,8 @@ window.PT_NASH_PUSH_JSON = {
       applyTableTheme(theme);
     });
     restoreTableThemeChip();
+    bindChipGroup('#setup-card-style');
+    restoreCardStyleChip();
     restoreActionModeChip();
     restoreRakeChips();
     bindChipGroup('#setup-rake-mode', () => {
@@ -40884,6 +41008,9 @@ window.PT_NASH_PUSH_JSON = {
 
   function init() {
     scheduleHomeBootFallback();
+    if (window.PTCardStyle && PTCardStyle.apply) {
+      PTCardStyle.apply(PTCardStyle.load ? PTCardStyle.load() : 'normal');
+    }
     bindTabs();
     bindMobileNav();
     bindControls();
@@ -41381,6 +41508,7 @@ window.PT_NASH_PUSH_JSON = {
       else showPlaySetup();
     }
     if (tabId === 'school') {
+      restoreUserCardStyle();
       var schoolUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
         || window.PT_AUTH_USER || null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
@@ -41429,6 +41557,7 @@ window.PT_NASH_PUSH_JSON = {
       });
     }
     if (tabId === 'tournaments') {
+      restoreUserCardStyle();
       const tDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
       const tUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
         || window.PT_AUTH_USER || null;
@@ -41603,6 +41732,16 @@ window.PT_NASH_PUSH_JSON = {
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;
   window.syncFormatHubUI = syncFormatHubUI;
+  window.syncCardStyleFromSettings = function (style) {
+    if (window.PTCardStyle && PTCardStyle.save) {
+      PTCardStyle.save(style);
+      PTCardStyle.apply(style);
+    }
+    const playActive = $('#play-active');
+    const inTrainer = playActive && !playActive.classList.contains('hidden');
+    if (!inTrainer) restoreUserCardStyle();
+    restoreCardStyleChip();
+  };
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;
@@ -42618,6 +42757,7 @@ window.PT_NASH_PUSH_JSON = {
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+      applyActiveCardStyle(cfg && cfg.cardStyle);
       renderTrainHud(cfg, hand);
     } else {
       renderTrainHud(null);

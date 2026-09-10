@@ -101,6 +101,7 @@ const STEPS = [
   ['Test admin panel', ['node', 'tools/test-admin-panel.js']],
   ['Test storage quota', ['node', 'tools/test-storage-quota.js']],
   ['Test account settings', ['node', 'tools/test-account-settings.js']],
+  ['Test card style', ['node', 'tools/test-card-style.js']],
   ['Test tournament alias', ['node', 'tools/test-tournament-alias.js']],
   ['Test multi-comunidad MTT Lab', ['node', 'tools/test-community-mttlab.js']],
   ['Test aislamiento datos por comunidad', ['node', 'tools/test-community-data-isolation.js']],

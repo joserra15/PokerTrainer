@@ -263,6 +263,8 @@
       active.classList.remove('is-legendary-session');
     }
     setPlayTableActiveClass(false);
+    restoreUserCardStyle();
+    restoreCardStyleChip();
   }
 
   function showPlayTable() {
@@ -277,6 +279,7 @@
     }
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+      applyActiveCardStyle(cfg && cfg.cardStyle);
     }
     requestAnimationFrame(syncPlayMobileStage);
   }
@@ -604,6 +607,7 @@
     const typeEl = $('#setup-tournament-type .setup-chip.active');
     const payoutEl = $('#setup-spin-payout .setup-chip.active');
     const thEl = $('#setup-table-theme .setup-chip.active');
+    const csEl = $('#setup-card-style .setup-chip.active');
     const htEl = $('#setup-hands-target .setup-chip.active');
     const mwPotEl = $('#setup-multiway-pot-type .setup-chip.active');
     const openSizeEl = $('#setup-open-size .setup-chip.active');
@@ -671,6 +675,11 @@
       mttStructureSituation: mttStruct.mttStructureSituation,
       anteBB: Tax && hub !== 'cash' ? null : 0,
       tableTheme: thEl ? thEl.dataset.val : loadTableTheme(),
+      cardStyle: csEl && csEl.dataset.val === 'colored'
+        ? 'colored'
+        : (csEl && csEl.dataset.val === 'normal'
+          ? 'normal'
+          : (window.PTCardStyle && PTCardStyle.load ? PTCardStyle.load() : 'normal')),
       handsTarget: htEl ? Number(htEl.dataset.val) || 0 : 0,
       liveAdvisor: laEl ? laEl.checked : false,
       advisorMode: advisorMode,
@@ -737,6 +746,29 @@
     document.querySelectorAll('#play-active .table-felt, .session-replay-table .table-felt').forEach((felt) => {
       felt.setAttribute('data-theme', t);
       applyTableFormatAttrs(felt, cfg);
+    });
+  }
+
+  function applyActiveCardStyle(style) {
+    if (!window.PTCardStyle || !PTCardStyle.apply) return;
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    const v = style != null
+      ? style
+      : (cfg && cfg.cardStyle) || (PTCardStyle.load ? PTCardStyle.load() : 'normal');
+    PTCardStyle.apply(v);
+  }
+
+  function restoreUserCardStyle() {
+    if (!window.PTCardStyle || !PTCardStyle.apply) return;
+    PTCardStyle.apply(PTCardStyle.load ? PTCardStyle.load() : 'normal');
+  }
+
+  function restoreCardStyleChip() {
+    const box = $('#setup-card-style');
+    if (!box || !window.PTCardStyle) return;
+    const saved = PTCardStyle.load ? PTCardStyle.load() : 'normal';
+    box.querySelectorAll('.setup-chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.val === saved);
     });
   }
 
@@ -1439,6 +1471,9 @@
       activate('#setup-table-theme', cfg.tableTheme);
       saveTableTheme(cfg.tableTheme);
     }
+    if (cfg.cardStyle === 'colored' || cfg.cardStyle === 'normal') {
+      activate('#setup-card-style', cfg.cardStyle);
+    }
     const laEl = $('#setup-live-advisor');
     if (laEl && typeof cfg.liveAdvisor === 'boolean') laEl.checked = cfg.liveAdvisor;
     const mode = (cfg.advisorMode === 'serious') ? 'serious' : 'always';
@@ -1631,6 +1666,8 @@
       applyTableTheme(theme);
     });
     restoreTableThemeChip();
+    bindChipGroup('#setup-card-style');
+    restoreCardStyleChip();
     restoreActionModeChip();
     restoreRakeChips();
     bindChipGroup('#setup-rake-mode', () => {
@@ -1755,6 +1792,9 @@
 
   function init() {
     scheduleHomeBootFallback();
+    if (window.PTCardStyle && PTCardStyle.apply) {
+      PTCardStyle.apply(PTCardStyle.load ? PTCardStyle.load() : 'normal');
+    }
     bindTabs();
     bindMobileNav();
     bindControls();
@@ -2252,6 +2292,7 @@
       else showPlaySetup();
     }
     if (tabId === 'school') {
+      restoreUserCardStyle();
       var schoolUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
         || window.PT_AUTH_USER || null;
       var schoolDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
@@ -2300,6 +2341,7 @@
       });
     }
     if (tabId === 'tournaments') {
+      restoreUserCardStyle();
       const tDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
       const tUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
         || window.PT_AUTH_USER || null;
@@ -2474,6 +2516,13 @@
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;
   window.syncFormatHubUI = syncFormatHubUI;
+  window.syncCardStyleFromSettings = function (style) {
+    if (window.PTCardStyle && PTCardStyle.save) PTCardStyle.save(style);
+    const playActive = $('#play-active');
+    const inTrainer = playActive && !playActive.classList.contains('hidden');
+    if (!inTrainer) restoreUserCardStyle();
+    restoreCardStyleChip();
+  };
 
   function isMobileLayout() {
     return window.matchMedia('(max-width: 680px)').matches;
@@ -3489,6 +3538,7 @@
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
       applyTableTheme((cfg && cfg.tableTheme) || loadTableTheme());
+      applyActiveCardStyle(cfg && cfg.cardStyle);
       renderTrainHud(cfg, hand);
     } else {
       renderTrainHud(null);

@@ -62,6 +62,7 @@
     "test:admin": "node tools/test-admin-panel.js",
     "test:storage-quota": "node tools/test-storage-quota.js",
     "test:account-settings": "node tools/test-account-settings.js",
+    "test:card-style": "node tools/test-card-style.js",
     "test:community": "node tools/test-community-mttlab.js",
     "test:demo": "node tools/test-demo-sample.js",
     "test:solver-sanity": "node tools/test-solver-sanity-js.js",

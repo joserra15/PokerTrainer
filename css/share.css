@@ -110,6 +110,19 @@ body {
 }
 .card.red { color: #d2261c; }
 .card.black { color: #14181d; }
+
+[data-card-style="colored"] .card.suit-h { background: #d2261c; border-color: rgba(0,0,0,.2); color: #fff; }
+[data-card-style="colored"] .card.suit-d { background: #1e6fd9; border-color: rgba(0,0,0,.2); color: #fff; }
+[data-card-style="colored"] .card.suit-c { background: #1a9b4a; border-color: rgba(0,0,0,.2); color: #fff; }
+[data-card-style="colored"] .card.suit-s { background: #1a1d21; border-color: rgba(255,255,255,.18); color: #fff; }
+[data-card-style="colored"] .card.suit-h,
+[data-card-style="colored"] .card.suit-d,
+[data-card-style="colored"] .card.suit-c,
+[data-card-style="colored"] .card.suit-s,
+[data-card-style="colored"] .card.red,
+[data-card-style="colored"] .card.black {
+  color: #fff;
+}
 .card-back {
   background: linear-gradient(150deg, #121820 0%, #05080b 55%, #0d141c 100%);
   color: transparent;

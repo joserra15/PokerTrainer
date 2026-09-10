@@ -151,7 +151,8 @@
     var sym = suit === 's' ? '♠' : suit === 'h' ? '♥' : suit === 'd' ? '♦' : suit === 'c' ? '♣' : '?';
     var red = suit === 'h' || suit === 'd';
     var label = (rank === 'T' ? '10' : rank) + sym;
-    return '<span class="school-ra-card' + (red ? ' is-red' : '') + '" aria-label="' +
+    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : (suit ? ('suit-' + suit) : '');
+    return '<span class="school-ra-card' + (red ? ' is-red' : '') + (sc ? ' ' + sc : '') + '" aria-label="' +
       esc(label) + '">' + esc(label) + '</span>';
   }
 

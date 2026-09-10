@@ -8309,11 +8309,12 @@ function reducedMotion() {
   function cardHtml(c) {
     var code = typeof c === 'string' ? c : (c && (c.code || (c.r != null && c.s ? String(c.r) + c.s : ''))) || '';
     if (!code || code.length < 2) return '<span class="card card-back"></span>';
-    var rank = code.charAt(0);
+    var rank = code.charAt(0) === 'T' ? '10' : code.charAt(0);
     var suit = code.charAt(1);
     var red = suit === 'h' || suit === 'd';
     var suitSym = { c: '♣', d: '♦', h: '♥', s: '♠' }[suit] || suit;
-    return '<span class="card' + (red ? ' card-red' : ' card-black') + '">' +
+    var sc = (global.Cards && Cards.suitClass) ? Cards.suitClass(suit) : ('suit-' + suit);
+    return '<span class="card' + (red ? ' card-red' : ' card-black') + (sc ? ' ' + sc : '') + '">' +
       '<span class="card-rank">' + esc(rank) + '</span>' +
       '<span class="card-suit">' + suitSym + '</span></span>';
   }

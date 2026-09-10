@@ -1010,6 +1010,44 @@
 .trn-seat-cards .card-red { color: #c0392b; }
 .trn-seat-cards .card-black { color: #1a1a1a; }
 
+/* Mazo de cuatro colores (layout normal, glifos blancos) */
+[data-card-style="colored"] .trn-seat-cards .card.suit-h {
+  background: #d2261c;
+  border-color: rgba(0, 0, 0, .25);
+  color: #fff;
+}
+[data-card-style="colored"] .trn-seat-cards .card.suit-d {
+  background: #1e6fd9;
+  border-color: rgba(0, 0, 0, .25);
+  color: #fff;
+}
+[data-card-style="colored"] .trn-seat-cards .card.suit-c {
+  background: #1a9b4a;
+  border-color: rgba(0, 0, 0, .25);
+  color: #fff;
+}
+[data-card-style="colored"] .trn-seat-cards .card.suit-s {
+  background: #1a1d21;
+  border-color: rgba(255, 255, 255, .2);
+  color: #fff;
+}
+[data-card-style="colored"] .trn-seat-cards .card.suit-h,
+[data-card-style="colored"] .trn-seat-cards .card.suit-d,
+[data-card-style="colored"] .trn-seat-cards .card.suit-c,
+[data-card-style="colored"] .trn-seat-cards .card.suit-s,
+[data-card-style="colored"] .trn-seat-cards .card.suit-h .card-rank,
+[data-card-style="colored"] .trn-seat-cards .card.suit-h .card-suit,
+[data-card-style="colored"] .trn-seat-cards .card.suit-d .card-rank,
+[data-card-style="colored"] .trn-seat-cards .card.suit-d .card-suit,
+[data-card-style="colored"] .trn-seat-cards .card.suit-c .card-rank,
+[data-card-style="colored"] .trn-seat-cards .card.suit-c .card-suit,
+[data-card-style="colored"] .trn-seat-cards .card.suit-s .card-rank,
+[data-card-style="colored"] .trn-seat-cards .card.suit-s .card-suit,
+[data-card-style="colored"] .trn-seat-cards .card-red,
+[data-card-style="colored"] .trn-seat-cards .card-black {
+  color: #fff;
+}
+
 .trn-actions,
 .trn-bust-prompt {
   display: flex;

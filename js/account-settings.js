@@ -330,6 +330,19 @@
       '</div>' +
       '</section>' +
 
+      '<section class="account-settings-card card-box">' +
+      '<h3>Estilo de cartas</h3>' +
+      '<p class="muted-text">Afecta a torneos y escuela, y es el valor por defecto del entrenador. En Avanzadas del entrenador puedes cambiarlo solo para esa sesión.</p>' +
+      '<div class="account-advisor-block">' +
+      '<span class="setup-label">Mazo</span>' +
+      '<div class="setup-chips" id="settings-card-style">' +
+      '<button type="button" class="setup-chip" data-val="normal">Normales</button>' +
+      '<button type="button" class="setup-chip" data-val="colored">De colores</button>' +
+      '</div>' +
+      '<p class="muted-text setup-hint">Colores: ♥ rojo, ♦ azul, ♣ verde, ♠ negro, con glifos blancos.</p>' +
+      '</div>' +
+      '</section>' +
+
       '<section class="account-settings-card card-box hidden" hidden aria-hidden="true">' +
       '<h3 data-i18n="settings.langTitle">Idioma / Language</h3>' +
       '<p class="muted-text" id="settings-lang-status"></p>' +
@@ -408,6 +421,11 @@
     });
     var thrEl = $('#settings-serious-threshold');
     if (thrEl) thrEl.value = String(thr);
+    var cardStyle = 'normal';
+    if (global.PTCardStyle && global.PTCardStyle.load) cardStyle = global.PTCardStyle.load();
+    host.querySelectorAll('#settings-card-style .setup-chip').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.val === cardStyle);
+    });
     if (global.PTI18n && global.PTI18n.apply) {
       global.PTI18n.apply(host);
     }
@@ -467,6 +485,20 @@
       thrEl.onchange = persistThr;
       thrEl.oninput = persistThr;
     }
+    root.querySelectorAll('#settings-card-style .setup-chip').forEach(function (chip) {
+      chip.onclick = function () {
+        root.querySelectorAll('#settings-card-style .setup-chip').forEach(function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+        var style = chip.dataset.val === 'colored' ? 'colored' : 'normal';
+        if (typeof global.syncCardStyleFromSettings === 'function') {
+          global.syncCardStyleFromSettings(style);
+        } else if (global.PTCardStyle) {
+          if (global.PTCardStyle.save) global.PTCardStyle.save(style);
+          if (global.PTCardStyle.apply) global.PTCardStyle.apply(style);
+        }
+      };
+    });
     root.querySelectorAll('[data-settings-lang]').forEach(function (btn) {
       btn.onclick = function (e) {
         if (e) {

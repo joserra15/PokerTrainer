@@ -53,6 +53,7 @@ assert.strictEqual(localStore.pt_lang_v1, 'es');
 const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/account-settings.js'), 'utf8');
 assert.ok(/data-settings-lang|pt_lang_v1|settings-lang/.test(settingsSrc), 'settings lang UI');
 assert.ok(/advisor|PTLiveAdvisor|settings-advisor/.test(settingsSrc), 'settings advisor');
+assert.ok(/settings-card-style|PTCardStyle|Estilo de cartas/.test(settingsSrc), 'settings card style');
 assert.ok(/settings-help|data-open-help|hotkey|ayuda/i.test(settingsSrc), 'settings help/hotkeys link');
 assert.ok(/settings-push-enable/.test(settingsSrc), 'toggle push');
 assert.ok(/settings-push-test/.test(settingsSrc), 'botón prueba push');

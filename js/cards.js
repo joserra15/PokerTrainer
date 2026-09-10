@@ -68,12 +68,19 @@
     return shuffle(deck, rnd);
   }
 
+  /** Clase CSS de palo para el mazo de cuatro colores (`suit-h`, …). */
+  function suitClass(suit) {
+    if (suit === 'h' || suit === 'd' || suit === 'c' || suit === 's') return 'suit-' + suit;
+    return '';
+  }
+
   /** Convierte un código de carta a HTML legible (símbolo + color). */
   function cardToHTML(code) {
     const suit = code[1];
     const red = suit === 'h' || suit === 'd';
     const rank = code[0] === 'T' ? '10' : code[0];
-    return `<span class="card ${red ? 'red' : 'black'}">${rank}${SUIT_SYMBOL[suit]}</span>`;
+    const sc = suitClass(suit);
+    return `<span class="card ${red ? 'red' : 'black'}${sc ? ' ' + sc : ''}">${rank}${SUIT_SYMBOL[suit]}</span>`;
   }
 
   /**
@@ -206,7 +213,8 @@
     const suit = code[1];
     const red = suit === 'h' || suit === 'd';
     const rank = code[0] === 'T' ? '10' : code[0];
-    return `<span class="card card-face ${red ? 'red' : 'black'}">`
+    const sc = suitClass(suit);
+    return `<span class="card card-face ${red ? 'red' : 'black'}${sc ? ' ' + sc : ''}">`
       + `<span class="card-rank">${rank}</span>`
       + `<span class="card-suit">${SUIT_SYMBOL[suit]}</span>`
       + '</span>';
@@ -217,9 +225,46 @@
     return '<span class="card card-back" title="Boca abajo"></span>';
   }
 
+  // ---- Estilo de mazo: normal | colored (preferencia de usuario) ----
+  const CARD_STYLE_KEY = 'pt_card_style_v1';
+
+  function normalizeCardStyle(v) {
+    return v === 'colored' ? 'colored' : 'normal';
+  }
+
+  function loadCardStyle() {
+    try {
+      return normalizeCardStyle(localStorage.getItem(CARD_STYLE_KEY));
+    } catch (e) {
+      return 'normal';
+    }
+  }
+
+  function saveCardStyle(style) {
+    const v = normalizeCardStyle(style);
+    try { localStorage.setItem(CARD_STYLE_KEY, v); } catch (e) { /* ignore */ }
+    return v;
+  }
+
+  /** Aplica `data-card-style` en un nodo (por defecto <html>). */
+  function applyCardStyle(style, root) {
+    const v = normalizeCardStyle(style);
+    const el = root || (typeof document !== 'undefined' ? document.documentElement : null);
+    if (el && el.setAttribute) el.setAttribute('data-card-style', v);
+    return v;
+  }
+
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
     makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
-    evaluate, compare, rng
+    suitClass, evaluate, compare, rng
+  };
+
+  global.PTCardStyle = {
+    KEY: CARD_STYLE_KEY,
+    normalize: normalizeCardStyle,
+    load: loadCardStyle,
+    save: saveCardStyle,
+    apply: applyCardStyle
   };
 })(window);
