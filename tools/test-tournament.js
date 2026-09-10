@@ -182,6 +182,98 @@ FILES.forEach(function (f) { load(g, f); });
   console.log('OK seating');
 }
 
+// --- table size equalization (12 alive @ 9-max → 6+6, not 9+3) ---
+{
+  const Seat = g.PTTournamentSeating;
+  const state = g.PTTournamentState.create({
+    kind: 'mtt', entries: 18, seatsPerTable: 9, startingStack: 1500, buyInEur: 5, placesPaid: 3
+  }, { seed: 42 });
+  assert.strictEqual(state.tables.length, 2, '18@9 starts on 2 tables');
+
+  // Force an unbalanced layout like mid-tournament uneven busts: 9 + 3
+  const hero = g.PTTournamentState.hero(state);
+  const heroTb = state.tables.find(function (tb) { return tb.isHeroTable; });
+  const otherTb = state.tables.find(function (tb) { return !tb.isHeroTable; });
+  assert.ok(heroTb && otherTb, 'hero + other table');
+
+  const allAlive = state.players.filter(function (p) { return p.alive; });
+  // Bust 6 players so 12 remain
+  const toBust = allAlive.filter(function (p) { return !p.isHero; }).slice(0, 6);
+  toBust.forEach(function (p) { Seat.bustPlayer(state, p.id); });
+  assert.strictEqual(g.PTTournamentState.playersLeft(state), 12);
+
+  // Manually skew seats to 9+3 before rebalance (simulates uneven bust distribution)
+  const survivors = state.players.filter(function (p) { return p.alive && p.stack > 0; });
+  const heroSurvivors = [hero].concat(survivors.filter(function (p) { return !p.isHero; }).slice(0, 8));
+  const otherSurvivors = survivors.filter(function (p) {
+    return heroSurvivors.every(function (h) { return h.id !== p.id; });
+  });
+  assert.strictEqual(heroSurvivors.length, 9, 'skew setup hero side');
+  assert.strictEqual(otherSurvivors.length, 3, 'skew setup short side');
+  state.tables = [
+    { id: heroTb.id, seatIds: heroSurvivors.map(function (p) { return p.id; }), isHeroTable: true },
+    { id: otherTb.id, seatIds: otherSurvivors.map(function (p) { return p.id; }), isHeroTable: false }
+  ];
+  state.tables.forEach(function (tb) {
+    tb.seatIds.forEach(function (id, idx) {
+      const p = state.players.find(function (x) { return x.id === id; });
+      p.tableId = tb.id;
+      p.seat = idx;
+    });
+  });
+
+  Seat.rebalance(state);
+  assert.strictEqual(state.tables.length, 2, 'still 2 tables for 12@9');
+  const sizes = state.tables.map(function (tb) { return tb.seatIds.length; }).sort(function (a, b) { return a - b; });
+  assert.strictEqual(sizes.length, 2, 'two table sizes');
+  assert.strictEqual(sizes[0], 6, 'short table 6');
+  assert.strictEqual(sizes[1], 6, 'long table 6');
+  assert.ok(state.tables.some(function (tb) {
+    return tb.isHeroTable && tb.seatIds.indexOf(hero.id) >= 0;
+  }), 'hero still seated');
+  assert.ok(sizes[1] - sizes[0] <= 1, 'table sizes differ by at most 1');
+
+  // Already balanced → no churn on hero roster beyond equalize no-op
+  const ht = state.tables.find(function (tb) { return tb.isHeroTable; });
+  const rosterBefore = ht.seatIds.slice().sort();
+  Seat.rebalance(state);
+  const rosterAfter = state.tables.find(function (tb) { return tb.isHeroTable; }).seatIds.slice().sort();
+  assert.deepStrictEqual(rosterAfter, rosterBefore, 'balanced rebalance keeps hero roster');
+
+  // 13 alive → 7+6
+  const state13 = g.PTTournamentState.create({
+    kind: 'mtt', entries: 18, seatsPerTable: 9, startingStack: 1500, buyInEur: 5, placesPaid: 3
+  }, { seed: 43 });
+  const alive13 = state13.players.filter(function (p) { return p.alive; });
+  alive13.filter(function (p) { return !p.isHero; }).slice(0, 5).forEach(function (p) {
+    Seat.bustPlayer(state13, p.id);
+  });
+  assert.strictEqual(g.PTTournamentState.playersLeft(state13), 13);
+  const h13 = g.PTTournamentState.hero(state13);
+  const surv13 = state13.players.filter(function (p) { return p.alive && p.stack > 0; });
+  const big = [h13].concat(surv13.filter(function (p) { return !p.isHero; }).slice(0, 8));
+  const small = surv13.filter(function (p) { return big.every(function (x) { return x.id !== p.id; }); });
+  assert.strictEqual(big.length + small.length, 13);
+  state13.tables = [
+    { id: 'T1', seatIds: big.map(function (p) { return p.id; }), isHeroTable: true },
+    { id: 'T2', seatIds: small.map(function (p) { return p.id; }), isHeroTable: false }
+  ];
+  state13.tables.forEach(function (tb) {
+    tb.seatIds.forEach(function (id, idx) {
+      const p = state13.players.find(function (x) { return x.id === id; });
+      p.tableId = tb.id;
+      p.seat = idx;
+    });
+  });
+  Seat.rebalance(state13);
+  const sizes13 = state13.tables.map(function (tb) { return tb.seatIds.length; }).sort(function (a, b) { return a - b; });
+  assert.strictEqual(sizes13.length, 2, '13 → two tables');
+  assert.strictEqual(sizes13[0], 6, '13 → min 6');
+  assert.strictEqual(sizes13[1], 7, '13 → max 7');
+
+  console.log('OK table-size-equalization');
+}
+
 // --- live hand all-AI simulateTable completes ---
 {
   const state = g.PTTournamentState.create(g.PTTournamentConfig.fromPreset('sng6'), { seed: 99 });
