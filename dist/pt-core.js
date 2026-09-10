@@ -11722,7 +11722,20 @@ window.PT_NASH_PUSH_JSON = {
 
   function classify(freqs, chosen, availableActions) {
     const legal = filterStrategy(freqs, availableActions);
-    const f = legal[chosen] != null ? legal[chosen] : 0;
+    let f = legal[chosen] != null ? legal[chosen] : 0;
+    /* Raise/allin fungibles en charts short: si eligió raise y la masa está en
+       allin (o al revés), contar la frecuencia del hermano para no marcar Error
+       cuando el grid enseña ~90% en la línea agresiva. */
+    if (f < 0.05 && (chosen === 'raise' || chosen === 'allin')) {
+      const alt = chosen === 'raise' ? 'allin' : 'raise';
+      if (legal[alt] != null) f = Math.max(f, legal[alt] || 0);
+    }
+    if (f < 0.05 && (chosen === 'bet' || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0))) {
+      const betKeys = Object.keys(legal).filter(function (k) {
+        return k === 'bet' || k.indexOf('bet_') === 0;
+      });
+      betKeys.forEach(function (k) { f = Math.max(f, legal[k] || 0); });
+    }
     let max = 0, best = availableActions && availableActions[0] ? availableActions[0] : 'fold';
     for (const a in legal) if (legal[a] > max) { max = legal[a]; best = a; }
     let cls;
@@ -11766,9 +11779,13 @@ window.PT_NASH_PUSH_JSON = {
    * "Error" está reservado a acciones casi ausentes de la mezcla, así que un
    * call que el grid pinta al 20 % baja como mucho a "Imprecisa" aunque el EV
    * del spot lo penalice.
+   * Invariante: si la acción elegida lidera la mezcla (o está a ≤8pp), nunca
+   * puede quedar en Error — evita RAISE 93% + badge Error.
    */
-  function clampClassToMix(cls, freq) {
+  function clampClassToMix(cls, freq, maxFreq) {
     if (cls === 'error' && freq >= MIX_MATERIAL_FREQ) return 'imprecisa';
+    if (cls === 'error' && maxFreq > 0 && freq >= maxFreq - 0.08) return 'optima';
+    if (cls === 'error' && freq >= 0.05) return 'imprecisa';
     return cls;
   }
 
@@ -11830,12 +11847,19 @@ window.PT_NASH_PUSH_JSON = {
         } else if (freq >= 0.05) {
           cls = 'aceptable';
           best = chosen;
+        } else {
+          /* Mismo EV que la óptima: nunca «Error» aunque la freq sea residual. */
+          cls = 'imprecisa';
+          best = freqBest;
         }
       } else if (freq >= 0.15) {
         // Empate EV sin peso de mezcla: conservar tipificación por frecuencia.
         cls = freqCls === 'optima' ? 'aceptable' : freqCls;
       } else if (freq >= 0.05) {
         cls = 'aceptable';
+      } else if (cls === 'error') {
+        /* EV empatado con la línea óptima → como mucho imprecisa. */
+        cls = 'imprecisa';
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
@@ -11891,7 +11915,7 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
-    cls = clampClassToMix(cls, freq);
+    cls = clampClassToMix(cls, freq, maxFreq);
 
     // Invariante UI/pedagógica: si fold es la mejor y se eligió call (p.ej. sin
     // pot odds), la clase no puede ser «óptima» aunque call esté a ≤8pp del mix.
@@ -13002,10 +13026,21 @@ window.PT_NASH_PUSH_JSON = {
 
   function spotContext(input, spotKey) {
     const street = spotKey.street || input.street || 'preflop';
-    const pot = input.potBB != null ? `${input.potBB}bb` : '';
-    const facing = (input.toCallBB || 0) > 0 ? `afrontando ${input.toCallBB}bb` : 'sin apuesta previa';
+    const potN = input.potBB != null ? Math.round(Number(input.potBB) * 100) / 100 : null;
+    const pot = potN != null
+      ? ((Math.abs(potN - Math.round(potN)) < 0.005 ? String(Math.round(potN)) : potN.toFixed(2)) + 'bb')
+      : '';
+    const toCallN = (input.toCallBB || 0) > 0 ? Math.round(Number(input.toCallBB) * 100) / 100 : 0;
+    const facing = toCallN > 0
+      ? `afrontando ${toCallN}bb`
+      : (input.spotKind === 'isoLimp' || input.spotKind === 'bbVsSbLimp' || input.spotKind === 'vsLimp'
+        || spotKey.initiative === 'isolator'
+        ? 'vs limp'
+        : 'sin apuesta previa');
     const pos = input.inPosition ? 'en posición' : 'fuera de posición';
     const role = spotKey.initiative === 'aggressor' ? 'agresor preflop'
+      : (spotKey.initiative === 'isolator' || input.spotKind === 'isoLimp' || input.spotKind === 'bbVsSbLimp')
+        ? 'aislando limp'
       : spotKey.initiative === 'none' ? 'primero en hablar' : 'pagador preflop';
     const lead = leadSuffix(spotKey);
     return `${cap(street)} · bote ${pot} · ${role}${lead} · ${pos} · ${facing}.`;
@@ -13415,8 +13450,15 @@ window.PT_NASH_PUSH_JSON = {
           )
         }
       );
-      const finalCls = reconciled.cls;
+      const finalCls0 = reconciled.cls;
+      let finalCls = finalCls0;
       const finalBest = reconciled.best;
+      /* Cinturón: si la freq clasificada lidera la mezcla, no permitir Error. */
+      if (finalCls === 'error' && cls.maxFreq > 0 && cls.freq >= cls.maxFreq - 0.08) {
+        finalCls = 'optima';
+      } else if (finalCls === 'error' && cls.freq >= 0.15) {
+        finalCls = 'imprecisa';
+      }
       const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction }));
 
       let evLoss = evResult.evLoss;
@@ -47889,7 +47931,8 @@ window.PT_NASH_PUSH_JSON = {
     if (opts.fromTournament) {
       tournamentReviewReturn = true;
       setTournamentReviewBackLabel();
-    } else if (!tournamentReviewReturn) {
+    } else {
+      tournamentReviewReturn = false;
       restoreSessionReviewBackLabel();
     }
     sessionHandsShown = SESSION_HANDS_PAGE;
@@ -47897,6 +47940,11 @@ window.PT_NASH_PUSH_JSON = {
     showSessionsView('detail');
     if (opts.handId) {
       openHandReview(opts.handId, opts.mode || opts.reviewMode || 'review');
+      /* openHandReview puede pintar la vista; reafirmar label tras Revisar. */
+      if (opts.fromTournament) {
+        tournamentReviewReturn = true;
+        setTournamentReviewBackLabel();
+      }
     }
   }
 
@@ -48309,8 +48357,14 @@ window.PT_NASH_PUSH_JSON = {
     currentHand = findHand(handId);
     if (!currentHand) return;
     analysisReviewReturn = false;
-    tournamentReviewReturn = false;
-    restoreSessionReviewBackLabel();
+    /* Conservar retorno a torneo: openSession(fromTournament) + Revisar del
+       informe de mejora ya dejaron tournamentReviewReturn=true; no pisarlo
+       con «Volver a la sesión». */
+    if (!tournamentReviewReturn) {
+      restoreSessionReviewBackLabel();
+    } else {
+      setTournamentReviewBackLabel();
+    }
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
     showSessionsView('review');

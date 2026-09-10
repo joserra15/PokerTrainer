@@ -70,7 +70,20 @@
 
   function classify(freqs, chosen, availableActions) {
     const legal = filterStrategy(freqs, availableActions);
-    const f = legal[chosen] != null ? legal[chosen] : 0;
+    let f = legal[chosen] != null ? legal[chosen] : 0;
+    /* Raise/allin fungibles en charts short: si eligió raise y la masa está en
+       allin (o al revés), contar la frecuencia del hermano para no marcar Error
+       cuando el grid enseña ~90% en la línea agresiva. */
+    if (f < 0.05 && (chosen === 'raise' || chosen === 'allin')) {
+      const alt = chosen === 'raise' ? 'allin' : 'raise';
+      if (legal[alt] != null) f = Math.max(f, legal[alt] || 0);
+    }
+    if (f < 0.05 && (chosen === 'bet' || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0))) {
+      const betKeys = Object.keys(legal).filter(function (k) {
+        return k === 'bet' || k.indexOf('bet_') === 0;
+      });
+      betKeys.forEach(function (k) { f = Math.max(f, legal[k] || 0); });
+    }
     let max = 0, best = availableActions && availableActions[0] ? availableActions[0] : 'fold';
     for (const a in legal) if (legal[a] > max) { max = legal[a]; best = a; }
     let cls;
@@ -114,9 +127,13 @@
    * "Error" está reservado a acciones casi ausentes de la mezcla, así que un
    * call que el grid pinta al 20 % baja como mucho a "Imprecisa" aunque el EV
    * del spot lo penalice.
+   * Invariante: si la acción elegida lidera la mezcla (o está a ≤8pp), nunca
+   * puede quedar en Error — evita RAISE 93% + badge Error.
    */
-  function clampClassToMix(cls, freq) {
+  function clampClassToMix(cls, freq, maxFreq) {
     if (cls === 'error' && freq >= MIX_MATERIAL_FREQ) return 'imprecisa';
+    if (cls === 'error' && maxFreq > 0 && freq >= maxFreq - 0.08) return 'optima';
+    if (cls === 'error' && freq >= 0.05) return 'imprecisa';
     return cls;
   }
 
@@ -178,12 +195,19 @@
         } else if (freq >= 0.05) {
           cls = 'aceptable';
           best = chosen;
+        } else {
+          /* Mismo EV que la óptima: nunca «Error» aunque la freq sea residual. */
+          cls = 'imprecisa';
+          best = freqBest;
         }
       } else if (freq >= 0.15) {
         // Empate EV sin peso de mezcla: conservar tipificación por frecuencia.
         cls = freqCls === 'optima' ? 'aceptable' : freqCls;
       } else if (freq >= 0.05) {
         cls = 'aceptable';
+      } else if (cls === 'error') {
+        /* EV empatado con la línea óptima → como mucho imprecisa. */
+        cls = 'imprecisa';
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
@@ -239,7 +263,7 @@
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
-    cls = clampClassToMix(cls, freq);
+    cls = clampClassToMix(cls, freq, maxFreq);
 
     // Invariante UI/pedagógica: si fold es la mejor y se eligió call (p.ej. sin
     // pot odds), la clase no puede ser «óptima» aunque call esté a ≤8pp del mix.

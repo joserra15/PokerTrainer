@@ -292,8 +292,15 @@
           )
         }
       );
-      const finalCls = reconciled.cls;
+      const finalCls0 = reconciled.cls;
+      let finalCls = finalCls0;
       const finalBest = reconciled.best;
+      /* Cinturón: si la freq clasificada lidera la mezcla, no permitir Error. */
+      if (finalCls === 'error' && cls.maxFreq > 0 && cls.freq >= cls.maxFreq - 0.08) {
+        finalCls = 'optima';
+      } else if (finalCls === 'error' && cls.freq >= 0.15) {
+        finalCls = 'imprecisa';
+      }
       const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction }));
 
       let evLoss = evResult.evLoss;

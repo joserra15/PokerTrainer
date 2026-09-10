@@ -1376,10 +1376,51 @@
   function isFirstInOpen(hand, heroSeat) {
     if (!hand || hand.street !== 'preflop') return false;
     if (hand.openerId) return false;
-    /* Solo ciegas en el bote: currentBet == bb y nadie ha abierto. */
+    if (findLimpers(hand, heroSeat).length) return false;
+    /* Solo ciegas en el bote: currentBet == bb y nadie ha abierto ni limpeado. */
     var bb = Math.max(1, Number(hand.bb) || 1);
     var cur = Number(hand.currentBet) || 0;
     return cur <= bb + 0.001;
+  }
+
+  /** Jugadores que limpearon (igualaron la BB sin raise previo). */
+  function findLimpers(hand, heroSeat) {
+    if (!hand || hand.street !== 'preflop' || hand.openerId) return [];
+    var bb = Math.max(1, Number(hand.bb) || 1);
+    var heroId = heroSeat && heroSeat.id;
+    return (hand.seats || []).filter(function (s) {
+      if (!s || s.folded || s.isHero) return false;
+      if (heroId && s.id === heroId) return false;
+      var inv = Number(s.streetInvested) || 0;
+      if (inv < bb - 0.001) return false;
+      /* La BB solo cuenta como limper si ya actuó (check detrás de limps). */
+      if (s.pos === 'BB' && !(hand.acted && hand.acted[s.id])) return false;
+      /* SB que completa hasta la BB cuenta como limper. */
+      return true;
+    });
+  }
+
+  function resolvePreflopSpotKind(hand, heroSeat, firstIn) {
+    if (hand.openerId && !firstIn) return 'vsRFI';
+    var limpers = findLimpers(hand, heroSeat);
+    if (limpers.length) {
+      if (heroSeat && heroSeat.pos === 'BB' && limpers.length === 1 && limpers[0].pos === 'SB') {
+        return 'bbVsSbLimp';
+      }
+      return 'isoLimp';
+    }
+    return 'RFI';
+  }
+
+  function limperVsPosition(hand, heroSeat) {
+    var limpers = findLimpers(hand, heroSeat);
+    if (!limpers.length) return vsPosition(hand, heroSeat);
+    /* Último limper (más late) como referencia del iso. */
+    var order = { UTG: 0, UTG1: 1, UTG2: 2, LJ: 3, HJ: 4, CO: 5, BTN: 6, SB: 7, BB: 8 };
+    limpers.sort(function (a, b) {
+      return (order[a.pos] != null ? order[a.pos] : 99) - (order[b.pos] != null ? order[b.pos] : 99);
+    });
+    return limpers[limpers.length - 1].pos || vsPosition(hand, heroSeat);
   }
 
   var CLASS_MAP = {
@@ -1468,15 +1509,18 @@
 
     var firstIn = isFirstInOpen(hand, heroSeat);
     var rawToCall = Math.max(0, (Number(hand.currentBet) || 0) - streetInv);
-    /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar). */
-    var toCall = firstIn ? 0 : rawToCall;
+    var street = hand.street === 'preflop' ? 'preflop' : hand.street;
+    /* RFI: las ciegas no son una apuesta rival — toCall efectivo 0 (como en Entrenar).
+       Iso vs limp: tampoco hay raise que igualar; el sizing es de open/iso. */
+    var limpers = street === 'preflop' ? findLimpers(hand, heroSeat) : [];
+    var isoSpot = !firstIn && !hand.openerId && limpers.length > 0;
+    var toCall = (firstIn || isoSpot) ? 0 : rawToCall;
 
     var hub = resolveFormatHub(hand);
     var phase = resolveTournamentPhase(stackBB, hand);
     var pushPhase = phase === 'push' || stackBB <= 12;
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
 
-    var street = hand.street === 'preflop' ? 'preflop' : hand.street;
     var incompleteAllIn = toCall > 0 && isIncompleteAllIn(hand, heroSeat, action);
     var preferAllin = !incompleteAllIn && (pushPhase || (action && action.id === 'allin' && shortPhase));
     var avail = availableFromOptions(hand.heroOptions, preferAllin);
@@ -1500,18 +1544,26 @@
     if (hand.ante != null) anteBB = Number(hand.ante) / bb;
     else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
 
-    var initiative = resolveInitiative(hand, heroSeat, firstIn);
+    var spotKind = street === 'preflop'
+      ? resolvePreflopSpotKind(hand, heroSeat, firstIn)
+      : 'postflop';
+    var vsPos = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp' || spotKind === 'vsLimp'
+      ? limperVsPosition(hand, heroSeat)
+      : vsPosition(hand, heroSeat);
+    var initiative = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp'
+      ? 'isolator'
+      : resolveInitiative(hand, heroSeat, firstIn);
     var input = {
-      spotKind: street === 'preflop' ? (hand.openerId && !firstIn ? 'vsRFI' : 'RFI') : 'postflop',
+      spotKind: spotKind,
       street: street,
       position: heroSeat.pos,
-      vsPosition: vsPosition(hand, heroSeat),
+      vsPosition: vsPos,
       heroCards: (heroSeat.cards || []).map(cardCode),
       handCode: handCode(heroSeat.cards),
       board: (hand.board || []).map(cardCode),
-      potBB: (Number(hand.pot) || 0) / bb,
+      potBB: Math.round(((Number(hand.pot) || 0) / bb) * 100) / 100,
       toCallBB: toCall / bb,
-      potBeforeBB: Math.max(((Number(hand.pot) || 0) - (firstIn ? 0 : rawToCall)) / bb, 0.1),
+      potBeforeBB: Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1),
       stackDepth: stackBB,
       stackBB: stackBB,
       effStack: stackBB,
@@ -1591,6 +1643,25 @@
     try {
       var result = GTO.evaluateSpot(input);
       var graded = gradeFromEval(result, chosen);
+      /* Raise ↔ allin: charts short/push a menudo concentran masa en uno solo.
+         Si el elegido sale Error/residual, reintenta con el hermano fungible. */
+      if ((graded.class === 'error' || graded.frequency < 0.05)
+        && (chosen === 'raise' || chosen === 'allin')) {
+        var alt = chosen === 'raise' ? 'allin' : 'raise';
+        var strat0 = graded.strategy || {};
+        var altFreq = Number(strat0[alt]) || 0;
+        var ownFreq = Number(strat0[chosen]) || 0;
+        if (altFreq >= 0.15 && altFreq > ownFreq + 0.02) {
+          input.chosenAction = alt;
+          if (input.availableActions.indexOf(alt) < 0) input.availableActions.push(alt);
+          result = GTO.evaluateSpot(input);
+          graded = gradeFromEval(result, alt);
+          chosen = alt;
+          base.action = chosen;
+          base.chosen = chosen;
+          base.label = actionLabel(chosen, action && action.amount, hand.bb);
+        }
+      }
       /* Si el shove se etiquetó como raise y la estrategia solo tiene allin, reintenta.
          No aplica a all-in incompleto ya remapeado a call. */
       if ((graded.class === 'error' || graded.frequency < 0.05)
@@ -1646,6 +1717,7 @@
         potBeforeBB: input.potBeforeBB,
         stackBB: input.stackBB,
         stackDepth: input.stackDepth,
+        betSizeBB: input.betSizeBB,
         availableActions: (input.availableActions || []).slice(),
         chosenAction: input.chosenAction,
         initiative: input.initiative,
@@ -1656,6 +1728,7 @@
         pushFold: input.pushFold,
         preflopMode: input.preflopMode
       };
+      if (input.betSizeBB != null) base.betSizeBB = input.betSizeBB;
     } catch (e) {
       base.error = String(e && e.message || e);
     }
@@ -1701,7 +1774,9 @@
     resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
     isFirstInOpen: isFirstInOpen,
-    isIncompleteAllIn: isIncompleteAllIn
+    isIncompleteAllIn: isIncompleteAllIn,
+    findLimpers: findLimpers,
+    resolvePreflopSpotKind: resolvePreflopSpotKind
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -3418,34 +3493,165 @@
     return null;
   }
 
+  /**
+   * Side pots por niveles de inversión (ids de asiento).
+   * Misma idea que GTOMultiway.computeSidePots: el all-in corto solo disputa
+   * el bote principal; el exceso (side pot) va a quienes igualaron más, e incluye
+   * dead money de folds.
+   */
+  function computeSidePotsBySeat(investedById, aliveIds) {
+    var alive = (aliveIds || []).slice();
+    var levels = alive
+      .map(function (id) { return r2(investedById[id] || 0); })
+      .filter(function (x) { return x > 0; })
+      .sort(function (a, b) { return a - b; });
+    var uniq = [];
+    levels.forEach(function (lv) {
+      if (!uniq.length || uniq[uniq.length - 1] !== lv) uniq.push(lv);
+    });
+    var pots = [];
+    var prev = 0;
+    uniq.forEach(function (lv) {
+      var layer = r2(lv - prev);
+      if (layer <= 0) return;
+      var eligible = alive.filter(function (id) {
+        return r2(investedById[id] || 0) >= lv - 0.001;
+      });
+      var dead = 0;
+      Object.keys(investedById || {}).forEach(function (id) {
+        if (alive.indexOf(id) >= 0) return;
+        var inv = r2(investedById[id] || 0);
+        if (inv > prev) dead += Math.min(layer, r2(inv - prev));
+      });
+      var contrib = r2(layer * eligible.length + dead);
+      if (contrib > 0 && eligible.length) {
+        pots.push({ amount: contrib, eligible: eligible.slice() });
+      }
+      prev = lv;
+    });
+    return pots;
+  }
+
+  function compareSeatScores(a, b) {
+    var C = global.Cards;
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+    if (C && C.compare) return C.compare(a, b);
+    var ra = (a.rank || []).slice();
+    var rb = (b.rank || []).slice();
+    var len = Math.max(ra.length, rb.length);
+    for (var i = 0; i < len; i++) {
+      var x = ra[i] || 0, y = rb[i] || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  /** Reparte cada side pot entre los mejores elegibles (empates → chop). */
+  function awardSidePots(hand, pots, scoreById) {
+    var wonById = {};
+    (hand.seats || []).forEach(function (s) { wonById[s.id] = 0; });
+    var winnersByPot = [];
+    (pots || []).forEach(function (pot) {
+      var contenders = (pot.eligible || []).filter(function (id) {
+        return scoreById[id];
+      });
+      if (!contenders.length) {
+        /* Sin cartas evaluables: devolver el layer a quienes aportaron (eligible). */
+        contenders = (pot.eligible || []).slice();
+      }
+      if (!contenders.length) return;
+      var bestId = contenders[0];
+      contenders.forEach(function (id) {
+        if (compareSeatScores(scoreById[id], scoreById[bestId]) > 0) bestId = id;
+      });
+      var winners = contenders.filter(function (id) {
+        return compareSeatScores(scoreById[id], scoreById[bestId]) === 0;
+      });
+      if (!winners.length) winners = [bestId];
+      var share = r2(pot.amount / winners.length);
+      winners.forEach(function (w) {
+        wonById[w] = r2((wonById[w] || 0) + share);
+      });
+      winnersByPot.push({ amount: pot.amount, winners: winners.slice() });
+    });
+    return { wonById: wonById, winnersByPot: winnersByPot };
+  }
+
   function settle(hand, winnerIds, showdown, meta) {
     meta = meta || {};
-    var set = {};
-    (winnerIds || []).forEach(function (id) { set[id] = true; });
-    var n = Math.max(1, (winnerIds || []).length);
-    var share = r2(hand.pot / n);
     var deltas = {};
-    hand.seats.forEach(function (s) {
-      var won = set[s.id] ? share : 0;
-      deltas[s.id] = r2(won - s.invested);
-      s.stack = r2(s.startStack + deltas[s.id]);
-    });
+    var wonById = {};
+    var winnersByPot = null;
+    var potList = null;
+
+    if (showdown && meta.scoreById) {
+      /* Showdown multiway / all-in desigual: main pot + side pots. */
+      var invested = {};
+      (hand.seats || []).forEach(function (s) {
+        invested[s.id] = r2(Number(s.invested) || 0);
+      });
+      var aliveIds = alive(hand).map(function (s) { return s.id; });
+      potList = computeSidePotsBySeat(invested, aliveIds);
+      if (!potList.length) {
+        potList.push({
+          amount: r2(hand.pot),
+          eligible: aliveIds.slice()
+        });
+      }
+      var awarded = awardSidePots(hand, potList, meta.scoreById);
+      wonById = awarded.wonById;
+      winnersByPot = awarded.winnersByPot;
+      (hand.seats || []).forEach(function (s) {
+        var won = r2(wonById[s.id] || 0);
+        deltas[s.id] = r2(won - (Number(s.invested) || 0));
+        s.stack = r2((Number(s.startStack) || 0) + deltas[s.id]);
+      });
+    } else {
+      /* Fold-win (o fallback): un ganador se lleva el bote entero. */
+      var set = {};
+      (winnerIds || []).forEach(function (id) { set[id] = true; });
+      var n = Math.max(1, (winnerIds || []).length);
+      var share = r2(hand.pot / n);
+      (hand.seats || []).forEach(function (s) {
+        var won = set[s.id] ? share : 0;
+        wonById[s.id] = won;
+        deltas[s.id] = r2(won - (Number(s.invested) || 0));
+        s.stack = r2((Number(s.startStack) || 0) + deltas[s.id]);
+      });
+    }
+
     hand.stage = 'complete';
     hand.awaitingHero = false;
     hand.heroOptions = null;
     var hero = hand.seats.find(function (s) { return s.isHero; });
     var heroId = hero ? hero.id : null;
-    var tied = !!(showdown && (winnerIds || []).length > 1);
+    var potWinners = [];
+    if (winnersByPot && winnersByPot.length) {
+      var seen = {};
+      winnersByPot.forEach(function (p) {
+        (p.winners || []).forEach(function (id) {
+          if (!seen[id]) { seen[id] = true; potWinners.push(id); }
+        });
+      });
+    } else {
+      potWinners = (winnerIds || []).slice();
+    }
+    var tied = !!(showdown && potWinners.length > 1);
     hand.result = {
       deltas: deltas,
-      winners: (winnerIds || []).slice(),
+      winners: potWinners,
       showdown: !!showdown,
       tied: tied,
       board: hand.board.slice(),
       pot: hand.pot,
       holeCards: {},
       handNames: meta.handNames || {},
-      heroNet: heroId != null ? (deltas[heroId] || 0) : 0
+      heroNet: heroId != null ? (deltas[heroId] || 0) : 0,
+      wonById: wonById,
+      sidePots: potList,
+      winnersByPot: winnersByPot
     };
     alive(hand).forEach(function (s) {
       hand.result.holeCards[s.id] = s.cards.slice();
@@ -3515,10 +3721,15 @@
     });
     if (!winners.length) winners = cont.slice();
     var handNames = {};
+    var scoreById = {};
     cont.forEach(function (s) {
       if (s._handName) handNames[s.id] = s._handName;
+      if (s._score) scoreById[s.id] = s._score;
     });
-    return settle(hand, winners.map(function (w) { return w.id; }), true, { handNames: handNames });
+    return settle(hand, winners.map(function (w) { return w.id; }), true, {
+      handNames: handNames,
+      scoreById: scoreById
+    });
   }
 
   function heroOptions(hand, seat) {
@@ -3821,7 +4032,10 @@
     simulateTable: simulateTable,
     strength01: strength01,
     allDealtCards: allDealtCards,
-    hasDuplicateCards: hasDuplicateCards
+    hasDuplicateCards: hasDuplicateCards,
+    settle: settle,
+    computeSidePotsBySeat: computeSidePotsBySeat,
+    finishShowdown: finishShowdown
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -8743,9 +8957,11 @@ function reducedMotion() {
 
   function seatCoordsFor(n) {
     var mobile = isMobileLayout();
+    /* 7-handed (común en 9-max tras eliminaciones) necesita 7 slots: con la
+       tabla de 6, Math.min(i, 5) apilaba dos villanos en la misma coordenada. */
     if (n <= 3) return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
-    if (n >= 8) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
-    return mobile ? SEAT_COORDS_MOBILE_6 : SEAT_COORDS_6;
+    if (n <= 6) return mobile ? SEAT_COORDS_MOBILE_6 : SEAT_COORDS_6;
+    return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
   }
 
   function faceCard(c) {

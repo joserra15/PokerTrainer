@@ -1326,9 +1326,11 @@ function reducedMotion() {
 
   function seatCoordsFor(n) {
     var mobile = isMobileLayout();
+    /* 7-handed (común en 9-max tras eliminaciones) necesita 7 slots: con la
+       tabla de 6, Math.min(i, 5) apilaba dos villanos en la misma coordenada. */
     if (n <= 3) return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
-    if (n >= 8) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
-    return mobile ? SEAT_COORDS_MOBILE_6 : SEAT_COORDS_6;
+    if (n <= 6) return mobile ? SEAT_COORDS_MOBILE_6 : SEAT_COORDS_6;
+    return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
   }
 
   function faceCard(c) {

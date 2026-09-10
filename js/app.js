@@ -8802,7 +8802,8 @@
     if (opts.fromTournament) {
       tournamentReviewReturn = true;
       setTournamentReviewBackLabel();
-    } else if (!tournamentReviewReturn) {
+    } else {
+      tournamentReviewReturn = false;
       restoreSessionReviewBackLabel();
     }
     sessionHandsShown = SESSION_HANDS_PAGE;
@@ -8810,6 +8811,11 @@
     showSessionsView('detail');
     if (opts.handId) {
       openHandReview(opts.handId, opts.mode || opts.reviewMode || 'review');
+      /* openHandReview puede pintar la vista; reafirmar label tras Revisar. */
+      if (opts.fromTournament) {
+        tournamentReviewReturn = true;
+        setTournamentReviewBackLabel();
+      }
     }
   }
 
@@ -9222,8 +9228,14 @@
     currentHand = findHand(handId);
     if (!currentHand) return;
     analysisReviewReturn = false;
-    tournamentReviewReturn = false;
-    restoreSessionReviewBackLabel();
+    /* Conservar retorno a torneo: openSession(fromTournament) + Revisar del
+       informe de mejora ya dejaron tournamentReviewReturn=true; no pisarlo
+       con «Volver a la sesión». */
+    if (!tournamentReviewReturn) {
+      restoreSessionReviewBackLabel();
+    } else {
+      setTournamentReviewBackLabel();
+    }
     if (Importer.ensureHandSummary) Importer.ensureHandSummary(currentHand);
     if (Importer.ensureFullTimeline) Importer.ensureFullTimeline(currentHand);
     showSessionsView('review');

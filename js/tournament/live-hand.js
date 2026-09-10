@@ -485,34 +485,165 @@
     return null;
   }
 
+  /**
+   * Side pots por niveles de inversión (ids de asiento).
+   * Misma idea que GTOMultiway.computeSidePots: el all-in corto solo disputa
+   * el bote principal; el exceso (side pot) va a quienes igualaron más, e incluye
+   * dead money de folds.
+   */
+  function computeSidePotsBySeat(investedById, aliveIds) {
+    var alive = (aliveIds || []).slice();
+    var levels = alive
+      .map(function (id) { return r2(investedById[id] || 0); })
+      .filter(function (x) { return x > 0; })
+      .sort(function (a, b) { return a - b; });
+    var uniq = [];
+    levels.forEach(function (lv) {
+      if (!uniq.length || uniq[uniq.length - 1] !== lv) uniq.push(lv);
+    });
+    var pots = [];
+    var prev = 0;
+    uniq.forEach(function (lv) {
+      var layer = r2(lv - prev);
+      if (layer <= 0) return;
+      var eligible = alive.filter(function (id) {
+        return r2(investedById[id] || 0) >= lv - 0.001;
+      });
+      var dead = 0;
+      Object.keys(investedById || {}).forEach(function (id) {
+        if (alive.indexOf(id) >= 0) return;
+        var inv = r2(investedById[id] || 0);
+        if (inv > prev) dead += Math.min(layer, r2(inv - prev));
+      });
+      var contrib = r2(layer * eligible.length + dead);
+      if (contrib > 0 && eligible.length) {
+        pots.push({ amount: contrib, eligible: eligible.slice() });
+      }
+      prev = lv;
+    });
+    return pots;
+  }
+
+  function compareSeatScores(a, b) {
+    var C = global.Cards;
+    if (!a && !b) return 0;
+    if (!a) return -1;
+    if (!b) return 1;
+    if (C && C.compare) return C.compare(a, b);
+    var ra = (a.rank || []).slice();
+    var rb = (b.rank || []).slice();
+    var len = Math.max(ra.length, rb.length);
+    for (var i = 0; i < len; i++) {
+      var x = ra[i] || 0, y = rb[i] || 0;
+      if (x !== y) return x - y;
+    }
+    return 0;
+  }
+
+  /** Reparte cada side pot entre los mejores elegibles (empates → chop). */
+  function awardSidePots(hand, pots, scoreById) {
+    var wonById = {};
+    (hand.seats || []).forEach(function (s) { wonById[s.id] = 0; });
+    var winnersByPot = [];
+    (pots || []).forEach(function (pot) {
+      var contenders = (pot.eligible || []).filter(function (id) {
+        return scoreById[id];
+      });
+      if (!contenders.length) {
+        /* Sin cartas evaluables: devolver el layer a quienes aportaron (eligible). */
+        contenders = (pot.eligible || []).slice();
+      }
+      if (!contenders.length) return;
+      var bestId = contenders[0];
+      contenders.forEach(function (id) {
+        if (compareSeatScores(scoreById[id], scoreById[bestId]) > 0) bestId = id;
+      });
+      var winners = contenders.filter(function (id) {
+        return compareSeatScores(scoreById[id], scoreById[bestId]) === 0;
+      });
+      if (!winners.length) winners = [bestId];
+      var share = r2(pot.amount / winners.length);
+      winners.forEach(function (w) {
+        wonById[w] = r2((wonById[w] || 0) + share);
+      });
+      winnersByPot.push({ amount: pot.amount, winners: winners.slice() });
+    });
+    return { wonById: wonById, winnersByPot: winnersByPot };
+  }
+
   function settle(hand, winnerIds, showdown, meta) {
     meta = meta || {};
-    var set = {};
-    (winnerIds || []).forEach(function (id) { set[id] = true; });
-    var n = Math.max(1, (winnerIds || []).length);
-    var share = r2(hand.pot / n);
     var deltas = {};
-    hand.seats.forEach(function (s) {
-      var won = set[s.id] ? share : 0;
-      deltas[s.id] = r2(won - s.invested);
-      s.stack = r2(s.startStack + deltas[s.id]);
-    });
+    var wonById = {};
+    var winnersByPot = null;
+    var potList = null;
+
+    if (showdown && meta.scoreById) {
+      /* Showdown multiway / all-in desigual: main pot + side pots. */
+      var invested = {};
+      (hand.seats || []).forEach(function (s) {
+        invested[s.id] = r2(Number(s.invested) || 0);
+      });
+      var aliveIds = alive(hand).map(function (s) { return s.id; });
+      potList = computeSidePotsBySeat(invested, aliveIds);
+      if (!potList.length) {
+        potList.push({
+          amount: r2(hand.pot),
+          eligible: aliveIds.slice()
+        });
+      }
+      var awarded = awardSidePots(hand, potList, meta.scoreById);
+      wonById = awarded.wonById;
+      winnersByPot = awarded.winnersByPot;
+      (hand.seats || []).forEach(function (s) {
+        var won = r2(wonById[s.id] || 0);
+        deltas[s.id] = r2(won - (Number(s.invested) || 0));
+        s.stack = r2((Number(s.startStack) || 0) + deltas[s.id]);
+      });
+    } else {
+      /* Fold-win (o fallback): un ganador se lleva el bote entero. */
+      var set = {};
+      (winnerIds || []).forEach(function (id) { set[id] = true; });
+      var n = Math.max(1, (winnerIds || []).length);
+      var share = r2(hand.pot / n);
+      (hand.seats || []).forEach(function (s) {
+        var won = set[s.id] ? share : 0;
+        wonById[s.id] = won;
+        deltas[s.id] = r2(won - (Number(s.invested) || 0));
+        s.stack = r2((Number(s.startStack) || 0) + deltas[s.id]);
+      });
+    }
+
     hand.stage = 'complete';
     hand.awaitingHero = false;
     hand.heroOptions = null;
     var hero = hand.seats.find(function (s) { return s.isHero; });
     var heroId = hero ? hero.id : null;
-    var tied = !!(showdown && (winnerIds || []).length > 1);
+    var potWinners = [];
+    if (winnersByPot && winnersByPot.length) {
+      var seen = {};
+      winnersByPot.forEach(function (p) {
+        (p.winners || []).forEach(function (id) {
+          if (!seen[id]) { seen[id] = true; potWinners.push(id); }
+        });
+      });
+    } else {
+      potWinners = (winnerIds || []).slice();
+    }
+    var tied = !!(showdown && potWinners.length > 1);
     hand.result = {
       deltas: deltas,
-      winners: (winnerIds || []).slice(),
+      winners: potWinners,
       showdown: !!showdown,
       tied: tied,
       board: hand.board.slice(),
       pot: hand.pot,
       holeCards: {},
       handNames: meta.handNames || {},
-      heroNet: heroId != null ? (deltas[heroId] || 0) : 0
+      heroNet: heroId != null ? (deltas[heroId] || 0) : 0,
+      wonById: wonById,
+      sidePots: potList,
+      winnersByPot: winnersByPot
     };
     alive(hand).forEach(function (s) {
       hand.result.holeCards[s.id] = s.cards.slice();
@@ -582,10 +713,15 @@
     });
     if (!winners.length) winners = cont.slice();
     var handNames = {};
+    var scoreById = {};
     cont.forEach(function (s) {
       if (s._handName) handNames[s.id] = s._handName;
+      if (s._score) scoreById[s.id] = s._score;
     });
-    return settle(hand, winners.map(function (w) { return w.id; }), true, { handNames: handNames });
+    return settle(hand, winners.map(function (w) { return w.id; }), true, {
+      handNames: handNames,
+      scoreById: scoreById
+    });
   }
 
   function heroOptions(hand, seat) {
@@ -888,6 +1024,9 @@
     simulateTable: simulateTable,
     strength01: strength01,
     allDealtCards: allDealtCards,
-    hasDuplicateCards: hasDuplicateCards
+    hasDuplicateCards: hasDuplicateCards,
+    settle: settle,
+    computeSidePotsBySeat: computeSidePotsBySeat,
+    finishShowdown: finishShowdown
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
