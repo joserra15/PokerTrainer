@@ -87,6 +87,7 @@ const FILES = [
   'js/engine/format/taxonomy.js',
   'js/engine/format/tournament-context.js',
   'js/engine/ranges/pushFold.js',
+  'js/engine/showPolicy.js',
   'js/tournament/gto-eval.js',
   'js/tournament/villain-decide.js',
   'js/tournament/live-hand.js',

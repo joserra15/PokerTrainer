@@ -527,7 +527,10 @@
     });
     const inPush = !!(input.pushFold || input.preflopMode === 'push'
       || (PF && PF.isPushPhase(pushProbe)));
+    const facingShove = !!(input.facingAllIn || input.villainAllIn
+      || (PF && PF.isFacingShove && PF.isFacingShove(input)));
     const pushFlag = inPush ? 'pf1' : 'pf0';
+    const shoveFlag = facingShove ? 'sh1' : 'sh0';
     const preflopFlag = input.preflopMode || 'std';
     // availableActions forma la mezcla (allin vs raise); sin esto el caché envenena
     // RFI fold/raise con un shove allin previo → filterStrategy → 100% fold.
@@ -535,7 +538,7 @@
     const actsKey = acts.length ? acts.slice().sort().join(',') : '-';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
       + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey
-      + '|' + pushFlag + '|pm' + preflopFlag + '|a' + actsKey;
+      + '|' + pushFlag + '|' + shoveFlag + '|pm' + preflopFlag + '|a' + actsKey;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -552,17 +555,32 @@
         || (global.PTFormatTaxonomy && global.PTFormatTaxonomy.hubFromGameType
           ? global.PTFormatTaxonomy.hubFromGameType(input.gameType) : null);
       // Cash: nunca charts push/fold (aunque mttPhase/pushFold lleguen mal).
+      // Excepción: facing shove preflop — vsRFI de open min no aplica a un jam.
       const allowPush = hub !== 'cash';
+      const allowFacingShove = hub !== 'cash' || facingShove;
 
       // Steal ~20 bb (spins/MTT): shove valor + open min según rango GTO.
       if (PF && allowPush && input.preflopMode === 'steal' && kind === 'RFI') {
         return PF.stealOpenStrategy(Object.assign({}, input, { rangeContext: ctx }));
       }
-      if (PF && allowPush && input.preflopMode === 'stealDefense' && kind === 'vsRFI') {
+      if (PF && allowPush && input.preflopMode === 'stealDefense' && kind === 'vsRFI' && !facingShove) {
         return PF.stealDefenseStrategy(Object.assign({}, input, {
           rangeContext: ctx,
           vsPosition: input.vsPosition,
           vsRfiKey: input.vsRfiKey
+        }));
+      }
+
+      // Call vs shove / open-jam: Nash call-fold (no charts vs-RFI bubble).
+      if (PF && allowFacingShove && facingShove
+        && input.preflopMode !== 'steal'
+        && (spotKey.street === 'preflop' || kind === 'vsRFI' || kind === 'face3bet'
+          || kind === 'vs3bet' || kind === 'face4bet' || kind === 'vs4bet')) {
+        return PF.pushFoldStrategy(Object.assign({}, input, {
+          position: input.position,
+          effStack: input.stackDepth || input.effStack || (ctx && ctx.stackBB),
+          openerPos: input.vsPosition || input.openerPos,
+          facingAllIn: true
         }));
       }
 

@@ -9359,8 +9359,8 @@
     const villainPos = trainerHand.villain && trainerHand.villain.pos ? trainerHand.villain.pos : '';
     const villainName = villainPos || 'Villano';
     const heroPos = (trainerHand.hero && trainerHand.hero.pos) || trainerHand.displayHeroPos || '';
-    const villainCards = (trainerHand.villain && trainerHand.villain.cards && trainerHand.villain.cards.length >= 2)
-      ? trainerHand.villain.cards.slice()
+    const villainCards = (r.villainCards && r.villainCards.length >= 2)
+      ? r.villainCards.slice()
       : null;
     const h = {
       id: trainerHand.id,

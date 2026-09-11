@@ -97,8 +97,50 @@
     const ante = Number(input && input.anteBB) || 0;
     const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
     if (kind === 'shove' && ante > 0) f = Math.min(1, f + Math.min(0.08, ante * 0.25));
-    if (kind === 'call' && icm) f = Math.max(0, f - 0.06);
+    if (kind === 'call' && icm) {
+      // Bubble / FT: pagar un shove con la vida del torneo es mucho más caro en $EV.
+      const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
+      let cut = 0.06;
+      if (phase === 'bubble' || phase === 'final') cut = 0.22;
+      else if (phase === 'short' || phase === 'push') cut = 0.12;
+      f = Math.max(0, f - cut);
+    }
     return f;
+  }
+
+  /**
+   * Open/3-bet jam o call por casi todo el stack: no usar charts vs-RFI de open min.
+   * Ej.: BTN shove ~20bb en burbuja → call/fold Nash, no CALL 95% del chart bubble.
+   */
+  function isFacingShove(input) {
+    if (!input) return false;
+    if (input.facingAllIn || input.villainAllIn) return true;
+    const street = input.street || 'preflop';
+    if (street !== 'preflop') return false;
+    const toCall = Number(input.toCallBB) || 0;
+    if (toCall <= 0) return false;
+    const rem = Number(
+      input.heroRemainingBB != null ? input.heroRemainingBB
+        : (input.effStack != null ? input.effStack
+          : (input.stackDepth != null ? input.stackDepth : input.stackBB))
+    ) || 0;
+    const potBefore = Number(
+      input.potBeforeBB != null ? input.potBeforeBB
+        : Math.max((Number(input.potBB) || 0) - toCall, 0.1)
+    ) || 0.1;
+    // Pagar ≥65% del stack restante = decisión de torneo / all-in.
+    if (rem > 0 && toCall >= rem * 0.65) return true;
+    // Jam grande vs el bote (open-shove / overbet preflop).
+    if (toCall >= 8 && toCall >= potBefore * 1.75) return true;
+    const acts = input.availableActions || [];
+    if (acts.length
+      && acts.indexOf('raise') < 0
+      && acts.indexOf('allin') < 0
+      && toCall >= 6
+      && toCall >= potBefore) {
+      return true;
+    }
+    return false;
   }
 
   function openShoveWeights(pos, stackBB, input) {
@@ -129,21 +171,29 @@
   }
 
   function callShoveWeights(pos, stackBB, openerPos, input) {
-    const nash = nashCallTable(pos, stackBB, openerPos);
+    const bb = Number(stackBB) || 10;
+    // Nash solo llega a ~14bb; a más profundidad el call vs shove es más tight.
+    const nashStack = Math.min(bb, 14);
+    const nash = nashCallTable(pos, nashStack, openerPos);
     if (nash) {
       const out = {};
       Object.keys(nash).forEach(function (code) {
-        out[code] = pressureAdjust(nash[code], input, 'call');
+        let w = pressureAdjust(nash[code], input, 'call');
+        // 15–25bb: recortar semibluffs / connectors del chart corto.
+        if (bb > 14 && w > 0 && w < 0.92) w = Math.max(0, w - 0.25);
+        if (bb > 18 && w > 0 && w < 0.98) w = Math.max(0, w - 0.15);
+        out[code] = w;
       });
       return out;
     }
-    const bb = Number(stackBB) || 10;
-    const wide = bb <= 12 || openerPos === 'BTN' || openerPos === 'SB';
+    const wide = bb <= 12 || (bb <= 14 && (openerPos === 'BTN' || openerPos === 'SB'));
     const base = wide ? SET_CALL_W : SET_CALL_T;
     const out = {};
-    Object.keys(base).forEach(function (code) { out[code] = 1; });
+    Object.keys(base).forEach(function (code) { out[code] = pressureAdjust(1, input, 'call'); });
     if (pos === 'BB' && openerPos === 'SB' && bb <= 15) {
-      ['77', '66', 'A9s', 'A8s', 'A5s', 'KTs', 'QJs'].forEach(function (c) { out[c] = 1; });
+      ['77', '66', 'A9s', 'A8s', 'A5s', 'KTs', 'QJs'].forEach(function (c) {
+        out[c] = pressureAdjust(1, input, 'call');
+      });
     }
     return out;
   }
@@ -290,18 +340,29 @@
     if (toCall > 0) {
       const callW = callShoveWeights(pos, stack, opener, input);
       const cw = callW[code] || 0;
+      // Facing jam: sin raise; solo fold/call (allin ≈ call cuando ya igualas el shove).
+      const jamSpot = isFacingShove(input) || toCall >= stack * 0.65;
       if (cw >= 0.5) {
+        if (jamSpot) {
+          const call = Math.min(0.95, Math.max(0.55, 0.45 + cw * 0.5));
+          const fold = Math.max(0.05, 1 - call);
+          return { fold: fold, call: call, allin: 0, raise: 0 };
+        }
         const allin = Math.min(0.92, 0.55 + cw * 0.35);
         const call = Math.max(0.05, (1 - allin) * 0.55);
         const fold = Math.max(0.03, 1 - allin - call);
         return { fold: fold, call: call, allin: allin, raise: 0 };
       }
-      const shoveW = openShoveWeights(pos, stack, input);
-      const sw = shoveW[code] || 0;
-      if (sw >= 0.55) {
-        return { fold: 0.18, call: 0.1, allin: 0.72, raise: 0 };
+      if (!jamSpot) {
+        const shoveW = openShoveWeights(pos, stack, input);
+        const sw = shoveW[code] || 0;
+        if (sw >= 0.55) {
+          return { fold: 0.18, call: 0.1, allin: 0.72, raise: 0 };
+        }
       }
-      return { fold: 0.9, call: 0.07, allin: 0.03, raise: 0 };
+      // Fuera del rango de call vs shove: fold dominante (esp. burbuja / mid-stack).
+      const foldHeavy = jamSpot ? 0.92 : 0.9;
+      return { fold: foldHeavy, call: Math.max(0.03, 1 - foldHeavy), allin: 0, raise: 0 };
     }
     const shoveW = openShoveWeights(pos, stack, input);
     const sw = shoveW[code] || 0;
@@ -341,6 +402,7 @@
     stealDefenseStrategy: stealDefenseStrategy,
     isPushPhase: isPushPhase,
     isStealPhase: isStealPhase,
+    isFacingShove: isFacingShove,
     ALWAYS_SHOVE: ALWAYS_SHOVE
   };
 })(typeof window !== 'undefined' ? window : globalThis);

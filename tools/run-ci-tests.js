@@ -132,6 +132,7 @@ const STEPS = [
   ['Test trainer stack/phase/villains', ['node', 'tools/test-trainer-stack-phase-villains.js']],
   ['Test mazo único / reparto entrenador', ['node', 'tools/test-single-deck-deal.js']],
   ['Test trainer Fase 3 (capas/Nash/blinds/escuela)', ['node', 'tools/test-trainer-fase3.js']],
+  ['Test call vs shove burbuja + muck sin showdown', ['node', 'tools/test-facing-shove-muck.js']],
   ['Test feedback EV/mix (fold alto + pot odds)', ['node', 'tools/test-feedback-ev-mix.js']],
   ['Test rangos stack/fase Spin-MTT + chrome mesa', ['node', 'tools/test-ranges-stack-phase.js']],
   ['Test vs3bet MTT/Spin por fase+stack', ['node', 'tools/test-vs3bet-tournament-phase.js']],

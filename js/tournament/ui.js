@@ -1574,8 +1574,10 @@ function reducedMotion() {
     if (!hand || !hand.seats || !hand.seats.length) return '';
     var ring = ringByPhysicalSeat(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
+    var showdown = !!hand.holesRevealed || !!(hand.result && hand.result.showdown) ||
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
+    // Cartas reveladas en result (showdown o show voluntario raro) aunque stage=complete.
+    var revealedIds = (hand.result && hand.result.holeCards) || {};
     var equityMap = allInEquityBySeat(hand);
     var html = '';
     ring.forEach(function (s, i) {
@@ -1607,7 +1609,7 @@ function reducedMotion() {
       var cardsHtml = '';
       if (s.folded) {
         cardsHtml = '';
-      } else if (showdown && s.cards && s.cards[0]) {
+      } else if ((showdown || revealedIds[s.id]) && s.cards && s.cards[0]) {
         cardsHtml = '<div class="seat-cards showdown">' + s.cards.map(faceCard).join('') + '</div>';
       } else if (!s.folded) {
         cardsHtml = '<div class="seat-cards">' + backCard() + backCard() + '</div>';
