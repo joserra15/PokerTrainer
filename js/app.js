@@ -2024,9 +2024,6 @@
     const leadEl = $('.home-lead');
     if (leadEl) loadHomeGreeting(leadEl);
 
-    const coachCard = document.querySelector('#home-grid [data-scroll-coach]');
-    if (coachCard) coachCard.classList.toggle('hidden', !!user);
-
     const st = Store.getStats();
     const errs = Store.getErrors();
     const decisions = st.decisions || 0;
@@ -2063,28 +2060,6 @@
         } else {
           dailyHost.innerHTML = '';
         }
-      }
-    }
-
-    const quickHead = document.querySelector('#tab-home .home-section-head');
-    const homeGrid = $('#home-grid');
-    if (communityShell && homeOpts.hideQuickAccess) {
-      if (quickHead) quickHead.classList.add('hidden');
-      if (homeGrid) homeGrid.classList.add('hidden');
-    } else {
-      if (quickHead) quickHead.classList.remove('hidden');
-      if (homeGrid) homeGrid.classList.remove('hidden');
-    }
-
-    const errBadge = document.querySelector('[data-home-badge="errors"]');
-    if (errBadge) {
-      const existing = errBadge.parentElement.querySelector('.home-card-badge');
-      if (existing) existing.remove();
-      if (errs.length > 0) {
-        const b = document.createElement('span');
-        b.className = 'home-card-badge';
-        b.textContent = errs.length > 99 ? '99+' : String(errs.length);
-        errBadge.parentElement.appendChild(b);
       }
     }
 
@@ -2172,27 +2147,6 @@
 
     const cta = $('#home-cta-play');
     if (cta) cta.addEventListener('click', () => goToTab('play', { setup: true }));
-
-    const grid = $('#home-grid');
-    if (grid) {
-      grid.addEventListener('click', (e) => {
-        const scrollCoach = e.target.closest('[data-scroll-coach]');
-        if (scrollCoach) {
-          const el = $('#home-coach');
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          return;
-        }
-        const card = e.target.closest('[data-go-tab]');
-        if (!card) return;
-        const tab = card.dataset.goTab;
-        if (tab === 'play') goToTab('play', { setup: true });
-        else goToTab(tab);
-        if (window.PTOnboarding) {
-          if (tab === 'sessions') PTOnboarding.markDone('demo');
-          if (tab === 'errors' || tab === 'stats') PTOnboarding.markDone('leaks');
-        }
-      });
-    }
 
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
