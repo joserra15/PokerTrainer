@@ -565,88 +565,11 @@
         <div id="home-gamification" class="hidden" hidden></div>
 
         <div class="home-stats-strip" id="home-stats" aria-label="Resumen rápido"></div>
+        <div id="home-founder-promo" class="home-founder-promo-host hidden" aria-live="polite"></div>
         <div id="home-daily-spot" class="home-daily-spot" aria-live="polite"></div>
         <div id="home-contact-notice" class="home-contact-notice hidden" aria-live="polite"></div>
         <div id="home-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
-        <div id="home-founder-promo" class="home-founder-promo-host hidden" aria-live="polite"></div>
         <div id="home-annual-upsell" class="annual-upsell-host hidden" aria-live="polite"></div>
-
-        <div class="home-section-head">
-          <h3>Acceso rápido</h3>
-        </div>
-
-        <div class="home-grid" id="home-grid">
-          <button type="button" class="home-card home-card-featured" data-go-tab="play">
-            <span class="home-card-icon home-card-icon-train" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M6 4h8l4 4v12H6z"/><path d="M14 4v4h4"/><path d="M9 14l2 2 4-5"/></svg>
-            </span>
-            <span class="home-card-title">Entrenar</span>
-            <span class="home-card-desc">Mesa interactiva con evaluación GTO calle a calle</span>
-          </button>
-          <button type="button" class="home-card home-card-legendary hidden" data-go-tab="legendary">
-            <span class="home-card-icon home-card-icon-legendary" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.3L12 14.8 7.2 16.8l.9-5.3L4.2 7.7l5.4-.8z"/><path d="M8 18h8"/><path d="M9 21h6"/></svg>
-            </span>
-            <span class="home-card-title">Manos legendarias</span>
-            <span class="home-card-desc">Revive manos reales de pros en mesa broadcast</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="learn">
-            <span class="home-card-icon home-card-icon-learn" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 19V5l8-2 8 2v14l-8 2z"/><path d="M12 3v18"/><path d="M8 8h2"/><path d="M8 12h2"/><path d="M14 8h2"/><path d="M14 12h2"/></svg>
-            </span>
-            <span class="home-card-title">Guía básica</span>
-            <span class="home-card-desc">Conceptos, GTO y práctica si empiezas de cero</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="analysis">
-            <span class="home-card-icon home-card-icon-analysis" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/><circle cx="7" cy="14" r="1"/><circle cx="18" cy="8" r="1"/></svg>
-            </span>
-            <span class="home-card-title">Análisis de manos</span>
-            <span class="home-card-desc">Analiza manos, revísalas con GTO y reprodúcelas</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="ranges">
-            <span class="home-card-icon home-card-icon-ranges" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>
-            </span>
-            <span class="home-card-title">Rangos preflop</span>
-            <span class="home-card-desc">Matrices 6-max y spots vs open</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="sessions">
-            <span class="home-card-icon home-card-icon-sessions" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M5 19V9"/><path d="M12 19V5"/><path d="M19 19v-7"/><path d="M4 19h16"/></svg>
-            </span>
-            <span class="home-card-title">Sesiones</span>
-            <span class="home-card-desc">Importa manos reales y revísalas</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="history">
-            <span class="home-card-icon home-card-icon-history" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M8 7h8"/><path d="M8 12h8"/><path d="M8 17h5"/><path d="M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
-            </span>
-            <span class="home-card-title">Histórico</span>
-            <span class="home-card-desc">Manos jugadas en el entrenador</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="errors">
-            <span class="home-card-icon home-card-icon-errors home-card-badge-host" data-home-badge="errors" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M12 4l8 15H4z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
-            </span>
-            <span class="home-card-title">Errores</span>
-            <span class="home-card-desc">Spots fallados para repasar</span>
-          </button>
-          <button type="button" class="home-card" data-go-tab="stats">
-            <span class="home-card-icon home-card-icon-stats" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 19h16"/><path d="M7 16l3-3 3 2 4-6"/></svg>
-            </span>
-            <span class="home-card-title">Estadísticas</span>
-            <span class="home-card-desc">Acierto, EV perdido y progreso</span>
-          </button>
-          <button type="button" class="home-card home-card-coach" data-scroll-coach>
-            <span class="home-card-icon home-card-icon-coach" aria-hidden="true">
-              <svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M8 4h8l3 3v6c0 3.9-3.1 7-7 7s-7-3.1-7-7V7z"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9.5 14a4 4 0 0 0 5 0"/></svg>
-            </span>
-            <span class="home-card-title">ForgeCoach</span>
-            <span class="home-card-desc">Pregunta dudas sobre tus manos con IA</span>
-          </button>
-        </div>
 
         <section class="home-coach" id="home-coach" aria-labelledby="home-coach-title">
           <div id="home-coach-mount"></div>
