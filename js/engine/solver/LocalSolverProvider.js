@@ -89,6 +89,19 @@
         const potBefore = Math.max((out.potBB || 1) - out.toCallBB, 0.1);
         out.villainBetRatio = out.villainBetRatio != null ? out.villainBetRatio : out.toCallBB / potBefore;
       }
+    } else if ((out.street === 'preflop' || out.street == null) && out.heroCards && out.heroCards.length === 2) {
+      // Preflop vs shove: no usar equity 0.5 por defecto (infla CALL y ΔEV).
+      const PF = global.GTOPushFold;
+      const facingShove = !!(out.facingAllIn || out.villainAllIn
+        || (PF && PF.isFacingShove && PF.isFacingShove(out)));
+      if (facingShove && out.heroEquity == null && Eq && Eq.equityVsRange) {
+        const shoveRange = out.villainRange
+          || '77+,ATs+,AJo+,KQs,KJs,QJs,JTs,T9s,AQo+,KQo';
+        out.villainRange = shoveRange;
+        out.heroEquity = Eq.equityVsRange(out.heroCards, [], shoveRange, out._equityIters || 350, {
+          street: 'preflop'
+        });
+      }
     }
 
     if (!out.heroRange && HandRank && out.street !== 'preflop') {

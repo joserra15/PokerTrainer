@@ -239,13 +239,13 @@
     return positions;
   }
 
-  /** Cartas visibles en showdown; el héroe se pinta aparte → no entra en shows. */
+  /** Cartas visibles solo si settle las puso en result.holeCards (showdown o show raro). */
   function buildShows(seats, holeCards, heroName) {
     var shows = {};
     (seats || []).forEach(function (s) {
       if (s.isHero) return;
-      var cards = (holeCards && holeCards[s.id]) || s.cards;
-      if (!s.folded && cards && cards.length >= 2) {
+      var cards = holeCards && holeCards[s.id];
+      if (cards && cards.length >= 2) {
         shows[seatDisplayName(s, heroName) || s.id] = cards.map(cardCode);
       }
     });
@@ -405,7 +405,10 @@
         pos: s.pos || '',
         isHero: !!s.isHero,
         folded: !!s.folded,
-        cards: ((res.holeCards && res.holeCards[s.id]) || s.cards || []).map(cardCode).filter(Boolean),
+        cards: (res.holeCards && res.holeCards[s.id]
+          ? res.holeCards[s.id]
+          : (s.isHero ? s.cards : null) || []
+        ).map(cardCode).filter(Boolean),
         deltaChips: deltaChips,
         deltaBB: r2(deltaChips / bb),
         isWinner: isWinner,
@@ -434,13 +437,16 @@
       currency: '€',
       positions: positions,
       seats: seats.map(function (s) {
+        var revealed = source.result && source.result.holeCards && source.result.holeCards[s.id];
+        var seatCards = revealed
+          || (s.isHero ? s.cards : null)
+          || [];
         return {
           id: s.id,
           name: seatDisplayName(s, heroName),
           stack: s.startStack != null ? s.startStack : s.stack,
           pos: s.pos,
-          cards: ((source.result && source.result.holeCards && source.result.holeCards[s.id])
-            || s.cards || []).map(cardCode).filter(Boolean),
+          cards: seatCards.map(cardCode).filter(Boolean),
           folded: !!s.folded,
           isHero: !!s.isHero
         };

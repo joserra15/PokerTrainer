@@ -1607,6 +1607,29 @@
     var pushPhase = phase === 'push' || stackBB <= 12;
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
 
+    var toCallBB = toCall / bb;
+    var potBeforeBB = Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1);
+    var facingShove = false;
+    if (toCall > 0 && street === 'preflop') {
+      if (stackLeft > 0 && toCall >= stackLeft * 0.65) facingShove = true;
+      else if (toCallBB >= 8 && toCallBB >= potBeforeBB * 1.75) facingShove = true;
+      var openerSeat = (hand.seats || []).find(function (s) { return s.id === hand.openerId; });
+      if (openerSeat && openerSeat.allIn) facingShove = true;
+      var PF = global.GTOPushFold;
+      if (!facingShove && PF && PF.isFacingShove) {
+        facingShove = PF.isFacingShove({
+          street: street,
+          toCallBB: toCallBB,
+          potBeforeBB: potBeforeBB,
+          potBB: Math.round(((Number(hand.pot) || 0) / bb) * 100) / 100,
+          heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
+          effStack: stackBB,
+          stackDepth: stackBB,
+          availableActions: availableFromOptions(hand.heroOptions, false)
+        });
+      }
+    }
+
     var incompleteAllIn = toCall > 0 && isIncompleteAllIn(hand, heroSeat, action);
     var preferAllin = !incompleteAllIn && (pushPhase || (action && action.id === 'allin' && shortPhase));
     var avail = availableFromOptions(hand.heroOptions, preferAllin);
@@ -1614,6 +1637,14 @@
       avail = preferAllin ? ['fold', 'allin'] : ['fold', 'check', 'call', 'bet', 'raise'];
     }
     if (preferAllin && avail.indexOf('allin') < 0) avail.push('allin');
+    // Facing shove: no raise real; fold/call (o all-in corto = call).
+    if (facingShove && !incompleteAllIn) {
+      avail = avail.filter(function (id) {
+        return id === 'fold' || id === 'call' || id === 'allin';
+      });
+      if (avail.indexOf('fold') < 0) avail.unshift('fold');
+      if (avail.indexOf('call') < 0 && avail.indexOf('allin') < 0) avail.push('call');
+    }
 
     var chosen = mapActionId(action, { pushPhase: pushPhase, preferAllin: preferAllin });
     /* All-in incompleto frente a apuesta: evaluar como call (mismo pago esencial). */
@@ -1622,6 +1653,8 @@
       if (avail.indexOf('call') < 0) avail.push('call');
     } else if (preferAllin && action && action.id === 'allin') {
       chosen = 'allin';
+    } else if (facingShove && chosen === 'raise') {
+      chosen = 'call';
     }
     if (avail.indexOf(chosen) < 0) avail.push(chosen);
 
@@ -1648,8 +1681,8 @@
       handCode: handCode(heroSeat.cards),
       board: (hand.board || []).map(cardCode),
       potBB: Math.round(((Number(hand.pot) || 0) / bb) * 100) / 100,
-      toCallBB: toCall / bb,
-      potBeforeBB: Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1),
+      toCallBB: toCallBB,
+      potBeforeBB: potBeforeBB,
       stackDepth: stackBB,
       stackBB: stackBB,
       effStack: stackBB,
@@ -1663,16 +1696,19 @@
       mttPhase: phase,
       resolvedPhase: phase,
       effectivePhase: phase,
-      pushFold: !!pushPhase,
-      preflopMode: pushPhase ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
-      scenario: pushPhase ? 'push' : undefined,
+      pushFold: !!(pushPhase || facingShove),
+      facingAllIn: !!facingShove,
+      preflopMode: (pushPhase || facingShove) ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
+      scenario: (pushPhase || facingShove) ? 'push' : undefined,
       anteBB: anteBB,
       icmEnabled: true,
       villainType: villainType(hand, heroSeat),
       scoreMode: 'gto',
       multiway: aliveCount >= 3,
       aliveCount: aliveCount,
-      phaseNote: 'Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb'
+      phaseNote: facingShove
+        ? ('Call vs shove · fase «' + phase + '» · ' + stackBB + ' bb')
+        : ('Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb')
     };
     if (!incompleteAllIn && action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
@@ -2154,6 +2190,7 @@
         || st.tournamentType
         || cfg.tournamentType
         || 'unknown',
+      kind: (hand && hand.kind) || cfg.kind || null,
       playersSeated: (hand && hand.playersSeated)
         || (hand && hand.seats && hand.seats.length)
         || st.playersSeated
@@ -2175,7 +2212,21 @@
       heroSessionStats: heroStats,
       proStyle: (seat && seat.proStyle) || null
     };
-    if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
+    ctx.isHeadsUp = !!(isHeadsUp(hand) || ctx.playersSeated === 2 || ctx.kind === 'hu'
+      || (ctx.playersLeft === 2 && ctx.placesPaid <= 1));
+    /* HU WTA: no forzar fase bubble ni ICM overfold. */
+    var huWta = (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx))
+      || (ctx.isHeadsUp && ctx.placesPaid <= 1);
+    if (huWta) {
+      ctx.mttStructureSituation = null;
+      if (phase === 'bubble') {
+        phase = (Tax && Tax.phaseFromStackBB) ? Tax.phaseFromStackBB(stackBB, hub) : 'mid';
+      }
+      ctx.mttPhase = phase;
+      ctx.resolvedPhase = phase;
+      ctx.effectivePhase = phase;
+      ctx.icmEnabled = false;
+    } else if ((!phase || phase === 'auto' || phase === 'early' || phase === 'mid')
       && ctx.mttStructureSituation === 'bubble') {
       ctx.mttPhase = 'bubble';
       ctx.resolvedPhase = 'bubble';
@@ -2185,9 +2236,9 @@
       ctx.resolvedPhase = phase;
       ctx.effectivePhase = phase;
     }
-    if (Tax && Tax.usesIcm) {
+    if (!huWta && Tax && Tax.usesIcm) {
       try { ctx.icmEnabled = !!Tax.usesIcm(ctx); } catch (e2) { ctx.icmEnabled = hub !== 'cash'; }
-    } else {
+    } else if (!huWta) {
       ctx.icmEnabled = true;
     }
     var RR = global.GTORangesRegistry;
@@ -2215,9 +2266,12 @@
       foldPush *= 0.55;
       if (ctx.stackBB <= 20 && strength > 0.28) foldPush -= 0.08;
     }
-    /* HU TAG: menos fold bias. */
-    if (ctx.isHeadsUp && profile && profile.id === 'tag') {
-      foldPush *= 0.55;
+    /* HU: menos fold bias en TAG/Pro/LAG/maniac (chip-EV, no bubble MTT). */
+    if (ctx.isHeadsUp && profile) {
+      var pid = profile.id;
+      if (pid === 'tag' || pid === 'pro' || pid === 'lag' || pid === 'maniac') {
+        foldPush *= 0.35;
+      }
     }
     if (face === 'call' && foldPush > 0.05 && r < foldPush * 0.55) return 'fold';
     if (face === 'fold' && foldPush < -0.02 && strength > potOdds) return 'call';
@@ -2493,11 +2547,11 @@
 
       /* HU: abrir más ancho desde BTN/SB si no está en chart. */
       if (!open && hu && (seat.pos === 'BTN' || seat.pos === 'SB')) {
-        var huOpenThr = 0.40;
-        if (role === 'tag') huOpenThr = 0.32;
-        else if (role === 'lag' || role === 'pro' || role === 'maniac') huOpenThr = 0.28;
-        else if (role === 'nit') huOpenThr = 0.40;
-        else if (role === 'fish') huOpenThr = 0.30;
+        var huOpenThr = 0.36;
+        if (role === 'tag') huOpenThr = 0.28;
+        else if (role === 'lag' || role === 'pro' || role === 'maniac') huOpenThr = 0.24;
+        else if (role === 'nit') huOpenThr = 0.36;
+        else if (role === 'fish') huOpenThr = 0.26;
         if (holeStr > huOpenThr) open = true;
       }
 
@@ -2560,13 +2614,13 @@
 
     /* HU: defender BB más ancho si el chart dice fold. */
     if (hu && (action === 'fold' || !action) && (seat.pos === 'BB' || seat.pos === 'SB')) {
-      var defThr = 0.42;
-      if (role === 'tag') defThr = 0.38;
-      else if (role === 'pro' || role === 'lag' || role === 'maniac') defThr = 0.34;
-      else if (role === 'nit') defThr = 0.48;
-      else if (role === 'fish') defThr = 0.36;
+      var defThr = 0.36;
+      if (role === 'tag') defThr = 0.32;
+      else if (role === 'pro' || role === 'lag' || role === 'maniac') defThr = 0.28;
+      else if (role === 'nit') defThr = 0.44;
+      else if (role === 'fish') defThr = 0.32;
       if (holeStr > defThr) {
-        action = holeStr > defThr + 0.18 ? '3bet' : 'call';
+        action = holeStr > defThr + 0.14 ? '3bet' : 'call';
       }
     }
 
@@ -3773,8 +3827,33 @@
       sidePots: potList,
       winnersByPot: winnersByPot
     };
+    var Show = global.GTOShowPolicy;
+    var seedBase = String(hand.handId || hand.id || hand.seed || hand.pot || '')
+      + ':' + String((hand.log && hand.log.length) || 0);
     alive(hand).forEach(function (s) {
-      hand.result.holeCards[s.id] = s.cards.slice();
+      if (!s || !s.cards || s.cards.length < 2) return;
+      // Héroe: siempre disponible para la UI del fin de mano.
+      if (s.isHero) {
+        hand.result.holeCards[s.id] = s.cards.slice();
+        return;
+      }
+      var reveal = showdown || !!hand.holesRevealed;
+      if (!reveal && Show && Show.shouldRevealHoleCards) {
+        reveal = Show.shouldRevealHoleCards({
+          showdown: false,
+          holesRevealed: !!hand.holesRevealed,
+          seed: seedBase + ':' + s.id,
+          cards: s.cards
+        });
+        if (reveal) {
+          hand.result.voluntaryShows = hand.result.voluntaryShows || {};
+          hand.result.voluntaryShows[s.id] = true;
+        }
+      } else if (!reveal && !Show) {
+        // Sin módulo: no filtrar faroles — no enseñar sin showdown.
+        reveal = false;
+      }
+      if (reveal) hand.result.holeCards[s.id] = s.cards.slice();
     });
     return hand;
   }
@@ -4163,7 +4242,9 @@
         if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
         else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
       }
-      if (hub === 'mtt' && paid > 0 && left > 0) {
+      /* HU WTA (2 jugadores, 1 pago): chip EV ≈ $EV — no etiquetar bubble/ICM. */
+      var huWta = kind === 'hu' || (left === 2 && paid <= 1) || (seatedN === 2 && paid <= 1);
+      if (hub === 'mtt' && paid > 0 && left > 0 && !huWta) {
         if (left === paid + 1) {
           mttPhase = 'bubble';
           mttStructureSituation = 'bubble';
@@ -6633,13 +6714,13 @@
     return positions;
   }
 
-  /** Cartas visibles en showdown; el héroe se pinta aparte → no entra en shows. */
+  /** Cartas visibles solo si settle las puso en result.holeCards (showdown o show raro). */
   function buildShows(seats, holeCards, heroName) {
     var shows = {};
     (seats || []).forEach(function (s) {
       if (s.isHero) return;
-      var cards = (holeCards && holeCards[s.id]) || s.cards;
-      if (!s.folded && cards && cards.length >= 2) {
+      var cards = holeCards && holeCards[s.id];
+      if (cards && cards.length >= 2) {
         shows[seatDisplayName(s, heroName) || s.id] = cards.map(cardCode);
       }
     });
@@ -6799,7 +6880,10 @@
         pos: s.pos || '',
         isHero: !!s.isHero,
         folded: !!s.folded,
-        cards: ((res.holeCards && res.holeCards[s.id]) || s.cards || []).map(cardCode).filter(Boolean),
+        cards: (res.holeCards && res.holeCards[s.id]
+          ? res.holeCards[s.id]
+          : (s.isHero ? s.cards : null) || []
+        ).map(cardCode).filter(Boolean),
         deltaChips: deltaChips,
         deltaBB: r2(deltaChips / bb),
         isWinner: isWinner,
@@ -6828,13 +6912,16 @@
       currency: '€',
       positions: positions,
       seats: seats.map(function (s) {
+        var revealed = source.result && source.result.holeCards && source.result.holeCards[s.id];
+        var seatCards = revealed
+          || (s.isHero ? s.cards : null)
+          || [];
         return {
           id: s.id,
           name: seatDisplayName(s, heroName),
           stack: s.startStack != null ? s.startStack : s.stack,
           pos: s.pos,
-          cards: ((source.result && source.result.holeCards && source.result.holeCards[s.id])
-            || s.cards || []).map(cardCode).filter(Boolean),
+          cards: seatCards.map(cardCode).filter(Boolean),
           folded: !!s.folded,
           isHero: !!s.isHero
         };
@@ -6920,6 +7007,71 @@
     return hand;
   }
 
+  /**
+   * Stats mínimas para el grid de resultado cuando Importer.computeStats no está
+   * cargado (chunk sessions). Usa manos de sesión + resumen lite del torneo.
+   */
+  function synthesizeStatsFromHands(hands, tournamentStats) {
+    var list = hands || [];
+    var n = list.length;
+    var netBB = 0;
+    var evLoss = 0;
+    var decN = 0;
+    var goodN = 0;
+    var scoreSum = 0;
+    var scoreN = 0;
+    var wtsdN = 0;
+    var wonSdN = 0;
+    var sawFlopN = 0;
+    var GOOD = { optima: 1, aceptable: 1, green: 1, good: 1, strong: 1, correct: 1 };
+    list.forEach(function (h) {
+      if (!h) return;
+      netBB += Number(h.heroNetBB) || 0;
+      evLoss += Number(h.totalEvLoss) || 0;
+      if (h.handScore != null && isFinite(Number(h.handScore))) {
+        scoreSum += Number(h.handScore);
+        scoreN += 1;
+      }
+      (h.decisions || []).forEach(function (d) {
+        if (!d || d.unscored) return;
+        decN += 1;
+        if (d.ok || GOOD[d.class]) goodN += 1;
+      });
+      var boardLen = (h.board && h.board.length) || (h.boardAll && h.boardAll.length) || 0;
+      if (boardLen >= 3) sawFlopN += 1;
+      if (h.showdown) {
+        wtsdN += 1;
+        if ((Number(h.heroNetBB) || 0) > 0) wonSdN += 1;
+      }
+    });
+    var ts = tournamentStats || {};
+    var handsPlayed = ts.handsPlayed != null ? Number(ts.handsPlayed) : n;
+    function r1(x) { return Math.round(Number(x) * 10) / 10; }
+    function r2(x) { return Math.round(Number(x) * 100) / 100; }
+    var accuracy = decN ? Math.round((goodN / decN) * 100)
+      : (ts.gtoAccuracy != null ? Number(ts.gtoAccuracy) : null);
+    var vpipPct = ts.vpip != null ? Number(ts.vpip) : null;
+    var pfrPct = ts.pfr != null ? Number(ts.pfr) : null;
+    var wtsdPct = ts.wtsd != null ? Number(ts.wtsd)
+      : (sawFlopN ? r1((wtsdN / sawFlopN) * 100) : null);
+    var wsdPct = ts.wsd != null ? Number(ts.wsd)
+      : (wtsdN ? r1((wonSdN / wtsdN) * 100) : null);
+    var evLossBB = ts.evLoss != null && !n ? Number(ts.evLoss) : r2(evLoss);
+    return {
+      nHands: handsPlayed || n,
+      netBB: r2(netBB),
+      accuracy: accuracy,
+      avgHandScore: scoreN ? r1(scoreSum / scoreN) : null,
+      vpipPct: vpipPct,
+      pfrPct: pfrPct,
+      wtsdPct: wtsdPct,
+      wsdPct: wsdPct,
+      evLossBB: evLossBB,
+      bbPer100: (handsPlayed || n) ? r1((netBB / (handsPlayed || n)) * 100) : null,
+      synthesized: true
+    };
+  }
+
   function buildSessionFromTournament(state, opts) {
     opts = opts || {};
     if (!state) return null;
@@ -6947,12 +7099,6 @@
       hero = global.PTTournamentState && PTTournamentState.hero(state);
     } catch (e) { /* */ }
     var heroName = (hero && hero.name) || (hands[0] && hands[0].hero) || 'Hero';
-    var handStats = null;
-    try {
-      if (global.Importer && typeof global.Importer.computeStats === 'function') {
-        handStats = global.Importer.computeStats(hands);
-      }
-    } catch (e2) { /* */ }
 
     var cfg = state.config || {};
     var result = state.result || {};
@@ -6962,6 +7108,17 @@
     var prizeEur = trnMeta.prizeEur != null ? trnMeta.prizeEur
       : (result.prizeEur != null ? result.prizeEur : 0);
     var tournamentStats = trnMeta.stats || (result.stats || null);
+
+    var handStats = null;
+    try {
+      if (global.Importer && typeof global.Importer.computeStats === 'function') {
+        handStats = global.Importer.computeStats(hands);
+      }
+    } catch (e2) { /* */ }
+    if (!handStats || handStats.nHands == null) {
+      handStats = Object.assign({}, synthesizeStatsFromHands(hands, tournamentStats), handStats || {});
+    }
+
     var profit = tournamentStats && tournamentStats.profit != null
       ? tournamentStats.profit
       : ((Number(prizeEur) || 0) - (Number(cfg.buyInEur) || 0));
@@ -6987,6 +7144,7 @@
         ? tournamentStats.handsPlayed
         : (handStats && handStats.nHands)
     });
+    if (stats.nHands == null && stats.handsPlayed != null) stats.nHands = stats.handsPlayed;
 
     return {
       id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
@@ -7029,6 +7187,7 @@
   global.PTTournamentSessionBridge = {
     handFromTournament: handFromTournament,
     buildSessionFromTournament: buildSessionFromTournament,
+    synthesizeStatsFromHands: synthesizeStatsFromHands,
     metaFromState: metaFromState,
     normalizeDecision: normalizeDecision,
     mapClass: mapClass
@@ -9652,8 +9811,10 @@ function reducedMotion() {
     if (!hand || !hand.seats || !hand.seats.length) return '';
     var ring = ringByPhysicalSeat(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = hand.stage === 'complete' || !!hand.holesRevealed ||
+    var showdown = !!hand.holesRevealed || !!(hand.result && hand.result.showdown) ||
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
+    // Cartas reveladas en result (showdown o show voluntario raro) aunque stage=complete.
+    var revealedIds = (hand.result && hand.result.holeCards) || {};
     var equityMap = allInEquityBySeat(hand);
     var html = '';
     ring.forEach(function (s, i) {
@@ -9685,7 +9846,7 @@ function reducedMotion() {
       var cardsHtml = '';
       if (s.folded) {
         cardsHtml = '';
-      } else if (showdown && s.cards && s.cards[0]) {
+      } else if ((showdown || revealedIds[s.id]) && s.cards && s.cards[0]) {
         cardsHtml = '<div class="seat-cards showdown">' + s.cards.map(faceCard).join('') + '</div>';
       } else if (!s.folded) {
         cardsHtml = '<div class="seat-cards">' + backCard() + backCard() + '</div>';
@@ -10372,14 +10533,37 @@ function reducedMotion() {
     }).join('');
 
     var statsHtml = '';
+    var stats = r.stats || {};
+    /* Si sessionStats llegó sin nHands (Importer ausente), rellenar desde resumen lite. */
+    if (sessionStats && sessionStats.nHands == null && (stats.handsPlayed || (state.sessionHands && state.sessionHands.length))) {
+      try {
+        var BridgeStats = global.PTTournamentSessionBridge;
+        if (BridgeStats && BridgeStats.synthesizeStatsFromHands) {
+          sessionStats = Object.assign(
+            {},
+            BridgeStats.synthesizeStatsFromHands(state.sessionHands || [], stats),
+            sessionStats
+          );
+        } else {
+          sessionStats = Object.assign({}, sessionStats, {
+            nHands: stats.handsPlayed || (state.sessionHands && state.sessionHands.length) || 0,
+            vpipPct: stats.vpip != null ? stats.vpip : sessionStats.vpipPct,
+            pfrPct: stats.pfr != null ? stats.pfr : sessionStats.pfrPct,
+            accuracy: sessionStats.accuracy != null ? sessionStats.accuracy : (stats.gtoAccuracy != null ? stats.gtoAccuracy : gto.accuracy),
+            evLossBB: sessionStats.evLossBB != null ? sessionStats.evLossBB : (stats.evLoss != null ? stats.evLoss : gto.totalEvLoss),
+            wtsdPct: sessionStats.wtsdPct != null ? sessionStats.wtsdPct : stats.wtsd,
+            wsdPct: sessionStats.wsdPct != null ? sessionStats.wsdPct : stats.wsd
+          });
+        }
+      } catch (eFill) { /* */ }
+    }
     try {
       var HEV = global.PTHandEndView;
-      if (HEV && HEV.renderSessionStatsHtml && sessionStats) {
+      if (HEV && HEV.renderSessionStatsHtml && sessionStats && sessionStats.nHands != null) {
         statsHtml = HEV.renderSessionStatsHtml(sessionStats, { title: 'Estadísticas de sesión' });
       }
     } catch (eS) { statsHtml = ''; }
     if (!statsHtml) {
-      var stats = r.stats || {};
       statsHtml = '<div class="trn-result-stats trn-session-like"><div class="trn-stat-grid">' +
         '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.nHands != null ? sessionStats.nHands : (stats.handsPlayed || 0)) + '</div><div class="trn-stat-lbl">Manos</div></div>' +
         '<div><div class="trn-stat-val">' + (sessionStats && sessionStats.vpipPct != null ? sessionStats.vpipPct : (stats.vpip || 0)) + '%</div><div class="trn-stat-lbl">VPIP</div></div>' +

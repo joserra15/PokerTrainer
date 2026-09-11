@@ -1924,6 +1924,16 @@
     input.preflopMode = preflopSizingMode(hand);
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
+    const PF = global.GTOPushFold;
+    if (PF && PF.isFacingShove && PF.isFacingShove(input)) {
+      input.facingAllIn = true;
+      input.pushFold = true;
+      if (input.street === 'preflop' || !input.street) input.preflopMode = 'push';
+    } else if (input.toCallBB > 0 && rem > 0 && input.toCallBB >= rem * 0.65) {
+      input.facingAllIn = true;
+      input.pushFold = true;
+      if (input.street === 'preflop' || !input.street) input.preflopMode = 'push';
+    }
     // Tipo de rival + criterio de acierto (GTO vs explotativo).
     const forcedType = (hand.table && hand.table.forcedVillainType)
       || (cfg.villainType && cfg.villainType !== 'random' ? cfg.villainType : null);
@@ -5092,12 +5102,29 @@
       : { score: totalEvLoss <= 0.01 && !errors.length ? 10 : 0, allOptimal: !errors.length, allGood: !errors.length };
     hand.current = null;
     if (MW()) MW().syncOpponents(hand);
+    const isShowdown = !!(res && res.showdown);
+    const Show = global.GTOShowPolicy;
+    let shownVillainCards = null;
+    if (isShowdown || hand.holesRevealed || hand.runoutPending) {
+      shownVillainCards = hand.villain && hand.villain.cards ? hand.villain.cards : null;
+    } else if (hand.villain && hand.villain.cards && Show && Show.shouldRevealHoleCards) {
+      const seed = String(hand.id || hand.seed || hand.potBB || '')
+        + ':' + String((hand.decisions && hand.decisions.length) || 0)
+        + ':' + (hand.villain.pos || 'V');
+      if (Show.shouldRevealHoleCards({
+        showdown: false,
+        seed: seed,
+        cards: hand.villain.cards
+      })) {
+        shownVillainCards = hand.villain.cards;
+      }
+    }
     hand.result = Object.assign({
       heroNet: 0, showdown: false, totalEvLoss,
       nErrors: errors.length,
       handScore: handScoreMeta.score,
       handScoreMeta: handScoreMeta,
-      villainCards: hand.villain.cards,
+      villainCards: shownVillainCards,
       villainPos: hand.villain.pos,
       villainProfile: hand.villain.profileLabel,
       villainProfileShort: hand.villain.profileShort,
@@ -5109,6 +5136,10 @@
       opponents: hand.opponents || null,
       aliveCount: MW() ? MW().aliveCount(hand) : 2
     }, res);
+    // Si res traía villainCards y no es showdown, respetar política (no forzar show).
+    if (!isShowdown && !hand.holesRevealed && !hand.runoutPending) {
+      hand.result.villainCards = shownVillainCards;
+    }
     hand.handScore = handScoreMeta.score;
     hand.handScoreMeta = handScoreMeta;
     return hand;

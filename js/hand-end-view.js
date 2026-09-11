@@ -233,24 +233,16 @@
       pushRow(name, positions[name] || '', cards, handNames[name] || null, true);
     });
 
-    if (!rows.length && seats.length) {
-      seats.forEach(function (s) {
-        var name = s.name || s.id;
-        if (!name || s.isHero || isHeroDuplicateName(name)) return;
-        if (s.folded) return;
-        var cards = (s.cards || []).map(cardCode).filter(Boolean);
-        if (cards.length >= 2) {
-          pushRow(name, s.pos || positions[name] || '', cards, handNames[name] || null, true);
-        }
-      });
-    }
+    // Sin showdown: no copiar s.cards del asiento (filtraría faroles al héroe).
+    // Solo usar shows / outcomes con cartas ya reveladas.
 
     /* Sin showdown: aún mostrar ganador(es) y eliminados con delta de bote. */
     if (!rows.length && outcomes.length) {
       outcomes.forEach(function (o) {
         if (!o || o.isHero || isHeroDuplicateName(o.name)) return;
         if (!o.isWinner && !o.eliminated && !(o.deltaBB > 0.02)) return;
-        pushRow(o.name, o.pos || positions[o.name] || '', o.cards || [], o.handName || null, !!(o.cards && o.cards.length >= 2));
+        var ocCards = (o.cards && o.cards.length >= 2) ? o.cards : [];
+        pushRow(o.name, o.pos || positions[o.name] || '', ocCards, o.handName || null, ocCards.length >= 2);
       });
     }
 

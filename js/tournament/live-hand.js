@@ -645,8 +645,33 @@
       sidePots: potList,
       winnersByPot: winnersByPot
     };
+    var Show = global.GTOShowPolicy;
+    var seedBase = String(hand.handId || hand.id || hand.seed || hand.pot || '')
+      + ':' + String((hand.log && hand.log.length) || 0);
     alive(hand).forEach(function (s) {
-      hand.result.holeCards[s.id] = s.cards.slice();
+      if (!s || !s.cards || s.cards.length < 2) return;
+      // Héroe: siempre disponible para la UI del fin de mano.
+      if (s.isHero) {
+        hand.result.holeCards[s.id] = s.cards.slice();
+        return;
+      }
+      var reveal = showdown || !!hand.holesRevealed;
+      if (!reveal && Show && Show.shouldRevealHoleCards) {
+        reveal = Show.shouldRevealHoleCards({
+          showdown: false,
+          holesRevealed: !!hand.holesRevealed,
+          seed: seedBase + ':' + s.id,
+          cards: s.cards
+        });
+        if (reveal) {
+          hand.result.voluntaryShows = hand.result.voluntaryShows || {};
+          hand.result.voluntaryShows[s.id] = true;
+        }
+      } else if (!reveal && !Show) {
+        // Sin módulo: no filtrar faroles — no enseñar sin showdown.
+        reveal = false;
+      }
+      if (reveal) hand.result.holeCards[s.id] = s.cards.slice();
     });
     return hand;
   }

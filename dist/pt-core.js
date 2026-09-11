@@ -797,7 +797,25 @@
     return hub === 'spin' || hub === 'mtt';
   }
 
+  /**
+   * Heads-up winner-take-all: chip EV ≈ $EV (un solo pago).
+   * No aplicar ICM/bubble overfold en este spot.
+   */
+  function isHeadsUpWta(config) {
+    if (!config) return false;
+    if (config.kind === 'hu' || config.tournamentKind === 'hu') return true;
+    const paid = Number(config.placesPaid);
+    if (!(paid <= 1)) return false;
+    const seated = Number(
+      config.playersSeated != null ? config.playersSeated
+        : (config.tableMax != null ? config.tableMax : config.seatsPerTable)
+    );
+    const left = Number(config.playersLeft);
+    return seated === 2 || left === 2;
+  }
+
   function usesIcm(config) {
+    if (isHeadsUpWta(config)) return false;
     const hub = normalizeHub(config && config.formatHub || hubFromGameType(config && config.gameType));
     if (!isTournamentHub(hub)) return false;
     const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
@@ -878,6 +896,7 @@
     estimatePlacePrizes: estimatePlacePrizes,
     heroStackRank: heroStackRank,
     isTournamentHub: isTournamentHub,
+    isHeadsUpWta: isHeadsUpWta,
     usesIcm: usesIcm,
     spotTags: spotTags,
     formatSpotKey: formatSpotKey
@@ -5226,8 +5245,50 @@ window.PT_NASH_PUSH_JSON = {
     const ante = Number(input && input.anteBB) || 0;
     const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
     if (kind === 'shove' && ante > 0) f = Math.min(1, f + Math.min(0.08, ante * 0.25));
-    if (kind === 'call' && icm) f = Math.max(0, f - 0.06);
+    if (kind === 'call' && icm) {
+      // Bubble / FT: pagar un shove con la vida del torneo es mucho más caro en $EV.
+      const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
+      let cut = 0.06;
+      if (phase === 'bubble' || phase === 'final') cut = 0.22;
+      else if (phase === 'short' || phase === 'push') cut = 0.12;
+      f = Math.max(0, f - cut);
+    }
     return f;
+  }
+
+  /**
+   * Open/3-bet jam o call por casi todo el stack: no usar charts vs-RFI de open min.
+   * Ej.: BTN shove ~20bb en burbuja → call/fold Nash, no CALL 95% del chart bubble.
+   */
+  function isFacingShove(input) {
+    if (!input) return false;
+    if (input.facingAllIn || input.villainAllIn) return true;
+    const street = input.street || 'preflop';
+    if (street !== 'preflop') return false;
+    const toCall = Number(input.toCallBB) || 0;
+    if (toCall <= 0) return false;
+    const rem = Number(
+      input.heroRemainingBB != null ? input.heroRemainingBB
+        : (input.effStack != null ? input.effStack
+          : (input.stackDepth != null ? input.stackDepth : input.stackBB))
+    ) || 0;
+    const potBefore = Number(
+      input.potBeforeBB != null ? input.potBeforeBB
+        : Math.max((Number(input.potBB) || 0) - toCall, 0.1)
+    ) || 0.1;
+    // Pagar ≥65% del stack restante = decisión de torneo / all-in.
+    if (rem > 0 && toCall >= rem * 0.65) return true;
+    // Jam grande vs el bote (open-shove / overbet preflop).
+    if (toCall >= 8 && toCall >= potBefore * 1.75) return true;
+    const acts = input.availableActions || [];
+    if (acts.length
+      && acts.indexOf('raise') < 0
+      && acts.indexOf('allin') < 0
+      && toCall >= 6
+      && toCall >= potBefore) {
+      return true;
+    }
+    return false;
   }
 
   function openShoveWeights(pos, stackBB, input) {
@@ -5258,21 +5319,29 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function callShoveWeights(pos, stackBB, openerPos, input) {
-    const nash = nashCallTable(pos, stackBB, openerPos);
+    const bb = Number(stackBB) || 10;
+    // Nash solo llega a ~14bb; a más profundidad el call vs shove es más tight.
+    const nashStack = Math.min(bb, 14);
+    const nash = nashCallTable(pos, nashStack, openerPos);
     if (nash) {
       const out = {};
       Object.keys(nash).forEach(function (code) {
-        out[code] = pressureAdjust(nash[code], input, 'call');
+        let w = pressureAdjust(nash[code], input, 'call');
+        // 15–25bb: recortar semibluffs / connectors del chart corto.
+        if (bb > 14 && w > 0 && w < 0.92) w = Math.max(0, w - 0.25);
+        if (bb > 18 && w > 0 && w < 0.98) w = Math.max(0, w - 0.15);
+        out[code] = w;
       });
       return out;
     }
-    const bb = Number(stackBB) || 10;
-    const wide = bb <= 12 || openerPos === 'BTN' || openerPos === 'SB';
+    const wide = bb <= 12 || (bb <= 14 && (openerPos === 'BTN' || openerPos === 'SB'));
     const base = wide ? SET_CALL_W : SET_CALL_T;
     const out = {};
-    Object.keys(base).forEach(function (code) { out[code] = 1; });
+    Object.keys(base).forEach(function (code) { out[code] = pressureAdjust(1, input, 'call'); });
     if (pos === 'BB' && openerPos === 'SB' && bb <= 15) {
-      ['77', '66', 'A9s', 'A8s', 'A5s', 'KTs', 'QJs'].forEach(function (c) { out[c] = 1; });
+      ['77', '66', 'A9s', 'A8s', 'A5s', 'KTs', 'QJs'].forEach(function (c) {
+        out[c] = pressureAdjust(1, input, 'call');
+      });
     }
     return out;
   }
@@ -5419,18 +5488,29 @@ window.PT_NASH_PUSH_JSON = {
     if (toCall > 0) {
       const callW = callShoveWeights(pos, stack, opener, input);
       const cw = callW[code] || 0;
+      // Facing jam: sin raise; solo fold/call (allin ≈ call cuando ya igualas el shove).
+      const jamSpot = isFacingShove(input) || toCall >= stack * 0.65;
       if (cw >= 0.5) {
+        if (jamSpot) {
+          const call = Math.min(0.95, Math.max(0.55, 0.45 + cw * 0.5));
+          const fold = Math.max(0.05, 1 - call);
+          return { fold: fold, call: call, allin: 0, raise: 0 };
+        }
         const allin = Math.min(0.92, 0.55 + cw * 0.35);
         const call = Math.max(0.05, (1 - allin) * 0.55);
         const fold = Math.max(0.03, 1 - allin - call);
         return { fold: fold, call: call, allin: allin, raise: 0 };
       }
-      const shoveW = openShoveWeights(pos, stack, input);
-      const sw = shoveW[code] || 0;
-      if (sw >= 0.55) {
-        return { fold: 0.18, call: 0.1, allin: 0.72, raise: 0 };
+      if (!jamSpot) {
+        const shoveW = openShoveWeights(pos, stack, input);
+        const sw = shoveW[code] || 0;
+        if (sw >= 0.55) {
+          return { fold: 0.18, call: 0.1, allin: 0.72, raise: 0 };
+        }
       }
-      return { fold: 0.9, call: 0.07, allin: 0.03, raise: 0 };
+      // Fuera del rango de call vs shove: fold dominante (esp. burbuja / mid-stack).
+      const foldHeavy = jamSpot ? 0.92 : 0.9;
+      return { fold: foldHeavy, call: Math.max(0.03, 1 - foldHeavy), allin: 0, raise: 0 };
     }
     const shoveW = openShoveWeights(pos, stack, input);
     const sw = shoveW[code] || 0;
@@ -5470,6 +5550,7 @@ window.PT_NASH_PUSH_JSON = {
     stealDefenseStrategy: stealDefenseStrategy,
     isPushPhase: isPushPhase,
     isStealPhase: isStealPhase,
+    isFacingShove: isFacingShove,
     ALWAYS_SHOVE: ALWAYS_SHOVE
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -7175,6 +7256,74 @@ window.PT_NASH_PUSH_JSON = {
 
   global.GTOHandStrength = { HAND_RANK, handStrength01 };
 })(window);
+
+/*
+ * showPolicy.js — Cuándo revelar hole cards del villano.
+ * Showdown / all-in: siempre. Sin showdown: poco frecuente (no filtrar faroles).
+ */
+(function (global) {
+  'use strict';
+
+  /** Probabilidad base de enseñar sin showdown (~vida real: poco habitual). */
+  var BASE_NO_SD_RATE = 0.10;
+  var STRONG_NO_SD_RATE = 0.16;
+  var WEAK_NO_SD_RATE = 0.04;
+
+  function hash01(str) {
+    var s = String(str || 'x');
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 10000) / 10000;
+  }
+
+  function handStrength01(cards) {
+    if (!cards || cards.length < 2) return null;
+    try {
+      var N = global.GTORangesNotation;
+      var HS = global.GTOHandStrength;
+      if (N && HS && typeof N.handCode === 'function' && typeof HS.handStrength01 === 'function') {
+        var code = N.handCode(cards[0], cards[1]);
+        if (code) return HS.handStrength01(code);
+      }
+    } catch (e) { /* */ }
+    return null;
+  }
+
+  function noShowdownRate(strength01) {
+    if (strength01 == null || !isFinite(strength01)) return BASE_NO_SD_RATE;
+    if (strength01 >= 0.82) return STRONG_NO_SD_RATE;
+    if (strength01 <= 0.42) return WEAK_NO_SD_RATE;
+    return BASE_NO_SD_RATE;
+  }
+
+  /**
+   * @param {object} opts
+   * @param {boolean} [opts.showdown]
+   * @param {boolean} [opts.holesRevealed] all-in runout ya reveló holes
+   * @param {boolean} [opts.force]
+   * @param {string|number} [opts.seed]
+   * @param {Array} [opts.cards] hole cards del jugador
+   * @returns {boolean}
+   */
+  function shouldRevealHoleCards(opts) {
+    opts = opts || {};
+    if (opts.force || opts.showdown || opts.holesRevealed) return true;
+    var rate = noShowdownRate(handStrength01(opts.cards));
+    var seed = (opts.seed != null ? String(opts.seed) : 'hand') + ':show';
+    return hash01(seed) < rate;
+  }
+
+  global.GTOShowPolicy = {
+    BASE_NO_SD_RATE: BASE_NO_SD_RATE,
+    hash01: hash01,
+    handStrength01: handStrength01,
+    noShowdownRate: noShowdownRate,
+    shouldRevealHoleCards: shouldRevealHoleCards
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
  * madeHand.js — Clasificación de mano hecha y draws postflop.
@@ -11314,7 +11463,10 @@ window.PT_NASH_PUSH_JSON = {
     });
     const inPush = !!(input.pushFold || input.preflopMode === 'push'
       || (PF && PF.isPushPhase(pushProbe)));
+    const facingShove = !!(input.facingAllIn || input.villainAllIn
+      || (PF && PF.isFacingShove && PF.isFacingShove(input)));
     const pushFlag = inPush ? 'pf1' : 'pf0';
+    const shoveFlag = facingShove ? 'sh1' : 'sh0';
     const preflopFlag = input.preflopMode || 'std';
     // availableActions forma la mezcla (allin vs raise); sin esto el caché envenena
     // RFI fold/raise con un shove allin previo → filterStrategy → 100% fold.
@@ -11322,7 +11474,7 @@ window.PT_NASH_PUSH_JSON = {
     const actsKey = acts.length ? acts.slice().sort().join(',') : '-';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
       + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey
-      + '|' + pushFlag + '|pm' + preflopFlag + '|a' + actsKey;
+      + '|' + pushFlag + '|' + shoveFlag + '|pm' + preflopFlag + '|a' + actsKey;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -11339,17 +11491,32 @@ window.PT_NASH_PUSH_JSON = {
         || (global.PTFormatTaxonomy && global.PTFormatTaxonomy.hubFromGameType
           ? global.PTFormatTaxonomy.hubFromGameType(input.gameType) : null);
       // Cash: nunca charts push/fold (aunque mttPhase/pushFold lleguen mal).
+      // Excepción: facing shove preflop — vsRFI de open min no aplica a un jam.
       const allowPush = hub !== 'cash';
+      const allowFacingShove = hub !== 'cash' || facingShove;
 
       // Steal ~20 bb (spins/MTT): shove valor + open min según rango GTO.
       if (PF && allowPush && input.preflopMode === 'steal' && kind === 'RFI') {
         return PF.stealOpenStrategy(Object.assign({}, input, { rangeContext: ctx }));
       }
-      if (PF && allowPush && input.preflopMode === 'stealDefense' && kind === 'vsRFI') {
+      if (PF && allowPush && input.preflopMode === 'stealDefense' && kind === 'vsRFI' && !facingShove) {
         return PF.stealDefenseStrategy(Object.assign({}, input, {
           rangeContext: ctx,
           vsPosition: input.vsPosition,
           vsRfiKey: input.vsRfiKey
+        }));
+      }
+
+      // Call vs shove / open-jam: Nash call-fold (no charts vs-RFI bubble).
+      if (PF && allowFacingShove && facingShove
+        && input.preflopMode !== 'steal'
+        && (spotKey.street === 'preflop' || kind === 'vsRFI' || kind === 'face3bet'
+          || kind === 'vs3bet' || kind === 'face4bet' || kind === 'vs4bet')) {
+        return PF.pushFoldStrategy(Object.assign({}, input, {
+          position: input.position,
+          effStack: input.stackDepth || input.effStack || (ctx && ctx.stackBB),
+          openerPos: input.vsPosition || input.openerPos,
+          facingAllIn: true
         }));
       }
 
@@ -13292,6 +13459,19 @@ window.PT_NASH_PUSH_JSON = {
         const potBefore = Math.max((out.potBB || 1) - out.toCallBB, 0.1);
         out.villainBetRatio = out.villainBetRatio != null ? out.villainBetRatio : out.toCallBB / potBefore;
       }
+    } else if ((out.street === 'preflop' || out.street == null) && out.heroCards && out.heroCards.length === 2) {
+      // Preflop vs shove: no usar equity 0.5 por defecto (infla CALL y ΔEV).
+      const PF = global.GTOPushFold;
+      const facingShove = !!(out.facingAllIn || out.villainAllIn
+        || (PF && PF.isFacingShove && PF.isFacingShove(out)));
+      if (facingShove && out.heroEquity == null && Eq && Eq.equityVsRange) {
+        const shoveRange = out.villainRange
+          || '77+,ATs+,AJo+,KQs,KJs,QJs,JTs,T9s,AQo+,KQo';
+        out.villainRange = shoveRange;
+        out.heroEquity = Eq.equityVsRange(out.heroCards, [], shoveRange, out._equityIters || 350, {
+          street: 'preflop'
+        });
+      }
     }
 
     if (!out.heroRange && HandRank && out.street !== 'preflop') {
@@ -14574,7 +14754,13 @@ window.PT_NASH_PUSH_JSON = {
         mttPhase: phaseOf(ctx),
         resolvedPhase: phaseOf(ctx),
         stackBB: ctx.stackBB,
-        mttStructureSituation: ctx.mttStructureSituation
+        mttStructureSituation: ctx.mttStructureSituation,
+        playersLeft: ctx.playersLeft,
+        placesPaid: ctx.placesPaid,
+        playersSeated: ctx.playersSeated,
+        tableMax: ctx.tableMax,
+        kind: ctx.kind,
+        isHeadsUp: ctx.isHeadsUp
       });
     }
     const hub = hubOf(ctx);
@@ -14610,6 +14796,37 @@ window.PT_NASH_PUSH_JSON = {
       sizeSimple: false,
       cbet: 1
     };
+
+    /* HU WTA / heads-up: chip-EV — sin overfold de burbuja, más agresión. */
+    const TaxHu = global.PTFormatTaxonomy;
+    const huWta = (TaxHu && TaxHu.isHeadsUpWta && TaxHu.isHeadsUpWta(ctx))
+      || !!(ctx.isHeadsUp || ctx.isHeadsUp)
+      || Number(ctx.playersSeated) === 2
+      || Number(ctx.tableMax) === 2
+      || Number(ctx.playersLeft) === 2;
+    if (huWta && hub !== 'cash') {
+      out.fold = 0.9;
+      out.raise = 1.2;
+      out.cbet = 1.18;
+      out.xr = 1.15;
+      out.bluff = 1.1;
+      out.bet = 1.1;
+      out.thinValue = 1.08;
+      out.overbet = 1.05;
+      if (phase === 'push' || phase === 'short' || stackBB <= 14) {
+        out.jamBias = 1.45;
+        out.sizeSimple = true;
+        out.overbet = 0.35;
+      } else if (stackBB <= 25) {
+        out.jamBias = 1.2;
+        out.raise = 1.22;
+      }
+      if (spr < 3) {
+        out.jamBias = clamp(out.jamBias * 1.15, 1, 1.85);
+        out.sizeSimple = true;
+      }
+      return out;
+    }
 
     if (hub === 'cash') {
       if (stackBB >= 80) {
@@ -21370,6 +21587,16 @@ window.PT_NASH_PUSH_JSON = {
     input.preflopMode = preflopSizingMode(hand);
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
+    const PF = global.GTOPushFold;
+    if (PF && PF.isFacingShove && PF.isFacingShove(input)) {
+      input.facingAllIn = true;
+      input.pushFold = true;
+      if (input.street === 'preflop' || !input.street) input.preflopMode = 'push';
+    } else if (input.toCallBB > 0 && rem > 0 && input.toCallBB >= rem * 0.65) {
+      input.facingAllIn = true;
+      input.pushFold = true;
+      if (input.street === 'preflop' || !input.street) input.preflopMode = 'push';
+    }
     // Tipo de rival + criterio de acierto (GTO vs explotativo).
     const forcedType = (hand.table && hand.table.forcedVillainType)
       || (cfg.villainType && cfg.villainType !== 'random' ? cfg.villainType : null);
@@ -24538,12 +24765,29 @@ window.PT_NASH_PUSH_JSON = {
       : { score: totalEvLoss <= 0.01 && !errors.length ? 10 : 0, allOptimal: !errors.length, allGood: !errors.length };
     hand.current = null;
     if (MW()) MW().syncOpponents(hand);
+    const isShowdown = !!(res && res.showdown);
+    const Show = global.GTOShowPolicy;
+    let shownVillainCards = null;
+    if (isShowdown || hand.holesRevealed || hand.runoutPending) {
+      shownVillainCards = hand.villain && hand.villain.cards ? hand.villain.cards : null;
+    } else if (hand.villain && hand.villain.cards && Show && Show.shouldRevealHoleCards) {
+      const seed = String(hand.id || hand.seed || hand.potBB || '')
+        + ':' + String((hand.decisions && hand.decisions.length) || 0)
+        + ':' + (hand.villain.pos || 'V');
+      if (Show.shouldRevealHoleCards({
+        showdown: false,
+        seed: seed,
+        cards: hand.villain.cards
+      })) {
+        shownVillainCards = hand.villain.cards;
+      }
+    }
     hand.result = Object.assign({
       heroNet: 0, showdown: false, totalEvLoss,
       nErrors: errors.length,
       handScore: handScoreMeta.score,
       handScoreMeta: handScoreMeta,
-      villainCards: hand.villain.cards,
+      villainCards: shownVillainCards,
       villainPos: hand.villain.pos,
       villainProfile: hand.villain.profileLabel,
       villainProfileShort: hand.villain.profileShort,
@@ -24555,6 +24799,10 @@ window.PT_NASH_PUSH_JSON = {
       opponents: hand.opponents || null,
       aliveCount: MW() ? MW().aliveCount(hand) : 2
     }, res);
+    // Si res traía villainCards y no es showdown, respetar política (no forzar show).
+    if (!isShowdown && !hand.holesRevealed && !hand.runoutPending) {
+      hand.result.villainCards = shownVillainCards;
+    }
     hand.handScore = handScoreMeta.score;
     hand.handScoreMeta = handScoreMeta;
     return hand;
@@ -39011,24 +39259,16 @@ window.PT_NASH_PUSH_JSON = {
       pushRow(name, positions[name] || '', cards, handNames[name] || null, true);
     });
 
-    if (!rows.length && seats.length) {
-      seats.forEach(function (s) {
-        var name = s.name || s.id;
-        if (!name || s.isHero || isHeroDuplicateName(name)) return;
-        if (s.folded) return;
-        var cards = (s.cards || []).map(cardCode).filter(Boolean);
-        if (cards.length >= 2) {
-          pushRow(name, s.pos || positions[name] || '', cards, handNames[name] || null, true);
-        }
-      });
-    }
+    // Sin showdown: no copiar s.cards del asiento (filtraría faroles al héroe).
+    // Solo usar shows / outcomes con cartas ya reveladas.
 
     /* Sin showdown: aún mostrar ganador(es) y eliminados con delta de bote. */
     if (!rows.length && outcomes.length) {
       outcomes.forEach(function (o) {
         if (!o || o.isHero || isHeroDuplicateName(o.name)) return;
         if (!o.isWinner && !o.eliminated && !(o.deltaBB > 0.02)) return;
-        pushRow(o.name, o.pos || positions[o.name] || '', o.cards || [], o.handName || null, !!(o.cards && o.cards.length >= 2));
+        var ocCards = (o.cards && o.cards.length >= 2) ? o.cards : [];
+        pushRow(o.name, o.pos || positions[o.name] || '', ocCards, o.handName || null, ocCards.length >= 2);
       });
     }
 
@@ -41577,7 +41817,8 @@ window.PT_NASH_PUSH_JSON = {
           '<p class="muted" style="padding:28px 16px;text-align:center">Cargando Torneos…</p>' +
           '</div>';
       }
-      withLazyChunk('tournaments', function () {
+      /* sessions: Importer.computeStats para stats finales del torneo (grid HU/MTT). */
+      withLazyChunk(['tournaments', 'sessions'], function () {
         if (window.PTTournaments && window.PTTournaments.menuVisible &&
             !window.PTTournaments.menuVisible()) {
           goToTab('home');
@@ -48574,8 +48815,8 @@ window.PT_NASH_PUSH_JSON = {
     const villainPos = trainerHand.villain && trainerHand.villain.pos ? trainerHand.villain.pos : '';
     const villainName = villainPos || 'Villano';
     const heroPos = (trainerHand.hero && trainerHand.hero.pos) || trainerHand.displayHeroPos || '';
-    const villainCards = (trainerHand.villain && trainerHand.villain.cards && trainerHand.villain.cards.length >= 2)
-      ? trainerHand.villain.cards.slice()
+    const villainCards = (r.villainCards && r.villainCards.length >= 2)
+      ? r.villainCards.slice()
       : null;
     const h = {
       id: trainerHand.id,

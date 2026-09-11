@@ -76,6 +76,7 @@ function loadAll(sandbox) {
     'js/tournament/names.js',
     'js/tournament/seating.js',
     'js/tournament/state.js',
+    'js/engine/showPolicy.js',
     'js/tournament/live-hand.js',
     'js/tournament/other-tables.js',
     'js/tournament/role-guess.js',

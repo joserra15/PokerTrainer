@@ -22,6 +22,7 @@
     'js/engine/ranges/weights.js',
     'js/engine/ranges/villainTracking.js',
     'js/engine/handStrength.js',
+    'js/engine/showPolicy.js',
     'js/engine/equity/madeHand.js',
     'js/engine/math/potMath.js',
     'js/engine/math/evMath.js',

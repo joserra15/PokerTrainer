@@ -286,6 +286,29 @@
     var pushPhase = phase === 'push' || stackBB <= 12;
     var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
 
+    var toCallBB = toCall / bb;
+    var potBeforeBB = Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1);
+    var facingShove = false;
+    if (toCall > 0 && street === 'preflop') {
+      if (stackLeft > 0 && toCall >= stackLeft * 0.65) facingShove = true;
+      else if (toCallBB >= 8 && toCallBB >= potBeforeBB * 1.75) facingShove = true;
+      var openerSeat = (hand.seats || []).find(function (s) { return s.id === hand.openerId; });
+      if (openerSeat && openerSeat.allIn) facingShove = true;
+      var PF = global.GTOPushFold;
+      if (!facingShove && PF && PF.isFacingShove) {
+        facingShove = PF.isFacingShove({
+          street: street,
+          toCallBB: toCallBB,
+          potBeforeBB: potBeforeBB,
+          potBB: Math.round(((Number(hand.pot) || 0) / bb) * 100) / 100,
+          heroRemainingBB: Math.round((stackLeft / bb) * 100) / 100,
+          effStack: stackBB,
+          stackDepth: stackBB,
+          availableActions: availableFromOptions(hand.heroOptions, false)
+        });
+      }
+    }
+
     var incompleteAllIn = toCall > 0 && isIncompleteAllIn(hand, heroSeat, action);
     var preferAllin = !incompleteAllIn && (pushPhase || (action && action.id === 'allin' && shortPhase));
     var avail = availableFromOptions(hand.heroOptions, preferAllin);
@@ -293,6 +316,14 @@
       avail = preferAllin ? ['fold', 'allin'] : ['fold', 'check', 'call', 'bet', 'raise'];
     }
     if (preferAllin && avail.indexOf('allin') < 0) avail.push('allin');
+    // Facing shove: no raise real; fold/call (o all-in corto = call).
+    if (facingShove && !incompleteAllIn) {
+      avail = avail.filter(function (id) {
+        return id === 'fold' || id === 'call' || id === 'allin';
+      });
+      if (avail.indexOf('fold') < 0) avail.unshift('fold');
+      if (avail.indexOf('call') < 0 && avail.indexOf('allin') < 0) avail.push('call');
+    }
 
     var chosen = mapActionId(action, { pushPhase: pushPhase, preferAllin: preferAllin });
     /* All-in incompleto frente a apuesta: evaluar como call (mismo pago esencial). */
@@ -301,6 +332,8 @@
       if (avail.indexOf('call') < 0) avail.push('call');
     } else if (preferAllin && action && action.id === 'allin') {
       chosen = 'allin';
+    } else if (facingShove && chosen === 'raise') {
+      chosen = 'call';
     }
     if (avail.indexOf(chosen) < 0) avail.push(chosen);
 
@@ -327,8 +360,8 @@
       handCode: handCode(heroSeat.cards),
       board: (hand.board || []).map(cardCode),
       potBB: Math.round(((Number(hand.pot) || 0) / bb) * 100) / 100,
-      toCallBB: toCall / bb,
-      potBeforeBB: Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1),
+      toCallBB: toCallBB,
+      potBeforeBB: potBeforeBB,
       stackDepth: stackBB,
       stackBB: stackBB,
       effStack: stackBB,
@@ -342,16 +375,19 @@
       mttPhase: phase,
       resolvedPhase: phase,
       effectivePhase: phase,
-      pushFold: !!pushPhase,
-      preflopMode: pushPhase ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
-      scenario: pushPhase ? 'push' : undefined,
+      pushFold: !!(pushPhase || facingShove),
+      facingAllIn: !!facingShove,
+      preflopMode: (pushPhase || facingShove) ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
+      scenario: (pushPhase || facingShove) ? 'push' : undefined,
       anteBB: anteBB,
       icmEnabled: true,
       villainType: villainType(hand, heroSeat),
       scoreMode: 'gto',
       multiway: aliveCount >= 3,
       aliveCount: aliveCount,
-      phaseNote: 'Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb'
+      phaseNote: facingShove
+        ? ('Call vs shove · fase «' + phase + '» · ' + stackBB + ' bb')
+        : ('Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb')
     };
     if (!incompleteAllIn && action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
