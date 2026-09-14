@@ -22,6 +22,7 @@
     "test:oauth-callback": "node tools/test-oauth-callback-explicit.js",
     "test:allin-runout": "node tools/test-allin-runout.js",
     "test:river-nut-flush": "node tools/test-river-board-ace-nut-flush.js",
+    "test:villain-hu": "node tools/test-villain-hu.js",
     "test:villain-nuts": "node tools/test-villain-never-fold-nuts.js",
     "test:villain-pro-lines": "node tools/test-villain-pro-lines.js",
     "test:pro-decision": "node tools/test-pro-decision-engine.js",

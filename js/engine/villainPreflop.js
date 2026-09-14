@@ -162,15 +162,35 @@
     return handWeight(buckets.threeBet, code) > 0 || handWeight(buckets.call, code) > 0;
   }
 
+  function isExplicitHu(ctx) {
+    const VP = global.GTOVillainProfiles;
+    if (VP && typeof VP.shouldApplyHuAdjust === 'function' && VP.shouldApplyHuAdjust(ctx || {})) return true;
+    const c = ctx || {};
+    return c.mttPhase === 'hu' || c.kind === 'hu' || c.tournamentKind === 'hu'
+      || c.mttStructureSituation === 'hu';
+  }
+
+  /** En HU explícito: menos fold / más 3bet-call (chip-EV). 0..~0.2 */
+  function huAggressionBias(ctx) {
+    if (!isExplicitHu(ctx)) return 0;
+    const stack = Number(ctx.stackBB) || 25;
+    if (stack <= 14) return 0.12;
+    if (stack <= 25) return 0.16;
+    return 0.14;
+  }
+
   function tournamentFoldBias(ctx) {
     if (!ctx || !ctx.isTournament) return 0;
+    // Heads Up WTA / fase hu: sin overfold ICM.
+    if (isExplicitHu(ctx)) return 0;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 0;
     const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
     let bias = 0;
     if (phase === 'bubble') bias = 0.18;
     else if (phase === 'push') bias = 0.14;
     else if (phase === 'short') bias = 0.08;
     else {
-      const Tax = global.PTFormatTaxonomy;
       if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) bias = 0.1;
     }
     // PKO / mystery: menos overfold (bounty incentive); sin EV bounty real.
@@ -189,38 +209,40 @@
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
     const icmBias = tournamentFoldBias(ctx);
+    const huAgg = huAggressionBias(ctx);
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
-      if (!icmBias && allowsLeak(profile, 'call', r)) return 'call';
+      if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r)) return 'call';
       return 'fold';
     }
 
     if (strict >= 0.99) {
-      const act = gtoMixAction(r, w3, wc * Math.max(0, 1 - icmBias), 'call');
+      const w3Hu = Math.min(1, w3 + huAgg * 0.35);
+      const act = gtoMixAction(r, w3Hu, wc * Math.max(0, 1 - icmBias + huAgg * 0.5), 'call');
       if (act === 'aggress') return '3bet';
       if (act === 'pass') return 'call';
       return 'fold';
     }
 
     if (w3 >= 1) {
-      if (r < VP.adjustThreeBetProb(strict >= 0.75 ? 0.72 : 0.68, profile)) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias, profile)) return 'call';
+      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.72 : 0.68) + huAgg * 0.2, profile)) return '3bet';
+      if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias + huAgg * 0.15, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
-      const freq = strict >= 0.75 ? w3 : VP.adjustThreeBetProb(0.32, profile);
+      const freq = strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.25) : VP.adjustThreeBetProb(0.32 + huAgg * 0.2, profile);
       if (r < freq) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
-      if (r < (strict >= 0.75 ? w3 : VP.adjustThreeBetProb(w3 * 0.55, profile))) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias, profile)) return 'call';
+      if (r < (strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.2) : VP.adjustThreeBetProb(w3 * 0.55 + huAgg * 0.15, profile))) return '3bet';
+      if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(0.14 + icmBias, profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5, profile) ? 'call' : 'fold';
+    if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.14 + icmBias - huAgg * 0.5), profile) ? 'fold' : 'call';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5 + huAgg * 0.25, profile) ? 'call' : 'fold';
     return 'fold';
   }
 
@@ -472,6 +494,6 @@
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
-    tournamentFoldBias
+    tournamentFoldBias, isExplicitHu, huAggressionBias
   };
 })(window);

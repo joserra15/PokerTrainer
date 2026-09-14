@@ -90,29 +90,55 @@
       cbet: 1
     };
 
-    /* HU WTA / heads-up: chip-EV — sin overfold de burbuja, más agresión. */
+        /* HU explícito (fase/kind hu o Torneos IA HU): chip-EV por profundidad.
+     * No activar solo porque el bote colapse a 2 en Random 6-max/3-max. */
     const TaxHu = global.PTFormatTaxonomy;
-    const huWta = (TaxHu && TaxHu.isHeadsUpWta && TaxHu.isHeadsUpWta(ctx))
-      || !!(ctx.isHeadsUp || ctx.isHeadsUp)
-      || Number(ctx.playersSeated) === 2
-      || Number(ctx.tableMax) === 2
-      || Number(ctx.playersLeft) === 2;
-    if (huWta && hub !== 'cash') {
-      out.fold = 0.9;
-      out.raise = 1.2;
-      out.cbet = 1.18;
-      out.xr = 1.15;
-      out.bluff = 1.1;
-      out.bet = 1.1;
-      out.thinValue = 1.08;
-      out.overbet = 1.05;
-      if (phase === 'push' || phase === 'short' || stackBB <= 14) {
-        out.jamBias = 1.45;
-        out.sizeSimple = true;
-        out.overbet = 0.35;
-      } else if (stackBB <= 25) {
-        out.jamBias = 1.2;
+    const VP = global.GTOVillainProfiles;
+    const explicitHu = (VP && VP.shouldApplyHuAdjust && VP.shouldApplyHuAdjust(ctx))
+      || ctx.mttPhase === 'hu'
+      || ctx.kind === 'hu'
+      || ctx.tournamentKind === 'hu'
+      || ctx.mttStructureSituation === 'hu';
+    const huWta = explicitHu && hub !== 'cash';
+    if (huWta) {
+      // Deep (≥40bb) / mid (15–40) / short (≤14)
+      if (stackBB >= 40) {
+        out.fold = 0.88;
         out.raise = 1.22;
+        out.cbet = 1.22;
+        out.xr = 1.2;
+        out.bluff = 1.14;
+        out.bet = 1.12;
+        out.thinValue = 1.1;
+        out.overbet = 1.18;
+        out.jamBias = 1.05;
+      } else if (stackBB > 14) {
+        out.fold = 0.9;
+        out.raise = 1.24;
+        out.cbet = 1.2;
+        out.xr = 1.16;
+        out.bluff = 1.12;
+        out.bet = 1.12;
+        out.thinValue = 1.08;
+        out.overbet = 0.85;
+        out.jamBias = 1.22;
+        out.sizeSimple = stackBB <= 22;
+      } else {
+        out.fold = 0.92;
+        out.raise = 1.18;
+        out.cbet = 1.15;
+        out.xr = 0.85;
+        out.bluff = 0.95;
+        out.bet = 1.15;
+        out.thinValue = 1.05;
+        out.overbet = 0.25;
+        out.jamBias = 1.5;
+        out.sizeSimple = true;
+      }
+      if (phase === 'push' || phase === 'short') {
+        out.jamBias = clamp(out.jamBias * 1.12, 1, 1.85);
+        out.sizeSimple = true;
+        out.overbet = Math.min(out.overbet, 0.4);
       }
       if (spr < 3) {
         out.jamBias = clamp(out.jamBias * 1.15, 1, 1.85);
