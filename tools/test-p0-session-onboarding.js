@@ -64,13 +64,15 @@ assert.ok(/Continua/.test(labelCont), 'label includes Continua');
 
 const OB = sandbox.window.PTOnboarding;
 assert.ok(OB, 'PTOnboarding missing');
-assert.strictEqual(OB.STEPS.length, 3);
+assert.strictEqual(OB.STEPS.length, 4);
 assert.ok(OB.shouldShow(), 'onboarding visible initially');
 OB.markDone('demo');
 assert.ok(OB.isDone('demo'));
 assert.ok(!OB.isDone('warmup'));
 OB.markDone('warmup');
 OB.markDone('leaks');
+assert.ok(OB.shouldShow(), 'still visible until coach done');
+OB.markDone('coach');
 assert.ok(!OB.shouldShow(), 'hidden when all done');
 
 // Fresh user key via dismiss path

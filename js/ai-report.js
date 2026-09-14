@@ -242,24 +242,157 @@
     } catch (e) { return false; }
   }
 
-  function ensureConsent(scope) {
-    if (isGuestSession()) return Promise.resolve(false);
-    if (localStorage.getItem(CONSENT_KEY) === '1') return Promise.resolve(true);
+  function trackFunnel(name, props) {
+    if (global.PTLog && global.PTLog.event) {
+      global.PTLog.event(name, props || {});
+    } else if (global.PTAnalytics && global.PTAnalytics.track) {
+      global.PTAnalytics.track(name, props || {});
+    }
+  }
+
+  function hasConsent() {
+    try { return localStorage.getItem(CONSENT_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function persistConsent(accepted) {
+    if (accepted) {
+      try { localStorage.setItem(CONSENT_KEY, '1'); } catch (e) { /* noop */ }
+      trackFunnel('ai_consent_accept', {});
+    } else {
+      trackFunnel('ai_consent_deny', {});
+    }
+  }
+
+  function consentCopy(scope) {
     const ui = SCOPE_UI[scope] || SCOPE_UI.hand;
     const iaUrl = (global.PTLegal && global.PTLegal.legalUrl)
       ? global.PTLegal.legalUrl('ia.html')
       : 'legal/ia.html';
-    return new Promise((resolve) => {
-      const ok = confirm(
-        'Se enviarán a un servicio de IA únicamente ' + ui.consent + '.\n\n' +
-        PRIVACY_NO_PII + '\n\n' +
-        'Más información: ' + iaUrl + '\n\n¿Continuar?'
-      );
-      if (ok) {
-        try { localStorage.setItem(CONSENT_KEY, '1'); } catch (e) { /* noop */ }
+    return {
+      ui: ui,
+      iaUrl: iaUrl,
+      body: 'Se enviarán a ForgeCoach únicamente ' + ui.consent + '. ' + PRIVACY_NO_PII
+    };
+  }
+
+  function showInlineConsent(panel, scope) {
+    return new Promise(function (resolve) {
+      if (!panel) {
+        resolve(false);
+        return;
       }
-      resolve(ok);
+      let host = panel.querySelector('[data-ai-consent]');
+      if (!host) {
+        host = document.createElement('div');
+        host.setAttribute('data-ai-consent', '1');
+        host.className = 'ai-consent-banner';
+        const actions = panel.querySelector('[data-ai-actions]');
+        if (actions && actions.parentNode) actions.parentNode.insertBefore(host, actions);
+        else panel.insertBefore(host, panel.firstChild);
+      }
+      const copy = consentCopy(scope);
+      host.innerHTML =
+        '<p class="ai-consent-lead"><strong>ForgeCoach</strong> · ' + escapeHtml(copy.body) + '</p>' +
+        '<p class="muted-text ai-consent-legal"><a href="' + escapeHtml(copy.iaUrl) + '" target="_blank" rel="noopener">Más sobre el uso de IA</a></p>' +
+        '<div class="ai-consent-actions">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-ai-consent-ok>Aceptar y continuar</button>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-ai-consent-no>Ahora no</button>' +
+        '</div>';
+      const okBtn = host.querySelector('[data-ai-consent-ok]');
+      const noBtn = host.querySelector('[data-ai-consent-no]');
+      if (okBtn) {
+        okBtn.onclick = function () {
+          persistConsent(true);
+          if (host.parentNode) host.parentNode.removeChild(host);
+          resolve(true);
+        };
+      }
+      if (noBtn) {
+        noBtn.onclick = function () {
+          persistConsent(false);
+          host.innerHTML = '<p class="muted-text">Sin consentimiento no se envían datos. Puedes activar ForgeCoach cuando quieras.</p>';
+          resolve(false);
+        };
+      }
+      try { host.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { /* noop */ }
     });
+  }
+
+  function showConsentDialog(scope) {
+    return new Promise(function (resolve) {
+      if (typeof document === 'undefined') {
+        resolve(false);
+        return;
+      }
+      const existing = document.getElementById('ai-consent-modal');
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+      const copy = consentCopy(scope);
+      const modal = document.createElement('div');
+      modal.id = 'ai-consent-modal';
+      modal.className = 'modal ai-consent-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.innerHTML =
+        '<div class="modal-content ai-consent-modal-content">' +
+        '<h3>Activar ForgeCoach</h3>' +
+        '<p>' + escapeHtml(copy.body) + '</p>' +
+        '<p class="muted-text"><a href="' + escapeHtml(copy.iaUrl) + '" target="_blank" rel="noopener">Más sobre el uso de IA</a></p>' +
+        '<div class="ai-consent-actions">' +
+        '<button type="button" class="btn btn-primary" data-ai-consent-ok>Aceptar</button>' +
+        '<button type="button" class="btn btn-ghost" data-ai-consent-no>Cancelar</button>' +
+        '</div></div>';
+      function finish(ok) {
+        persistConsent(ok);
+        if (modal.parentNode) modal.parentNode.removeChild(modal);
+        resolve(ok);
+      }
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) finish(false);
+      });
+      document.body.appendChild(modal);
+      const okBtn = modal.querySelector('[data-ai-consent-ok]');
+      const noBtn = modal.querySelector('[data-ai-consent-no]');
+      if (okBtn) okBtn.onclick = function () { finish(true); };
+      if (noBtn) noBtn.onclick = function () { finish(false); };
+    });
+  }
+
+  function ensureConsent(scope, panel) {
+    if (isGuestSession()) return Promise.resolve(false);
+    if (hasConsent()) return Promise.resolve(true);
+    if (panel) return showInlineConsent(panel, scope);
+    return showConsentDialog(scope);
+  }
+
+  function defaultQuestionChips(scope, dataObj) {
+    if (scope === 'sessionGlobal' || scope === 'tournament') {
+      return [
+        '¿En qué calle perdí más EV?',
+        '¿Cuál es mi fuga principal?',
+        'Dame un plan de estudio corto'
+      ];
+    }
+    if (scope === 'statsGlobal') {
+      return [
+        '¿Qué debo entrenar esta semana?',
+        '¿Priorizo preflop o postflop?'
+      ];
+    }
+    if (scope === 'learn') {
+      return [
+        '¿Qué es un 3-bet?',
+        '¿Cuándo debo hacer fold preflop?'
+      ];
+    }
+    const chips = ['¿Por qué fallé aquí?', '¿Cuál era el mejor sizing?'];
+    if (dataObj) {
+      const decs = dataObj.decisions || [];
+      const bad = decs.filter(function (d) {
+        return d && (d.class === 'error' || d.class === 'imprecisa');
+      });
+      if (bad.length) chips.unshift('Explícame el error de ' + (bad[0].street || 'esta calle'));
+    }
+    return chips.slice(0, 3);
   }
 
   function escapeHtml(s) {
@@ -691,6 +824,7 @@
     }
     if (!global.PTEntitlements || !global.PTEntitlements.canUseAI) {
       if (show) {
+        trackFunnel('ai_paywall_shown', { reason: 'ai_plan' });
         if (global.PTBilling) global.PTBilling.showPaywall('ai_plan');
         else alert('Los informes y preguntas IA requieren un plan con consultas o un bono.');
       }
@@ -704,6 +838,7 @@
     if (!aiCheck.ok) {
       const reason = aiCheck.reason || 'ai_plan';
       if (show) {
+        trackFunnel('ai_paywall_shown', { reason: reason });
         if (aiCheck.source === 'community') {
           alert('Has agotado las ' + (aiCheck.limit || 40) + ' consultas IA de la comunidad este mes.');
         } else if (global.PTBilling) global.PTBilling.showPaywall(reason);
@@ -751,7 +886,7 @@
       return;
     }
 
-    const ok = await ensureConsent(scope);
+    const ok = await ensureConsent(scope, panel);
     if (!ok) return;
 
     panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -759,6 +894,9 @@
     setPanelState(panel, 'loading', loadingMsg, 'El coach está pensando la respuesta');
     try {
       const data = await fetchCoach(payload, scope, mode, question, thread);
+      if (global.PTOnboarding && global.PTOnboarding.markDone) {
+        try { global.PTOnboarding.markDone('coach'); } catch (eOb) { /* noop */ }
+      }
       const report = {
         reportMarkdown: data.reportMarkdown,
         model: data.model,
@@ -794,7 +932,9 @@
       const body = panel.querySelector('[data-ai-body]');
       const err = friendlyError(e.message);
       if (err.kind === 'paywall' && global.PTBilling) {
-        global.PTBilling.showPaywall(err.message && err.message.indexOf('bono') >= 0 ? 'ai_limit' : 'ai_plan', err.message);
+        const payReason = err.message && err.message.indexOf('bono') >= 0 ? 'ai_limit' : 'ai_plan';
+        trackFunnel('ai_paywall_shown', { reason: payReason, source: 'coach_error' });
+        global.PTBilling.showPaywall(payReason, err.message);
       } else if (body) showError(body, e.message);
       if (global.PTEntitlements && global.PTEntitlements.refresh) global.PTEntitlements.refresh();
       console.error('[PTAI]', e);
@@ -815,17 +955,25 @@
       if (counter) counter.textContent = n + '/' + QUESTION_MAX;
     }
 
+    function openForm(prefill) {
+      assertAiAccess().then(function (check) {
+        if (!check.ok) return;
+        form.hidden = false;
+        if (prefill) {
+          textarea.value = String(prefill).slice(0, QUESTION_MAX);
+          updateCount();
+        }
+        textarea.focus();
+        updateCount();
+      });
+    }
+
     toggleBtn.addEventListener('click', function () {
       if (!form.hidden) {
         form.hidden = true;
         return;
       }
-      assertAiAccess().then(function (check) {
-        if (!check.ok) return;
-        form.hidden = false;
-        textarea.focus();
-        updateCount();
-      });
+      openForm('');
     });
 
     cancelBtn.addEventListener('click', function () {
@@ -840,10 +988,38 @@
         alert('Escribe una pregunta.');
         return;
       }
+      trackFunnel('ai_coach_cta_click', {
+        scope: options.scope || 'hand',
+        mode: 'question',
+        source: options.impressionSource || 'panel'
+      });
       runCoach(panel, options, { mode: 'question', question: q }).catch(function (e) {
         console.error('[PTAI]', e);
       });
     });
+
+    const chipsHost = panel.querySelector('[data-ai-chips]');
+    if (chipsHost) {
+      chipsHost.addEventListener('click', function (e) {
+        const btn = e.target && e.target.closest ? e.target.closest('[data-ai-chip]') : null;
+        if (!btn) return;
+        const q = btn.getAttribute('data-ai-chip') || btn.textContent || '';
+        trackFunnel('ai_coach_cta_click', {
+          scope: options.scope || 'hand',
+          mode: 'question_chip',
+          source: options.impressionSource || 'chip'
+        });
+        assertAiAccess().then(function (check) {
+          if (!check.ok) return;
+          form.hidden = false;
+          textarea.value = String(q).slice(0, QUESTION_MAX);
+          updateCount();
+          runCoach(panel, options, { mode: 'question', question: String(q).trim() }).catch(function (err) {
+            console.error('[PTAI]', err);
+          });
+        });
+      });
+    }
   }
 
   /**
@@ -863,7 +1039,7 @@
       throw err;
     }
 
-    const ok = await ensureConsent('session');
+    const ok = await ensureConsent('session', null);
     if (!ok) throw new Error('Se necesita tu consentimiento para usar la IA.');
 
     const c = cfg();
@@ -918,6 +1094,15 @@
     const titleId = 'ai-coach-title-' + uid;
     const dataObj = getDataObj(options);
     const copy = buildCoachCopy(scope, dataObj, userFirstName(options));
+    const chips = options.questionChips || defaultQuestionChips(scope, dataObj);
+    const chipsHtml = (chips && chips.length)
+      ? ('<div class="ai-question-chips" data-ai-chips>' +
+        chips.map(function (c) {
+          return '<button type="button" class="btn btn-ghost btn-sm ai-chip" data-ai-chip="' +
+            escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+        }).join('') +
+        '</div>')
+      : '';
 
     container.innerHTML =
       '<div class="ai-report-panel">' +
@@ -931,6 +1116,7 @@
       (options.questionToggleLabel ? escapeHtml(options.questionToggleLabel) : 'Pregunta concreta') +
       '</button>' +
       '</div>' +
+      chipsHtml +
       '<div class="ai-question-form" data-ai-question-form' + (options.openQuestionForm ? '' : ' hidden') + '>' +
       '<label class="ai-question-label" for="' + uid + '">' + escapeHtml(ui.questionLabel) + '</label>' +
       '<textarea id="' + uid + '" class="ai-question-input" data-ai-question-input maxlength="' + QUESTION_MAX + '" rows="3" placeholder="' + escapeHtml(ui.questionPh) + '"></textarea>' +
@@ -947,10 +1133,17 @@
       '</div></div>';
 
     const panel = container.querySelector('.ai-report-panel');
+    if (panel) panel._ptAiOptions = options;
+
+    trackFunnel('ai_coach_impression', {
+      scope: scope,
+      source: options.impressionSource || options.source || scope
+    });
 
     const reportBtn = container.querySelector('[data-ai-report]');
     if (reportBtn) {
       reportBtn.addEventListener('click', function () {
+        trackFunnel('ai_coach_cta_click', { scope: scope, mode: 'report', source: options.impressionSource || 'panel' });
         runCoach(panel, options, { mode: 'report' }).catch(function (e) {
           console.error('[PTAI]', e);
           setPanelState(panel, 'error', '');
@@ -979,7 +1172,39 @@
       }).catch(function () {});
     }
 
+    if (options.autoReport) {
+      setTimeout(function () {
+        trigger(container, { mode: 'report', source: options.impressionSource || 'auto' });
+      }, 80);
+    }
+
     return panel;
+  }
+
+  function resolvePanel(containerOrPanel) {
+    if (!containerOrPanel) return null;
+    if (containerOrPanel.classList && containerOrPanel.classList.contains('ai-report-panel')) {
+      return containerOrPanel;
+    }
+    return containerOrPanel.querySelector
+      ? containerOrPanel.querySelector('.ai-report-panel')
+      : null;
+  }
+
+  function trigger(containerOrPanel, opts) {
+    opts = opts || {};
+    const panel = resolvePanel(containerOrPanel);
+    if (!panel || !panel._ptAiOptions) return Promise.resolve(null);
+    const mode = opts.mode || 'report';
+    trackFunnel('ai_coach_cta_click', {
+      scope: panel._ptAiOptions.scope || 'hand',
+      mode: mode,
+      source: opts.source || 'trigger'
+    });
+    return runCoach(panel, panel._ptAiOptions, {
+      mode: mode,
+      question: opts.question || ''
+    });
   }
 
   function greetingUserSuffix() {
@@ -1212,6 +1437,9 @@
       title: greet,
       lead: 'Analizo manos y sesiones con el contexto real de lo que jugaste: cartas, board, frecuencias GTO y EV estimado. No invento spots ni uso tu nick de mesa como si fuera tu nombre.'
     };
+    const ctaLabel = options.ctaLabel || 'Ver mi primer informe ForgeCoach';
+    const ctaHint = options.ctaHint ||
+      'Gratis incluye 3 consultas/mes de prueba. El informe usa 1 consulta.';
 
     container.innerHTML =
       '<div class="home-coach-panel" role="region" aria-labelledby="' + titleId + '">' +
@@ -1225,34 +1453,39 @@
       '</div></div>' +
       '<div class="home-coach-steps">' +
       '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Si empiezas de cero</h4><p>Abre <em>Guía básica</em> en el menú: conceptos, qué es el GTO, ejemplos y un mini entrenamiento antes de meterte en spots avanzados.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>En el resumen de una sesión importada, o al abrir el detalle de una mano de esa sesión, pulsa <em>Informe de la sesión</em> o <em>Informe de esta mano</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
-      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo de la conversación en la misma mano o sesión.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>En el resumen de una sesión importada, o al acabar una mano con error, pulsa <em>Informe</em> o <em>¿Por qué fallé?</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
+      '<div class="home-coach-step"><span class="home-coach-step-num">3</span><h4>Pregunta concreta</h4><p>¿Dudas en un sizing o un fold? Usa las sugerencias o <em>Pregunta concreta</em> (hasta ' + QUESTION_MAX + ' caracteres). Mantengo el hilo en la misma mano o sesión.</p></div>' +
       '</div>' +
       '<div class="home-coach-where">' +
       '<h4>Dónde encontrarme</h4>' +
       '<ul>' +
-      '<li><strong>Guía básica</strong> — conceptos para principiantes y dudas al coach.</li>' +
-      '<li><strong>Sesiones</strong> — resumen de sesión importada y detalle de cada mano.</li>' +
-      '<li><strong>Estadísticas</strong> — bloque ForgeCoach con informe global y preguntas.</li>' +
-      '<li><strong>Planes</strong> — Study incluye 40 consultas/mes; Coach, 150/mes. Puedes ampliar con bonos de consultas.</li>' +
+      '<li><strong>Fin de mano</strong> — botón «¿Por qué fallé?» cuando hay error o imprecisa.</li>' +
+      '<li><strong>Sesiones / Errores / Histórico</strong> — informe de fugas o de una mano concreta.</li>' +
+      '<li><strong>Estadísticas</strong> — bloque ForgeCoach con plan de estudio.</li>' +
+      '<li><strong>Planes</strong> — Gratis: 3/mes de prueba · Study 40 · Coach 150. También hay bonos.</li>' +
       '</ul></div>' +
       '<div class="home-coach-foot">' +
       '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
       PRIVACY_NO_PII + ' Las respuestas se guardan en tu historial de manos y sesiones.</p>' +
-      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>Entrenar y probar el coach</button>' +
+      '<p class="muted-text home-coach-cta-hint">' + escapeHtml(ctaHint) + '</p>' +
+      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>' + escapeHtml(ctaLabel) + '</button>' +
       '</div></div>';
+
+    trackFunnel('ai_coach_impression', { scope: 'home', source: 'welcome' });
 
     const playBtn = container.querySelector('[data-home-coach-play]');
     if (playBtn) {
       playBtn.addEventListener('click', function () {
-        if (typeof options.onTrain === 'function') options.onTrain();
+        trackFunnel('ai_coach_cta_click', { scope: 'home', source: 'welcome' });
+        if (typeof options.onOpenCoach === 'function') options.onOpenCoach();
+        else if (typeof options.onTrain === 'function') options.onTrain();
       });
     }
     return container.querySelector('.home-coach-panel');
   }
 
   global.PTAIReport = {
-    mount, mountWelcome, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
-    TRAINING_FOCUSES, focusFromLeak, lessonFromLeak, lessonsFromLeak
+    mount, mountWelcome, trigger, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
+    TRAINING_FOCUSES, focusFromLeak, lessonFromLeak, lessonsFromLeak, defaultQuestionChips, trackFunnel
   };
 })(window);

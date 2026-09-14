@@ -73,10 +73,10 @@ Store.mergeFromCloud({
   history: [],
   errors: [],
   stats: { handsPlayed: 0, decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0, totalEvLoss: 0, totalNet: 0, byStreet: {} },
-  onboarding: { dismissed: false, done: { demo: true, warmup: true, leaks: true }, updatedAt: 50 }
+  onboarding: { dismissed: false, done: { demo: true, warmup: true, leaks: true, coach: true }, updatedAt: 50 }
 });
 assert.ok(!OB.shouldShow(), 'tras sync nube oculta checklist');
-assert.ok(OB.isDone('demo') && OB.isDone('warmup') && OB.isDone('leaks'), '3 pasos desde la nube');
+assert.ok(OB.isDone('demo') && OB.isDone('warmup') && OB.isDone('leaks') && OB.isDone('coach'), '4 pasos desde la nube');
 
 Object.keys(localStore).forEach((k) => delete localStore[k]);
 Store.setUserId('user-ob-sync');
@@ -104,8 +104,9 @@ sandbox.localStorage.setItem('pt_stats_v1_user-ob-infer', JSON.stringify({
   byStreet: {},
   updatedAt: 9
 }));
-assert.ok(!OB.shouldShow(), 'stats sincronizadas infieren los 3 pasos');
+assert.ok(OB.shouldShow(), 'stats sincronizadas infieren demo/warmup/leaks pero no coach');
 const inferred = OB.getCloudState();
-assert.ok(inferred.done.demo && inferred.done.warmup && inferred.done.leaks, 'inferencia completa');
+assert.ok(inferred.done.demo && inferred.done.warmup && inferred.done.leaks, 'inferencia training');
+assert.ok(!inferred.done.coach, 'coach no se infiere solo por entrenar');
 
 console.log('*** onboarding-sync OK (nube + inferencia) ***');

@@ -1159,9 +1159,9 @@ function reducedMotion() {
       '<header class="trn-lobby-hero">' +
       '<div class="trn-lobby-hero-bg" aria-hidden="true"></div>' +
       '<div class="trn-lobby-hero-copy">' +
-      '<p class="trn-lobby-eyebrow">Lobby · rivales IA</p>' +
+      '<p class="trn-lobby-eyebrow">Lobby · rivales bot (no ForgeCoach)</p>' +
       '<h2>TORNEOS</h2>' +
-      '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP.</p>' +
+      '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP. Al terminar puedes pedir un informe a ForgeCoach.</p>' +
       '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
       planHint +
       '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +

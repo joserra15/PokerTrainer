@@ -1,6 +1,6 @@
 /*
- * onboarding.js — Checklist de primeras 3 acciones para nuevos usuarios (P0).
- * 1) Abrir sesión demo · 2) Calentamiento 10 manos · 3) Ver fugas / errores
+ * onboarding.js — Checklist de primeras acciones para nuevos usuarios (P0).
+ * 1) Abrir sesión demo · 2) Calentamiento 10 manos · 3) Ver fugas / errores · 4) Primer informe ForgeCoach
  */
 (function (global) {
   'use strict';
@@ -9,7 +9,8 @@
   var STEPS = [
     { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales' },
     { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo' },
-    { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores' }
+    { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores' },
+    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: 'Cuenta para las 3 consultas de prueba del plan Gratis' }
   ];
 
   function userKey() {
@@ -47,6 +48,16 @@
     };
   }
 
+  function hasUsedCoach() {
+    try {
+      if (global.Store && typeof global.Store.getFeatureUsage === 'function') {
+        var fu = global.Store.getFeatureUsage();
+        if (fu && fu.events && Number(fu.events.ai_coach_used) > 0) return true;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
   function inferActivityDone() {
     var done = {};
     var S = global.Store;
@@ -73,12 +84,13 @@
       done.warmup = true;
       done.leaks = true;
     }
+    if (hasUsedCoach()) done.coach = true;
     return done;
   }
 
   function applyInferredProgress() {
     var inferred = inferActivityDone();
-    if (!inferred.demo && !inferred.warmup && !inferred.leaks) return false;
+    if (!inferred.demo && !inferred.warmup && !inferred.leaks && !inferred.coach) return false;
     var data = load();
     var k = userKey();
     if (!data.users[k]) data.users[k] = { dismissed: false, done: {} };
@@ -216,7 +228,7 @@
     var doneCount = STEPS.filter(function (s) { return st.done && st.done[s.id]; }).length;
     var html = '<div class="onboarding-card" role="region" aria-label="Primeros pasos">';
     html += '<div class="onboarding-head">';
-    html += '<h3>Empieza en 3 pasos</h3>';
+    html += '<h3>Empieza en ' + STEPS.length + ' pasos</h3>';
     html += '<button type="button" class="btn btn-ghost btn-sm" data-onboarding-dismiss aria-label="Cerrar">Omitir</button>';
     html += '</div>';
     html += '<p class="muted-text onboarding-progress">' + doneCount + ' / ' + STEPS.length + ' completados</p>';
@@ -298,10 +310,19 @@
     if (typeof global.goToTab === 'function') global.goToTab('stats');
   }
 
+  function runCoach() {
+    if (typeof global.openForgeCoachDeepLink === 'function') {
+      global.openForgeCoachDeepLink();
+      return;
+    }
+    if (typeof global.goToTab === 'function') global.goToTab('stats');
+  }
+
   function runStep(id) {
     if (id === 'demo') openSampleSession();
     else if (id === 'warmup') runWarmup();
     else if (id === 'leaks') runLeaks();
+    else if (id === 'coach') runCoach();
   }
 
   if (typeof global.addEventListener === 'function') {

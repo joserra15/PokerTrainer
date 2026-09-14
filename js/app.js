@@ -2075,6 +2075,7 @@
       coachMount.classList.remove('hidden');
       PTAIReport.mountWelcome(coachMount, {
         userName: firstNameFromUser(window.PT_AUTH_USER),
+        onOpenCoach: () => openForgeCoachDeepLink(),
         onTrain: () => goToTab('play', { setup: true })
       });
     }
@@ -5934,6 +5935,7 @@
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-trainer'), {
         scope: 'hand',
+        impressionSource: 'trainer',
         getHand: () => hand,
         persist: {
           kind: 'history',
@@ -5980,6 +5982,140 @@
     }
   }
 
+  function handHasCoachWorthyMiss(decisions) {
+    return (decisions || []).some(function (d) {
+      return d && (d.class === 'error' || d.class === 'imprecisa');
+    });
+  }
+
+  function openForgeCoachFromHandEnd() {
+    if (window.PTLog && PTLog.event) {
+      PTLog.event('ai_coach_cta_click', { source: 'hand_end', scope: 'hand', mode: 'report' });
+    }
+    revealHandEndDetails();
+    const host = $('#ai-report-trainer');
+    if (host && window.PTAIReport && PTAIReport.trigger) {
+      setTimeout(function () {
+        const panel = host.querySelector('.ai-report-panel') || host;
+        try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* noop */ }
+        PTAIReport.trigger(host, { mode: 'report', source: 'hand_end' });
+      }, 280);
+    }
+  }
+
+  /** Deep-link desde home / onboarding hacia un informe real (sesión, mano o stats). */
+  function openForgeCoachDeepLink() {
+    if (window.PTLog && PTLog.event) {
+      PTLog.event('ai_coach_cta_click', { source: 'deep_link', scope: 'home' });
+    }
+    const sessions = (Store.getSessions && Store.getSessions()) || [];
+    let best = null;
+    sessions.slice(0, 25).forEach(function (s) {
+      if (!s || !s.id) return;
+      let full = s;
+      try { full = Store.getSession(s.id) || s; } catch (e) { full = s; }
+      const st = (full && full.stats) || s.stats || {};
+      const ev = Number(st.evLossBB) || 0;
+      const hands = (full && full.hands) || [];
+      const errs = hands.filter(function (h) {
+        return h && (h.worstClass === 'error' || h.worstClass === 'imprecisa');
+      }).length;
+      if (ev <= 0 && errs <= 0) return;
+      if (!best || ev > best.ev || (ev === best.ev && errs > best.errs)) {
+        best = { id: s.id, ev: ev, errs: errs };
+      }
+    });
+    if (best) {
+      goToTab('sessions');
+      setTimeout(function () {
+        if (typeof openSession === 'function') openSession(best.id);
+      }, 120);
+      return;
+    }
+    const hist = ((Store.getHistory && Store.getHistory()) || []).find(function (h) {
+      return handHasCoachWorthyMiss(h && h.decisions);
+    });
+    if (hist) {
+      openCoachHandModal(hist, { source: 'history_deeplink' });
+      return;
+    }
+    goToTab('stats');
+    setTimeout(function () {
+      const el = $('#stats-coach');
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 200);
+  }
+  window.openForgeCoachDeepLink = openForgeCoachDeepLink;
+
+  function handFromErrorRecord(err) {
+    if (!err) return null;
+    if (err.handId && Store.getHistory) {
+      const hist = Store.getHistory().find(function (h) { return h && h.id === err.handId; });
+      if (hist) return hist;
+    }
+    return {
+      id: err.handId || err.id,
+      heroCards: err.heroCards || [],
+      heroCode: err.heroCode || '',
+      heroPos: err.heroPos || err.displayHeroPos || '',
+      board: err.board || [],
+      decisions: [{
+        street: err.street,
+        chosen: err.chosen,
+        label: err.chosen,
+        action: err.chosenAction,
+        best: err.best,
+        class: err.class,
+        evLoss: err.evLoss,
+        gto: err.gto,
+        context: err.context
+      }],
+      heroNetBB: err.heroNet != null ? err.heroNet : 0,
+      totalEvLoss: err.evLoss || 0,
+      worstClass: err.class,
+      scenario: err.scenarioRaw || err.scenario,
+      playConfig: err.playConfig || null
+    };
+  }
+
+  function openCoachHandModal(handObj, opts) {
+    opts = opts || {};
+    const box = $('#modal-content');
+    const modal = $('#modal');
+    if (!box || !modal || !handObj || !window.PTAIReport) return;
+    if (window.PTLog && PTLog.event) {
+      PTLog.event('ai_coach_cta_click', {
+        source: opts.source || 'hand_modal',
+        scope: 'hand',
+        mode: 'report'
+      });
+    }
+    modal.classList.remove('hand-end-modal');
+    box.innerHTML =
+      '<div class="ai-coach-modal">' +
+      '<div class="ai-coach-modal-head">' +
+      '<h3>ForgeCoach</h3>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="ai-coach-modal-close">Cerrar</button>' +
+      '</div>' +
+      '<p class="muted-text">Explicación en lenguaje natural de esta mano (usa 1 consulta de tu cupo).</p>' +
+      '<div id="ai-coach-modal-mount"></div>' +
+      '</div>';
+    modal.classList.remove('hidden');
+    const closeBtn = $('#ai-coach-modal-close');
+    if (closeBtn) closeBtn.onclick = function () { closeModal(); };
+    PTAIReport.mount($('#ai-coach-modal-mount'), {
+      scope: 'session',
+      impressionSource: opts.source || 'hand_modal',
+      getHand: function () { return handObj; },
+      autoReport: !!opts.autoReport,
+      persist: handObj.id ? {
+        kind: 'history',
+        getHandId: function () { return handObj.id; }
+      } : null,
+      onThreadUpdate: function (thread) { handObj.coachThread = thread; }
+    });
+  }
+
   function openHandEndPopup(r, opts) {
     const box = $('#modal-content');
     const modal = $('#modal');
@@ -6024,6 +6160,16 @@
       ? '<p class="muted-text">Multiway' + (r.potType ? ' · ' + escapeHtml(String(r.potType)) : '') +
         (r.aliveCount ? ' · ' + r.aliveCount + '-way' : '') + '</p>'
       : '';
+    const missWorthy = handHasCoachWorthyMiss(hand.decisions);
+    const guestOn = !!(window.PTAuth && PTAuth.isGuest && PTAuth.isGuest())
+      || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
+    let coachCta = '';
+    if (missWorthy && !guestOn) {
+      coachCta = '<button type="button" class="btn btn-secondary" id="hand-end-coach">¿Por qué fallé? · ForgeCoach</button>';
+    } else if (missWorthy && guestOn) {
+      coachCta = '<p class="muted-text hand-end-coach-teaser">Con cuenta, <strong>ForgeCoach</strong> te explica este error en español (3 consultas gratis/mes).</p>' +
+        '<button type="button" class="btn btn-secondary" id="hand-end-coach-guest">Crear cuenta para el coach</button>';
+    }
 
     hideVerdictToast();
     modal.classList.add('hand-end-modal');
@@ -6061,6 +6207,7 @@
         ? '<p class="muted-text hand-end-score-verdict">' + escapeHtml(scoreMeta.verdict) + '</p>'
         : '') +
       '<div class="hand-end-popup-actions">' +
+        coachCta +
         '<button type="button" class="btn btn-ghost" id="hand-end-details">Ver detalles</button>' +
         '<button type="button" class="btn btn-primary" id="hand-end-next">Siguiente mano &raquo;</button>' +
         '<button type="button" class="btn btn-ghost" id="hand-end-replay">&#8635; Repetir esta mano</button>' +
@@ -6069,6 +6216,17 @@
     '</div>';
 
     modal.classList.remove('hidden');
+
+    const coachBtn = $('#hand-end-coach');
+    if (coachBtn) coachBtn.onclick = function () { openForgeCoachFromHandEnd(); };
+    const coachGuestBtn = $('#hand-end-coach-guest');
+    if (coachGuestBtn) {
+      coachGuestBtn.onclick = function () {
+        closeModal();
+        if (window.PTGuest && PTGuest.showGate) PTGuest.showGate('coach');
+        else if (window.PTAuth && PTAuth.signIn) PTAuth.signIn();
+      };
+    }
 
     const detailsBtn = $('#hand-end-details');
     if (detailsBtn) detailsBtn.onclick = () => revealHandEndDetails();
@@ -7338,6 +7496,7 @@
       const worst = worstClass(h.decisions);
       const netCls = h.heroNet >= 0 ? 'net-pos' : 'net-neg';
       const scoreMeta = resolveHandScoreMeta(h, h.decisions, h.totalEvLoss);
+      const showCoach = worst === 'error' || worst === 'imprecisa';
       return `<div class="record">
         <div class="rec-cards">${h.heroCards.map(Cards.cardToHTML).join('')}</div>
         <div class="rec-main">
@@ -7348,6 +7507,7 @@
           <div class="${netCls}">${h.heroNet >= 0 ? '+' : ''}${h.heroNet} bb</div>
           <div style="color:var(--muted);font-size:12px">EV -${fmtBB(h.totalEvLoss)} bb</div>
           <div style="color:var(--muted);font-size:11px">EV esp. ${roundSession((h.heroNet || 0) - (h.totalEvLoss || 0)) >= 0 ? '+' : ''}${fmtBB(roundSession((h.heroNet || 0) - (h.totalEvLoss || 0)))} bb</div>
+          ${showCoach ? '<button class="btn btn-secondary" style="margin-top:6px;padding:4px 10px;font-size:12px" data-coach-history-id="' + escapeHtml(h.id) + '">Explicar con ForgeCoach</button>' : ''}
           <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-replay-id="${escapeHtml(h.id)}">Repetir mano</button>
         </div>
       </div>`;
@@ -7356,6 +7516,11 @@
       const rec = Store.getHistory().find((x) => x.id === b.dataset.replayId);
       if (!rec) return;
       replayFromStored(rec);
+    }));
+    $$('#history-list [data-coach-history-id]').forEach((b) => b.addEventListener('click', () => {
+      const rec = Store.getHistory().find((x) => x.id === b.dataset.coachHistoryId);
+      if (!rec) return;
+      openCoachHandModal(rec, { source: 'history', autoReport: true });
     }));
   }
 
@@ -7374,6 +7539,7 @@
       </div>
       <div class="rec-right">
         <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-train-id="${escapeHtml(e.id)}">Repetir</button>
+        <button class="btn btn-secondary" style="margin-top:6px;padding:4px 10px;font-size:12px" data-coach-error-id="${escapeHtml(e.id)}">Explicar con ForgeCoach</button>
         <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-del="${e.id}">Quitar</button>
       </div>
     </div>`).join('');
@@ -7381,6 +7547,13 @@
       const rec = Store.getErrors().find((x) => x.id === b.dataset.trainId);
       if (!rec) return;
       replayFromStored(rec);
+    }));
+    $$('#errors-list [data-coach-error-id]').forEach((b) => b.addEventListener('click', () => {
+      const rec = Store.getErrors().find((x) => x.id === b.dataset.coachErrorId);
+      if (!rec) return;
+      const handObj = handFromErrorRecord(rec);
+      if (!handObj) return;
+      openCoachHandModal(handObj, { source: 'errors', autoReport: true });
     }));
     $$('#errors-list [data-del]').forEach((b) => b.addEventListener('click', () => { Store.removeError(b.dataset.del); renderErrors(); }));
   }
@@ -7739,6 +7912,7 @@
       coachHost.innerHTML = '';
       window.PTAIReport.mount(coachHost, {
         scope: 'statsGlobal',
+        impressionSource: 'stats',
         getData: () => {
           const stats = Store.getStats();
           const Agg = window.PTStatsAggregate;
@@ -9007,6 +9181,19 @@
         <div class="card-box"><h3>5 peores manos</h3>${topHandsHtml(st.worst5)}</div>
       </div>`;
 
+    const leakHandsN = (s.hands || []).filter(function (h) {
+      return h && (h.worstClass === 'error' || h.worstClass === 'imprecisa' || (Number(h.totalEvLoss) || 0) > 0);
+    }).length;
+    const coachNudge = leakHandsN >= 3
+      ? `<div class="ai-session-nudge" id="ai-session-nudge">
+          <p><strong>ForgeCoach</strong> tiene un plan para esta sesión · ${leakHandsN} manos con fuga.</p>
+          <button type="button" class="btn btn-secondary btn-sm" id="ai-session-nudge-btn">Pedir informe de la sesión</button>
+        </div>`
+      : '';
+    const finalStatHtml = coachNudge
+      ? statHtml.replace('<div id="ai-coach-session"></div>', coachNudge + '<div id="ai-coach-session"></div>')
+      : statHtml;
+
     const handsInner = `
       <div class="panel-head" style="margin-top:18px">
         <h3>Manos de la sesión (${currentSession.hands.length})</h3>
@@ -9033,7 +9220,7 @@
       ? `<details class="session-hands-fold"><summary>Manos de la sesión (${currentSession.hands.length})</summary>${handsInner}</details>`
       : handsInner;
 
-    box.innerHTML = statHtml + sortHtml;
+    box.innerHTML = finalStatHtml + sortHtml;
     bindStyleDrillButtons(box);
     bindMetricExplainClicks(box);
     const reBtn = box.querySelector('#btn-reanalyze-session');
@@ -9076,9 +9263,19 @@
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-coach-session'), {
         scope: 'sessionGlobal',
+        impressionSource: 'session',
         getData: () => currentSession,
         persist: { kind: 'session', getSessionId: () => currentSession && currentSession.id },
         onThreadUpdate: (thread) => { if (currentSession) currentSession.coachThread = thread; }
+      });
+    }
+    const nudgeBtn = box.querySelector('#ai-session-nudge-btn');
+    if (nudgeBtn && window.PTAIReport && PTAIReport.trigger) {
+      nudgeBtn.addEventListener('click', function () {
+        const host = $('#ai-coach-session');
+        if (!host) return;
+        try { host.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* noop */ }
+        PTAIReport.trigger(host, { mode: 'report', source: 'session_nudge' });
       });
     }
   }
@@ -9610,6 +9807,7 @@
     if (!isAnalysisHand && window.PTAIReport) {
       window.PTAIReport.mount($('#ai-report-session'), {
         scope: 'session',
+        impressionSource: 'session_hand',
         getHand: () => currentHand,
         persist: {
           kind: 'sessionHand',

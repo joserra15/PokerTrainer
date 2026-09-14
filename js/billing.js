@@ -252,8 +252,8 @@
     trainer_limit: 'Has alcanzado el límite de manos de entrenamiento de hoy en el plan Gratis (15/día).',
     import_limit: 'Has usado tu importación de sesión de este mes en el plan Gratis (1/mes).',
     import_hands_limit: 'El plan Gratis admite sesiones de hasta 200 manos por import.',
-    ai_plan: 'ForgeCoach (añadir manos por texto, análisis y preguntas) requiere Study, Coach o un acceso regalado. El plan Gratis no incluye IA de pago.',
-    ai_limit: 'Has agotado tus consultas IA disponibles (ForgeCoach).',
+    ai_plan: 'ForgeCoach requiere consultas disponibles. El plan Gratis incluye 3 consultas/mes de prueba; Study 40/mes y Coach 150/mes. También puedes usar un bono de consultas.',
+    ai_limit: 'Has agotado tus consultas ForgeCoach disponibles este mes (plan + bono).',
     billing_not_configured: '',
     purchases_paused: '',
     no_subscription: '',
@@ -316,6 +316,13 @@
     }
     modal.classList.remove('hidden');
     document.body.classList.add('paywall-open');
+    if (reason === 'ai_plan' || reason === 'ai_limit') {
+      if (global.PTLog && global.PTLog.event) {
+        global.PTLog.event('ai_paywall_shown', { reason: reason });
+      } else if (global.PTAnalytics && global.PTAnalytics.track) {
+        global.PTAnalytics.track('ai_paywall_shown', { reason: reason });
+      }
+    }
     if (body && typeof body.querySelectorAll === 'function') {
       body.querySelectorAll('[data-founder-request]').forEach(function (btn) {
         if (global.PTFounderRequest && global.PTFounderRequest.bindButton) {
