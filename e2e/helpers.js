@@ -35,6 +35,8 @@ async function mockAuthenticatedUser(page, opts) {
         'e2e-test-user': { confirmed: true, ts: Date.now() }
       }
     }));
+    // Evita que el modal ForgeCoach intercepte clics en smoke (consent se pide al usar el coach).
+    localStorage.setItem('pt_ai_consent_v1', '1');
   }, { isAdmin, plan });
 }
 
@@ -236,7 +238,16 @@ async function openAppNav(page) {
   await page.waitForFunction(() => document.body.classList.contains('nav-open'), { timeout: 5000 }).catch(() => {});
 }
 
+async function dismissAiConsentModal(page) {
+  await page.evaluate(() => {
+    const m = document.getElementById('ai-consent-modal');
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    try { localStorage.setItem('pt_ai_consent_v1', '1'); } catch (e) { /* noop */ }
+  }).catch(() => {});
+}
+
 async function goTab(page, tab) {
+  await dismissAiConsentModal(page);
   if (tab === 'account') {
     await openAppNav(page);
     const settings = page.locator('#account-settings');
@@ -266,11 +277,12 @@ async function goTab(page, tab) {
 }
 
 async function openPlaySetupAdvanced(page) {
+  await dismissAiConsentModal(page);
   const details = page.locator('#setup-advanced');
   if ((await details.count()) === 0) return;
   const isOpen = await details.evaluate((el) => el.open);
   if (!isOpen) {
-    await details.locator('summary').click();
+    await details.locator('summary').click({ force: true });
     await page.waitForFunction(() => {
       const el = document.getElementById('setup-advanced');
       return el && el.open;
@@ -291,6 +303,7 @@ module.exports = {
   goTab,
   openAppNav,
   openPlaySetupAdvanced,
+  dismissAiConsentModal,
   playActionButtons,
   playSkipButton,
   skipActionPlaybackIfNeeded,

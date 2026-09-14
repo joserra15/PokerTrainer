@@ -92,6 +92,10 @@
     track('ai_coach_used', meta || {});
   }
 
+  function trackAiFunnel(eventName, meta) {
+    track(eventName, meta || {});
+  }
+
   function trackCheckoutStart(meta) {
     track('checkout_start', meta || {});
   }
@@ -116,6 +120,7 @@
     trackPlayHand: trackPlayHand,
     trackImportSession: trackImportSession,
     trackAiCoach: trackAiCoach,
+    trackAiFunnel: trackAiFunnel,
     trackCheckoutStart: trackCheckoutStart,
     trackLandingView: trackLandingView,
     trackPushOpen: trackPushOpen

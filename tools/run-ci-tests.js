@@ -14,6 +14,7 @@ const STEPS = [
   ['Selftest', ['node', 'tools/selftest.js']],
   ['Test importador ES/EN/Winamax/GGPoker/CoinPoker', ['node', 'tools/testimport.js']],
   ['Test P0 session/onboarding', ['node', 'tools/test-p0-session-onboarding.js']],
+  ['Test ForgeCoach adoption', ['node', 'tools/test-forgecoach-adoption.js']],
   ['P1 retention regression', ['node', 'tools/test-p1-retention.js']],
   ['P2 expansion regression', ['node', 'tools/test-p2-expansion.js']],
   ['UX trainer mode / lang', ['node', 'tools/test-ux-trainer-lang.js']],

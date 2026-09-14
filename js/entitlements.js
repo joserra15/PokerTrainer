@@ -370,9 +370,16 @@
     if (!q2.totalLimit) {
       return { unlimited: false, label: 'Tu plan no incluye consultas IA. Compra un bono en Planes.', totalLeft: 0, bonus: 0 };
     }
-    var line = 'ForgeCoach: ' + q2.used + '/' + q2.totalLimit;
-    if (q2.bonus > 0) line += ' (incl. ' + q2.bonus + ' bono)';
-    line += ' · ' + q2.totalLeft + ' disponibles';
+    var planId = ent.plan || 'free';
+    var line;
+    if (planId === 'free' && q2.planMax > 0) {
+      line = 'ForgeCoach (prueba Gratis): te quedan ' + q2.totalLeft + ' de ' + q2.totalLimit + ' este mes';
+      if (q2.bonus > 0) line += ' (incl. ' + q2.bonus + ' bono)';
+    } else {
+      line = 'ForgeCoach: ' + q2.used + '/' + q2.totalLimit;
+      if (q2.bonus > 0) line += ' (incl. ' + q2.bonus + ' bono)';
+      line += ' · ' + q2.totalLeft + ' disponibles';
+    }
     return {
       unlimited: false,
       used: q2.used,

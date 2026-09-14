@@ -3530,6 +3530,7 @@ body.age-gate-open {
 .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
 .btn:active { transform: translateY(0); }
 .btn-primary { background: var(--accent); }
+.btn-secondary { background: #3a4a5c; border: 1px solid var(--border); color: var(--text); }
 .btn-fold { background: #444f5c; }
 .btn-check, .btn-call { background: #2b7d52; }
 .btn-raise, .btn-bet, .btn-allin { background: #b5532a; }
@@ -4693,6 +4694,58 @@ body.cookie-banner-open { padding-bottom: 0; }
 .ai-coach-actions {
   display: flex; flex-wrap: wrap; gap: 10px;
   margin-bottom: 4px; padding-top: 2px;
+}
+.ai-question-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin: 8px 0 4px;
+}
+.ai-question-chips .ai-chip {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+  line-height: 1.3;
+}
+.ai-consent-banner {
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+}
+.ai-consent-banner .ai-consent-lead { margin: 0 0 6px; font-size: 14px; line-height: 1.45; }
+.ai-consent-banner .ai-consent-legal { margin: 0 0 10px; font-size: 12px; }
+.ai-consent-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-consent-modal .ai-consent-modal-content {
+  max-width: 440px;
+  padding: 20px;
+}
+.ai-coach-modal { padding: 4px 2px 12px; }
+.ai-coach-modal-head {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; margin-bottom: 6px;
+}
+.ai-coach-modal-head h3 { margin: 0; }
+.ai-session-nudge {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: rgba(212, 168, 67, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.ai-session-nudge p { margin: 0; font-size: 14px; line-height: 1.4; }
+.home-coach-cta-hint { margin: 0 0 10px; font-size: 13px; }
+.hand-end-coach-teaser { margin: 0 0 4px; font-size: 13px; flex: 1 1 100%; }
+.hand-end-popup-actions #hand-end-coach,
+.hand-end-popup-actions #hand-end-coach-guest {
+  flex: 1 1 100%;
 }
 .ai-coach-hint { color: var(--orange); font-size: 13px; }
 .ai-report-head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
