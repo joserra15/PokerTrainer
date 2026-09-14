@@ -87,9 +87,9 @@ assert.ok(/migrateSchoolProgress|C-06/.test(schoolSrc), 'migración v2');
 assert.ok(/Sizing del open|RFI desde SB|Examen M0/.test(schoolDataSrc), 'lecciones M0 v2');
 assert.ok(/Defender BB vs open|Examen M1/.test(schoolM1Src), 'lecciones M1');
 assert.ok(/Textura de flop|Examen M2/.test(schoolM2Src), 'lecciones M2');
-assert.ok(/S-00|S-17/.test(schoolSpinSrc), 'lecciones Spins');
+assert.ok(/S-00|S-17|S-21/.test(schoolSpinSrc), 'lecciones Spins');
 assert.ok(/buy-in|entrada/.test(schoolSpinSrc) && /fichas no valen|fichas ≠|Entrada ≠ fichas/.test(schoolSpinSrc), 'S-00 explica entrada vs fichas');
-assert.ok(/T-00|T-22/.test(schoolMttSrc), 'lecciones MTT');
+assert.ok(/T-00|T-22|T-26/.test(schoolMttSrc), 'lecciones MTT');
 assert.ok(/R-01|R-27|R-28|R-29|R-30|R-33/.test(schoolRangesSrc), 'lecciones Rangos + exámenes + RA');
 assert.ok(/school-data-ranges-line\.js/.test(chunks), 'chunk Rangos línea M2–M4');
 assert.ok(/school-data-ranges-line-sizing\.js/.test(chunks), 'chunk sizing-key línea');
@@ -236,8 +236,8 @@ assert.strictEqual(Data.SCHOOL_DATA_VERSION, 5, 'data version 5');
 
 const lessons = Data.lessonsForRoute('cash');
 assert.strictEqual(lessons.length, 49, 'Cash M0+M1+M2+M3+Pro+Exploit = 49 lecciones');
-assert.strictEqual(Data.lessonsForRoute('spin').length, 19, 'Spins 19');
-assert.strictEqual(Data.lessonsForRoute('mtt').length, 24, 'MTT 24');
+assert.strictEqual(Data.lessonsForRoute('spin').length, 23, 'Spins 23');
+assert.strictEqual(Data.lessonsForRoute('mtt').length, 28, 'MTT 28');
 assert.strictEqual(Data.lessonsForRoute('ranges').length, 36, 'Rangos 36');
 assert.strictEqual(Data.m0Lessons().length, 9, 'M0 9');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
@@ -377,10 +377,10 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.strictEqual(first.scenario, 'push');
 })();
 
-/* Voz pedagógica Spins S-00…S-17: términos anclados, sin telegramas */
+/* Voz pedagógica Spins S-00…S-21: términos anclados, sin telegramas */
 (function () {
   var spinLessons = Data.lessonsForRoute('spin');
-  assert.strictEqual(spinLessons.length, 19, '19 lecciones Spins');
+  assert.strictEqual(spinLessons.length, 23, '23 lecciones Spins');
   var blob = '';
   spinLessons.forEach(function (l) {
     blob += lessonBlob(l);

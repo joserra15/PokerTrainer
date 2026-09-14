@@ -505,6 +505,8 @@
         hint.textContent = 'ITM: todos los remaining pagan; edita «pagan» y entradas para simular el prize pool.';
       } else if (sit === 'ft9') {
         hint.textContent = 'Final table lite: 9 left. Edita buy-in/entradas/pagan para estimar premios.';
+      } else if (sit === 'hu') {
+        hint.textContent = 'Heads-Up (2 left / 1 pago): chip-EV WTA. Sincroniza la fase Heads Up; rival calibrado a meta HU.';
       } else {
         hint.textContent = 'Personalizado: entradas, quedan, pagan y curva. Buy-in × entradas ≈ prize pool.';
       }
@@ -1604,8 +1606,15 @@
           c.classList.toggle('active', c.dataset.val === next);
         });
       }
+      if (phase === 'hu' && hub === 'mtt') {
+        $$('#setup-mtt-structure .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === 'hu');
+        });
+        syncMttStructureUI();
+      } else {
+        syncMttStructureUI({ skipDefaults: true });
+      }
       syncPhaseStackUI(hub);
-      syncMttStructureUI({ skipDefaults: true });
     });
     bindChipGroup('#setup-tournament-type', markPresetCustom);
     bindChipGroup('#setup-open-size', markPresetCustom);
@@ -1635,6 +1644,15 @@
     bindChipGroup('#setup-mtt-structure', () => {
       syncMttStructureUI();
       markPresetCustom();
+      const sitEl = $('#setup-mtt-structure .setup-chip.active');
+      const sit = sitEl ? sitEl.dataset.val : 'auto';
+      if (sit === 'hu') {
+        $$('#setup-mtt-phase .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === 'hu');
+        });
+        const hub = activeFormatHub();
+        syncPhaseStackUI(hub);
+      }
     });
     bindChipGroup('#setup-mtt-payout-preset', () => {
       markPresetCustom();

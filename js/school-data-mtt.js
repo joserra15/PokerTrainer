@@ -1,5 +1,5 @@
 /*
- * school-data-mtt.js — Fase H: MTT T-00…T-22
+ * school-data-mtt.js — Fase H: MTT T-00…T-26
  * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
  */
 (function (global) {
@@ -177,6 +177,51 @@
       rfi('t13-09', 'BTN', ['Jh', 'Th'], 51309, { teachBack: 'JTs BTN mid: steal ok si blinds/antes pagan; evita opens vs cover agresivo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'bubble', stackDepth: 'bb20' }) }),
       vs('t13-10', 'BB_vs_BTN', ['Kc', '7h'], 51310, { trapTag: 'dominated', teachBack: 'K7o vs shove: fold. Dominada y −$EV en burbuja.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'bubble', stackDepth: 'bb18' }) })
     ];
+
+    if (kind === 'MTT_HU_CHIP_EV') return [
+      rfi('thu-01', 'SB', ['Ah', 'Td'], 52301, { teachBack: 'ATo SB HU MTT ~25 bb: open chip-EV. A 2 left / 1 paid no hay ICM de burbuja — maximiza fichas.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      rfi('thu-02', 'SB', ['6c', '2d'], 52302, { trapTag: 'dominated', teachBack: '62o SB HU: fold. Chip-EV no justifica basura total OOP.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-03', 'BB_vs_SB', ['Kh', 'Jd'], 52303, { teachBack: 'KJo BB HU: defensa frecuente. Sin bubble factor, KJo defiende vs open SB.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-04', 'BB_vs_SB', ['Ad', '5d'], 52304, { teachBack: 'A5s BB HU: 3-bet polar OK. Blocker + pressure en WTA.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      rfi('thu-05', 'SB', ['9s', '8s'], 52305, { teachBack: '98s SB HU ~40 bb: open. Deep HU sigue siendo presión SB con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb40', mttPhase: 'hu' }) }),
+      vs('thu-06', 'BB_vs_SB', ['3h', '2c'], 52306, { trapTag: 'fancy_play', teachBack: '32o BB HU: fold. Wide no es cualquier dos cartas.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
+    ,
+      rfi('thu-01b', 'SB', ['Kd', 'Js'], 52307, { teachBack: 'KJo SB HU MTT: open chip-EV.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      rfi('thu-01c', 'SB', ['Ts', '9s'], 52308, { teachBack: 'T9s SB HU: open.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
+      vs('thu-01d', 'BB_vs_SB', ['Ah', '9c'], 52309, { teachBack: 'A9o BB HU: defensa frecuente.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-01e', 'BB_vs_SB', ['Qd', 'Qh'], 52310, { teachBack: 'QQ BB HU: 3bet value.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
+    ];
+    if (kind === 'MTT_HU_BLINDS') return [
+      rfi('thu-07', 'SB', ['Kd', '9c'], 52401, { teachBack: 'K9o SB HU ~30 bb: open frecuente. Guerra de ciegas deep-mid.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
+      rfi('thu-08', 'SB', ['Qs', 'Js'], 52402, { teachBack: 'QJs SB HU: open value. Broadway suited con iniciativa.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-09', 'BB_vs_SB', ['Jh', 'Tc'], 52403, { teachBack: 'JTo BB HU: call/3bet. Defiende más que en FT multiway.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-10', 'BB_vs_SB', ['Ah', 'Qd'], 52404, { teachBack: 'AQo BB HU: 3-bet value. Castiga opens HU wide.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb30', mttPhase: 'hu' }) }),
+      rfi('thu-11', 'SB', ['7h', '6h'], 52405, { teachBack: '76s SB HU ~40 bb: open. Conectores suited en deep HU.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb40', mttPhase: 'hu' }) }),
+      vs('thu-12', 'BB_vs_SB', ['8d', '8c'], 52406, { teachBack: '88 BB HU: 3-bet o call value. Pares medios ganan valor sin ICM FT.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
+    ,
+      rfi('thu-07b', 'SB', ['Ah', '3s'], 52407, { teachBack: 'A3o SB HU 30 bb: open.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
+      rfi('thu-07c', 'SB', ['Jh', 'Th'], 52408, { teachBack: 'JTs SB HU: open.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-07d', 'BB_vs_SB', ['Kd', 'Ts'], 52409, { teachBack: 'KTo BB HU: call/3bet.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      vs('thu-07e', 'BB_vs_SB', ['9s', '9c'], 52410, { teachBack: '99 BB HU: 3bet value.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb30', mttPhase: 'hu' }) })
+    ];
+    if (kind === 'MTT_HU_SHORT') return [
+      rfi('thu-13', 'SB', ['As', '8c'], 52501, { teachBack: 'A8o SB ~12 bb HU: shove. Push/fold chip-EV; sparring en Torneos IA huEasy→huPro.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      rfi('thu-14', 'SB', ['9h', '4d'], 52502, { trapTag: 'dominated', teachBack: '94o SB corto HU: fold. Sin FE real.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
+      vs('thu-15', 'BB_vs_SB', ['Kh', 'Td'], 52503, { teachBack: 'KTo BB vs shove HU: call frecuente chip-EV.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      vs('thu-16', 'BB_vs_SB', ['Js', 'Jc'], 52504, { teachBack: 'JJ vs shove HU: call/jamming value. No overfold.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) }),
+      rfi('thu-17', 'SB', ['Ks', 'Js'], 52505, { teachBack: 'KJs SB ~10 bb HU: shove. Continúa en ladder IA HU tras la lección.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
+      vs('thu-18', 'BB_vs_SB', ['6c', '4d'], 52506, { trapTag: 'fancy_play', teachBack: '64o vs shove HU: fold.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
+    ,
+      rfi('thu-13b', 'SB', ['Qh', 'Td'], 52507, { teachBack: 'QTo SB 12 bb HU: shove.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      rfi('thu-13c', 'SB', ['Ad', '4d'], 52508, { teachBack: 'A4s SB 10 bb HU: shove.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
+      vs('thu-13d', 'BB_vs_SB', ['Ah', '8s'], 52509, { teachBack: 'A8o vs shove HU: call frecuente.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      vs('thu-13e', 'BB_vs_SB', ['Kc', 'Kh'], 52510, { teachBack: 'KK vs shove HU: call value.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
+    ];
+    if (kind === 'MTT_HU_EXAM') return packSpots('MTT_HU_CHIP_EV', D).slice(0, 4)
+      .concat(packSpots('MTT_HU_BLINDS', D).slice(0, 4))
+      .concat(packSpots('MTT_HU_SHORT', D).slice(0, 4));
+
+
     return [];
   }
   function resolveSpots(lesson, D) {
@@ -1315,6 +1360,151 @@
       "exam": true,
       "id": "T-22",
       "title": "Examen Pro · MTT"
+
+    },
+    {
+      "route": "mtt",
+      "module": "M5",
+      "order": 23,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Heads Up MTT: 2 left / 1 paid es winner-take-all. Chip-EV ≈ $EV. No juegues «burbuja» ni FT ICM multiway. Usa fase Heads Up en el entrenador y el ladder Torneos IA huEasy→huPro.",
+      "theory": [
+        {
+          "title": "WTA a 2",
+          "body": "Con un solo pago (2 left / 1 paid), cada ficha cuenta igual en euros: chip-EV ≈ $EV. El overfold de burbuja o de final table multiway desaparece por completo."
+        },
+        {
+          "title": "Entrenador + IA",
+          "body": "En setup Torneos → fase Heads Up: mesa 2-max y rival calibrado a meta HU. Después, sparring vivo en Torneos IA con presets huEasy → huMedium → huHard → huPro."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Error típico",
+          "body": "Foldear KJo vs shove 14 bb «por ICM de FT» cuando ya sois 2: en WTA suele ser call chip-EV."
+        }
+      ],
+      "aiQuestions": [
+        "¿Por qué no hay ICM de burbuja en HU MTT?",
+        "¿Cómo uso el ladder huEasy→huPro?"
+      ],
+      "spots": "MTT_HU_CHIP_EV",
+      "exam": false,
+      "id": "T-23",
+      "title": "Heads Up MTT: chip-EV WTA"
+    },
+    {
+      "route": "mtt",
+      "module": "M5",
+      "order": 24,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Guerra de ciegas deep–mid HU (25–40 bb): SB open wide, BB defiende y 3-betea más; sin miedo a un ICM fantasma de final table multiway.",
+      "theory": [
+        {
+          "title": "SB presión",
+          "body": "A 25–40 bb el SB es el botón efectivo: abre muy wide con sizing pequeño (≈2–2.5×). Limpear es raro; quieres iniciativa y fold equity en cada mano."
+        },
+        {
+          "title": "BB respuesta",
+          "body": "Sin jugadores detrás, el BB defiende más broadway y suited connectors, y 3-betea Ax blockers. Overfold vs SB es un leak caro en WTA Heads Up."
+        }
+      ],
+      "examples": [
+        {
+          "title": "K9o SB 30 bb",
+          "body": "Open frecuente en HU MTT; en FT 5-handed con ICM multiway sería fold casi siempre."
+        }
+      ],
+      "aiQuestions": [
+        "¿Qué tan wide abro SB a 30 bb HU?",
+        "¿Cómo 3-beteo BB en Heads Up MTT?"
+      ],
+      "spots": "MTT_HU_BLINDS",
+      "exam": false,
+      "id": "T-24",
+      "title": "Guerra de ciegas deep–mid HU"
+    },
+    {
+      "route": "mtt",
+      "module": "M5",
+      "order": 25,
+      "plan": "coach",
+      "xp": 100,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "HU short y ladder final: shove/call chip-EV a stacks cortos. Practica spots aquí y cierra el hábito con Torneos IA huEasy→huPro.",
+      "theory": [
+        {
+          "title": "Push/fold",
+          "body": "Con ≤12–14 bb en Heads Up MTT, la línea limpia es shove o fold. Un min-raise spewy regala fold equity y complica el SPR en WTA corto."
+        },
+        {
+          "title": "Ladder IA",
+          "body": "Tras dominar estos spots, pasa a Torneos IA Heads-Up (huEasy → huPro). Es el mismo meta kind=hu que la fase Heads Up del entrenador, pero con sparring continuo mano a mano."
+        }
+      ],
+      "examples": [
+        {
+          "title": "A8o SB 12 bb",
+          "body": "Shove chip-EV. Después consolida con un match huMedium en Torneos IA antes de subir a huHard/huPro."
+        }
+      ],
+      "aiQuestions": [
+        "¿Cuándo shoveo en HU MTT corto?",
+        "¿Qué preset IA uso después de esta lección?"
+      ],
+      "spots": "MTT_HU_SHORT",
+      "exam": false,
+      "id": "T-25",
+      "title": "HU short y ladder final"
+    },
+    {
+      "route": "mtt",
+      "module": "M5",
+      "order": 26,
+      "plan": "coach",
+      "xp": 150,
+      "passThreshold": 1,
+      "goldThreshold": 1,
+      "decisionEnd": true,
+      "hands": 0,
+      "concept": "Examen Heads Up MTT: WTA chip-EV, guerra de ciegas deep–mid y push/fold short. Sin ICM de burbuja cuando solo quedan 2.",
+      "theory": [
+        {
+          "title": "Checklist",
+          "body": "¿2 left / 1 paid? → WTA chip-EV. ¿25–40 bb? → presión SB open / BB defend. ¿≤12–14 bb? → shove o fold. Sin bubble factor fantasma."
+        },
+        {
+          "title": "Sparring vivo",
+          "body": "Tras el examen, refuerza el hábito en Torneos IA: sube el ladder huEasy → huMedium → huHard → huPro con el mismo meta Heads Up."
+        }
+      ],
+      "examples": [
+        {
+          "title": "Certificación",
+          "body": "«A 2 maximizo fichas; el ladder de Torneos IA refuerza el hábito WTA.»"
+        }
+      ],
+      "aiQuestions": [
+        "Repásame checklist HU MTT"
+      ],
+      "spots": "MTT_HU_EXAM",
+      "exam": true,
+      "id": "T-26",
+      "title": "Examen Heads Up MTT"
+
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
