@@ -38,8 +38,8 @@
 
   /**
    * ¿Se puede pintar/jugar la mano guardada sin repartir de nuevo?
-   * Tras salir-guardar la mano suele ser null; tras quota cloud puede quedar un stub
-   * sin acted/heroOptions (mesa congelada: se ven asientos pero no hay acciones).
+   * Tras quota agresiva puede quedar un stub incompleto (sin acted/heroOptions/
+   * boardDeck): mesa congelada o cartas distintas al Continuar.
    */
   function isPlayableLiveHand(hand) {
     if (!hand) return false;
@@ -47,6 +47,7 @@
     if (hand.stage !== 'playing') return false;
     if (!Array.isArray(hand.seats) || hand.seats.length < 2) return false;
     if (!hand.acted || typeof hand.acted !== 'object') return false;
+    if (!Array.isArray(hand.boardDeck)) return false;
     if (hand.awaitingHero) {
       return !!(hand._heroSeatId && hand.heroOptions && hand.heroOptions.length);
     }
@@ -78,6 +79,9 @@
     }
 
     if (hand && hand.stage === 'playing' && isPlayableLiveHand(hand) && Live) {
+      try {
+        if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
+      } catch (eCtx) { /* */ }
       if (!hand.awaitingHero) {
         try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
         hand = state._liveHand;

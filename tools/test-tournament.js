@@ -2640,6 +2640,76 @@ console.log('OK pushfold-freq-100');
   console.log('OK resume-keeps-intact-livehand');
 }
 
+// --- Salir/visibility (quota 1): misma mano y mismas cartas al reanudar ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 518, heroName: 'CardsHero' });
+  g.PTTournamentRunner.beginHand(state);
+  assert.ok(state._liveHand && state._liveHand.awaitingHero, 'turno héroe mid-hand');
+  const heroSeat = state._liveHand.seats.find(function (s) { return s.isHero; });
+  assert.ok(heroSeat && heroSeat.cards && heroSeat.cards.length >= 2, 'cartas hero');
+  const cardKey = JSON.stringify(heroSeat.cards);
+  const pot = state._liveHand.pot;
+  const street = state._liveHand.street;
+  const handIdx = state.handIndex;
+  const saved = g.PTTournamentStore.saveActive(state, { quotaLevel: 1 });
+  assert.ok(saved.ok, 'save quota 1');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded && loaded._liveHand, 'liveHand persistida en quota 1');
+  assert.ok(g.PTTournamentRunner.isPlayableLiveHand(loaded._liveHand),
+    'quota 1 deja mano jugable (no stub roto)');
+  const revived = g.PTTournamentRunner.ensureLiveHand(loaded);
+  assert.strictEqual(loaded.handIndex, handIdx, 'mismo handIndex');
+  assert.strictEqual(revived.street, street, 'misma street');
+  assert.strictEqual(revived.pot, pot, 'mismo pot');
+  const hero2 = revived.seats.find(function (s) { return s.isHero; });
+  assert.strictEqual(JSON.stringify(hero2.cards), cardKey, 'mismas cartas al Continuar');
+  assert.ok(revived.awaitingHero && revived.heroOptions && revived.heroOptions.length,
+    'sigue el turno del héroe');
+  g.PTTournamentStore.clearActive();
+  console.log('OK resume-keeps-cards-after-quota1-exit-save');
+}
+
+// --- Quota 2/3: stub jugable + mano complete no se borra (stacks) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 519, heroName: 'StackHero' });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && hand.awaitingHero && guard++ < 40) {
+    const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
+    g.PTTournamentRunner.heroAct(state, opt.id === 'check' ? 'check' : (opt.id === 'fold' ? 'fold' : opt.id), opt.amount);
+    hand = state._liveHand;
+  }
+  assert.ok(hand && hand.stage === 'complete' && hand.result, 'mano complete pendiente');
+  const heroBefore = g.PTTournamentState.hero(state).stack;
+  const net = Number(hand.result.heroNet) || 0;
+  const expectedStack = Math.max(0, Math.round((heroBefore + net) * 100) / 100);
+  const r3 = g.PTTournamentStore.saveActive(state, { quotaLevel: 3 });
+  assert.ok(r3.ok, 'save quota 3');
+  const loaded = g.PTTournamentStore.loadActive();
+  assert.ok(loaded._liveHand && loaded._liveHand.stage === 'complete' && loaded._liveHand.result,
+    'quota 3 no borra mano complete sin apply');
+  assert.ok(loaded._liveHand.result.deltas, 'deltas conservados para apply al Continuar');
+  /* Simula Continuar tras resume: aplica fichas. */
+  g.PTTournamentRunner.applyResults(loaded, loaded._liveHand);
+  const heroAfter = g.PTTournamentState.hero(loaded);
+  assert.ok(Math.abs(heroAfter.stack - expectedStack) < 0.02,
+    'stack tras apply (got ' + heroAfter.stack + ' want ' + expectedStack + ')');
+  g.PTTournamentStore.clearActive();
+
+  /* Mid-hand quota 2: cartas se conservan. */
+  const mid = g.PTTournamentRunner.create('sng6', { seed: 520, heroName: 'Quota2Hero' });
+  g.PTTournamentRunner.beginHand(mid);
+  const midCards = JSON.stringify(mid._liveHand.seats.find(function (s) { return s.isHero; }).cards);
+  assert.ok(g.PTTournamentStore.saveActive(mid, { quotaLevel: 2 }).ok, 'quota 2 save');
+  const midLoaded = g.PTTournamentStore.loadActive();
+  assert.ok(g.PTTournamentRunner.isPlayableLiveHand(midLoaded._liveHand), 'quota 2 playable');
+  g.PTTournamentRunner.ensureLiveHand(midLoaded);
+  const midHero = midLoaded._liveHand.seats.find(function (s) { return s.isHero; });
+  assert.strictEqual(JSON.stringify(midHero.cards), midCards, 'quota 2 mismas cartas');
+  g.PTTournamentStore.clearActive();
+  console.log('OK resume-quota-keeps-complete-hand-and-cards');
+}
+
 // --- UI resumeActive llama ensureLiveHand ---
 {
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
