@@ -98,6 +98,9 @@
   const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
 
   const POS_SPIN = ['BTN', 'SB', 'BB'];
+  const POS_HU = ['SB', 'BB'];
+  const DEAL_ORDER_HU = ['SB', 'BB'];
+  const RFI_POS_HU = ['SB'];
   const DEAL_ORDER_SPIN = ['SB', 'BB', 'BTN'];
   const RFI_POS_SPIN = ['BTN', 'SB'];
 
@@ -290,6 +293,23 @@
     c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
+
+    // Fase Heads Up: mesa 2-max + WTA (chip-EV). Solo con mttPhase/structure explícitos.
+    if (isHuPhase(c) || (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(c) && c.mttPhase === 'hu')) {
+      c.mttPhase = 'hu';
+      c.tableMax = 2;
+      c.playersSeated = 2;
+      if (c.formatHub === 'mtt' || c.formatHub === 'spin') {
+        if (c.playersLeft == null || Number(c.playersLeft) !== 2) c.playersLeft = 2;
+        if (c.placesPaid == null || Number(c.placesPaid) !== 1) c.placesPaid = 1;
+        if (!c.mttStructureSituation || c.mttStructureSituation === 'auto') {
+          c.mttStructureSituation = 'hu';
+        }
+      }
+      // Multiway no aplica en HU.
+      if (c.scenario === 'multiway' || c.scenario === 'squeeze') c.scenario = 'random';
+      c.allowMultiway = false;
+    }
     if (Tax && Tax.normalizeTournamentType) {
       c.tournamentType = Tax.normalizeTournamentType(c.tournamentType);
     } else {
@@ -309,6 +329,18 @@
       c.mttPayoutPreset = 'standard';
       c.mttStructureSituation = null;
       c.icmPayouts = null;
+    }
+
+    // Reaplicar HU tras limpieza de estructura MTT (Spins también usan fase hu WTA).
+    if (isHuPhase(c)) {
+      c.mttPhase = 'hu';
+      c.tableMax = 2;
+      c.playersSeated = 2;
+      c.playersLeft = 2;
+      c.placesPaid = 1;
+      c.mttStructureSituation = 'hu';
+      c.allowMultiway = false;
+      if (c.scenario === 'multiway' || c.scenario === 'squeeze') c.scenario = 'random';
     }
 
     if (c.stackDepth === 'random') {
@@ -512,12 +544,24 @@
     return (config && config.gameType) === 'spin3' || (config && config.formatHub) === 'spin';
   }
 
+  function isHuPhase(config) {
+    const c = config || {};
+    if (c.mttPhase === 'hu' || c.resolvedPhase === 'hu' || c.effectivePhase === 'hu') return true;
+    if (c.mttStructureSituation === 'hu') return true;
+    if (c.kind === 'hu' || c.tournamentKind === 'hu') return true;
+    return false;
+  }
+
   function is3Max(config) {
     return isSpin(config);
   }
 
   function heroPositions(config) {
     const c = normalize(config);
+    if (isHuPhase(c)) {
+      if (c.scenario === 'rfi' || c.scenario === 'push' || c.scenario === 'steal') return RFI_POS_HU.slice();
+      return POS_HU.slice();
+    }
     if (isSpin(c)) {
       if (c.scenario === 'rfi' || c.scenario === 'push') return RFI_POS_SPIN.slice();
       return POS_SPIN.slice();
@@ -527,11 +571,13 @@
   }
 
   function tablePositions(config) {
+    if (isHuPhase(config)) return POS_HU.slice();
     if (isSpin(config)) return POS_SPIN.slice();
     return is9Max(config) ? POS_9.slice() : POS_6.slice();
   }
 
   function dealOrder(config) {
+    if (isHuPhase(config)) return DEAL_ORDER_HU.slice();
     if (isSpin(config)) return DEAL_ORDER_SPIN.slice();
     if (is9Max(config)) return DEAL_ORDER_9.slice();
     return ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
@@ -1316,7 +1362,8 @@
     sampleCallerWeights, sampleColdCallWeights, sampleMultiwayHeroWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, isSpin, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
+    is9Max, isMtt, isSpin, isHuPhase,
+    POS_HU, DEAL_ORDER_HU, RFI_POS_HU, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
     vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
   };
 })(window);

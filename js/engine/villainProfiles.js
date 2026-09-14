@@ -217,6 +217,14 @@
     if (out && out.id === 'pro' && hand.table && hand.table.proStyles && hand.table.proStyles[pos]) {
       out = Object.assign({}, out, { proStyle: hand.table.proStyles[pos] });
     }
+    var cfg = hand.playConfig || {};
+    out = applyHuAdjust(out, {
+      mttPhase: cfg.mttPhase || cfg.resolvedPhase,
+      resolvedPhase: cfg.resolvedPhase,
+      mttStructureSituation: cfg.mttStructureSituation,
+      kind: cfg.kind || cfg.tournamentKind,
+      formatHub: cfg.formatHub
+    });
     return out;
   }
 
@@ -496,9 +504,78 @@
     return clamp(base * (1 + (mult - 1) * scale) + (pf.callBias || 0) * scale, 0.08, 0.92);
   }
 
+
+  /**
+   * Ajuste HU explícito (fase/kind hu o Torneos IA HU).
+   * No aplicar solo porque el bote colapse a 2 en Random 6-max/3-max.
+   */
+  function shouldApplyHuAdjust(ctx) {
+    ctx = ctx || {};
+    if (ctx.kind === 'hu' || ctx.tournamentKind === 'hu') return true;
+    if (ctx.mttPhase === 'hu' || ctx.resolvedPhase === 'hu' || ctx.effectivePhase === 'hu') return true;
+    if (ctx.mttStructureSituation === 'hu') return true;
+    var Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && (ctx.mttPhase === 'hu' || ctx.kind === 'hu')) {
+      return !!Tax.isHeadsUpWta(ctx);
+    }
+    return false;
+  }
+
+  function applyHuAdjust(profile, ctx) {
+    if (!shouldApplyHuAdjust(ctx)) return profile;
+    var base = getProfile(profile);
+    var id = base.id || 'tag';
+    var pf = Object.assign({}, base.preflop || {});
+    var po = Object.assign({}, base.postflop || {});
+
+    // Más defend BB / menos fold preflop; más 3bet SB; más c-bet.
+    if (id === 'nit') {
+      pf.foldBias = (Number(pf.foldBias) || 0) - 0.06;
+      pf.callBias = (Number(pf.callBias) || 0) + 0.05;
+      pf.threeBetBias = (Number(pf.threeBetBias) || 0) + 0.03;
+      po.betFreqMult = Math.min(1.35, (Number(po.betFreqMult) || 1) * 1.35);
+      po.bluffFreqMult = Math.min(1.1, (Number(po.bluffFreqMult) || 1) * 1.45);
+      po.raiseFreqMult = Math.min(1.2, (Number(po.raiseFreqMult) || 1) * 1.3);
+      po.foldMult = Math.max(0.75, (Number(po.foldMult) || 1) * 0.85);
+    } else if (id === 'fish') {
+      pf.foldBias = (Number(pf.foldBias) || 0) - 0.04;
+      pf.callBias = (Number(pf.callBias) || 0) + 0.04;
+      po.betFreqMult = Math.min(1.25, (Number(po.betFreqMult) || 1) * 1.15);
+      po.callMult = Math.min(1.7, (Number(po.callMult) || 1) * 1.05);
+    } else if (id === 'maniac') {
+      pf.threeBetBias = (Number(pf.threeBetBias) || 0) + 0.04;
+      po.betFreqMult = Math.min(2.15, (Number(po.betFreqMult) || 1) * 1.08);
+      po.bluffFreqMult = Math.min(2.45, (Number(po.bluffFreqMult) || 1) * 1.05);
+      // Techo: no explotar a infinito
+      po.foldMult = Math.max(0.35, Number(po.foldMult) || 0.42);
+    } else {
+      // tag / lag / pro
+      pf.foldBias = (Number(pf.foldBias) || 0) - 0.05;
+      pf.threeBetBias = (Number(pf.threeBetBias) || 0) + 0.07;
+      pf.fourBetBias = (Number(pf.fourBetBias) || 0) + 0.03;
+      pf.callBias = (Number(pf.callBias) || 0) + 0.03;
+      po.betFreqMult = Math.min(1.85, (Number(po.betFreqMult) || 1) * 1.18);
+      po.bluffFreqMult = Math.min(2.0, (Number(po.bluffFreqMult) || 1) * 1.12);
+      po.raiseFreqMult = Math.min(1.9, (Number(po.raiseFreqMult) || 1) * 1.15);
+      po.foldMult = Math.max(0.55, (Number(po.foldMult) || 1) * 0.9);
+      po.betSizeMult = Math.min(1.35, (Number(po.betSizeMult) || 1) * 1.06);
+      if (id === 'pro') {
+        po.overbetWeight = Math.min(1.45, (Number(po.overbetWeight) || 1.2) * 1.1);
+        po.riverPolarMult = Math.min(1.4, (Number(po.riverPolarMult) || 1.25) * 1.08);
+      }
+    }
+
+    return Object.assign({}, base, {
+      preflop: pf,
+      postflop: po,
+      huAdjusted: true
+    });
+  }
+
   global.GTOVillainProfiles = {
     PROFILES, DIFFICULTY, DEFAULT, STRONG_IDS,
     pickRandom, pickForDifficulty, normalizeDifficulty, applyDifficulty,
+    shouldApplyHuAdjust, applyHuAdjust,
     getProfile, profileForHand, assignTableProfiles,
     postflopFacingBet, postflopLead, betSizeBB,
     adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb

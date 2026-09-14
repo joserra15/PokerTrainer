@@ -326,7 +326,7 @@
   const FORMAT_HUBS = ['cash', 'spin', 'mtt'];
   const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
   const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
-  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble'];
+  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'hu'];
   /** Etiquetas de producto (no cambian EV de bounty en este ciclo). */
   const TOURNAMENT_TYPES = ['vanilla', 'pko', 'mystery', 'unknown'];
   const TOURNAMENT_TYPE_LABELS = {
@@ -342,7 +342,7 @@
   };
 
   /** Situaciones de estructura MTT lite (buy-in + puestos / field). */
-  const MTT_STRUCTURE_SITUATIONS = ['auto', 'bubble', 'mincash', 'ft9', 'custom'];
+  const MTT_STRUCTURE_SITUATIONS = ['auto', 'bubble', 'mincash', 'ft9', 'hu', 'custom'];
   const MTT_PAYOUT_PRESETS = ['standard', 'flat', 'topheavy', 'custom'];
   /** Cap Harville lite: stacks explícitos; el resto del field se agrega en buckets. */
   const MTT_ICM_STACK_CAP = 9;
@@ -352,6 +352,7 @@
     bubble: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 },
     mincash: { playersLeft: 12, placesPaid: 12, entries: 100, mttPayoutPreset: 'flat', buyIn: 11 },
     ft9: { playersLeft: 9, placesPaid: 9, entries: 100, mttPayoutPreset: 'topheavy', buyIn: 11 },
+    hu: { playersLeft: 2, placesPaid: 1, entries: 100, mttPayoutPreset: 'topheavy', buyIn: 11 },
     custom: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 }
   };
 
@@ -367,7 +368,8 @@
     mid: 'Mid',
     short: 'Short',
     push: 'Push/fold',
-    bubble: 'Burbuja'
+    bubble: 'Burbuja',
+    hu: 'Heads Up'
   };
 
   function hubFromGameType(gameType) {
@@ -437,6 +439,7 @@
       if (p === 'short') return ['bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb20', 'bb15'];
+      if (p === 'hu') return ['bb25', 'bb20', 'bb15', 'bb10'];
     }
     if (h === 'mtt') {
       if (p === 'early') return ['bb200', 'bb100', 'bb50', 'bb40'];
@@ -444,6 +447,7 @@
       if (p === 'short') return ['bb25', 'bb20', 'bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb25', 'bb20', 'bb15'];
+      if (p === 'hu') return ['bb40', 'bb25', 'bb20', 'bb15', 'bb10'];
     }
     return null;
   }
@@ -476,6 +480,7 @@
       if (p === 'mid' || p === 'bubble') return prefer('bb20');
       if (p === 'short') return prefer('bb15');
       if (p === 'push') return prefer('bb10');
+      if (p === 'hu') return prefer('bb20');
       return prefer('bb25');
     }
     if (h === 'mtt') {
@@ -484,6 +489,7 @@
       if (p === 'short') return prefer('bb20');
       if (p === 'bubble') return prefer('bb25');
       if (p === 'push') return prefer('bb10');
+      if (p === 'hu') return prefer('bb25');
       return list[0];
     }
     return list[0];
@@ -604,6 +610,7 @@
     if (phase === 'mid') return 0.125;
     if (phase === 'short' || phase === 'bubble') return 0.15;
     if (phase === 'push') return 0.2;
+    if (phase === 'hu') return 0.15;
     return 0.125;
   }
 
@@ -722,6 +729,7 @@
   function defaultMttStructureForPhase(phase) {
     const p = normalizePhase(phase);
     if (p === 'bubble') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.bubble, { mttStructureSituation: 'bubble' });
+    if (p === 'hu') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.hu, { mttStructureSituation: 'hu' });
     if (p === 'push' || p === 'short') {
       return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
     }
@@ -804,6 +812,9 @@
   function isHeadsUpWta(config) {
     if (!config) return false;
     if (config.kind === 'hu' || config.tournamentKind === 'hu') return true;
+    const phase = config.mttPhase || config.resolvedPhase || config.effectivePhase || null;
+    if (phase === 'hu') return true;
+    if (config.mttStructureSituation === 'hu') return true;
     const paid = Number(config.placesPaid);
     if (!(paid <= 1)) return false;
     const seated = Number(
@@ -14139,6 +14150,14 @@ window.PT_NASH_PUSH_JSON = {
     if (out && out.id === 'pro' && hand.table && hand.table.proStyles && hand.table.proStyles[pos]) {
       out = Object.assign({}, out, { proStyle: hand.table.proStyles[pos] });
     }
+    var cfg = hand.playConfig || {};
+    out = applyHuAdjust(out, {
+      mttPhase: cfg.mttPhase || cfg.resolvedPhase,
+      resolvedPhase: cfg.resolvedPhase,
+      mttStructureSituation: cfg.mttStructureSituation,
+      kind: cfg.kind || cfg.tournamentKind,
+      formatHub: cfg.formatHub
+    });
     return out;
   }
 
@@ -14418,9 +14437,78 @@ window.PT_NASH_PUSH_JSON = {
     return clamp(base * (1 + (mult - 1) * scale) + (pf.callBias || 0) * scale, 0.08, 0.92);
   }
 
+
+  /**
+   * Ajuste HU explícito (fase/kind hu o Torneos IA HU).
+   * No aplicar solo porque el bote colapse a 2 en Random 6-max/3-max.
+   */
+  function shouldApplyHuAdjust(ctx) {
+    ctx = ctx || {};
+    if (ctx.kind === 'hu' || ctx.tournamentKind === 'hu') return true;
+    if (ctx.mttPhase === 'hu' || ctx.resolvedPhase === 'hu' || ctx.effectivePhase === 'hu') return true;
+    if (ctx.mttStructureSituation === 'hu') return true;
+    var Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && (ctx.mttPhase === 'hu' || ctx.kind === 'hu')) {
+      return !!Tax.isHeadsUpWta(ctx);
+    }
+    return false;
+  }
+
+  function applyHuAdjust(profile, ctx) {
+    if (!shouldApplyHuAdjust(ctx)) return profile;
+    var base = getProfile(profile);
+    var id = base.id || 'tag';
+    var pf = Object.assign({}, base.preflop || {});
+    var po = Object.assign({}, base.postflop || {});
+
+    // Más defend BB / menos fold preflop; más 3bet SB; más c-bet.
+    if (id === 'nit') {
+      pf.foldBias = (Number(pf.foldBias) || 0) - 0.06;
+      pf.callBias = (Number(pf.callBias) || 0) + 0.05;
+      pf.threeBetBias = (Number(pf.threeBetBias) || 0) + 0.03;
+      po.betFreqMult = Math.min(1.35, (Number(po.betFreqMult) || 1) * 1.35);
+      po.bluffFreqMult = Math.min(1.1, (Number(po.bluffFreqMult) || 1) * 1.45);
+      po.raiseFreqMult = Math.min(1.2, (Number(po.raiseFreqMult) || 1) * 1.3);
+      po.foldMult = Math.max(0.75, (Number(po.foldMult) || 1) * 0.85);
+    } else if (id === 'fish') {
+      pf.foldBias = (Number(pf.foldBias) || 0) - 0.04;
+      pf.callBias = (Number(pf.callBias) || 0) + 0.04;
+      po.betFreqMult = Math.min(1.25, (Number(po.betFreqMult) || 1) * 1.15);
+      po.callMult = Math.min(1.7, (Number(po.callMult) || 1) * 1.05);
+    } else if (id === 'maniac') {
+      pf.threeBetBias = (Number(pf.threeBetBias) || 0) + 0.04;
+      po.betFreqMult = Math.min(2.15, (Number(po.betFreqMult) || 1) * 1.08);
+      po.bluffFreqMult = Math.min(2.45, (Number(po.bluffFreqMult) || 1) * 1.05);
+      // Techo: no explotar a infinito
+      po.foldMult = Math.max(0.35, Number(po.foldMult) || 0.42);
+    } else {
+      // tag / lag / pro
+      pf.foldBias = (Number(pf.foldBias) || 0) - 0.05;
+      pf.threeBetBias = (Number(pf.threeBetBias) || 0) + 0.07;
+      pf.fourBetBias = (Number(pf.fourBetBias) || 0) + 0.03;
+      pf.callBias = (Number(pf.callBias) || 0) + 0.03;
+      po.betFreqMult = Math.min(1.85, (Number(po.betFreqMult) || 1) * 1.18);
+      po.bluffFreqMult = Math.min(2.0, (Number(po.bluffFreqMult) || 1) * 1.12);
+      po.raiseFreqMult = Math.min(1.9, (Number(po.raiseFreqMult) || 1) * 1.15);
+      po.foldMult = Math.max(0.55, (Number(po.foldMult) || 1) * 0.9);
+      po.betSizeMult = Math.min(1.35, (Number(po.betSizeMult) || 1) * 1.06);
+      if (id === 'pro') {
+        po.overbetWeight = Math.min(1.45, (Number(po.overbetWeight) || 1.2) * 1.1);
+        po.riverPolarMult = Math.min(1.4, (Number(po.riverPolarMult) || 1.25) * 1.08);
+      }
+    }
+
+    return Object.assign({}, base, {
+      preflop: pf,
+      postflop: po,
+      huAdjusted: true
+    });
+  }
+
   global.GTOVillainProfiles = {
     PROFILES, DIFFICULTY, DEFAULT, STRONG_IDS,
     pickRandom, pickForDifficulty, normalizeDifficulty, applyDifficulty,
+    shouldApplyHuAdjust, applyHuAdjust,
     getProfile, profileForHand, assignTableProfiles,
     postflopFacingBet, postflopLead, betSizeBB,
     adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb
@@ -14823,29 +14911,55 @@ window.PT_NASH_PUSH_JSON = {
       cbet: 1
     };
 
-    /* HU WTA / heads-up: chip-EV — sin overfold de burbuja, más agresión. */
+        /* HU explícito (fase/kind hu o Torneos IA HU): chip-EV por profundidad.
+     * No activar solo porque el bote colapse a 2 en Random 6-max/3-max. */
     const TaxHu = global.PTFormatTaxonomy;
-    const huWta = (TaxHu && TaxHu.isHeadsUpWta && TaxHu.isHeadsUpWta(ctx))
-      || !!(ctx.isHeadsUp || ctx.isHeadsUp)
-      || Number(ctx.playersSeated) === 2
-      || Number(ctx.tableMax) === 2
-      || Number(ctx.playersLeft) === 2;
-    if (huWta && hub !== 'cash') {
-      out.fold = 0.9;
-      out.raise = 1.2;
-      out.cbet = 1.18;
-      out.xr = 1.15;
-      out.bluff = 1.1;
-      out.bet = 1.1;
-      out.thinValue = 1.08;
-      out.overbet = 1.05;
-      if (phase === 'push' || phase === 'short' || stackBB <= 14) {
-        out.jamBias = 1.45;
-        out.sizeSimple = true;
-        out.overbet = 0.35;
-      } else if (stackBB <= 25) {
-        out.jamBias = 1.2;
+    const VP = global.GTOVillainProfiles;
+    const explicitHu = (VP && VP.shouldApplyHuAdjust && VP.shouldApplyHuAdjust(ctx))
+      || ctx.mttPhase === 'hu'
+      || ctx.kind === 'hu'
+      || ctx.tournamentKind === 'hu'
+      || ctx.mttStructureSituation === 'hu';
+    const huWta = explicitHu && hub !== 'cash';
+    if (huWta) {
+      // Deep (≥40bb) / mid (15–40) / short (≤14)
+      if (stackBB >= 40) {
+        out.fold = 0.88;
         out.raise = 1.22;
+        out.cbet = 1.22;
+        out.xr = 1.2;
+        out.bluff = 1.14;
+        out.bet = 1.12;
+        out.thinValue = 1.1;
+        out.overbet = 1.18;
+        out.jamBias = 1.05;
+      } else if (stackBB > 14) {
+        out.fold = 0.9;
+        out.raise = 1.24;
+        out.cbet = 1.2;
+        out.xr = 1.16;
+        out.bluff = 1.12;
+        out.bet = 1.12;
+        out.thinValue = 1.08;
+        out.overbet = 0.85;
+        out.jamBias = 1.22;
+        out.sizeSimple = stackBB <= 22;
+      } else {
+        out.fold = 0.92;
+        out.raise = 1.18;
+        out.cbet = 1.15;
+        out.xr = 0.85;
+        out.bluff = 0.95;
+        out.bet = 1.15;
+        out.thinValue = 1.05;
+        out.overbet = 0.25;
+        out.jamBias = 1.5;
+        out.sizeSimple = true;
+      }
+      if (phase === 'push' || phase === 'short') {
+        out.jamBias = clamp(out.jamBias * 1.12, 1, 1.85);
+        out.sizeSimple = true;
+        out.overbet = Math.min(out.overbet, 0.4);
       }
       if (spr < 3) {
         out.jamBias = clamp(out.jamBias * 1.15, 1, 1.85);
@@ -16930,15 +17044,35 @@ window.PT_NASH_PUSH_JSON = {
     return handWeight(buckets.threeBet, code) > 0 || handWeight(buckets.call, code) > 0;
   }
 
+  function isExplicitHu(ctx) {
+    const VP = global.GTOVillainProfiles;
+    if (VP && typeof VP.shouldApplyHuAdjust === 'function' && VP.shouldApplyHuAdjust(ctx || {})) return true;
+    const c = ctx || {};
+    return c.mttPhase === 'hu' || c.kind === 'hu' || c.tournamentKind === 'hu'
+      || c.mttStructureSituation === 'hu';
+  }
+
+  /** En HU explícito: menos fold / más 3bet-call (chip-EV). 0..~0.2 */
+  function huAggressionBias(ctx) {
+    if (!isExplicitHu(ctx)) return 0;
+    const stack = Number(ctx.stackBB) || 25;
+    if (stack <= 14) return 0.12;
+    if (stack <= 25) return 0.16;
+    return 0.14;
+  }
+
   function tournamentFoldBias(ctx) {
     if (!ctx || !ctx.isTournament) return 0;
+    // Heads Up WTA / fase hu: sin overfold ICM.
+    if (isExplicitHu(ctx)) return 0;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 0;
     const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
     let bias = 0;
     if (phase === 'bubble') bias = 0.18;
     else if (phase === 'push') bias = 0.14;
     else if (phase === 'short') bias = 0.08;
     else {
-      const Tax = global.PTFormatTaxonomy;
       if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) bias = 0.1;
     }
     // PKO / mystery: menos overfold (bounty incentive); sin EV bounty real.
@@ -16957,38 +17091,40 @@ window.PT_NASH_PUSH_JSON = {
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
     const icmBias = tournamentFoldBias(ctx);
+    const huAgg = huAggressionBias(ctx);
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
-      if (!icmBias && allowsLeak(profile, 'call', r)) return 'call';
+      if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r)) return 'call';
       return 'fold';
     }
 
     if (strict >= 0.99) {
-      const act = gtoMixAction(r, w3, wc * Math.max(0, 1 - icmBias), 'call');
+      const w3Hu = Math.min(1, w3 + huAgg * 0.35);
+      const act = gtoMixAction(r, w3Hu, wc * Math.max(0, 1 - icmBias + huAgg * 0.5), 'call');
       if (act === 'aggress') return '3bet';
       if (act === 'pass') return 'call';
       return 'fold';
     }
 
     if (w3 >= 1) {
-      if (r < VP.adjustThreeBetProb(strict >= 0.75 ? 0.72 : 0.68, profile)) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias, profile)) return 'call';
+      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.72 : 0.68) + huAgg * 0.2, profile)) return '3bet';
+      if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias + huAgg * 0.15, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
-      const freq = strict >= 0.75 ? w3 : VP.adjustThreeBetProb(0.32, profile);
+      const freq = strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.25) : VP.adjustThreeBetProb(0.32 + huAgg * 0.2, profile);
       if (r < freq) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias, profile)) return 'call';
+      if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
-      if (r < (strict >= 0.75 ? w3 : VP.adjustThreeBetProb(w3 * 0.55, profile))) return '3bet';
-      if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias, profile)) return 'call';
+      if (r < (strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.2) : VP.adjustThreeBetProb(w3 * 0.55 + huAgg * 0.15, profile))) return '3bet';
+      if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(0.14 + icmBias, profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5, profile) ? 'call' : 'fold';
+    if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.14 + icmBias - huAgg * 0.5), profile) ? 'fold' : 'call';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5 + huAgg * 0.25, profile) ? 'call' : 'fold';
     return 'fold';
   }
 
@@ -17240,7 +17376,7 @@ window.PT_NASH_PUSH_JSON = {
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
-    tournamentFoldBias
+    tournamentFoldBias, isExplicitHu, huAggressionBias
   };
 })(window);
 
@@ -18040,6 +18176,9 @@ window.PT_NASH_PUSH_JSON = {
   const HANDS_TARGETS = { 0: true, 10: true, 25: true, 50: true, 100: true };
 
   const POS_SPIN = ['BTN', 'SB', 'BB'];
+  const POS_HU = ['SB', 'BB'];
+  const DEAL_ORDER_HU = ['SB', 'BB'];
+  const RFI_POS_HU = ['SB'];
   const DEAL_ORDER_SPIN = ['SB', 'BB', 'BTN'];
   const RFI_POS_SPIN = ['BTN', 'SB'];
 
@@ -18232,6 +18371,23 @@ window.PT_NASH_PUSH_JSON = {
     c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
+
+    // Fase Heads Up: mesa 2-max + WTA (chip-EV). Solo con mttPhase/structure explícitos.
+    if (isHuPhase(c) || (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(c) && c.mttPhase === 'hu')) {
+      c.mttPhase = 'hu';
+      c.tableMax = 2;
+      c.playersSeated = 2;
+      if (c.formatHub === 'mtt' || c.formatHub === 'spin') {
+        if (c.playersLeft == null || Number(c.playersLeft) !== 2) c.playersLeft = 2;
+        if (c.placesPaid == null || Number(c.placesPaid) !== 1) c.placesPaid = 1;
+        if (!c.mttStructureSituation || c.mttStructureSituation === 'auto') {
+          c.mttStructureSituation = 'hu';
+        }
+      }
+      // Multiway no aplica en HU.
+      if (c.scenario === 'multiway' || c.scenario === 'squeeze') c.scenario = 'random';
+      c.allowMultiway = false;
+    }
     if (Tax && Tax.normalizeTournamentType) {
       c.tournamentType = Tax.normalizeTournamentType(c.tournamentType);
     } else {
@@ -18251,6 +18407,18 @@ window.PT_NASH_PUSH_JSON = {
       c.mttPayoutPreset = 'standard';
       c.mttStructureSituation = null;
       c.icmPayouts = null;
+    }
+
+    // Reaplicar HU tras limpieza de estructura MTT (Spins también usan fase hu WTA).
+    if (isHuPhase(c)) {
+      c.mttPhase = 'hu';
+      c.tableMax = 2;
+      c.playersSeated = 2;
+      c.playersLeft = 2;
+      c.placesPaid = 1;
+      c.mttStructureSituation = 'hu';
+      c.allowMultiway = false;
+      if (c.scenario === 'multiway' || c.scenario === 'squeeze') c.scenario = 'random';
     }
 
     if (c.stackDepth === 'random') {
@@ -18454,12 +18622,24 @@ window.PT_NASH_PUSH_JSON = {
     return (config && config.gameType) === 'spin3' || (config && config.formatHub) === 'spin';
   }
 
+  function isHuPhase(config) {
+    const c = config || {};
+    if (c.mttPhase === 'hu' || c.resolvedPhase === 'hu' || c.effectivePhase === 'hu') return true;
+    if (c.mttStructureSituation === 'hu') return true;
+    if (c.kind === 'hu' || c.tournamentKind === 'hu') return true;
+    return false;
+  }
+
   function is3Max(config) {
     return isSpin(config);
   }
 
   function heroPositions(config) {
     const c = normalize(config);
+    if (isHuPhase(c)) {
+      if (c.scenario === 'rfi' || c.scenario === 'push' || c.scenario === 'steal') return RFI_POS_HU.slice();
+      return POS_HU.slice();
+    }
     if (isSpin(c)) {
       if (c.scenario === 'rfi' || c.scenario === 'push') return RFI_POS_SPIN.slice();
       return POS_SPIN.slice();
@@ -18469,11 +18649,13 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function tablePositions(config) {
+    if (isHuPhase(config)) return POS_HU.slice();
     if (isSpin(config)) return POS_SPIN.slice();
     return is9Max(config) ? POS_9.slice() : POS_6.slice();
   }
 
   function dealOrder(config) {
+    if (isHuPhase(config)) return DEAL_ORDER_HU.slice();
     if (isSpin(config)) return DEAL_ORDER_SPIN.slice();
     if (is9Max(config)) return DEAL_ORDER_9.slice();
     return ['SB', 'BB', 'UTG', 'HJ', 'CO', 'BTN'];
@@ -19258,7 +19440,8 @@ window.PT_NASH_PUSH_JSON = {
     sampleCallerWeights, sampleColdCallWeights, sampleMultiwayHeroWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, isSpin, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
+    is9Max, isMtt, isSpin, isHuPhase,
+    POS_HU, DEAL_ORDER_HU, RFI_POS_HU, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
     vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
   };
 })(window);
@@ -26231,10 +26414,12 @@ window.PT_NASH_PUSH_JSON = {
       const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
       return handId ? { kind: 'history', handId: handId } : null;
     }
+    /* tournamentSession es alias histórico de session (resumen de torneo IA). */
+    const sessionKinds = p.kind === 'session' || p.kind === 'tournamentSession';
     const sessionId = typeof p.getSessionId === 'function'
       ? p.getSessionId()
-      : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
-    if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
+      : (dataObj && dataObj.id && sessionKinds ? dataObj.id : p.sessionId);
+    if (sessionKinds && sessionId) return { kind: 'session', sessionId: sessionId };
     if (p.kind === 'stats') return { kind: 'stats' };
     if (p.kind === 'learn') {
       const lessonId = typeof p.getLessonId === 'function'
@@ -26756,7 +26941,15 @@ window.PT_NASH_PUSH_JSON = {
   function showError(body, raw) {
     const err = friendlyError(raw);
     const cls = err.kind === 'busy' ? 'ai-report-notice' : 'ai-report-error';
-    body.innerHTML = '<div class="' + cls + '">' + escapeHtml(err.message) + '</div>';
+    const html = '<div class="' + cls + '">' + escapeHtml(err.message) + '</div>';
+    const thread = body && body.querySelector('.ai-coach-thread');
+    if (thread) {
+      let notice = body.querySelector('.ai-report-error, .ai-report-notice');
+      if (notice) notice.remove();
+      thread.insertAdjacentHTML('beforebegin', html);
+    } else if (body) {
+      body.innerHTML = html;
+    }
     if (raw) console.error('[PTAI] coach error:', raw);
   }
 
@@ -26843,11 +27036,32 @@ window.PT_NASH_PUSH_JSON = {
     const actions = panel.querySelector('[data-ai-actions]');
     if (status) status.textContent = state === 'loading' ? '' : (message || '');
     if (state === 'loading') {
-      if (body) body.innerHTML = loadingHtml(message || 'Consultando ForgeCoach…', hint);
+      /* No borrar el hilo: vaciar el cuerpo hace colapsar el panel (p.ej. Clasificación
+         del resumen de torneo salta / parpadea) y oculta respuestas ya mostradas. */
+      if (body) {
+        let loadEl = body.querySelector('.ai-report-loading');
+        if (!loadEl) {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = loadingHtml(message || 'Consultando ForgeCoach…', hint);
+          loadEl = wrap.firstChild;
+          const thread = body.querySelector('.ai-coach-thread');
+          if (thread) body.insertBefore(loadEl, thread);
+          else body.appendChild(loadEl);
+        } else {
+          const msg = loadEl.querySelector('.play-boot-msg');
+          if (msg) msg.textContent = message || 'Consultando ForgeCoach…';
+          const hintEl = loadEl.querySelector('.play-boot-hint');
+          if (hintEl) hintEl.textContent = hint || '';
+        }
+      }
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = true;
     } else {
+      if (body) {
+        const loadEl = body.querySelector('.ai-report-loading');
+        if (loadEl) loadEl.remove();
+      }
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = false; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = false;
@@ -40563,6 +40777,8 @@ window.PT_NASH_PUSH_JSON = {
         hint.textContent = 'ITM: todos los remaining pagan; edita «pagan» y entradas para simular el prize pool.';
       } else if (sit === 'ft9') {
         hint.textContent = 'Final table lite: 9 left. Edita buy-in/entradas/pagan para estimar premios.';
+      } else if (sit === 'hu') {
+        hint.textContent = 'Heads-Up (2 left / 1 pago): chip-EV WTA. Sincroniza la fase Heads Up; rival calibrado a meta HU.';
       } else {
         hint.textContent = 'Personalizado: entradas, quedan, pagan y curva. Buy-in × entradas ≈ prize pool.';
       }
@@ -41662,8 +41878,15 @@ window.PT_NASH_PUSH_JSON = {
           c.classList.toggle('active', c.dataset.val === next);
         });
       }
+      if (phase === 'hu' && hub === 'mtt') {
+        $$('#setup-mtt-structure .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === 'hu');
+        });
+        syncMttStructureUI();
+      } else {
+        syncMttStructureUI({ skipDefaults: true });
+      }
       syncPhaseStackUI(hub);
-      syncMttStructureUI({ skipDefaults: true });
     });
     bindChipGroup('#setup-tournament-type', markPresetCustom);
     bindChipGroup('#setup-open-size', markPresetCustom);
@@ -41693,6 +41916,15 @@ window.PT_NASH_PUSH_JSON = {
     bindChipGroup('#setup-mtt-structure', () => {
       syncMttStructureUI();
       markPresetCustom();
+      const sitEl = $('#setup-mtt-structure .setup-chip.active');
+      const sit = sitEl ? sitEl.dataset.val : 'auto';
+      if (sit === 'hu') {
+        $$('#setup-mtt-phase .setup-chip').forEach((c) => {
+          c.classList.toggle('active', c.dataset.val === 'hu');
+        });
+        const hub = activeFormatHub();
+        syncPhaseStackUI(hub);
+      }
     });
     bindChipGroup('#setup-mtt-payout-preset', () => {
       markPresetCustom();

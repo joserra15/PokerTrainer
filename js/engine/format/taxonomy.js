@@ -8,7 +8,7 @@
   const FORMAT_HUBS = ['cash', 'spin', 'mtt'];
   const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
   const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
-  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble'];
+  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'hu'];
   /** Etiquetas de producto (no cambian EV de bounty en este ciclo). */
   const TOURNAMENT_TYPES = ['vanilla', 'pko', 'mystery', 'unknown'];
   const TOURNAMENT_TYPE_LABELS = {
@@ -24,7 +24,7 @@
   };
 
   /** Situaciones de estructura MTT lite (buy-in + puestos / field). */
-  const MTT_STRUCTURE_SITUATIONS = ['auto', 'bubble', 'mincash', 'ft9', 'custom'];
+  const MTT_STRUCTURE_SITUATIONS = ['auto', 'bubble', 'mincash', 'ft9', 'hu', 'custom'];
   const MTT_PAYOUT_PRESETS = ['standard', 'flat', 'topheavy', 'custom'];
   /** Cap Harville lite: stacks explícitos; el resto del field se agrega en buckets. */
   const MTT_ICM_STACK_CAP = 9;
@@ -34,6 +34,7 @@
     bubble: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 },
     mincash: { playersLeft: 12, placesPaid: 12, entries: 100, mttPayoutPreset: 'flat', buyIn: 11 },
     ft9: { playersLeft: 9, placesPaid: 9, entries: 100, mttPayoutPreset: 'topheavy', buyIn: 11 },
+    hu: { playersLeft: 2, placesPaid: 1, entries: 100, mttPayoutPreset: 'topheavy', buyIn: 11 },
     custom: { playersLeft: 13, placesPaid: 12, entries: 100, mttPayoutPreset: 'standard', buyIn: 11 }
   };
 
@@ -49,7 +50,8 @@
     mid: 'Mid',
     short: 'Short',
     push: 'Push/fold',
-    bubble: 'Burbuja'
+    bubble: 'Burbuja',
+    hu: 'Heads Up'
   };
 
   function hubFromGameType(gameType) {
@@ -119,6 +121,7 @@
       if (p === 'short') return ['bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb20', 'bb15'];
+      if (p === 'hu') return ['bb25', 'bb20', 'bb15', 'bb10'];
     }
     if (h === 'mtt') {
       if (p === 'early') return ['bb200', 'bb100', 'bb50', 'bb40'];
@@ -126,6 +129,7 @@
       if (p === 'short') return ['bb25', 'bb20', 'bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb25', 'bb20', 'bb15'];
+      if (p === 'hu') return ['bb40', 'bb25', 'bb20', 'bb15', 'bb10'];
     }
     return null;
   }
@@ -158,6 +162,7 @@
       if (p === 'mid' || p === 'bubble') return prefer('bb20');
       if (p === 'short') return prefer('bb15');
       if (p === 'push') return prefer('bb10');
+      if (p === 'hu') return prefer('bb20');
       return prefer('bb25');
     }
     if (h === 'mtt') {
@@ -166,6 +171,7 @@
       if (p === 'short') return prefer('bb20');
       if (p === 'bubble') return prefer('bb25');
       if (p === 'push') return prefer('bb10');
+      if (p === 'hu') return prefer('bb25');
       return list[0];
     }
     return list[0];
@@ -286,6 +292,7 @@
     if (phase === 'mid') return 0.125;
     if (phase === 'short' || phase === 'bubble') return 0.15;
     if (phase === 'push') return 0.2;
+    if (phase === 'hu') return 0.15;
     return 0.125;
   }
 
@@ -404,6 +411,7 @@
   function defaultMttStructureForPhase(phase) {
     const p = normalizePhase(phase);
     if (p === 'bubble') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.bubble, { mttStructureSituation: 'bubble' });
+    if (p === 'hu') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.hu, { mttStructureSituation: 'hu' });
     if (p === 'push' || p === 'short') {
       return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
     }
@@ -486,6 +494,9 @@
   function isHeadsUpWta(config) {
     if (!config) return false;
     if (config.kind === 'hu' || config.tournamentKind === 'hu') return true;
+    const phase = config.mttPhase || config.resolvedPhase || config.effectivePhase || null;
+    if (phase === 'hu') return true;
+    if (config.mttStructureSituation === 'hu') return true;
     const paid = Number(config.placesPaid);
     if (!(paid <= 1)) return false;
     const seated = Number(
