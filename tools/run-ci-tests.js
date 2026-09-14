@@ -41,6 +41,7 @@ const STEPS = [
   ['Test matriz GTO no all-fold push/cash', ['node', 'tools/test-gto-matrix-pushfold-allfold.js']],
   ['Test contexto torneo análisis/bridge', ['node', 'tools/test-tournament-context.js']],
   ['Test GTO eval UI', ['node', 'tools/test-gto-eval-ui.js']],
+  ['Test GTO river torneo coherencia paso a paso/resumen', ['node', 'tools/test-gto-river-tournament-coherence.js']],
   ['Test range cell popup', ['node', 'tools/test-range-cell-popup.js']],
   ['Test BB vs SB', ['node', 'tools/test-bb-vs-sb-position.js']],
   ['Test coherencia "mejor" vs mezcla GTO', ['node', 'tools/test-best-mix-coherence.js']],

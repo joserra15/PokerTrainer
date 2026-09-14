@@ -1548,19 +1548,21 @@
         delete freqs.raise;
       }
     }
-    var keys = Object.keys(freqs);
-    if (!keys.length) return null;
+    var order = (opts.availableActions && opts.availableActions.length)
+      ? opts.availableActions.slice()
+      : Object.keys(freqs);
+    if (!order.length) return null;
     var sum = 0;
-    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    Object.keys(freqs).forEach(function (id) { sum += Number(freqs[id]) || 0; });
     if (sum > 0 && Math.abs(sum - 1) > 0.02) {
-      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+      Object.keys(freqs).forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
     }
     var LABEL = {
       fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE',
       allin: 'ALL-IN', 'all-in': 'ALL-IN',
       bet_33: 'BET 33%', bet_66: 'BET 66%', bet_100: 'BET POT'
     };
-    return keys.map(function (id) {
+    var rows = order.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       return {
         id: id,
@@ -1568,8 +1570,34 @@
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
-    }).filter(function (o) { return o.frequency >= 0.005; })
-      .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    var positive = rows.filter(function (o) { return o.frequency >= 0.005; });
+    if (positive.length >= 2) {
+      rows = positive;
+    } else if (rows.length > 1) {
+      /* Misma inyección cosmética que LocalSolver: no dejar un único CHECK 100%. */
+      var top = rows.slice(0, Math.min(3, rows.length)).map(function (r, i) {
+        if (i === 0) return r;
+        if (r.frequency < 0.02) {
+          return Object.assign({}, r, {
+            frequency: Math.max(r.frequency, 0.04),
+            pct: Math.max(r.pct, 4)
+          });
+        }
+        return r;
+      });
+      var extra = top.slice(1).reduce(function (s, r) { return s + r.frequency; }, 0);
+      if (top[0] && extra > 0) {
+        top[0] = Object.assign({}, top[0], {
+          frequency: Math.max(0.5, 1 - extra),
+          pct: Math.max(50, Math.round((1 - extra) * 1000) / 10)
+        });
+      }
+      rows = top;
+    } else {
+      rows = positive;
+    }
+    return rows.length ? rows : null;
   }
 
   function vsPosition(hand, hero) {
@@ -1806,7 +1834,14 @@
       base.explanation = graded.explanation;
       base.strategy = graded.strategy;
       base.gto = graded.strategy;
-      base.optionBreakdown = optionBreakdown(graded.strategy, { pushFold: !!input.pushFold });
+      /* Misma rejilla que paso a paso / LocalSolver (incluye residuales visibles).
+         Reconstruir solo desde strategy colapsaba a CHECK 100% en torneos. */
+      base.optionBreakdown = (result.optionBreakdown && result.optionBreakdown.length)
+        ? result.optionBreakdown
+        : optionBreakdown(graded.strategy, {
+          pushFold: !!input.pushFold,
+          availableActions: input.availableActions
+        });
       /* Persistir opciones legales = misma mezcla que Entrenar / recompute / matriz. */
       base.options = (input.availableActions || []).slice();
       base.availableActions = base.options.slice();
@@ -1893,6 +1928,7 @@
     summarizeDecisions: summarizeDecisions,
     buildInput: buildInput,
     mapClass: mapClass,
+    optionBreakdown: optionBreakdown,
     resolveFormatHub: resolveFormatHub,
     resolveTournamentPhase: resolveTournamentPhase,
     isFirstInOpen: isFirstInOpen,
@@ -6607,22 +6643,23 @@
         delete freqs.raise;
       }
     }
-    var keys = Object.keys(freqs);
-    if (!keys.length) return null;
+    var order = (opts.availableActions && opts.availableActions.length)
+      ? opts.availableActions.slice()
+      : Object.keys(freqs);
+    if (!order.length) return null;
     var sum = 0;
-    keys.forEach(function (id) { sum += Number(freqs[id]) || 0; });
+    Object.keys(freqs).forEach(function (id) { sum += Number(freqs[id]) || 0; });
     if (sum > 0 && Math.abs(sum - 1) > 0.02) {
-      keys.forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
+      Object.keys(freqs).forEach(function (id) { freqs[id] = (Number(freqs[id]) || 0) / sum; });
     }
     var LABEL = {
       fold: 'FOLD', check: 'CHECK', call: 'CALL', bet: 'BET', raise: 'RAISE',
       allin: 'ALL-IN', 'all-in': 'ALL-IN',
       bet_33: 'BET 33%', bet_66: 'BET 66%', bet_100: 'BET POT'
     };
-    return keys.map(function (id) {
+    var rows = order.map(function (id) {
       var freq = Number(freqs[id]) || 0;
       var rawLabel = null;
-      /* Preferir labels ya normalizados (FOLD/CALL…) sobre «Raise to 0 bb». */
       if (opts.labels && opts.labels[id]) rawLabel = opts.labels[id];
       return {
         id: id,
@@ -6630,8 +6667,30 @@
         pct: Math.round(freq * 1000) / 10,
         frequency: freq
       };
-    }).filter(function (o) { return o.frequency >= 0.005; })
-      .sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    }).sort(function (a, b) { return (b.frequency || 0) - (a.frequency || 0); });
+    var positive = rows.filter(function (o) { return o.frequency >= 0.005; });
+    if (positive.length >= 2) return positive;
+    if (rows.length > 1) {
+      var top = rows.slice(0, Math.min(3, rows.length)).map(function (r, i) {
+        if (i === 0) return r;
+        if (r.frequency < 0.02) {
+          return Object.assign({}, r, {
+            frequency: Math.max(r.frequency, 0.04),
+            pct: Math.max(r.pct, 4)
+          });
+        }
+        return r;
+      });
+      var extra = top.slice(1).reduce(function (s, r) { return s + r.frequency; }, 0);
+      if (top[0] && extra > 0) {
+        top[0] = Object.assign({}, top[0], {
+          frequency: Math.max(0.5, 1 - extra),
+          pct: Math.max(50, Math.round((1 - extra) * 1000) / 10)
+        });
+      }
+      return top;
+    }
+    return positive.length ? positive : null;
   }
 
   function resolveHandCode(cards) {
@@ -6685,7 +6744,11 @@
         };
       });
     } else {
-      breakdown = optionBreakdownFromStrategy(strategy, { pushFold: pushFold });
+      breakdown = optionBreakdownFromStrategy(strategy, {
+        pushFold: pushFold,
+        availableActions: d.options || d.availableActions
+          || (d.input && (d.input.availableActions || d.input.options)) || null
+      });
     }
     var opts = d.options || d.availableActions
       || (d.input && (d.input.availableActions || d.input.options)) || null;
