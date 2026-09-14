@@ -104,8 +104,14 @@ sandbox.localStorage.setItem('pt_stats_v1_user-ob-infer', JSON.stringify({
   byStreet: {},
   updatedAt: 9
 }));
-assert.ok(!OB.shouldShow(), 'stats sincronizadas infieren los 3 pasos');
+assert.ok(OB.shouldShow(), 'con 12 manos solo se infiere calentamiento, no los 3 pasos');
+assert.ok(OB.isDone('warmup'), 'warmup inferido por manos/decisiones');
+assert.ok(!OB.isDone('demo'), 'demo no se infiere solo por entrenar');
+assert.ok(!OB.isDone('leaks'), 'leaks exige visitar Stats/Errores');
+OB.markSampleOpened();
+OB.notifyLeaksViewed();
+assert.ok(!OB.shouldShow(), 'tras demo+leaks + warmup inferido se oculta');
 const inferred = OB.getCloudState();
-assert.ok(inferred.done.demo && inferred.done.warmup && inferred.done.leaks, 'inferencia completa');
+assert.ok(inferred.done.demo && inferred.done.warmup && inferred.done.leaks, 'los 3 pasos completados');
 
 console.log('*** onboarding-sync OK (nube + inferencia) ***');

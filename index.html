@@ -709,6 +709,7 @@
             <span class="setup-label">Duración del bloque</span>
             <div class="setup-chips" id="setup-hands-target">
               <button type="button" class="setup-chip active" data-val="0">Continua</button>
+              <button type="button" class="setup-chip" data-val="10">10 manos</button>
               <button type="button" class="setup-chip" data-val="25">25 manos</button>
               <button type="button" class="setup-chip" data-val="50">50 manos</button>
               <button type="button" class="setup-chip" data-val="100">100 manos</button>
@@ -779,7 +780,7 @@
           </div>
           <div class="setup-mtt-structure-fields" id="setup-mtt-structure-fields">
             <label class="setup-inline-field" for="setup-mtt-buyin">
-              <span>Buy-in €</span>
+              <span>Buy-in (€)</span>
               <input type="number" id="setup-mtt-buyin" min="0" step="1" value="11" inputmode="decimal" />
             </label>
             <label class="setup-inline-field" for="setup-mtt-entries" id="setup-mtt-entries-wrap">
@@ -787,11 +788,11 @@
               <input type="number" id="setup-mtt-entries" min="2" max="5000" step="1" value="100" inputmode="numeric" />
             </label>
             <label class="setup-inline-field" for="setup-mtt-players-left" id="setup-mtt-players-left-wrap" hidden>
-              <span>Quedan (left)</span>
+              <span>Jugadores restantes</span>
               <input type="number" id="setup-mtt-players-left" min="2" max="50" step="1" value="13" inputmode="numeric" />
             </label>
             <label class="setup-inline-field" for="setup-mtt-places-paid" id="setup-mtt-places-paid-wrap" hidden>
-              <span>Pagan (paid)</span>
+              <span>Plazas pagadas</span>
               <input type="number" id="setup-mtt-places-paid" min="1" max="500" step="1" value="12" inputmode="numeric" />
             </label>
             <div class="setup-chips" id="setup-mtt-payout-preset" hidden>
@@ -800,7 +801,7 @@
               <button type="button" class="setup-chip" data-val="topheavy">Top-heavy</button>
             </div>
           </div>
-          <p class="muted-text setup-hint" id="setup-mtt-structure-hint">Buy-in × entradas ≈ prize pool. «Pagan» define el ladder; «Quedan» el field ICM. No es un solver de torneo completo.</p>
+          <p class="muted-text setup-hint" id="setup-mtt-structure-hint">Buy-in × entradas ≈ prize pool. «Plazas pagadas» define el ladder; «Jugadores restantes» el field ICM. No es un solver de torneo completo.</p>
           <p class="muted-text setup-hint" id="setup-mtt-prize-hint" hidden></p>
         </div>
 
@@ -1120,7 +1121,7 @@
           </label>
           <div class="setup-mtt-structure-fields" id="ranges-icm-fields" hidden>
             <label class="setup-inline-field" for="ranges-mtt-buyin">
-              <span>Buy-in €</span>
+              <span>Buy-in (€)</span>
               <input type="number" id="ranges-mtt-buyin" min="0" step="1" value="11" inputmode="decimal" />
             </label>
             <label class="setup-inline-field" for="ranges-mtt-entries">
@@ -1201,7 +1202,7 @@
         </div>
         <div class="import-box">
           <h3>Añadir sesión</h3>
-          <p class="muted-text">Adjunta <code>.txt</code> de PokerStars, Winamax, GGPoker, 888poker o CoinPoker (NLHE; PLO/Short Deck sin GTO). El <strong>Hand History</strong> analiza manos GTO; el <strong>Tournament History</strong> de PokerStars se importa como resultados (puesto, profit, ROI) sin revisión de manos.</p>
+          <p class="muted-text">Adjunta <code>.txt</code> de PokerStars, Winamax, GGPoker, 888poker o CoinPoker (NLHE; PLO/Short Deck sin GTO). El <strong>historial de manos</strong> (Hand History) analiza manos GTO; el <strong>historial de torneo</strong> (Tournament History) de PokerStars se importa como resultados (puesto, profit, ROI) sin revisión de manos.</p>
           <div id="sessions-usage" class="usage-quota-host hidden" aria-label="Límites de importación"></div>
           <div class="import-row">
             <input type="file" id="session-file" accept=".txt,text/plain" multiple />
