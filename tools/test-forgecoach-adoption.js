@@ -33,7 +33,10 @@ assert.ok(/3\/mes de prueba/.test(haSrc), 'hand-analysis trial copy');
 assert.ok(!/Gratis no incluye IA;/.test(haSrc), 'hand-analysis sin Gratis=0');
 
 assert.ok(/id: 'coach'/.test(onboardingSrc), 'onboarding paso coach');
-assert.ok(/ai_coach_impression/.test(aiSrc), 'evento impression');
+assert.ok(/No pedir consent en el saludo|if \(!hasConsent\(\)\) return null/.test(aiSrc), 'saludo sin modal consent');
+assert.ok(/pt_ai_consent_v1/.test(fs.readFileSync(path.join(root, 'e2e/helpers.js'), 'utf8')), 'e2e seed AI consent');
+assert.ok(/dismissAiConsentModal/.test(fs.readFileSync(path.join(root, 'e2e/helpers.js'), 'utf8')), 'e2e dismiss consent modal');
+
 assert.ok(/ai_coach_cta_click/.test(aiSrc), 'evento cta');
 assert.ok(/ai_consent_accept/.test(aiSrc), 'evento consent accept');
 assert.ok(/ai_paywall_shown/.test(aiSrc) && /ai_paywall_shown/.test(billingSrc), 'evento paywall');

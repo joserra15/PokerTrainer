@@ -27230,16 +27230,16 @@ window.PT_NASH_PUSH_JSON = {
   async function fetchHomeGreeting(getStatsBundle) {
     if (!isEnabled()) return null;
     if (isGuestSession()) return null;
+    // No pedir consent en el saludo: el modal bloquearía la UI. Solo saludamos
+    // si el usuario ya aceptó ForgeCoach en una consulta previa.
+    if (!hasConsent()) return null;
     const cached = readGreetingCache();
     if (cached) return cached;
     if (homeGreetingInFlight) return homeGreetingInFlight;
 
     homeGreetingInFlight = (async function () {
-      const consent = await ensureConsent('statsGlobal');
-      if (!consent) return null;
-      // Releer tras el consentimiento por si otra pestaña ya guardó el saludo.
-      const cachedAfterConsent = readGreetingCache();
-      if (cachedAfterConsent) return cachedAfterConsent;
+      const cachedAfter = readGreetingCache();
+      if (cachedAfter) return cachedAfter;
       const Payload = global.PTAIHandPayload;
       if (!Payload || !Payload.build) return null;
       const bundle = typeof getStatsBundle === 'function' ? getStatsBundle() : getStatsBundle;
