@@ -2770,8 +2770,15 @@ function reducedMotion() {
         getHand: function () { return session; },
         getData: function () { return session; },
         persist: {
-          kind: 'tournamentSession',
+          /* Misma persistencia que el resumen de sesión: coachThread en Store.session */
+          kind: 'session',
           getSessionId: function () { return session.id; }
+        },
+        onThreadUpdate: function (thread) {
+          if (session) session.coachThread = thread;
+          if (ui.state && ui.state._savedSession && ui.state._savedSession.id === session.id) {
+            ui.state._savedSession.coachThread = thread;
+          }
         }
       });
     } catch (eM) {
@@ -2805,9 +2812,39 @@ function reducedMotion() {
       return;
     }
     setTableActiveClass(ui.view === VIEW.table);
+    /* Conservar el panel ForgeCoach al repintar el resumen: evita borrar respuestas
+       y el salto de la Clasificación (parpadeo). */
+    var preservedCoach = null;
+    var preserveSessionId = null;
+    if (ui.view === VIEW.result) {
+      try {
+        var prevHost = ui.root.querySelector('#ai-coach-tournament');
+        var prevPanel = prevHost && prevHost.querySelector('.ai-report-panel');
+        if (prevPanel) {
+          preservedCoach = prevPanel;
+          preserveSessionId = ui.state && ui.state._savedSession && ui.state._savedSession.id
+            ? String(ui.state._savedSession.id)
+            : (ui.state && ui.state.result && ui.state.result.sessionId
+              ? String(ui.state.result.sessionId)
+              : null);
+        }
+      } catch (ePrev) { preservedCoach = null; }
+    }
     ui.root.innerHTML = html;
     bind(ui.root);
-    if (ui.view === VIEW.result) mountTournamentCoach();
+    if (ui.view === VIEW.result) {
+      var rehost = ui.root.querySelector('#ai-coach-tournament');
+      var sameSession = preserveSessionId && ui.state && (
+        (ui.state._savedSession && String(ui.state._savedSession.id) === preserveSessionId) ||
+        (ui.state.result && String(ui.state.result.sessionId) === preserveSessionId)
+      );
+      if (rehost && preservedCoach && sameSession) {
+        rehost.innerHTML = '';
+        rehost.appendChild(preservedCoach);
+      } else {
+        mountTournamentCoach();
+      }
+    }
   }
 
   /** Anima lo que acaba de resolver el motor y luego cierra el turno. */
