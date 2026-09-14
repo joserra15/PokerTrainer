@@ -851,6 +851,12 @@
     spotCtx.toCallBB = tcBB;
     spotCtx.potBeforeBB = potBeforeBB;
     if (tcBB > 0) spotCtx.villainBetRatio = tcBB / potBeforeBB;
+    /* Presión multi-calle del héroe → defensa MDF/pot-odds (no fold ciego). */
+    spotCtx.heroLine = heroLine || null;
+    spotCtx.potOdds = tc > 0 ? tc / (pot + tc) : 0;
+    spotCtx.aiLevel = profile.aiLevel || aiLevelOf(hand);
+    spotCtx.strength = strength;
+    spotCtx.band = band;
 
     var eq = strength;
     try {
@@ -908,11 +914,7 @@
     /* Facing */
     if (tc > 0) {
       var refined = DC.refineFacing(strat, spotCtx);
-      if (heroLine.aggressive && strength < 0.45) {
-        refined.freqs.fold = (refined.freqs.fold || 0) * 1.2;
-        refined.freqs.call = (refined.freqs.call || 0) * 0.85;
-        refined.freqs = DC.normalize(refined.freqs);
-      }
+      /* Defensa ante barrels: GTOVillainProExploit.adjustFacingForLinePressure vía refineFacing. */
       var act = DC.sampleFacing(refined.freqs, rnd, {
         neverFold: neverFold,
         canRaise: tc > 0
@@ -1148,9 +1150,27 @@
         face = 'raise';
       }
 
-      /* Hero multi-street aggression → más fold con manos medias. */
+      /* Hero multi-street aggression → fold disciplinado (equity/pot odds), no 55% fijo. */
       if (heroLine.aggressive && strength < 0.45 && face !== 'raise') {
-        if (Math.random() < 0.55) face = 'fold';
+        var ExPress = global.GTOVillainProExploit;
+        var pressCtx = {
+          strength: strength,
+          potOdds: potOdds,
+          heroLine: heroLine,
+          aiLevel: profile.aiLevel || aiLevelOf(hand),
+          band: strength < 0.28 ? 'air' : (strength < 0.42 ? 'bluffcatch' : 'merge'),
+          hasDraw: (street === 'flop' || street === 'turn') && strength >= 0.32 && strength <= 0.5,
+          heroProfile: ctx.heroProfile || null,
+          heroSessionStats: ctx.heroSessionStats || null,
+          proStyle: profile.proStyle || null,
+          formatHub: ctx.formatHub
+        };
+        if (ExPress && typeof ExPress.maybeFoldUnderPressure === 'function') {
+          var ov = ExPress.maybeFoldUnderPressure(face, pressCtx, Math.random());
+          if (ov) face = ov;
+        } else if (Math.random() < 0.28) {
+          face = 'fold';
+        }
       }
 
       face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd);

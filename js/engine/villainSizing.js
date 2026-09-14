@@ -97,6 +97,25 @@
     entries.forEach(function (e) { sum += e.p; });
     if (sum <= 0) return { action: 'check', sizeKey: null, frac: 0, amountBB: 0 };
 
+    // Sizing contextual: wet/high-SPR → sizes mayores; dry → más pequeños; SPR bajo → polar/jam.
+    const texture = ctx.texture || {};
+    const spr = ctx.spr != null ? ctx.spr : 8;
+    const wet = !!(texture.wet || texture.connected || texture.monotone);
+    const dry = !wet && !texture.paired;
+    entries.forEach(function (e) {
+      if (e.key === 'check') return;
+      if (spr <= 3 && (e.key === 'bet_100' || e.key === 'overbet' || e.key === 'bet_125')) e.p *= 1.35;
+      if (spr <= 3 && (e.key === 'bet_33')) e.p *= 0.7;
+      if (wet && (e.key === 'bet_66' || e.key === 'bet_100')) e.p *= 1.18;
+      if (wet && e.key === 'bet_33') e.p *= 0.82;
+      if (dry && e.key === 'bet_33') e.p *= 1.15;
+      if (dry && (e.key === 'bet_100' || e.key === 'overbet')) e.p *= 0.88;
+      if (ctx.street === 'river' && (ctx.band === 'nuts' || ctx.band === 'air') && e.key === 'overbet') e.p *= 1.25;
+    });
+    sum = 0;
+    entries.forEach(function (e) { sum += e.p; });
+    if (sum <= 0) return { action: 'check', sizeKey: null, frac: 0, amountBB: 0 };
+
     let acc = 0;
     const roll = rnd * sum;
     for (let i = 0; i < entries.length; i++) {

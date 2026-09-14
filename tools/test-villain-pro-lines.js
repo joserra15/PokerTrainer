@@ -217,8 +217,12 @@ assert.ok((strat.check || 0) + (strat.bet_33 || 0) + (strat.bet_66 || 0) + (stra
 
 // --- Hero profile from stats + adaptive exploit multipliers ---
 assert.strictEqual(typeof Ex.profileFromStats, 'function', 'profileFromStats export');
-assert.strictEqual(Ex.profileFromStats({ handsPlayed: 5, vpipHands: 3, pfrHands: 1 }), null,
-  'sample < MIN_SAMPLE → null');
+assert.ok(Ex.MIN_SAMPLE <= 8, 'MIN_SAMPLE lowered for faster adaptation');
+assert.ok(Ex.PARTIAL_SAMPLE >= 3 && Ex.PARTIAL_SAMPLE < Ex.MIN_SAMPLE, 'PARTIAL_SAMPLE window');
+assert.strictEqual(Ex.profileFromStats({ handsPlayed: 3, vpipHands: 2, pfrHands: 1 }), null,
+  'sample < PARTIAL_SAMPLE → null');
+assert.strictEqual(Ex.profileFromStats({ handsPlayed: 5, vpipPct: 45, pfrPct: 12 }), 'callingStation',
+  'partial sample can tag station');
 
 const overfolder = Ex.profileFromStats({
   handsPlayed: 40, vpipPct: 22, pfrPct: 18, foldToCbetFlopPct: 70
@@ -230,6 +234,16 @@ const station = Ex.profileFromStats({
 });
 assert.strictEqual(station, 'callingStation', 'high VPIP gap → callingStation');
 
+const barrelBot = Ex.profileFromStats({
+  handsPlayed: 20, vpipPct: 34, pfrPct: 28, multiStreetAggPct: 48
+});
+assert.strictEqual(barrelBot, 'barrelBot', 'multi-street agg → barrelBot');
+
+const stationRiver = Ex.profileFromStats({
+  handsPlayed: 20, vpipPct: 30, pfrPct: 22, riverCallPct: 62, foldToCbetFlopPct: 40
+});
+assert.strictEqual(stationRiver, 'stationRiver', 'high river call → stationRiver');
+
 const baseM = Ex.multipliers({ formatHub: 'cash', proStyle: 'exploit_pool' });
 const vsOver = Ex.multipliers({
   formatHub: 'cash', proStyle: 'exploit_pool', heroProfile: 'overfolder'
@@ -237,18 +251,103 @@ const vsOver = Ex.multipliers({
 const vsStation = Ex.multipliers({
   formatHub: 'cash', proStyle: 'exploit_pool', heroProfile: 'callingStation'
 });
+const vsBarrel = Ex.multipliers({
+  formatHub: 'cash', proStyle: 'exploit_pool', heroProfile: 'barrelBot'
+});
 assert.ok(vsOver.barrel > baseM.barrel && vsOver.bluff > baseM.bluff,
   'overfolder → more barrel/bluff');
 assert.ok(vsStation.thinValue > baseM.thinValue && vsStation.bluff < baseM.bluff,
   'callingStation → more thin value, less bluff');
+assert.ok((vsBarrel.defend || 1) > (baseM.defend || 1),
+  'barrelBot → higher defend multiplier');
 
 const balanced = Ex.multipliers({
   formatHub: 'cash', proStyle: 'balanced', heroProfile: 'overfolder'
 });
 assert.strictEqual(balanced.barrel, 1, 'balanced ignores hero profile');
 
+// --- P0: line-pressure defense is pot-odds aware (not flat ~55% fold) ---
+assert.strictEqual(typeof Ex.foldProbUnderPressure, 'function');
+assert.strictEqual(typeof Ex.adjustFacingForLinePressure, 'function');
+assert.strictEqual(typeof Ex.maybeFoldUnderPressure, 'function');
+
+const foldGoodPrice = Ex.foldProbUnderPressure({
+  strength: 0.42,
+  potOdds: 0.22,
+  heroLine: { aggressive: true, multiStreetAgg: 2 },
+  aiLevel: 'elite',
+  band: 'merge',
+  hasDraw: true
+});
+const foldBadPrice = Ex.foldProbUnderPressure({
+  strength: 0.30,
+  potOdds: 0.48,
+  heroLine: { aggressive: true, multiStreetAgg: 3 },
+  aiLevel: 'solid',
+  band: 'air'
+});
+assert.ok(foldGoodPrice < 0.22, 'good pot odds → low foldP, got ' + foldGoodPrice);
+assert.ok(foldBadPrice > foldGoodPrice, 'bad pot odds folds more than good');
+assert.ok(foldBadPrice <= 0.58, 'foldP capped, got ' + foldBadPrice);
+
+const adjPress = Ex.adjustFacingForLinePressure(
+  { fold: 0.55, call: 0.35, raise: 0.1 },
+  {
+    strength: 0.40,
+    potOdds: 0.22,
+    heroLine: { aggressive: true, multiStreetAgg: 2 },
+    aiLevel: 'elite',
+    band: 'merge',
+    hasDraw: true
+  }
+);
+assert.ok(adjPress.fold < 0.4, 'pressure adjust does not keep ~55% fold, got ' + adjPress.fold);
+assert.ok(adjPress.call > adjPress.fold, 'prefer call over fold with equity vs price');
+
+let pressFolds = 0;
+const N = 2000;
+for (let i = 0; i < N; i++) {
+  const ov = Ex.maybeFoldUnderPressure('call', {
+    strength: 0.40,
+    potOdds: 0.22,
+    heroLine: { aggressive: true, multiStreetAgg: 2 },
+    aiLevel: 'elite',
+    band: 'merge',
+    hasDraw: true
+  }, i / N);
+  if (ov === 'fold') pressFolds++;
+}
+const pressFoldRate = pressFolds / N;
+assert.ok(pressFoldRate < 0.25,
+  'elite vs barrels with price continues often, foldRate=' + pressFoldRate.toFixed(3));
+
+// --- P3: Pro seats get micro-variation of proStyle ---
+const tableHand = { table: {}, playConfig: { villainLevel: 'pro' } };
+VP.assignTableProfiles(tableHand, ['SB', 'BB', 'UTG', 'MP', 'CO', 'BTN'], 'SB', 'pro');
+assert.ok(tableHand.table.proStyles, 'proStyles map assigned');
+const styleSet = {};
+Object.keys(tableHand.table.proStyles).forEach(function (pos) {
+  styleSet[tableHand.table.proStyles[pos]] = true;
+  const seatProf = VP.profileForHand(tableHand, pos);
+  assert.strictEqual(seatProf.proStyle, tableHand.table.proStyles[pos],
+    'profileForHand picks seat proStyle');
+});
+assert.ok(styleSet.balanced && styleSet.exploit_pool,
+  'pro table mixes balanced + exploit_pool');
+
+// --- XR facing boost softer (less telegraph) ---
+const xrFacing = LP.adjustFacing(
+  { fold: 0.4, call: 0.4, raise: 0.2 },
+  Object.assign({}, xrCtx, { lineIntent: 'checkRaise', strength: 0.55 })
+);
+assert.ok(xrFacing.raise < 0.5, 'mid-hand XR boost capped, raise=' + xrFacing.raise);
+assert.ok(xrFacing.call > 0.25, 'XR facing keeps call mix');
+
 console.log('OK test-villain-pro-lines');
 console.log('  XR setup rate:', xrRate.toFixed(3));
 console.log('  size sample:', JSON.stringify(counts));
 console.log('  cash overbet mult:', cashDeep.overbet.toFixed(2), 'spin push overbet:', spinPush.overbet.toFixed(2));
-console.log('  hero profiles:', overfolder, station);
+console.log('  hero profiles:', overfolder, station, barrelBot, stationRiver);
+console.log('  pressure foldP good/bad:', foldGoodPrice.toFixed(3), foldBadPrice.toFixed(3),
+  'elite continue foldRate:', pressFoldRate.toFixed(3));
+console.log('  proStyles:', JSON.stringify(tableHand.table.proStyles));
