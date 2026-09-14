@@ -87,6 +87,12 @@ assert.ok(/syncCardStyleFromSettings|PTCardStyle\.save/.test(settingsSrc), 'pers
 const css = fs.readFileSync(path.join(__dirname, '..', 'css/styles.css'), 'utf8');
 assert.ok(/\[data-card-style="colored"\][\s\S]*\.card\.suit-h/.test(css), 'CSS corazones');
 assert.ok(/\[data-card-style="colored"\][\s\S]*color:\s*#fff/.test(css), 'glifos blancos');
+assert.ok(
+  /\[data-card-style="colored"\][\s\S]*border-color:\s*rgba\(255,\s*250,\s*245/.test(css),
+  'marco claro fino en mazo colored'
+);
+assert.ok(/repeating-linear-gradient\(/.test(css) && /\.card-back/.test(css), 'reverso trama rombos');
+assert.ok(/mask:\s*var\(--pt-spade\)\s+center\s*\/\s*32%/.test(css), 'aspe reverso más pequeño');
 
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'js/app.js'), 'utf8');
 assert.ok(/cardStyle:/.test(appSrc) && /applyActiveCardStyle/.test(appSrc), 'cableado entrenador');
