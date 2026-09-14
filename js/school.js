@@ -693,7 +693,7 @@
    */
   function canPlayLesson(lessonId) {
     if (!schoolMenuVisible()) {
-      return { ok: false, reason: 'admin_only', message: 'Escuela en pruebas (solo administración).' };
+      return { ok: false, reason: 'admin_only', message: 'La Escuela aún tiene acceso limitado.' };
     }
     var lesson = Data() && Data().getLesson(lessonId);
     if (!lesson) return { ok: false, reason: 'missing', message: 'Lección no encontrada.' };
@@ -2334,7 +2334,20 @@
     var root = container || document.getElementById('school-content');
     if (!root) return;
     if (!schoolMenuVisible()) {
-      root.innerHTML = '<div class="school-page"><p class="muted-text">Escuela de Póker está en pruebas (solo administración).</p></div>';
+      root.innerHTML = '<div class="school-page school-gated">' +
+        '<p class="muted-text">La Escuela aún tiene acceso limitado.</p>' +
+        '<p class="muted-text">Mientras tanto puedes entrenar spots o seguir la Guía básica.</p>' +
+        '<div class="empty-state-actions">' +
+        '<button type="button" class="btn btn-primary btn-sm" data-school-go="play">Entrenar</button> ' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-school-go="learn">Guía básica</button> ' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-school-go="contact">Solicitar acceso</button>' +
+        '</div></div>';
+      root.querySelectorAll('[data-school-go]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var tab = btn.getAttribute('data-school-go');
+          if (typeof global.goToTab === 'function') global.goToTab(tab, tab === 'play' ? { setup: true } : undefined);
+        });
+      });
       return;
     }
     if (!Data()) {

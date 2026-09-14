@@ -1,4 +1,4 @@
-/* Primeros pasos: merge nube/local, inferencia desde stats y push entre dispositivos. */
+/* Primeros pasos: merge nube/local, inferencia por paso y push entre dispositivos. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -20,6 +20,7 @@ assert.ok(/flushPush/.test(onboardingSrc) && /Safari/.test(onboardingSrc), 'mark
 assert.ok(/function mergeFromCloud/.test(onboardingSrc), 'onboarding.mergeFromCloud');
 assert.ok(/applyOnboardingFromCloud/.test(storageSrc), 'Store aplica onboarding de la nube');
 assert.ok(/pt-cloud-synced/.test(onboardingSrc), 'onboarding escucha pt-cloud-synced');
+assert.ok(/id: 'coach'/.test(onboardingSrc), 'paso ForgeCoach');
 assert.ok(/test-onboarding-sync\.js/.test(ciSrc), 'registrado en test:ci');
 
 const localStore = {};
@@ -52,6 +53,7 @@ const Store = sandbox.window.Store;
 const OB = sandbox.window.PTOnboarding;
 assert.ok(Store && Store.mergeFromCloud && Store.getUserId, 'Store');
 assert.ok(OB && OB.mergeFromCloud && OB.getCloudState, 'PTOnboarding cloud API');
+assert.strictEqual(OB.STEPS.length, 4, '4 pasos');
 
 Store.setUserId('user-ob-sync');
 sandbox.window.PT_AUTH_USER = { sub: 'user-ob-sync' };
@@ -73,10 +75,20 @@ Store.mergeFromCloud({
   history: [],
   errors: [],
   stats: { handsPlayed: 0, decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0, totalEvLoss: 0, totalNet: 0, byStreet: {} },
-  onboarding: { dismissed: false, done: { demo: true, warmup: true, leaks: true, coach: true }, updatedAt: 50 }
+  onboarding: { dismissed: false, done: { demo: true, warmup: true, leaks: true }, updatedAt: 50 }
 });
-assert.ok(!OB.shouldShow(), 'tras sync nube oculta checklist');
-assert.ok(OB.isDone('demo') && OB.isDone('warmup') && OB.isDone('leaks') && OB.isDone('coach'), '4 pasos desde la nube');
+assert.ok(OB.shouldShow(), '3 pasos en nube sin coach → sigue visible');
+assert.ok(OB.isDone('demo') && OB.isDone('warmup') && OB.isDone('leaks'), '3 pasos desde la nube');
+assert.ok(!OB.isDone('coach'), 'coach pendiente');
+
+Store.mergeFromCloud({
+  history: [],
+  errors: [],
+  stats: { handsPlayed: 0, decisions: 0, optima: 0, aceptable: 0, imprecisa: 0, error: 0, totalEvLoss: 0, totalNet: 0, byStreet: {} },
+  onboarding: { dismissed: false, done: { demo: true, warmup: true, leaks: true, coach: true }, updatedAt: 60 }
+});
+assert.ok(!OB.shouldShow(), 'tras sync nube con 4 pasos oculta checklist');
+assert.ok(OB.isDone('coach'), 'coach desde la nube');
 
 Object.keys(localStore).forEach((k) => delete localStore[k]);
 Store.setUserId('user-ob-sync');
@@ -104,9 +116,18 @@ sandbox.localStorage.setItem('pt_stats_v1_user-ob-infer', JSON.stringify({
   byStreet: {},
   updatedAt: 9
 }));
-assert.ok(OB.shouldShow(), 'stats sincronizadas infieren demo/warmup/leaks pero no coach');
+assert.ok(OB.shouldShow(), 'con 12 manos solo se infiere calentamiento');
+assert.ok(OB.isDone('warmup'), 'warmup inferido por manos/decisiones');
+assert.ok(!OB.isDone('demo'), 'demo no se infiere solo por entrenar');
+assert.ok(!OB.isDone('leaks'), 'leaks exige visitar Stats/Errores');
+assert.ok(!OB.isDone('coach'), 'coach no se infiere solo por entrenar');
+OB.markSampleOpened();
+OB.notifyLeaksViewed();
+assert.ok(OB.shouldShow(), 'demo+leaks+warmup sin coach → sigue visible');
+assert.ok(OB.isDone('demo') && OB.isDone('leaks'), 'demo y leaks marcados');
+OB.markDone('coach');
+assert.ok(!OB.shouldShow(), '4 pasos completos → se oculta');
 const inferred = OB.getCloudState();
-assert.ok(inferred.done.demo && inferred.done.warmup && inferred.done.leaks, 'inferencia training');
-assert.ok(!inferred.done.coach, 'coach no se infiere solo por entrenar');
+assert.ok(inferred.done.demo && inferred.done.warmup && inferred.done.leaks && inferred.done.coach, 'los 4 pasos completados');
 
-console.log('*** onboarding-sync OK (nube + inferencia) ***');
+console.log('*** onboarding-sync OK (nube + inferencia + coach) ***');

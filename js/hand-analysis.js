@@ -2073,19 +2073,22 @@
       html += '<div class="ha-bb-row" style="margin-top:0.5rem">';
       html += '<label class="muted-text" for="ha-mtt-sit">Situación ICM</label>';
       html += '<select id="ha-mtt-sit" data-ha-mtt-sit>';
-      [['', '—'], ['auto', 'Según fase'], ['bubble', 'Burbuja'], ['mincash', 'Min-cash'], ['ft9', 'FT 9'], ['custom', 'Personalizado']].forEach(function (o) {
+      [['', '—'], ['auto', 'Según fase'], ['bubble', 'Burbuja'], ['mincash', 'Minicash (ITM)'], ['ft9', 'Mesa final (9)'], ['custom', 'Personalizado']].forEach(function (o) {
         html += '<option value="' + o[0] + '"' + ((draft.mttStructureSituation || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
       });
       html += '</select></div>';
       if (draft.mttStructureSituation === 'custom' || draft.mttStructureSituation === 'bubble'
         || draft.mttStructureSituation === 'mincash' || draft.mttStructureSituation === 'ft9') {
-        html += '<div class="ha-bb-row" style="margin-top:0.5rem">';
-        html += '<input type="number" min="2" max="500" step="1" placeholder="Left" data-ha-players-left value="' +
-          esc(draft.playersLeft != null ? String(draft.playersLeft) : '') + '" />';
-        html += '<input type="number" min="1" max="500" step="1" placeholder="Paid" data-ha-places-paid value="' +
-          esc(draft.placesPaid != null ? String(draft.placesPaid) : '') + '" />';
-        html += '<input type="number" min="0" step="0.01" placeholder="Buy-in €" data-ha-buyin value="' +
-          esc(draft.buyIn != null ? String(draft.buyIn) : '') + '" />';
+        html += '<div class="ha-bb-row ha-icm-fields" style="margin-top:0.5rem">';
+        html += '<label class="ha-icm-field"><span class="muted-text">Jugadores restantes</span>';
+        html += '<input type="number" min="2" max="500" step="1" placeholder="p. ej. 45" aria-label="Jugadores restantes" data-ha-players-left value="' +
+          esc(draft.playersLeft != null ? String(draft.playersLeft) : '') + '" /></label>';
+        html += '<label class="ha-icm-field"><span class="muted-text">Plazas pagadas</span>';
+        html += '<input type="number" min="1" max="500" step="1" placeholder="p. ej. 15" aria-label="Plazas pagadas" data-ha-places-paid value="' +
+          esc(draft.placesPaid != null ? String(draft.placesPaid) : '') + '" /></label>';
+        html += '<label class="ha-icm-field"><span class="muted-text">Buy-in (€)</span>';
+        html += '<input type="number" min="0" step="0.01" placeholder="p. ej. 11" aria-label="Buy-in en euros" data-ha-buyin value="' +
+          esc(draft.buyIn != null ? String(draft.buyIn) : '') + '" /></label>';
         html += '</div>';
       }
       html += '</div>';
