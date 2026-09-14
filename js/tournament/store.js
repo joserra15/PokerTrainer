@@ -297,6 +297,11 @@
     };
   }
 
+  /**
+   * Recorte de mano viva ante QuotaExceeded.
+   * Debe seguir siendo jugable al Continuar: sin acted/heroOptions/boardDeck
+   * ensureLiveHand descartaba la mano y repartía cartas distintas.
+   */
   function slimLiveHandStub(live) {
     if (!live) return live;
     return {
@@ -306,14 +311,40 @@
       bb: live.bb,
       sb: live.sb,
       ante: live.ante,
+      antePot: live.antePot,
+      antePaidCount: live.antePaidCount,
       board: live.board,
+      boardDeck: live.boardDeck,
       seats: live.seats,
       toActId: live.toActId,
       heroId: live.heroId,
       awaitingHero: live.awaitingHero,
       result: live.result,
       decisions: live.decisions,
-      log: live.log
+      log: live.log,
+      acted: live.acted,
+      heroOptions: live.heroOptions,
+      _heroSeatId: live._heroSeatId,
+      currentBet: live.currentBet,
+      minRaise: live.minRaise,
+      lastRaiseWasFull: live.lastRaiseWasFull,
+      openerId: live.openerId,
+      openerPos: live.openerPos,
+      lastAggressorId: live.lastAggressorId,
+      kind: live.kind,
+      formatHub: live.formatHub,
+      isTournament: live.isTournament,
+      tableMax: live.tableMax,
+      entries: live.entries,
+      buyIn: live.buyIn,
+      aiLevel: live.aiLevel,
+      playersLeft: live.playersLeft,
+      placesPaid: live.placesPaid,
+      mttPhase: live.mttPhase,
+      mttStructureSituation: live.mttStructureSituation,
+      avgStackBB: live.avgStackBB,
+      state: live.state,
+      heroSessionStats: live.heroSessionStats
     };
   }
 
@@ -344,6 +375,7 @@
   /**
    * Niveles de recorte ante QuotaExceeded.
    * 0 = ya slimForPersist; 1..3 cada vez más agresivo (progreso > historial).
+   * La mano viva se conserva jugable: historial se recorta antes que el avance.
    */
   function applyPersistQuotaLevel(snap, level) {
     if (!snap || level < 1) return snap;
@@ -356,7 +388,7 @@
       if (snap.handLog) {
         snap.handLog = snap.handLog.slice(-20).map(slimHandLogEntry);
       }
-      if (snap._liveHand) snap._liveHand = slimLiveHandStub(snap._liveHand);
+      /* Nivel 1: recortar historial, NO stub de la mano (Salir/visibility usan 1). */
       if (snap.events) snap.events = snap.events.slice(-20);
     }
     if (level >= 2) {
@@ -364,21 +396,25 @@
       snap.sessionHands = [];
       if (snap.handLog) snap.handLog = snap.handLog.slice(-10).map(slimHandLogEntry);
       if (snap.events) snap.events = snap.events.slice(-10);
+      if (snap._liveHand) snap._liveHand = slimLiveHandStub(snap._liveHand);
     }
     if (level >= 3) {
       snap.sessionHands = [];
       snap.handLog = [];
-      if (snap._liveHand && snap._liveHand.stage === 'complete') {
-        /* Mano ya resuelta: commitProgressBeforeExit debió aplicarla; no bloquear save. */
-        snap._liveHand = null;
-      } else if (snap._liveHand) {
+      snap.events = [];
+      if (snap._liveHand) {
         snap._liveHand = slimLiveHandStub(snap._liveHand);
         try {
-          delete snap._liveHand.log;
-          delete snap._liveHand.decisions;
+          /* Recortar peso; NUNCA borrar mano complete+result sin applyResults
+             (visibility no hace commit → se perdían fichas / mano previa). */
+          if (Array.isArray(snap._liveHand.log) && snap._liveHand.log.length > 6) {
+            snap._liveHand.log = snap._liveHand.log.slice(-6);
+          }
+          if (Array.isArray(snap._liveHand.decisions) && snap._liveHand.decisions.length > 8) {
+            snap._liveHand.decisions = snap._liveHand.decisions.slice(-8);
+          }
         } catch (eDel) { /* */ }
       }
-      snap.events = [];
     }
     return snap;
   }
