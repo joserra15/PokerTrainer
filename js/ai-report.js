@@ -431,7 +431,7 @@
     const enabled = isEnabled();
     return enabled
       ? '<span class="home-coach-status on"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach activo</span>'
-      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Configuración pendiente</span>';
+      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach no disponible ahora</span>';
   }
 
   function coachIntroHtml(titleId, copy) {

@@ -14,6 +14,23 @@
       .replace(/"/g, '&quot;');
   }
 
+  function subscriptionStatusLabel(status) {
+    var s = String(status || 'none');
+    var map = {
+      none: 'Sin suscripción',
+      active: 'Activa',
+      trialing: 'Promoción / prueba',
+      canceled: 'Cancelada',
+      cancelled: 'Cancelada',
+      past_due: 'Pago pendiente',
+      unpaid: 'Impagada',
+      incomplete: 'Incompleta',
+      incomplete_expired: 'Incompleta (caducada)',
+      paused: 'Pausada'
+    };
+    return map[s] || s;
+  }
+
   function client() {
     return global.PTSupabase && global.PTSupabase.getClient
       ? global.PTSupabase.getClient()
@@ -235,7 +252,7 @@
     var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&
       global.PTCommunity.config() && global.PTCommunity.config().billing &&
       global.PTCommunity.config().billing.hidePricing);
-    var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
+    var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error de sincronización' };
     var cloudStatus = global.PTCloud && global.PTCloud.getStatus ? global.PTCloud.getStatus() : { status: 'disabled' };
 
     host.innerHTML =
@@ -278,9 +295,7 @@
         : (prof.founder_coach_requested_at
           ? 'Solicitud enviada · pendiente'
           : 'No')) +
-      row('Estado', escapeHtml(
-        prof.subscription_status === 'trialing' ? 'Promoción / prueba' : (prof.subscription_status || 'none')
-      )) +
+      row('Estado', escapeHtml(subscriptionStatusLabel(prof.subscription_status))) +
       row('Fin periodo', escapeHtml(formatDate(prof.subscription_period_end))) +
       row('Intervalo', escapeHtml(prof.billing_interval || '—')) +
       (prof.subscription_cancel_at_period_end ? row('Renovación', 'Sin renovación automática') : '') +

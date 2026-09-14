@@ -26285,7 +26285,7 @@ window.PT_NASH_PUSH_JSON = {
     const enabled = isEnabled();
     return enabled
       ? '<span class="home-coach-status on"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach activo</span>'
-      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Configuración pendiente</span>';
+      : '<span class="home-coach-status off"><span class="home-coach-status-dot" aria-hidden="true"></span>Coach no disponible ahora</span>';
   }
 
   function coachIntroHtml(titleId, copy) {
@@ -36399,10 +36399,11 @@ window.PT_NASH_PUSH_JSON = {
   'use strict';
 
   var STORAGE_KEY = 'pt_onboarding_v1';
+  var WARMUP_HANDS = 10;
   var STEPS = [
-    { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales' },
-    { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo' },
-    { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores' }
+    { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales', cta: 'Abrir ejemplo' },
+    { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo', cta: 'Calentar 10 manos' },
+    { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores', cta: 'Ver mis fugas' }
   ];
 
   function userKey() {
@@ -36440,32 +36441,57 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  function flagKey(prefix) {
+    return prefix + userKey();
+  }
+
+  function sampleOpened() {
+    try {
+      return localStorage.getItem(flagKey('pt_onboarding_sample_')) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markSampleOpened() {
+    try {
+      localStorage.setItem(flagKey('pt_onboarding_sample_'), '1');
+    } catch (e) { /* ignore */ }
+  }
+
+  function leaksViewed() {
+    try {
+      return localStorage.getItem(flagKey('pt_onboarding_leaks_')) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markLeaksViewed() {
+    try {
+      localStorage.setItem(flagKey('pt_onboarding_leaks_'), '1');
+    } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Inferencia por paso: no marcar los 3 solo por haber entrenado una vez.
+   * demo → abrió la sesión ejemplo; warmup → ≥10 manos/decisiones; leaks → visitó Stats/Errores.
+   */
   function inferActivityDone() {
     var done = {};
+    if (sampleOpened()) done.demo = true;
     var S = global.Store;
-    if (!S) return done;
-    var stats = S.getStats ? S.getStats() : null;
-    var history = S.getHistory ? S.getHistory() : [];
-    var errors = S.getErrors ? S.getErrors() : [];
-    var school = stats && stats.school;
-    var hasSchool = false;
-    if (school && typeof school === 'object') {
-      if ((Number(school.xp) || 0) > 0) hasSchool = true;
-      else if (school.lessons && typeof school.lessons === 'object' && Object.keys(school.lessons).length) {
-        hasSchool = true;
-      }
+    if (S) {
+      var stats = S.getStats ? S.getStats() : null;
+      var history = S.getHistory ? S.getHistory() : [];
+      var hands = Math.max(
+        Number(stats && stats.handsPlayed) || 0,
+        (history && history.length) || 0
+      );
+      var decisions = Number(stats && stats.decisions) || 0;
+      if (hands >= WARMUP_HANDS || decisions >= WARMUP_HANDS) done.warmup = true;
     }
-    var hasTraining = !!(
-      (stats && ((Number(stats.handsPlayed) || 0) > 0 || (Number(stats.decisions) || 0) > 0)) ||
-      (history && history.length) ||
-      (errors && errors.length) ||
-      hasSchool
-    );
-    if (hasTraining) {
-      done.demo = true;
-      done.warmup = true;
-      done.leaks = true;
-    }
+    if (leaksViewed()) done.leaks = true;
     return done;
   }
 
@@ -36609,7 +36635,7 @@ window.PT_NASH_PUSH_JSON = {
     var doneCount = STEPS.filter(function (s) { return st.done && st.done[s.id]; }).length;
     var html = '<div class="onboarding-card" role="region" aria-label="Primeros pasos">';
     html += '<div class="onboarding-head">';
-    html += '<h3>Empieza en 3 pasos</h3>';
+    html += '<h3>Tus primeros 3 pasos</h3>';
     html += '<button type="button" class="btn btn-ghost btn-sm" data-onboarding-dismiss aria-label="Cerrar">Omitir</button>';
     html += '</div>';
     html += '<p class="muted-text onboarding-progress">' + doneCount + ' / ' + STEPS.length + ' completados</p>';
@@ -36623,7 +36649,8 @@ window.PT_NASH_PUSH_JSON = {
       html += '<span class="muted-text">' + escapeHtml(s.hint) + '</span>';
       html += '</div>';
       if (!done) {
-        html += '<button type="button" class="btn btn-primary btn-sm" data-onboarding-step="' + s.id + '">Ir</button>';
+        html += '<button type="button" class="btn btn-primary btn-sm" data-onboarding-step="' + s.id + '">' +
+          escapeHtml(s.cta || 'Ir') + '</button>';
       }
       html += '</li>';
     });
@@ -36653,20 +36680,33 @@ window.PT_NASH_PUSH_JSON = {
   function openSampleSession() {
     var sampleId = (global.PTSampleSession && (PTSampleSession.SAMPLE_ID || PTSampleSession.SESSION_ID)) || 'pt_sample_session_v1';
     if (typeof global.goToTab === 'function') global.goToTab('sessions');
-    // Esperar a que la lista / sample esté lista
-    setTimeout(function () {
+    function tryOpen() {
       if (typeof global.openSession === 'function') {
         global.openSession(sampleId);
       } else {
         var btn = document.querySelector('[data-open-session="' + sampleId + '"]');
         if (btn) btn.click();
       }
+      markSampleOpened();
       markDone('demo');
-    }, 200);
+    }
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      var once = function () {
+        document.removeEventListener('pt-sample-session-ready', once);
+        tryOpen();
+      };
+      document.addEventListener('pt-sample-session-ready', once);
+      setTimeout(function () {
+        document.removeEventListener('pt-sample-session-ready', once);
+        tryOpen();
+      }, 250);
+    } else {
+      setTimeout(tryOpen, 200);
+    }
   }
 
   function runWarmup() {
-    markDone('warmup');
+    /* No marcar aquí: se completa al llegar a 10 manos / decisiones. */
     if (typeof global.startGuidedTraining === 'function') {
       global.startGuidedTraining({
         scenario: 'random',
@@ -36674,7 +36714,7 @@ window.PT_NASH_PUSH_JSON = {
         handRange: 'playable',
         villainLevel: 'fish',
         liveAdvisor: true,
-        handsTarget: 10
+        handsTarget: WARMUP_HANDS
       });
       return;
     }
@@ -36682,7 +36722,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function runLeaks() {
-    markDone('leaks');
+    /* No marcar aquí: se completa al visitar Stats o Errores. */
     var errs = (global.Store && Store.getErrors) ? Store.getErrors() : [];
     if (errs && errs.length && typeof global.goToTab === 'function') {
       global.goToTab('errors');
@@ -36697,12 +36737,34 @@ window.PT_NASH_PUSH_JSON = {
     else if (id === 'leaks') runLeaks();
   }
 
+  /** Llamar al visitar Stats o Errores. */
+  function notifyLeaksViewed() {
+    markLeaksViewed();
+    markDone('leaks');
+  }
+
+  /** Llamar tras progreso del entrenador. */
+  function notifyTrainerProgress(handsOrDecisions) {
+    var n = Number(handsOrDecisions) || 0;
+    var S = global.Store;
+    var stats = S && S.getStats ? S.getStats() : null;
+    var history = S && S.getHistory ? S.getHistory() : [];
+    var hands = Math.max(
+      n,
+      Number(stats && stats.handsPlayed) || 0,
+      (history && history.length) || 0
+    );
+    var decisions = Number(stats && stats.decisions) || 0;
+    if (hands >= WARMUP_HANDS || decisions >= WARMUP_HANDS) markDone('warmup');
+  }
+
   if (typeof global.addEventListener === 'function') {
     global.addEventListener('pt-cloud-synced', function () { render(); });
   }
 
   global.PTOnboarding = {
     STEPS: STEPS,
+    WARMUP_HANDS: WARMUP_HANDS,
     render: render,
     bind: bind,
     markDone: markDone,
@@ -36710,6 +36772,9 @@ window.PT_NASH_PUSH_JSON = {
     isDone: isDone,
     shouldShow: shouldShow,
     runStep: runStep,
+    notifyLeaksViewed: notifyLeaksViewed,
+    notifyTrainerProgress: notifyTrainerProgress,
+    markSampleOpened: markSampleOpened,
     getCloudState: getCloudState,
     mergeFromCloud: mergeFromCloud,
     mergeStates: mergeStates,
@@ -37556,6 +37621,23 @@ window.PT_NASH_PUSH_JSON = {
       .replace(/"/g, '&quot;');
   }
 
+  function subscriptionStatusLabel(status) {
+    var s = String(status || 'none');
+    var map = {
+      none: 'Sin suscripción',
+      active: 'Activa',
+      trialing: 'Promoción / prueba',
+      canceled: 'Cancelada',
+      cancelled: 'Cancelada',
+      past_due: 'Pago pendiente',
+      unpaid: 'Impagada',
+      incomplete: 'Incompleta',
+      incomplete_expired: 'Incompleta (caducada)',
+      paused: 'Pausada'
+    };
+    return map[s] || s;
+  }
+
   function client() {
     return global.PTSupabase && global.PTSupabase.getClient
       ? global.PTSupabase.getClient()
@@ -37777,7 +37859,7 @@ window.PT_NASH_PUSH_JSON = {
     var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&
       global.PTCommunity.config() && global.PTCommunity.config().billing &&
       global.PTCommunity.config().billing.hidePricing);
-    var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error' };
+    var cloudLabels = { disabled: 'Desactivado', pending: 'Pendiente', ready: 'Listo', syncing: 'Sincronizando…', online: 'Sincronizado', error: 'Error de sincronización' };
     var cloudStatus = global.PTCloud && global.PTCloud.getStatus ? global.PTCloud.getStatus() : { status: 'disabled' };
 
     host.innerHTML =
@@ -37820,9 +37902,7 @@ window.PT_NASH_PUSH_JSON = {
         : (prof.founder_coach_requested_at
           ? 'Solicitud enviada · pendiente'
           : 'No')) +
-      row('Estado', escapeHtml(
-        prof.subscription_status === 'trialing' ? 'Promoción / prueba' : (prof.subscription_status || 'none')
-      )) +
+      row('Estado', escapeHtml(subscriptionStatusLabel(prof.subscription_status))) +
       row('Fin periodo', escapeHtml(formatDate(prof.subscription_period_end))) +
       row('Intervalo', escapeHtml(prof.billing_interval || '—')) +
       (prof.subscription_cancel_at_period_end ? row('Renovación', 'Sin renovación automática') : '') +
@@ -41431,7 +41511,8 @@ window.PT_NASH_PUSH_JSON = {
     }
     var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
-    if (!paused || hidePricing || isFounder || !Promo || !Promo.homePromoHtml) {
+    var onboardingOpen = !!(window.PTOnboarding && PTOnboarding.shouldShow && PTOnboarding.shouldShow());
+    if (!paused || hidePricing || isFounder || onboardingOpen || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';
       host.classList.add('hidden');
       return;
@@ -41487,12 +41568,24 @@ window.PT_NASH_PUSH_JSON = {
       ? Math.round((((st.optima || 0) + (st.aceptable || 0)) / decisions) * 100)
       : null;
 
-    statsEl.innerHTML = [
-      { val: accuracy != null ? accuracy + '%' : '—', lbl: 'Acierto global', cls: 'accent' },
-      { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' }
-    ].map((s) =>
-      '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
-    ).join('');
+    if (!decisions) {
+      statsEl.innerHTML = emptyStateHtml({
+        title: 'Tu primer bloque',
+        body: 'Haz 10 manos con avisador o abre la sesión de ejemplo para ver fugas reales.',
+        actions: [
+          { label: 'Calentar 10 manos', action: 'warmup', primary: true },
+          { label: 'Sesión ejemplo', action: 'sample' }
+        ]
+      });
+      bindEmptyStateActions(statsEl);
+    } else {
+      statsEl.innerHTML = [
+        { val: accuracy != null ? accuracy + '%' : '—', lbl: 'Acierto global', cls: 'accent' },
+        { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' }
+      ].map((s) =>
+        '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
+      ).join('');
+    }
 
     const dailyHost = $('#home-daily-spot');
     const homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
@@ -41820,8 +41913,14 @@ window.PT_NASH_PUSH_JSON = {
       });
     }
     if (tabId === 'history') renderHistory();
-    if (tabId === 'errors') renderErrors();
-    if (tabId === 'stats') renderStats();
+    if (tabId === 'errors') {
+      renderErrors();
+      if (window.PTOnboarding && PTOnboarding.notifyLeaksViewed) PTOnboarding.notifyLeaksViewed();
+    }
+    if (tabId === 'stats') {
+      renderStats();
+      if (window.PTOnboarding && PTOnboarding.notifyLeaksViewed) PTOnboarding.notifyLeaksViewed();
+    }
     if (tabId === 'contact') {
       withLazyChunk('contact', function () {
         if (window.PTContact && PTContact.render) PTContact.render(opts.threadId || null);
@@ -45222,6 +45321,9 @@ window.PT_NASH_PUSH_JSON = {
 
     const r = hand.result;
     session.hands++;
+    if (window.PTOnboarding && PTOnboarding.notifyTrainerProgress) {
+      PTOnboarding.notifyTrainerProgress(session.hands);
+    }
     session.net += r.heroNet || 0;
     if (r.handScore != null) {
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
@@ -46772,10 +46874,86 @@ window.PT_NASH_PUSH_JSON = {
     bindMetricExplainClicks(document.getElementById('stats-box') || document.getElementById('tab-stats') || document);
   }
 
+  function emptyStateHtml(opts) {
+    opts = opts || {};
+    var title = opts.title || '';
+    var body = opts.body || '';
+    var actions = opts.actions || [];
+    var html = '<div class="empty empty-state" role="status">';
+    if (title) html += '<p class="empty-state-title">' + escapeHtml(title) + '</p>';
+    if (body) html += '<p class="empty-state-body muted-text">' + escapeHtml(body) + '</p>';
+    if (actions.length) {
+      html += '<div class="empty-state-actions">';
+      actions.forEach(function (a) {
+        var cls = a.primary ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+        html += '<button type="button" class="' + cls + '" data-empty-action="' +
+          escapeHtml(a.action || '') + '">' + escapeHtml(a.label || '') + '</button>';
+      });
+      html += '</div>';
+    }
+    return html + '</div>';
+  }
+
+  function bindEmptyStateActions(root) {
+    if (!root || root._ptEmptyBound) return;
+    root._ptEmptyBound = true;
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-empty-action]');
+      if (!btn) return;
+      var action = btn.getAttribute('data-empty-action');
+      if (action === 'play') goToTab('play', { setup: true });
+      else if (action === 'warmup') {
+        if (window.PTOnboarding && PTOnboarding.runStep) PTOnboarding.runStep('warmup');
+        else goToTab('play', { setup: true });
+      }
+      else if (action === 'sessions') goToTab('sessions');
+      else if (action === 'sample') openSampleSessionFromEmpty();
+      else if (action === 'learn') goToTab('learn');
+      else if (action === 'pricing') goToTab('pricing');
+      else if (action === 'contact') goToTab('contact');
+    });
+  }
+
+  function openSampleSessionFromEmpty() {
+    var sampleId = (window.PTSampleSession && (PTSampleSession.SAMPLE_ID || PTSampleSession.SESSION_ID)) || 'pt_sample_session_v1';
+    goToTab('sessions');
+    setTimeout(function () {
+      if (typeof openSession === 'function') openSession(sampleId);
+      else {
+        var btn = document.querySelector('[data-open-session="' + sampleId + '"]');
+        if (btn) btn.click();
+      }
+      if (window.PTOnboarding && PTOnboarding.markSampleOpened) PTOnboarding.markSampleOpened();
+      if (window.PTOnboarding && PTOnboarding.markDone) PTOnboarding.markDone('demo');
+    }, 200);
+  }
+
+  function showAppToast(message, kind) {
+    if (!message) return;
+    var host = document.getElementById('app-toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'app-toast-host';
+      host.className = 'app-toast-host';
+      host.setAttribute('aria-live', 'polite');
+      document.body.appendChild(host);
+    }
+    var el = document.createElement('div');
+    el.className = 'app-toast' + (kind === 'error' ? ' app-toast-error' : (kind === 'ok' ? ' app-toast-ok' : ''));
+    el.textContent = String(message);
+    host.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add('is-visible'); });
+    setTimeout(function () {
+      el.classList.remove('is-visible');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 280);
+    }, 3200);
+  }
+
   // ---------- Histórico ----------
   function renderHistory() {
     bindHandFilters('#history-filters', 'history', renderHistory);
-    let hist = Store.getHistory().filter((h) => passesHistoryFilters(h, handListFilters.history));
+    const allHist = Store.getHistory();
+    let hist = allHist.filter((h) => passesHistoryFilters(h, handListFilters.history));
     const Ent = window.PTEntitlements;
     let cutoffNote = '';
     if (Ent && Ent.historyCutoffDate) {
@@ -46786,8 +46964,24 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
     const box = $('#history-list');
+    bindEmptyStateActions(box);
     if (!hist.length) {
-      box.innerHTML = cutoffNote + '<div class="empty">No hay manos que coincidan con los filtros.</div>';
+      if (!allHist.length) {
+        box.innerHTML = cutoffNote + emptyStateHtml({
+          title: 'Aún no has entrenado',
+          body: 'Juega un bloque corto o abre la sesión de ejemplo para ver tu historial aquí.',
+          actions: [
+            { label: 'Empezar a entrenar', action: 'play', primary: true },
+            { label: 'Abrir sesión ejemplo', action: 'sample' }
+          ]
+        });
+      } else {
+        box.innerHTML = cutoffNote + emptyStateHtml({
+          title: 'Ninguna mano con estos filtros',
+          body: 'Prueba a quitar filtros o cambia el rango de fechas.',
+          actions: [{ label: 'Ir a entrenar', action: 'play', primary: true }]
+        });
+      }
       return;
     }
     box.innerHTML = cutoffNote + hist.map((h) => {
@@ -46818,9 +47012,29 @@ window.PT_NASH_PUSH_JSON = {
   // ---------- Errores ----------
   function renderErrors() {
     bindHandFilters('#errors-filters', 'errors', renderErrors);
-    const errs = Store.getErrors().filter((e) => passesErrorFilters(e, handListFilters.errors));
+    const allErrs = Store.getErrors();
+    const errs = allErrs.filter((e) => passesErrorFilters(e, handListFilters.errors));
     const box = $('#errors-list');
-    if (!errs.length) { box.innerHTML = '<div class="empty">No hay errores que coincidan con los filtros.</div>'; return; }
+    bindEmptyStateActions(box);
+    if (!errs.length) {
+      if (!allErrs.length) {
+        box.innerHTML = emptyStateHtml({
+          title: 'Sin errores pendientes',
+          body: 'Cuando falles un spot en el entrenador aparecerá aquí para repasarlo.',
+          actions: [
+            { label: 'Entrenar ahora', action: 'play', primary: true },
+            { label: 'Abrir sesión ejemplo', action: 'sample' }
+          ]
+        });
+      } else {
+        box.innerHTML = emptyStateHtml({
+          title: 'Ningún error con estos filtros',
+          body: 'Quita filtros para ver todos tus spots fallados.',
+          actions: [{ label: 'Entrenar ahora', action: 'play', primary: true }]
+        });
+      }
+      return;
+    }
     box.innerHTML = errs.map((e) => `<div class="record">
       <div class="rec-cards">${(e.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div class="rec-main">
@@ -47248,9 +47462,10 @@ window.PT_NASH_PUSH_JSON = {
         } else {
           msg = 'No se pudo sincronizar. Inténtalo de nuevo en unos segundos.';
         }
-        alert(msg);
+        showAppToast(msg, 'error');
         return;
       }
+      showAppToast('Datos sincronizados', 'ok');
       renderHistory();
       renderErrors();
       renderStats();
@@ -47921,14 +48136,24 @@ window.PT_NASH_PUSH_JSON = {
     if (hint) hint.textContent = sessionsTabHint(sessionsListTab);
 
     const filtered = sessions.filter((s) => sessionBucket(s) === sessionsListTab);
+    bindEmptyStateActions(box);
     if (!sessions.length) {
-      box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>';
+      box.innerHTML = emptyStateHtml({
+        title: 'Aún no hay sesiones',
+        body: 'Importa un .txt de PokerStars, Winamax, GGPoker… o abre la sesión de ejemplo sin subir nada.',
+        actions: [
+          { label: 'Abrir sesión ejemplo', action: 'sample', primary: true },
+          { label: 'Ir a entrenar', action: 'play' }
+        ]
+      });
       return;
     }
     if (!filtered.length) {
-      box.innerHTML = '<div class="empty">No hay sesiones en «'
-        + (sessionsListTab === 'spin' ? 'Spins' : (sessionsListTab === 'mtt' ? 'Torneos' : 'Cash'))
-        + '». Importa un historial o cambia de pestaña.</div>';
+      box.innerHTML = emptyStateHtml({
+        title: 'Nada en «' + (sessionsListTab === 'spin' ? 'Spins' : (sessionsListTab === 'mtt' ? 'Torneos' : 'Cash')) + '»',
+        body: 'Importa un historial de este formato o cambia de pestaña.',
+        actions: [{ label: 'Abrir sesión ejemplo', action: 'sample', primary: true }]
+      });
       return;
     }
     box.innerHTML = filtered.map((s) => {

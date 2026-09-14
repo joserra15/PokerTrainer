@@ -6181,6 +6181,11 @@
     };
   }
 
+  /**
+   * Recorte de mano viva ante QuotaExceeded.
+   * Debe seguir siendo jugable al Continuar: sin acted/heroOptions/boardDeck
+   * ensureLiveHand descartaba la mano y repartía cartas distintas.
+   */
   function slimLiveHandStub(live) {
     if (!live) return live;
     return {
@@ -6190,14 +6195,40 @@
       bb: live.bb,
       sb: live.sb,
       ante: live.ante,
+      antePot: live.antePot,
+      antePaidCount: live.antePaidCount,
       board: live.board,
+      boardDeck: live.boardDeck,
       seats: live.seats,
       toActId: live.toActId,
       heroId: live.heroId,
       awaitingHero: live.awaitingHero,
       result: live.result,
       decisions: live.decisions,
-      log: live.log
+      log: live.log,
+      acted: live.acted,
+      heroOptions: live.heroOptions,
+      _heroSeatId: live._heroSeatId,
+      currentBet: live.currentBet,
+      minRaise: live.minRaise,
+      lastRaiseWasFull: live.lastRaiseWasFull,
+      openerId: live.openerId,
+      openerPos: live.openerPos,
+      lastAggressorId: live.lastAggressorId,
+      kind: live.kind,
+      formatHub: live.formatHub,
+      isTournament: live.isTournament,
+      tableMax: live.tableMax,
+      entries: live.entries,
+      buyIn: live.buyIn,
+      aiLevel: live.aiLevel,
+      playersLeft: live.playersLeft,
+      placesPaid: live.placesPaid,
+      mttPhase: live.mttPhase,
+      mttStructureSituation: live.mttStructureSituation,
+      avgStackBB: live.avgStackBB,
+      state: live.state,
+      heroSessionStats: live.heroSessionStats
     };
   }
 
@@ -6228,6 +6259,7 @@
   /**
    * Niveles de recorte ante QuotaExceeded.
    * 0 = ya slimForPersist; 1..3 cada vez más agresivo (progreso > historial).
+   * La mano viva se conserva jugable: historial se recorta antes que el avance.
    */
   function applyPersistQuotaLevel(snap, level) {
     if (!snap || level < 1) return snap;
@@ -6240,7 +6272,7 @@
       if (snap.handLog) {
         snap.handLog = snap.handLog.slice(-20).map(slimHandLogEntry);
       }
-      if (snap._liveHand) snap._liveHand = slimLiveHandStub(snap._liveHand);
+      /* Nivel 1: recortar historial, NO stub de la mano (Salir/visibility usan 1). */
       if (snap.events) snap.events = snap.events.slice(-20);
     }
     if (level >= 2) {
@@ -6248,21 +6280,25 @@
       snap.sessionHands = [];
       if (snap.handLog) snap.handLog = snap.handLog.slice(-10).map(slimHandLogEntry);
       if (snap.events) snap.events = snap.events.slice(-10);
+      if (snap._liveHand) snap._liveHand = slimLiveHandStub(snap._liveHand);
     }
     if (level >= 3) {
       snap.sessionHands = [];
       snap.handLog = [];
-      if (snap._liveHand && snap._liveHand.stage === 'complete') {
-        /* Mano ya resuelta: commitProgressBeforeExit debió aplicarla; no bloquear save. */
-        snap._liveHand = null;
-      } else if (snap._liveHand) {
+      snap.events = [];
+      if (snap._liveHand) {
         snap._liveHand = slimLiveHandStub(snap._liveHand);
         try {
-          delete snap._liveHand.log;
-          delete snap._liveHand.decisions;
+          /* Recortar peso; NUNCA borrar mano complete+result sin applyResults
+             (visibility no hace commit → se perdían fichas / mano previa). */
+          if (Array.isArray(snap._liveHand.log) && snap._liveHand.log.length > 6) {
+            snap._liveHand.log = snap._liveHand.log.slice(-6);
+          }
+          if (Array.isArray(snap._liveHand.decisions) && snap._liveHand.decisions.length > 8) {
+            snap._liveHand.decisions = snap._liveHand.decisions.slice(-8);
+          }
         } catch (eDel) { /* */ }
       }
-      snap.events = [];
     }
     return snap;
   }
@@ -7668,8 +7704,8 @@
 
   /**
    * ¿Se puede pintar/jugar la mano guardada sin repartir de nuevo?
-   * Tras salir-guardar la mano suele ser null; tras quota cloud puede quedar un stub
-   * sin acted/heroOptions (mesa congelada: se ven asientos pero no hay acciones).
+   * Tras quota agresiva puede quedar un stub incompleto (sin acted/heroOptions/
+   * boardDeck): mesa congelada o cartas distintas al Continuar.
    */
   function isPlayableLiveHand(hand) {
     if (!hand) return false;
@@ -7677,6 +7713,7 @@
     if (hand.stage !== 'playing') return false;
     if (!Array.isArray(hand.seats) || hand.seats.length < 2) return false;
     if (!hand.acted || typeof hand.acted !== 'object') return false;
+    if (!Array.isArray(hand.boardDeck)) return false;
     if (hand.awaitingHero) {
       return !!(hand._heroSeatId && hand.heroOptions && hand.heroOptions.length);
     }
@@ -7708,6 +7745,9 @@
     }
 
     if (hand && hand.stage === 'playing' && isPlayableLiveHand(hand) && Live) {
+      try {
+        if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
+      } catch (eCtx) { /* */ }
       if (!hand.awaitingHero) {
         try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
         hand = state._liveHand;
@@ -8494,9 +8534,18 @@
     try {
       if (!ui.state || ui.state.status === 'finished') return;
       if (ui.view !== VIEW.table) return;
-      /* pagehide/unload: aplicar mano completa pendiente. visibility: solo snapshot
-         (el usuario puede volver al popup de fin de mano). */
-      if (opts.commit) commitProgressBeforeExit();
+      /* pagehide/unload: aplicar mano completa pendiente.
+         visibility: si la mano ya terminó, también commit (si el OS mata el
+         proceso tras background, no perder stack/handIndex); si sigue en juego,
+         snapshot de la mano viva tal cual. */
+      if (opts.commit) {
+        commitProgressBeforeExit();
+      } else {
+        var live = ui.state._liveHand;
+        if (live && live.stage === 'complete' && live.result) {
+          commitProgressBeforeExit();
+        }
+      }
       persistActive({ quotaLevel: 1 });
     } catch (eLife) { /* */ }
   }
@@ -11132,6 +11181,7 @@ function reducedMotion() {
           paint();
         } else if (act === 'exit-save') {
           commitProgressBeforeExit();
+          /* Preferir snapshot completo de la mano; quota 1 solo recorta historial. */
           var saved = persistActive({ quotaLevel: 1 });
           if (!saved || !saved.ok || saved.verified === false) {
             /* No abandonar la mesa si el snapshot no quedó: en móvil QuotaExceeded

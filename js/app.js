@@ -1975,7 +1975,8 @@
     }
     var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
-    if (!paused || hidePricing || isFounder || !Promo || !Promo.homePromoHtml) {
+    var onboardingOpen = !!(window.PTOnboarding && PTOnboarding.shouldShow && PTOnboarding.shouldShow());
+    if (!paused || hidePricing || isFounder || onboardingOpen || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';
       host.classList.add('hidden');
       return;
@@ -2031,12 +2032,24 @@
       ? Math.round((((st.optima || 0) + (st.aceptable || 0)) / decisions) * 100)
       : null;
 
-    statsEl.innerHTML = [
-      { val: accuracy != null ? accuracy + '%' : '—', lbl: 'Acierto global', cls: 'accent' },
-      { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' }
-    ].map((s) =>
-      '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
-    ).join('');
+    if (!decisions) {
+      statsEl.innerHTML = emptyStateHtml({
+        title: 'Tu primer bloque',
+        body: 'Haz 10 manos con avisador o abre la sesión de ejemplo para ver fugas reales.',
+        actions: [
+          { label: 'Calentar 10 manos', action: 'warmup', primary: true },
+          { label: 'Sesión ejemplo', action: 'sample' }
+        ]
+      });
+      bindEmptyStateActions(statsEl);
+    } else {
+      statsEl.innerHTML = [
+        { val: accuracy != null ? accuracy + '%' : '—', lbl: 'Acierto global', cls: 'accent' },
+        { val: errs.length, lbl: 'Errores a repasar', cls: errs.length ? 'warn' : '' }
+      ].map((s) =>
+        '<div class="home-stat ' + s.cls + '"><span class="val">' + escapeHtml(String(s.val)) + '</span><span class="lbl">' + escapeHtml(s.lbl) + '</span></div>'
+      ).join('');
+    }
 
     const dailyHost = $('#home-daily-spot');
     const homeOpts = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
@@ -2364,8 +2377,14 @@
       });
     }
     if (tabId === 'history') renderHistory();
-    if (tabId === 'errors') renderErrors();
-    if (tabId === 'stats') renderStats();
+    if (tabId === 'errors') {
+      renderErrors();
+      if (window.PTOnboarding && PTOnboarding.notifyLeaksViewed) PTOnboarding.notifyLeaksViewed();
+    }
+    if (tabId === 'stats') {
+      renderStats();
+      if (window.PTOnboarding && PTOnboarding.notifyLeaksViewed) PTOnboarding.notifyLeaksViewed();
+    }
     if (tabId === 'contact') {
       withLazyChunk('contact', function () {
         if (window.PTContact && PTContact.render) PTContact.render(opts.threadId || null);
@@ -5766,6 +5785,9 @@
 
     const r = hand.result;
     session.hands++;
+    if (window.PTOnboarding && PTOnboarding.notifyTrainerProgress) {
+      PTOnboarding.notifyTrainerProgress(session.hands);
+    }
     session.net += r.heroNet || 0;
     if (r.handScore != null) {
       session.handScoreSum = roundSession((session.handScoreSum || 0) + Number(r.handScore));
@@ -7316,10 +7338,86 @@
     bindMetricExplainClicks(document.getElementById('stats-box') || document.getElementById('tab-stats') || document);
   }
 
+  function emptyStateHtml(opts) {
+    opts = opts || {};
+    var title = opts.title || '';
+    var body = opts.body || '';
+    var actions = opts.actions || [];
+    var html = '<div class="empty empty-state" role="status">';
+    if (title) html += '<p class="empty-state-title">' + escapeHtml(title) + '</p>';
+    if (body) html += '<p class="empty-state-body muted-text">' + escapeHtml(body) + '</p>';
+    if (actions.length) {
+      html += '<div class="empty-state-actions">';
+      actions.forEach(function (a) {
+        var cls = a.primary ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+        html += '<button type="button" class="' + cls + '" data-empty-action="' +
+          escapeHtml(a.action || '') + '">' + escapeHtml(a.label || '') + '</button>';
+      });
+      html += '</div>';
+    }
+    return html + '</div>';
+  }
+
+  function bindEmptyStateActions(root) {
+    if (!root || root._ptEmptyBound) return;
+    root._ptEmptyBound = true;
+    root.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-empty-action]');
+      if (!btn) return;
+      var action = btn.getAttribute('data-empty-action');
+      if (action === 'play') goToTab('play', { setup: true });
+      else if (action === 'warmup') {
+        if (window.PTOnboarding && PTOnboarding.runStep) PTOnboarding.runStep('warmup');
+        else goToTab('play', { setup: true });
+      }
+      else if (action === 'sessions') goToTab('sessions');
+      else if (action === 'sample') openSampleSessionFromEmpty();
+      else if (action === 'learn') goToTab('learn');
+      else if (action === 'pricing') goToTab('pricing');
+      else if (action === 'contact') goToTab('contact');
+    });
+  }
+
+  function openSampleSessionFromEmpty() {
+    var sampleId = (window.PTSampleSession && (PTSampleSession.SAMPLE_ID || PTSampleSession.SESSION_ID)) || 'pt_sample_session_v1';
+    goToTab('sessions');
+    setTimeout(function () {
+      if (typeof openSession === 'function') openSession(sampleId);
+      else {
+        var btn = document.querySelector('[data-open-session="' + sampleId + '"]');
+        if (btn) btn.click();
+      }
+      if (window.PTOnboarding && PTOnboarding.markSampleOpened) PTOnboarding.markSampleOpened();
+      if (window.PTOnboarding && PTOnboarding.markDone) PTOnboarding.markDone('demo');
+    }, 200);
+  }
+
+  function showAppToast(message, kind) {
+    if (!message) return;
+    var host = document.getElementById('app-toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'app-toast-host';
+      host.className = 'app-toast-host';
+      host.setAttribute('aria-live', 'polite');
+      document.body.appendChild(host);
+    }
+    var el = document.createElement('div');
+    el.className = 'app-toast' + (kind === 'error' ? ' app-toast-error' : (kind === 'ok' ? ' app-toast-ok' : ''));
+    el.textContent = String(message);
+    host.appendChild(el);
+    requestAnimationFrame(function () { el.classList.add('is-visible'); });
+    setTimeout(function () {
+      el.classList.remove('is-visible');
+      setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 280);
+    }, 3200);
+  }
+
   // ---------- Histórico ----------
   function renderHistory() {
     bindHandFilters('#history-filters', 'history', renderHistory);
-    let hist = Store.getHistory().filter((h) => passesHistoryFilters(h, handListFilters.history));
+    const allHist = Store.getHistory();
+    let hist = allHist.filter((h) => passesHistoryFilters(h, handListFilters.history));
     const Ent = window.PTEntitlements;
     let cutoffNote = '';
     if (Ent && Ent.historyCutoffDate) {
@@ -7330,8 +7428,24 @@
       }
     }
     const box = $('#history-list');
+    bindEmptyStateActions(box);
     if (!hist.length) {
-      box.innerHTML = cutoffNote + '<div class="empty">No hay manos que coincidan con los filtros.</div>';
+      if (!allHist.length) {
+        box.innerHTML = cutoffNote + emptyStateHtml({
+          title: 'Aún no has entrenado',
+          body: 'Juega un bloque corto o abre la sesión de ejemplo para ver tu historial aquí.',
+          actions: [
+            { label: 'Empezar a entrenar', action: 'play', primary: true },
+            { label: 'Abrir sesión ejemplo', action: 'sample' }
+          ]
+        });
+      } else {
+        box.innerHTML = cutoffNote + emptyStateHtml({
+          title: 'Ninguna mano con estos filtros',
+          body: 'Prueba a quitar filtros o cambia el rango de fechas.',
+          actions: [{ label: 'Ir a entrenar', action: 'play', primary: true }]
+        });
+      }
       return;
     }
     box.innerHTML = cutoffNote + hist.map((h) => {
@@ -7362,9 +7476,29 @@
   // ---------- Errores ----------
   function renderErrors() {
     bindHandFilters('#errors-filters', 'errors', renderErrors);
-    const errs = Store.getErrors().filter((e) => passesErrorFilters(e, handListFilters.errors));
+    const allErrs = Store.getErrors();
+    const errs = allErrs.filter((e) => passesErrorFilters(e, handListFilters.errors));
     const box = $('#errors-list');
-    if (!errs.length) { box.innerHTML = '<div class="empty">No hay errores que coincidan con los filtros.</div>'; return; }
+    bindEmptyStateActions(box);
+    if (!errs.length) {
+      if (!allErrs.length) {
+        box.innerHTML = emptyStateHtml({
+          title: 'Sin errores pendientes',
+          body: 'Cuando falles un spot en el entrenador aparecerá aquí para repasarlo.',
+          actions: [
+            { label: 'Entrenar ahora', action: 'play', primary: true },
+            { label: 'Abrir sesión ejemplo', action: 'sample' }
+          ]
+        });
+      } else {
+        box.innerHTML = emptyStateHtml({
+          title: 'Ningún error con estos filtros',
+          body: 'Quita filtros para ver todos tus spots fallados.',
+          actions: [{ label: 'Entrenar ahora', action: 'play', primary: true }]
+        });
+      }
+      return;
+    }
     box.innerHTML = errs.map((e) => `<div class="record">
       <div class="rec-cards">${(e.heroCards || []).map(Cards.cardToHTML).join('')}</div>
       <div class="rec-main">
@@ -7792,9 +7926,10 @@
         } else {
           msg = 'No se pudo sincronizar. Inténtalo de nuevo en unos segundos.';
         }
-        alert(msg);
+        showAppToast(msg, 'error');
         return;
       }
+      showAppToast('Datos sincronizados', 'ok');
       renderHistory();
       renderErrors();
       renderStats();
@@ -8465,14 +8600,24 @@
     if (hint) hint.textContent = sessionsTabHint(sessionsListTab);
 
     const filtered = sessions.filter((s) => sessionBucket(s) === sessionsListTab);
+    bindEmptyStateActions(box);
     if (!sessions.length) {
-      box.innerHTML = '<div class="empty">No hay sesiones. Añade un fichero .txt arriba.</div>';
+      box.innerHTML = emptyStateHtml({
+        title: 'Aún no hay sesiones',
+        body: 'Importa un .txt de PokerStars, Winamax, GGPoker… o abre la sesión de ejemplo sin subir nada.',
+        actions: [
+          { label: 'Abrir sesión ejemplo', action: 'sample', primary: true },
+          { label: 'Ir a entrenar', action: 'play' }
+        ]
+      });
       return;
     }
     if (!filtered.length) {
-      box.innerHTML = '<div class="empty">No hay sesiones en «'
-        + (sessionsListTab === 'spin' ? 'Spins' : (sessionsListTab === 'mtt' ? 'Torneos' : 'Cash'))
-        + '». Importa un historial o cambia de pestaña.</div>';
+      box.innerHTML = emptyStateHtml({
+        title: 'Nada en «' + (sessionsListTab === 'spin' ? 'Spins' : (sessionsListTab === 'mtt' ? 'Torneos' : 'Cash')) + '»',
+        body: 'Importa un historial de este formato o cambia de pestaña.',
+        actions: [{ label: 'Abrir sesión ejemplo', action: 'sample', primary: true }]
+      });
       return;
     }
     box.innerHTML = filtered.map((s) => {

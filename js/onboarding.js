@@ -6,10 +6,11 @@
   'use strict';
 
   var STORAGE_KEY = 'pt_onboarding_v1';
+  var WARMUP_HANDS = 10;
   var STEPS = [
-    { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales' },
-    { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo' },
-    { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores' }
+    { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales', cta: 'Abrir ejemplo' },
+    { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo', cta: 'Calentar 10 manos' },
+    { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores', cta: 'Ver mis fugas' }
   ];
 
   function userKey() {
@@ -47,32 +48,57 @@
     };
   }
 
+  function flagKey(prefix) {
+    return prefix + userKey();
+  }
+
+  function sampleOpened() {
+    try {
+      return localStorage.getItem(flagKey('pt_onboarding_sample_')) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markSampleOpened() {
+    try {
+      localStorage.setItem(flagKey('pt_onboarding_sample_'), '1');
+    } catch (e) { /* ignore */ }
+  }
+
+  function leaksViewed() {
+    try {
+      return localStorage.getItem(flagKey('pt_onboarding_leaks_')) === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function markLeaksViewed() {
+    try {
+      localStorage.setItem(flagKey('pt_onboarding_leaks_'), '1');
+    } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Inferencia por paso: no marcar los 3 solo por haber entrenado una vez.
+   * demo → abrió la sesión ejemplo; warmup → ≥10 manos/decisiones; leaks → visitó Stats/Errores.
+   */
   function inferActivityDone() {
     var done = {};
+    if (sampleOpened()) done.demo = true;
     var S = global.Store;
-    if (!S) return done;
-    var stats = S.getStats ? S.getStats() : null;
-    var history = S.getHistory ? S.getHistory() : [];
-    var errors = S.getErrors ? S.getErrors() : [];
-    var school = stats && stats.school;
-    var hasSchool = false;
-    if (school && typeof school === 'object') {
-      if ((Number(school.xp) || 0) > 0) hasSchool = true;
-      else if (school.lessons && typeof school.lessons === 'object' && Object.keys(school.lessons).length) {
-        hasSchool = true;
-      }
+    if (S) {
+      var stats = S.getStats ? S.getStats() : null;
+      var history = S.getHistory ? S.getHistory() : [];
+      var hands = Math.max(
+        Number(stats && stats.handsPlayed) || 0,
+        (history && history.length) || 0
+      );
+      var decisions = Number(stats && stats.decisions) || 0;
+      if (hands >= WARMUP_HANDS || decisions >= WARMUP_HANDS) done.warmup = true;
     }
-    var hasTraining = !!(
-      (stats && ((Number(stats.handsPlayed) || 0) > 0 || (Number(stats.decisions) || 0) > 0)) ||
-      (history && history.length) ||
-      (errors && errors.length) ||
-      hasSchool
-    );
-    if (hasTraining) {
-      done.demo = true;
-      done.warmup = true;
-      done.leaks = true;
-    }
+    if (leaksViewed()) done.leaks = true;
     return done;
   }
 
@@ -216,7 +242,7 @@
     var doneCount = STEPS.filter(function (s) { return st.done && st.done[s.id]; }).length;
     var html = '<div class="onboarding-card" role="region" aria-label="Primeros pasos">';
     html += '<div class="onboarding-head">';
-    html += '<h3>Empieza en 3 pasos</h3>';
+    html += '<h3>Tus primeros 3 pasos</h3>';
     html += '<button type="button" class="btn btn-ghost btn-sm" data-onboarding-dismiss aria-label="Cerrar">Omitir</button>';
     html += '</div>';
     html += '<p class="muted-text onboarding-progress">' + doneCount + ' / ' + STEPS.length + ' completados</p>';
@@ -230,7 +256,8 @@
       html += '<span class="muted-text">' + escapeHtml(s.hint) + '</span>';
       html += '</div>';
       if (!done) {
-        html += '<button type="button" class="btn btn-primary btn-sm" data-onboarding-step="' + s.id + '">Ir</button>';
+        html += '<button type="button" class="btn btn-primary btn-sm" data-onboarding-step="' + s.id + '">' +
+          escapeHtml(s.cta || 'Ir') + '</button>';
       }
       html += '</li>';
     });
@@ -260,20 +287,33 @@
   function openSampleSession() {
     var sampleId = (global.PTSampleSession && (PTSampleSession.SAMPLE_ID || PTSampleSession.SESSION_ID)) || 'pt_sample_session_v1';
     if (typeof global.goToTab === 'function') global.goToTab('sessions');
-    // Esperar a que la lista / sample esté lista
-    setTimeout(function () {
+    function tryOpen() {
       if (typeof global.openSession === 'function') {
         global.openSession(sampleId);
       } else {
         var btn = document.querySelector('[data-open-session="' + sampleId + '"]');
         if (btn) btn.click();
       }
+      markSampleOpened();
       markDone('demo');
-    }, 200);
+    }
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      var once = function () {
+        document.removeEventListener('pt-sample-session-ready', once);
+        tryOpen();
+      };
+      document.addEventListener('pt-sample-session-ready', once);
+      setTimeout(function () {
+        document.removeEventListener('pt-sample-session-ready', once);
+        tryOpen();
+      }, 250);
+    } else {
+      setTimeout(tryOpen, 200);
+    }
   }
 
   function runWarmup() {
-    markDone('warmup');
+    /* No marcar aquí: se completa al llegar a 10 manos / decisiones. */
     if (typeof global.startGuidedTraining === 'function') {
       global.startGuidedTraining({
         scenario: 'random',
@@ -281,7 +321,7 @@
         handRange: 'playable',
         villainLevel: 'fish',
         liveAdvisor: true,
-        handsTarget: 10
+        handsTarget: WARMUP_HANDS
       });
       return;
     }
@@ -289,7 +329,7 @@
   }
 
   function runLeaks() {
-    markDone('leaks');
+    /* No marcar aquí: se completa al visitar Stats o Errores. */
     var errs = (global.Store && Store.getErrors) ? Store.getErrors() : [];
     if (errs && errs.length && typeof global.goToTab === 'function') {
       global.goToTab('errors');
@@ -304,12 +344,34 @@
     else if (id === 'leaks') runLeaks();
   }
 
+  /** Llamar al visitar Stats o Errores. */
+  function notifyLeaksViewed() {
+    markLeaksViewed();
+    markDone('leaks');
+  }
+
+  /** Llamar tras progreso del entrenador. */
+  function notifyTrainerProgress(handsOrDecisions) {
+    var n = Number(handsOrDecisions) || 0;
+    var S = global.Store;
+    var stats = S && S.getStats ? S.getStats() : null;
+    var history = S && S.getHistory ? S.getHistory() : [];
+    var hands = Math.max(
+      n,
+      Number(stats && stats.handsPlayed) || 0,
+      (history && history.length) || 0
+    );
+    var decisions = Number(stats && stats.decisions) || 0;
+    if (hands >= WARMUP_HANDS || decisions >= WARMUP_HANDS) markDone('warmup');
+  }
+
   if (typeof global.addEventListener === 'function') {
     global.addEventListener('pt-cloud-synced', function () { render(); });
   }
 
   global.PTOnboarding = {
     STEPS: STEPS,
+    WARMUP_HANDS: WARMUP_HANDS,
     render: render,
     bind: bind,
     markDone: markDone,
@@ -317,6 +379,9 @@
     isDone: isDone,
     shouldShow: shouldShow,
     runStep: runStep,
+    notifyLeaksViewed: notifyLeaksViewed,
+    notifyTrainerProgress: notifyTrainerProgress,
+    markSampleOpened: markSampleOpened,
     getCloudState: getCloudState,
     mergeFromCloud: mergeFromCloud,
     mergeStates: mergeStates,
