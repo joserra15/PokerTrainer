@@ -20,10 +20,21 @@ Disclaimer: +18 · herramienta educativa · juega responsablemente
 
 | Archivo | Uso |
 |---------|-----|
-| `assets/founder/founder-teaser-1oct.jpg` | Dom 28 soft launch |
+| `assets/founder/founder-announce-1oct.jpg` | Carrusel 1/3 · anuncio (letras grandes · 3:4) |
+| `assets/founder/founder-que-es-1oct.jpg` | Carrusel 2/3 · qué es FOUNDER (−40% para siempre) |
+| `assets/founder/founder-plazas-1oct.jpg` | Carrusel 3/3 · plazas limitadas + CTA |
+| `assets/founder/founder-teaser-1oct.jpg` | Dom 28 soft launch (precios) |
 | `assets/founder/founder-launch-1oct.jpg` | Mié 1 oct feed |
 | `assets/founder/founder-precios.jpg` | Stories / carrusel precios |
 | `assets/founder/founder-urgencia.jpg` | Dom 5 cierre |
+
+Carrusel premium 3:4 (mismo lenguaje visual que los covers B15–B21). No se regenera con el HTML de `tools/instagram-sprint-founder-assets.js`.
+
+| # | Archivo | Texto clave |
+|---|---------|-------------|
+| 1 | `founder-announce-1oct.jpg` | FOUNDER · Empieza el 1 de octubre |
+| 2 | `founder-que-es-1oct.jpg` | −40% para siempre · Study y Coach a precio locked |
+| 3 | `founder-plazas-1oct.jpg` | Plazas limitadas · Solicita tu plaza FOUNDER |
 
 ---
 
@@ -31,7 +42,8 @@ Disclaimer: +18 · herramienta educativa · juega responsablemente
 
 ### Soft (28 sep)
 ```
-1 de octubre · plan FOUNDER
+FOUNDER
+Empieza el 1 de octubre
 −40% para siempre · plazas limitadas
 Study 8,99€ · Coach 20,99€
 FOUNDER Coach desbloquea Torneos Pro.
