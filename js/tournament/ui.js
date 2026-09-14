@@ -257,9 +257,18 @@
     try {
       if (!ui.state || ui.state.status === 'finished') return;
       if (ui.view !== VIEW.table) return;
-      /* pagehide/unload: aplicar mano completa pendiente. visibility: solo snapshot
-         (el usuario puede volver al popup de fin de mano). */
-      if (opts.commit) commitProgressBeforeExit();
+      /* pagehide/unload: aplicar mano completa pendiente.
+         visibility: si la mano ya terminó, también commit (si el OS mata el
+         proceso tras background, no perder stack/handIndex); si sigue en juego,
+         snapshot de la mano viva tal cual. */
+      if (opts.commit) {
+        commitProgressBeforeExit();
+      } else {
+        var live = ui.state._liveHand;
+        if (live && live.stage === 'complete' && live.result) {
+          commitProgressBeforeExit();
+        }
+      }
       persistActive({ quotaLevel: 1 });
     } catch (eLife) { /* */ }
   }
@@ -2895,6 +2904,7 @@ function reducedMotion() {
           paint();
         } else if (act === 'exit-save') {
           commitProgressBeforeExit();
+          /* Preferir snapshot completo de la mano; quota 1 solo recorta historial. */
           var saved = persistActive({ quotaLevel: 1 });
           if (!saved || !saved.ok || saved.verified === false) {
             /* No abandonar la mesa si el snapshot no quedó: en móvil QuotaExceeded
