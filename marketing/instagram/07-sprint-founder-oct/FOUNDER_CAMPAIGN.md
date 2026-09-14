@@ -20,10 +20,13 @@ Disclaimer: +18 · herramienta educativa · juega responsablemente
 
 | Archivo | Uso |
 |---------|-----|
-| `assets/founder/founder-teaser-1oct.jpg` | Dom 28 soft launch |
+| `assets/founder/founder-announce-1oct.jpg` | Anuncio soft/feed premium (letras grandes · 3:4) |
+| `assets/founder/founder-teaser-1oct.jpg` | Dom 28 soft launch (precios) |
 | `assets/founder/founder-launch-1oct.jpg` | Mié 1 oct feed |
 | `assets/founder/founder-precios.jpg` | Stories / carrusel precios |
 | `assets/founder/founder-urgencia.jpg` | Dom 5 cierre |
+
+`founder-announce-1oct.jpg` es estilo premium (mismo lenguaje visual que los covers B15–B21): título `FOUNDER`, subtítulo oro `Empieza el 1 de octubre`. No se regenera con el HTML de `tools/instagram-sprint-founder-assets.js`.
 
 ---
 
@@ -31,7 +34,8 @@ Disclaimer: +18 · herramienta educativa · juega responsablemente
 
 ### Soft (28 sep)
 ```
-1 de octubre · plan FOUNDER
+FOUNDER
+Empieza el 1 de octubre
 −40% para siempre · plazas limitadas
 Study 8,99€ · Coach 20,99€
 FOUNDER Coach desbloquea Torneos Pro.
