@@ -26182,10 +26182,12 @@ window.PT_NASH_PUSH_JSON = {
       const handId = typeof p.getHandId === 'function' ? p.getHandId() : (dataObj && dataObj.id);
       return handId ? { kind: 'history', handId: handId } : null;
     }
+    /* tournamentSession es alias histórico de session (resumen de torneo IA). */
+    const sessionKinds = p.kind === 'session' || p.kind === 'tournamentSession';
     const sessionId = typeof p.getSessionId === 'function'
       ? p.getSessionId()
-      : (dataObj && dataObj.id && p.kind === 'session' ? dataObj.id : p.sessionId);
-    if (p.kind === 'session' && sessionId) return { kind: 'session', sessionId: sessionId };
+      : (dataObj && dataObj.id && sessionKinds ? dataObj.id : p.sessionId);
+    if (sessionKinds && sessionId) return { kind: 'session', sessionId: sessionId };
     if (p.kind === 'stats') return { kind: 'stats' };
     if (p.kind === 'learn') {
       const lessonId = typeof p.getLessonId === 'function'
@@ -26707,7 +26709,15 @@ window.PT_NASH_PUSH_JSON = {
   function showError(body, raw) {
     const err = friendlyError(raw);
     const cls = err.kind === 'busy' ? 'ai-report-notice' : 'ai-report-error';
-    body.innerHTML = '<div class="' + cls + '">' + escapeHtml(err.message) + '</div>';
+    const html = '<div class="' + cls + '">' + escapeHtml(err.message) + '</div>';
+    const thread = body && body.querySelector('.ai-coach-thread');
+    if (thread) {
+      let notice = body.querySelector('.ai-report-error, .ai-report-notice');
+      if (notice) notice.remove();
+      thread.insertAdjacentHTML('beforebegin', html);
+    } else if (body) {
+      body.innerHTML = html;
+    }
     if (raw) console.error('[PTAI] coach error:', raw);
   }
 
@@ -26794,11 +26804,32 @@ window.PT_NASH_PUSH_JSON = {
     const actions = panel.querySelector('[data-ai-actions]');
     if (status) status.textContent = state === 'loading' ? '' : (message || '');
     if (state === 'loading') {
-      if (body) body.innerHTML = loadingHtml(message || 'Consultando ForgeCoach…', hint);
+      /* No borrar el hilo: vaciar el cuerpo hace colapsar el panel (p.ej. Clasificación
+         del resumen de torneo salta / parpadea) y oculta respuestas ya mostradas. */
+      if (body) {
+        let loadEl = body.querySelector('.ai-report-loading');
+        if (!loadEl) {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = loadingHtml(message || 'Consultando ForgeCoach…', hint);
+          loadEl = wrap.firstChild;
+          const thread = body.querySelector('.ai-coach-thread');
+          if (thread) body.insertBefore(loadEl, thread);
+          else body.appendChild(loadEl);
+        } else {
+          const msg = loadEl.querySelector('.play-boot-msg');
+          if (msg) msg.textContent = message || 'Consultando ForgeCoach…';
+          const hintEl = loadEl.querySelector('.play-boot-hint');
+          if (hintEl) hintEl.textContent = hint || '';
+        }
+      }
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = true; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = true;
     } else {
+      if (body) {
+        const loadEl = body.querySelector('.ai-report-loading');
+        if (loadEl) loadEl.remove();
+      }
       if (actions) actions.querySelectorAll('button').forEach((b) => { b.disabled = false; });
       const sendQ = panel.querySelector('[data-ai-question-send]');
       if (sendQ) sendQ.disabled = false;

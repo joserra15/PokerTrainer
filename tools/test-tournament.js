@@ -2475,9 +2475,17 @@ console.log('OK pushfold-freq-100');
   assert.ok(uiSrc.includes('ai-coach-tournament'), 'result hosts ForgeCoach');
   assert.ok(uiSrc.includes('mountTournamentCoach') || uiSrc.includes("scope: 'tournament'"),
     'mounts tournament coach scope');
+  assert.ok(/persist:\s*\{[\s\S]*?kind:\s*'session'/.test(uiSrc),
+    'tournament coach persists as session (not orphan tournamentSession)');
+  assert.ok(uiSrc.includes('onThreadUpdate'), 'tournament coach keeps coachThread in memory');
+  assert.ok(uiSrc.includes('preservedCoach'), 'result paint preserves ForgeCoach DOM');
   const aiSrc = fs.readFileSync(path.join(ROOT, 'js/ai-report.js'), 'utf8');
   assert.ok(/tournament:\s*\{/.test(aiSrc), 'SCOPE_UI.tournament');
   assert.ok(aiSrc.includes('Informe del torneo'), 'tournament report button copy');
+  assert.ok(/tournamentSession/.test(aiSrc) && /sessionKinds/.test(aiSrc),
+    'resolvePersistTarget maps tournamentSession → session');
+  assert.ok(aiSrc.includes('No borrar el hilo') || /insertBefore\(loadEl/.test(aiSrc),
+    'loading state does not wipe coach thread');
   const payloadSrc = fs.readFileSync(path.join(ROOT, 'js/ai-hand-payload.js'), 'utf8');
   assert.ok(payloadSrc.includes("source === 'tournament'") || payloadSrc.includes("'tournament'"),
     'payload builds tournament sessions');
