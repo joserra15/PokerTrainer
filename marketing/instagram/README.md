@@ -20,6 +20,8 @@ Plan de promoción integral: plantillas, spots, carruseles, b-roll de la app y g
 3. Sigue `06-calendario/CALENDARIO_SEMANAS_2_8.md` **o**, en ventana de lanzamiento, el sprint [`07-sprint-founder-oct/CALENDARIO_14_DIAS.md`](07-sprint-founder-oct/CALENDARIO_14_DIAS.md)
 4. Edición típica: 5–10 min/pieza (música + subtítulos + end card)
 5. Regenerar assets del sprint: `node tools/instagram-sprint-founder-assets.js`
+6. Reel FOUNDER (−40%): `node tools/instagram-founder-reel.js` → `07-sprint-founder-oct/assets/reels/`
+
 
 ## Marca
 - Fondo `#0f1419` · Panel `#1c2530` · Fieltro `#1f6b4a`

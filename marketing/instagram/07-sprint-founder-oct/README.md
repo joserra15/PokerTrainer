@@ -15,7 +15,17 @@ Pack Instagram de **14 días** (1 post feed/día + stories) centrado en tres pil
 | [`FEATURE_ADS.md`](FEATURE_ADS.md) | Covers F1–F10 + guiones 15–20s para tu vídeo |
 | [`TORNEOS_IA_CAMPAIGN.md`](TORNEOS_IA_CAMPAIGN.md) | Copy coach-al-lado + reto Pro |
 | [`FOUNDER_CAMPAIGN.md`](FOUNDER_CAMPAIGN.md) | Precios, UTM, countdown stories |
-| [`assets/`](assets/) | JPG listos (carruseles, features, FOUNDER) |
+| [`assets/`](assets/) | JPG listos (carruseles, features, FOUNDER) + **[`assets/reels/`](assets/reels/)** reel MP4 FOUNDER |
+
+## Reel FOUNDER listo
+
+```bash
+# Regenerar (Playwright + ffmpeg)
+node tools/instagram-founder-reel.js
+```
+
+Sube `assets/reels/founder-reel-instagram.mp4` + caption en `assets/reels/CAPTION.md`.
+
 
 Carruseles también viven en [`../03-carruseles-edu/`](../03-carruseles-edu/) (mismo naming `edu-b15-*` … `edu-b21-*`).
 

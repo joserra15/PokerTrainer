@@ -32,3 +32,9 @@ deploy-info.json
 /blob-report/
 /playwright/.cache/
 /.shots/
+
+# Reel FOUNDER intermediates (regenerable)
+marketing/instagram/07-sprint-founder-oct/assets/reels/scenes/
+marketing/instagram/07-sprint-founder-oct/assets/reels/stock/s0*.jpg
+marketing/instagram/07-sprint-founder-oct/assets/reels/frames/*.html
+marketing/instagram/07-sprint-founder-oct/assets/reels/preview-*.jpg
