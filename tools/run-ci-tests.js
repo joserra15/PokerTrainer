@@ -143,6 +143,7 @@ const STEPS = [
   ['Test squeeze MTT villano activo (sin fold fantasma)', ['node', 'tools/test-trainer-villain-fold-seat.js']],
   ['Test acciones fantasma sobre FOLD + burbuja stack', ['node', 'tools/test-ghost-fold-actions.js']],
   ['Test línea de acción previa (entrenador)', ['node', 'tools/test-trainer-action-line.js']],
+  ['Test entrenador opciones postflop (nunca solo check)', ['node', 'tools/test-trainer-postflop-options.js']],
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
   ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']],

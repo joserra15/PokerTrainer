@@ -11884,6 +11884,13 @@ window.PT_NASH_PUSH_JSON = {
         out.overbet = (out.overbet || 0) + allinW;
       }
     }
+    // Postflop: allin legal pero sin masa en charts → heredar de overbet/pot.
+    if (availableActions.indexOf('allin') >= 0 && (out.allin == null || out.allin <= 0)) {
+      const fromOver = freqs && freqs.overbet != null ? Number(freqs.overbet) || 0 : 0;
+      const fromPot = freqs && freqs.bet_100 != null ? Number(freqs.bet_100) || 0 : 0;
+      const inherit = Math.max(fromOver, fromPot * 0.5);
+      if (inherit > 0) out.allin = inherit;
+    }
     let sum = 0;
     for (const k in out) sum += out[k];
     if (sum <= 0) {
@@ -11942,9 +11949,16 @@ window.PT_NASH_PUSH_JSON = {
       const alt = chosen === 'raise' ? 'allin' : 'raise';
       if (legal[alt] != null) f = Math.max(f, legal[alt] || 0);
     }
+    /* Postflop libre: allin es el shove de stack; la masa GTO suele vivir en
+       overbet / bet_100 / bet_66. Contar esos hermanos para no marcar Error. */
+    if (f < 0.05 && chosen === 'allin') {
+      ['overbet', 'bet_100', 'bet_66', 'bet_33', 'bet'].forEach(function (k) {
+        if (legal[k] != null) f = Math.max(f, legal[k] || 0);
+      });
+    }
     if (f < 0.05 && (chosen === 'bet' || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0))) {
       const betKeys = Object.keys(legal).filter(function (k) {
-        return k === 'bet' || k.indexOf('bet_') === 0;
+        return k === 'bet' || k === 'allin' || k === 'overbet' || k.indexOf('bet_') === 0;
       });
       betKeys.forEach(function (k) { f = Math.max(f, legal[k] || 0); });
     }
@@ -20130,6 +20144,11 @@ window.PT_NASH_PUSH_JSON = {
     return hand.displayHeroPos || hand.hero.pos;
   }
 
+  /** Asiento de mesa del héroe para stacks/caps (9-max: display ≠ engine pos). */
+  function heroStackSeat(hand) {
+    return heroTableSeat(hand) || (hand.hero && hand.hero.pos);
+  }
+
   function villainTableSeat(hand) {
     const PC = global.PTPlayConfig;
     if (is9MaxHand(hand) && PC) return PC.villainTableSeat(hand) || hand.villain.pos;
@@ -24616,12 +24635,56 @@ window.PT_NASH_PUSH_JSON = {
 
   function postflopRaiseLabel(hand, node) {
     const raw = round2(node.toCallBB * 3);
-    const capped = capBetForSeat(hand, hand.hero.pos, raw);
+    const capped = capBetForSeat(hand, heroStackSeat(hand), raw);
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     if (ST() && hand.stacks && capped >= heroRemainingBB(hand) - 0.01) {
       return `All-in (${fmt(heroRemainingBB(hand))}bb)`;
     }
     return `Raise a ${fmt(capped)}bb`;
+  }
+
+  /**
+   * Opciones libres postflop (check / bets). Como en torneos: varios sizings
+   * y All-in si queda stack. Cap por asiento de mesa (no engine pos 9-max).
+   */
+  function buildFreePostflopOptions(hand, texture) {
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
+    const seat = heroStackSeat(hand);
+    const rem = heroRemainingBB(hand);
+    const sizes = GTO.Strategy.betSizingOptions(hand.potBB, texture && texture.wet);
+    const options = [{ id: 'check', label: 'Check (pasar)' }];
+    hand._betSizes = {};
+    const seenBetKeys = new Set();
+    sizes.forEach(function (s) {
+      const capped = capBetForSeat(hand, seat, s.size);
+      // Umbral bajo: con stack residual <0.5bb aún debe poder ir all-in.
+      if (capped < 0.01) return;
+      const id = s.id;
+      const isAllIn = rem > 0.01 && capped >= rem - 0.01;
+      // Si el sizing es all-in, no lo duplicamos aquí: va el botón All-in al final.
+      if (isAllIn) return;
+      if (seenBetKeys.has(id)) return;
+      seenBetKeys.add(id);
+      options.push({
+        id: id,
+        label: s.label.replace(String(s.size), String(capped)),
+        size: capped
+      });
+      hand._betSizes[id] = capped;
+    });
+    // Paridad torneo: con stack > 0 siempre hay All-in además de check (/ bets).
+    if (rem > 0.01) {
+      const allInSize = capBetForSeat(hand, seat, rem);
+      if (allInSize >= 0.01) {
+        options.push({
+          id: 'allin',
+          label: `All-in (${fmt(allInSize)}bb)`,
+          size: allInSize
+        });
+        hand._betSizes.allin = allInSize;
+      }
+    }
+    return options;
   }
 
   function buildPostflopNode(hand, street, facing) {
@@ -24673,34 +24736,15 @@ window.PT_NASH_PUSH_JSON = {
     const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
     if (facing && isMeaningfulBet(facing.bet)) {
       // hero afronta una apuesta del villano
-      const raiseAmt = capBetForSeat(hand, hand.hero.pos, round2(facing.bet * 3));
+      const rem = heroRemainingBB(hand);
       options = [
         { id: 'fold', label: 'Fold' },
-        { id: 'call', label: `Call (${fmt(Math.min(facing.bet, heroRemainingBB(hand)))}bb)` },
+        { id: 'call', label: `Call (${fmt(Math.min(facing.bet, rem))}bb)` },
         { id: 'raise', label: postflopRaiseLabel(hand, { toCallBB: facing.bet, potBB: hand.potBB }) }
       ];
       context = `${capitalize(street)}: el villano apuesta ${fmt(facing.bet)}bb en un bote de ${fmt(facing.potBefore)}bb. Stack efectivo ${fmt(effStackForHand(hand))}bb.`;
     } else {
-      const sizes = GTO.Strategy.betSizingOptions(hand.potBB, texture.wet);
-      options = [{ id: 'check', label: 'Check (pasar)' }];
-      hand._betSizes = {};
-      const seenBetKeys = new Set();
-      sizes.forEach(function (s) {
-        const capped = capBetForSeat(hand, hand.hero.pos, s.size);
-        if (capped >= 0.5) {
-          const id = s.id;
-          const isAllIn = capped >= heroRemainingBB(hand) - 0.01;
-          const dedupeKey = isAllIn ? ('allin:' + fmt(capped)) : id;
-          if (seenBetKeys.has(dedupeKey)) return;
-          seenBetKeys.add(dedupeKey);
-          options.push({
-            id: id,
-            label: isAllIn ? `All-in (${fmt(capped)}bb)` : s.label.replace(String(s.size), String(capped)),
-            size: capped
-          });
-          hand._betSizes[id] = capped;
-        }
-      });
+      options = buildFreePostflopOptions(hand, texture);
       context = `${capitalize(street)}: bote ${fmt(hand.potBB)}bb · stack ${fmt(effStackForHand(hand))}bb. Eres ${hand.heroIsAggressor ? 'el agresor' : 'el que cierra'} ${hand.heroInPosition ? 'en posición' : 'fuera de posición'}.`;
       if (hand.multiway) {
         const n = MW() ? MW().aliveCount(hand) : 3;
@@ -24751,18 +24795,21 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     // overbet no empieza por «bet_»: sin este caso caía en heroNet:0 («Mano terminada»).
-    if (actionId === 'bet' || actionId === 'overbet'
+    // «allin» postflop libre = shove del stack restante (paridad torneo).
+    if (actionId === 'bet' || actionId === 'overbet' || actionId === 'allin'
       || (actionId && actionId.indexOf('bet_') === 0)) {
       let betSize = hand._betSizes && hand._betSizes[actionId] != null
         ? hand._betSizes[actionId]
         : (hand._betSize != null ? hand._betSize
-          : (actionId === 'overbet' ? round2((node.potBB || hand.potBB || 1) * 1.5) : 0));
+          : (actionId === 'allin' ? heroRemainingBB(hand)
+            : (actionId === 'overbet' ? round2((node.potBB || hand.potBB || 1) * 1.5) : 0)));
       const remBefore = heroRemainingBB(hand);
-      betSize = capBetForSeat(hand, hand.hero.pos, betSize);
+      const hSeat = heroStackSeat(hand);
+      betSize = capBetForSeat(hand, hSeat, betSize);
       if (betSize <= 0) return finish(hand, { reason: 'Sin stack para apostar.', heroNet: -round2(hand.heroInvested) });
       const heroShoved = betSize >= remBefore - 0.01;
       hand.heroInvested += betSize; hand.potBB = round2(hand.potBB + betSize);
-      if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, betSize);
+      if (hand.table && hSeat) addInvest(hand, hSeat, betSize);
       node.heroLastAction = 'bet';
       setHeroAct(hand, heroShoved ? 'allin' : 'bet', betSize);
       if (hand.multiway && MW() && MW().aliveCount(hand) >= 3) {
@@ -24833,15 +24880,16 @@ window.PT_NASH_PUSH_JSON = {
 
     if (actionId === 'call') {
       const heroRem = heroRemainingBB(hand);
+      const hSeat = heroStackSeat(hand);
       const toCall = Math.min(node.toCallBB, heroRem);
       const isAllIn = heroRem <= 0.01 || toCall >= heroRem - 0.01;
       hand.heroInvested += toCall; hand.potBB = round2(hand.potBB + toCall);
-      if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, toCall);
+      if (hand.table && hSeat) addInvest(hand, hSeat, toCall);
       // toCall ≈ call-to cuando streetBet previo es 0 (spot típico ante bet).
       setHeroAct(hand, isAllIn ? 'allin' : 'call', toCall);
-      if (hand.table && hand.hero.pos && toCall > 0) {
-        hand.table.streetBet[hand.hero.pos] = round2(Math.max(
-          hand.table.streetBet[hand.hero.pos] || 0,
+      if (hand.table && hSeat && toCall > 0) {
+        hand.table.streetBet[hSeat] = round2(Math.max(
+          hand.table.streetBet[hSeat] || 0,
           toCall
         ));
       }
@@ -24849,7 +24897,7 @@ window.PT_NASH_PUSH_JSON = {
       if (isMultiwayLive(hand)) {
         const betTo = round2(Math.max(
           node.toCallBB || 0,
-          (hand.table.streetBet && hand.table.streetBet[hand.hero.pos]) || 0
+          (hand.table.streetBet && hand.table.streetBet[hSeat]) || 0
         ));
         return resolveMultiwayAfterHeroCall(hand, betTo);
       }
@@ -24859,11 +24907,12 @@ window.PT_NASH_PUSH_JSON = {
 
     if (actionId === 'raise') {
       const heroRem = heroRemainingBB(hand);
-      let raiseTo = capBetForSeat(hand, hand.hero.pos, round2(node.toCallBB * 3));
+      const hSeat = heroStackSeat(hand);
+      let raiseTo = capBetForSeat(hand, hSeat, round2(node.toCallBB * 3));
       if (raiseTo <= 0) raiseTo = heroRem;
       const isAllIn = raiseTo >= heroRem - 0.01;
       hand.heroInvested += raiseTo; hand.potBB = round2(hand.potBB + raiseTo);
-      if (hand.table && hand.hero.pos) addInvest(hand, hand.hero.pos, raiseTo);
+      if (hand.table && hSeat) addInvest(hand, hSeat, raiseTo);
       node.heroLastAction = 'raise';
       setHeroAct(hand, isAllIn ? 'allin' : 'raise', raiseTo);
       if (isMultiwayLive(hand)) {

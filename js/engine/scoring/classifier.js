@@ -20,6 +20,13 @@
         out.overbet = (out.overbet || 0) + allinW;
       }
     }
+    // Postflop: allin legal pero sin masa en charts → heredar de overbet/pot.
+    if (availableActions.indexOf('allin') >= 0 && (out.allin == null || out.allin <= 0)) {
+      const fromOver = freqs && freqs.overbet != null ? Number(freqs.overbet) || 0 : 0;
+      const fromPot = freqs && freqs.bet_100 != null ? Number(freqs.bet_100) || 0 : 0;
+      const inherit = Math.max(fromOver, fromPot * 0.5);
+      if (inherit > 0) out.allin = inherit;
+    }
     let sum = 0;
     for (const k in out) sum += out[k];
     if (sum <= 0) {
@@ -78,9 +85,16 @@
       const alt = chosen === 'raise' ? 'allin' : 'raise';
       if (legal[alt] != null) f = Math.max(f, legal[alt] || 0);
     }
+    /* Postflop libre: allin es el shove de stack; la masa GTO suele vivir en
+       overbet / bet_100 / bet_66. Contar esos hermanos para no marcar Error. */
+    if (f < 0.05 && chosen === 'allin') {
+      ['overbet', 'bet_100', 'bet_66', 'bet_33', 'bet'].forEach(function (k) {
+        if (legal[k] != null) f = Math.max(f, legal[k] || 0);
+      });
+    }
     if (f < 0.05 && (chosen === 'bet' || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0))) {
       const betKeys = Object.keys(legal).filter(function (k) {
-        return k === 'bet' || k.indexOf('bet_') === 0;
+        return k === 'bet' || k === 'allin' || k === 'overbet' || k.indexOf('bet_') === 0;
       });
       betKeys.forEach(function (k) { f = Math.max(f, legal[k] || 0); });
     }
