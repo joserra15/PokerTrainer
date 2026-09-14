@@ -1010,26 +1010,32 @@
 .trn-seat-cards .card-red { color: #c0392b; }
 .trn-seat-cards .card-black { color: #1a1a1a; }
 
-/* Mazo de cuatro colores (layout normal, glifos blancos) */
+/* Mazo de cuatro colores: marco claro fino + sombra vs felt similar */
 [data-card-style="colored"] .trn-seat-cards .card.suit-h {
   background: #d2261c;
-  border-color: rgba(0, 0, 0, .25);
+  border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
 [data-card-style="colored"] .trn-seat-cards .card.suit-d {
   background: #1e6fd9;
-  border-color: rgba(0, 0, 0, .25);
+  border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
 [data-card-style="colored"] .trn-seat-cards .card.suit-c {
   background: #1a9b4a;
-  border-color: rgba(0, 0, 0, .25);
+  border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
 [data-card-style="colored"] .trn-seat-cards .card.suit-s {
   background: #1a1d21;
-  border-color: rgba(255, 255, 255, .2);
+  border-color: rgba(255, 250, 245, .92);
   color: #fff;
+}
+[data-card-style="colored"] .trn-seat-cards .card.suit-h,
+[data-card-style="colored"] .trn-seat-cards .card.suit-d,
+[data-card-style="colored"] .trn-seat-cards .card.suit-c,
+[data-card-style="colored"] .trn-seat-cards .card.suit-s {
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, .35), 0 2px 5px rgba(0, 0, 0, .5);
 }
 [data-card-style="colored"] .trn-seat-cards .card.suit-h,
 [data-card-style="colored"] .trn-seat-cards .card.suit-d,
