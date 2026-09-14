@@ -269,8 +269,8 @@
       const canXrValue = strength > 0.62 || band === 'value' || band === 'nuts' || (ctx.madeCategory != null && ctx.madeCategory >= 2);
       const canXrBluff = (strength < 0.35 || band === 'air') && m.bluff > 0.65;
       if (street === 'flop' && midWet && (canXrValue || canXrBluff)) {
-        let xrSetup = clamp(0.12 * m.xr * (e.xr || 1), 0.05, 0.22);
-        if (canXrValue) xrSetup = clamp(xrSetup + 0.04, 0.06, 0.24);
+        let xrSetup = clamp(0.09 * m.xr * (e.xr || 1), 0.04, 0.18);
+        if (canXrValue) xrSetup = clamp(xrSetup + 0.03, 0.05, 0.2);
         if (texture.paired) xrSetup *= 0.55;
         if ((ctx.multiwayCount || 2) >= 3) xrSetup *= 0.45;
         if (rnd < xrSetup) {
@@ -285,7 +285,7 @@
         }
       }
       if (street === 'turn' && ((canXrValue && strength > 0.7) || (canXrBluff && polar > 0.55))) {
-        let xrTurn = clamp(0.07 * m.xr * (e.xr || 1), 0.03, 0.14);
+        let xrTurn = clamp(0.05 * m.xr * (e.xr || 1), 0.02, 0.11);
         if (texture.wet) xrTurn *= 1.15;
         if ((ctx.multiwayCount || 2) >= 3) xrTurn *= 0.4;
         if (rnd < xrTurn) {
@@ -354,14 +354,16 @@
 
     if (ctx.lineIntent === 'checkRaise') {
       const street = ctx.street || 'flop';
-      let boost = street === 'flop' ? 0.22 : (street === 'turn' ? 0.16 : 0.12);
+      // Boost más suave: menos telegraph check→raise casi fijo; deja mix call/fold.
+      let boost = street === 'flop' ? 0.14 : (street === 'turn' ? 0.1 : 0.08);
       boost *= m.xr * (e.xr || 1);
       const strength = ctx.strength != null ? ctx.strength : 0.5;
-      if (strength < 0.38) boost *= m.bluff;
-      if (strength > 0.7) boost *= 1.15;
+      if (strength < 0.38) boost *= (m.bluff || 1) * 0.85;
+      if (strength > 0.7) boost *= 1.1;
+      if (strength >= 0.45 && strength <= 0.62) boost *= 0.75; // mid hands: más call que XR
       if ((ctx.multiwayCount || 2) >= 3) boost *= 0.55;
-      const raise = (out.raise || 0) + boost;
-      const fold = Math.max(0, (out.fold || 0) * 0.75);
+      const raise = Math.min(0.55, (out.raise || 0) + boost);
+      const fold = Math.max(0, (out.fold || 0) * 0.88);
       const call = Math.max(0, 1 - raise - fold);
       out.raise = raise;
       out.fold = fold;

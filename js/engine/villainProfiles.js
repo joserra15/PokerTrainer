@@ -212,7 +212,12 @@
       || (hand.table && hand.table.villainLevel)
       || 'fish';
     const forced = !!(hand.table && hand.table.forcedVillainType);
-    return applyDifficulty(getProfile(prof), level, { forced: forced, keepArchetype: forced });
+    var out = applyDifficulty(getProfile(prof), level, { forced: forced, keepArchetype: forced });
+    // Micro-variación de estilo Pro por asiento (balanced vs exploit_pool).
+    if (out && out.id === 'pro' && hand.table && hand.table.proStyles && hand.table.proStyles[pos]) {
+      out = Object.assign({}, out, { proStyle: hand.table.proStyles[pos] });
+    }
+    return out;
   }
 
   function resolveForcedType(hand) {
@@ -240,7 +245,14 @@
       villains.forEach(function (pos) { assigned[pos] = forced; });
       hand.table.forcedVillainType = forced;
     } else if (level === 'pro') {
-      villains.forEach(function (pos) { assigned[pos] = 'pro'; });
+      hand.table.proStyles = hand.table.proStyles || {};
+      villains.forEach(function (pos, idx) {
+        assigned[pos] = 'pro';
+        // Micro-variación: ~35% balanced, resto exploit_pool (mesas Pro no clónicas).
+        var h = idx * 17;
+        for (var i = 0; i < pos.length; i++) h = (h * 31 + pos.charCodeAt(i)) | 0;
+        hand.table.proStyles[pos] = (Math.abs(h) % 100) < 35 ? 'balanced' : 'exploit_pool';
+      });
       hand.table.forcedVillainType = null;
     } else {
       hand.table.forcedVillainType = null;
