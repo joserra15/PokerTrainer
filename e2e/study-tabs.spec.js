@@ -16,6 +16,24 @@ test.describe('Pestañas de estudio @smoke', () => {
   test('Errores muestra spot sembrado', async ({ page }) => {
     await goTab(page, 'errors');
     await expect(page.locator('#errors-list')).toContainText(/Call|fold|AKo|flop|error/i, { timeout: 15000 });
+    const filters = page.locator('#errors-filters');
+    await expect(filters.locator('[data-filter="street"]')).toBeVisible();
+    await expect(filters.locator('[data-filter="spotType"]')).toBeVisible();
+    await expect(filters.locator('[data-filter="expOp"]')).toBeVisible();
+    await expect(filters).toContainText(/EV perdido/i);
+    await expect(filters).not.toContainText(/EV esperado|EV real/i);
+    await expect(page.locator('details.adaptive-drill-help')).toBeVisible();
+    await expect(page.locator('details.adaptive-drill-help')).not.toHaveAttribute('open', '');
+
+    await filters.locator('[data-filter="street"]').selectOption('preflop');
+    await expect(page.locator('#errors-list')).toContainText(/preflop|AQo|vsRFI/i, { timeout: 10000 });
+    await expect(page.locator('#errors-list')).not.toContainText(/AKo/);
+
+    await filters.locator('[data-filter="street"]').selectOption('river');
+    await expect(page.locator('#errors-list')).toContainText(/Ningún error con estos filtros|Quitar filtros/i, { timeout: 10000 });
+    await page.locator('#errors-list [data-empty-action="clearErrorFilters"]').click();
+    await expect(page.locator('#errors-list')).toContainText(/AKo|AQo|Call/i, { timeout: 10000 });
+    await expect(filters.locator('[data-filter="street"]')).toHaveValue('');
   });
 
   test('Estadísticas renderizan contenido', async ({ page }) => {

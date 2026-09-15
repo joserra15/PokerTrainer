@@ -7248,6 +7248,18 @@ html.session-print-open body {
   margin: 0 0 14px;
   padding: 12px 14px;
 }
+.adaptive-drill-help > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  list-style-position: outside;
+}
+.adaptive-drill-help > summary::-webkit-details-marker {
+  color: var(--muted);
+}
+.adaptive-drill-help[open] > summary {
+  margin-bottom: 6px;
+}
 .adaptive-drill-help h3 {
   margin: 0 0 6px;
   font-size: 1rem;

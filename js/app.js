@@ -7638,7 +7638,15 @@
       else if (action === 'learn') goToTab('learn');
       else if (action === 'pricing') goToTab('pricing');
       else if (action === 'contact') goToTab('contact');
+      else if (action === 'clearErrorFilters') clearErrorFilters();
     });
+  }
+
+  function clearErrorFilters() {
+    handListFilters.errors = emptyHandFilters();
+    const host = $('#errors-filters');
+    if (host) delete host.dataset.bound;
+    renderErrors();
   }
 
   function openSampleSessionFromEmpty() {
@@ -7764,7 +7772,10 @@
         box.innerHTML = emptyStateHtml({
           title: 'Ningún error con estos filtros',
           body: 'Quita filtros para ver todos tus spots fallados.',
-          actions: [{ label: 'Entrenar ahora', action: 'play', primary: true }]
+          actions: [
+            { label: 'Quitar filtros', action: 'clearErrorFilters', primary: true },
+            { label: 'Entrenar ahora', action: 'play' }
+          ]
         });
       }
       return;
@@ -7779,13 +7790,15 @@
       <div class="rec-right">
         <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-train-id="${escapeHtml(e.id)}">Repetir</button>
         <button class="btn btn-secondary" style="margin-top:6px;padding:4px 10px;font-size:12px" data-coach-error-id="${escapeHtml(e.id)}">Explicar con ForgeCoach</button>
-        <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-del="${e.id}">Quitar</button>
+        <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-del="${escapeHtml(e.id)}">Quitar</button>
       </div>
     </div>`).join('');
     $$('#errors-list [data-train-id]').forEach((b) => b.addEventListener('click', () => {
       const rec = Store.getErrors().find((x) => x.id === b.dataset.trainId);
       if (!rec) return;
-      replayFromStored(rec);
+      if (!replayFromStored(rec)) {
+        alert('No se pudo repetir este spot. Puede faltar información de replay (seed o escenario).');
+      }
     }));
     $$('#errors-list [data-coach-error-id]').forEach((b) => b.addEventListener('click', () => {
       const rec = Store.getErrors().find((x) => x.id === b.dataset.coachErrorId);
@@ -7797,12 +7810,23 @@
     $$('#errors-list [data-del]').forEach((b) => b.addEventListener('click', () => { Store.removeError(b.dataset.del); renderErrors(); }));
   }
 
+  function filteredErrorsList() {
+    return Store.getErrors().filter((e) => passesErrorFilters(e, handListFilters.errors || emptyHandFilters()));
+  }
+
   function trainNextError() {
-    const errs = Store.getErrors();
-    if (!errs.length) { alert('No hay errores para entrenar.'); return; }
+    const errs = filteredErrorsList();
+    if (!errs.length) {
+      alert(Store.getErrors().length
+        ? 'No hay errores con los filtros actuales. Quita filtros o elige otros.'
+        : 'No hay errores para entrenar.');
+      return;
+    }
     // Load remaining errors into the queue so "nueva mano" continues sequentially
     leakReplayQueue = errs.slice(1);
-    replayFromStored(errs[0]);
+    if (!replayFromStored(errs[0])) {
+      alert('No se pudo cargar el primer error para entrenar.');
+    }
   }
 
   function startWorstSpotsDrill() {
@@ -7826,12 +7850,20 @@
   function matchErrorLeakFilter(e, filter) {
     if (!filter) return true;
     if (filter.street) {
-      const street = e.street || ((e.spotKey || '').split('|')[2]) || 'preflop';
+      let street = e.street || '';
+      if (!street && e.spotKey && window.PTLeaks && PTLeaks.parseLeakKey) {
+        street = PTLeaks.parseLeakKey(e.spotKey).street || '';
+      }
+      if (!street) street = ((e.spotKey || '').split('|')[2]) || 'preflop';
       if (String(street) !== String(filter.street)) return false;
     }
     if (filter.spotType) {
       const sc = e.scenarioRaw && typeof e.scenarioRaw === 'object' ? e.scenarioRaw : {};
-      const type = sc.type || (e.spotKey ? String(e.spotKey).split('|')[0] : '') || '';
+      let type = sc.type || '';
+      if (!type && e.spotKey && window.PTLeaks && PTLeaks.parseLeakKey) {
+        type = PTLeaks.parseLeakKey(e.spotKey).type || '';
+      }
+      if (!type && e.spotKey) type = String(e.spotKey).split('|')[0] || '';
       if (String(type) !== String(filter.spotType)) return false;
     }
     return true;
@@ -8424,7 +8456,10 @@
     opts = opts || {};
     const f = handListFilters[scope] || emptyHandFilters();
     const showDate = opts.showDate !== false;
-    const classOpts = FILTER_CLASSES.map((c) =>
+    const classList = scope === 'errors'
+      ? ['', 'imprecisa', 'error']
+      : FILTER_CLASSES;
+    const classOpts = classList.map((c) =>
       `<option value="${c}"${f.class === c ? ' selected' : ''}>${c ? verdictWord(c) : 'Todas las clases'}</option>`
     ).join('');
     const posOpts = FILTER_POSITIONS.map((p) =>
@@ -8432,9 +8467,16 @@
     ).join('');
     const cmpOpts = (sel, val) =>
       `<option value=""${!val ? ' selected' : ''}>—</option><option value="gte"${val === 'gte' ? ' selected' : ''}>≥</option><option value="lte"${val === 'lte' ? ' selected' : ''}>≤</option>`;
-    const streetOpts = scope === 'sessionHands'
+    const streetOpts = (scope === 'sessionHands' || scope === 'errors')
       ? ['', 'preflop', 'flop', 'turn', 'river'].map((st) =>
         `<option value="${st}"${f.street === st ? ' selected' : ''}>${st || 'Todas las calles'}</option>`
+      ).join('')
+      : '';
+    const typeLabels = (window.PTLeaks && PTLeaks.TYPE_LABELS) || {};
+    const spotTypeKeys = ['', 'RFI', 'vsRFI', 'face3bet', 'face4bet', 'squeeze', 'bbVsSbLimp', 'sbLimp', 'cold4bet', 'isoLimp', 'isoL', 'limp', 'postflop'];
+    const spotTypeOpts = scope === 'errors'
+      ? spotTypeKeys.map((t) =>
+        `<option value="${escapeHtml(t)}"${f.spotType === t ? ' selected' : ''}>${t ? escapeHtml(typeLabels[t] || t) : 'Todos los tipos'}</option>`
       ).join('')
       : '';
     const kindOpts = scope === 'sessionHands'
@@ -8462,20 +8504,26 @@
     const graveOpts = scope === 'sessionHands'
       ? `<label class="session-grave-filter"><input type="checkbox" data-filter-scope="${scope}" data-filter="graveOnly" value="1"${f.graveOnly ? ' checked' : ''}> Solo errores graves</label>`
       : '';
+    const streetLabel = scope === 'errors' ? 'Calle' : 'Calle peor fuga';
+    const evFilters = scope === 'errors'
+      ? `<label>EV perdido<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>`
+      : `<label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>
+      <label>EV real<select data-filter-scope="${scope}" data-filter="realOp">${cmpOpts('realOp', f.realOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="realVal" value="${escapeHtml(f.realVal != null ? f.realVal : '')}"></label>`;
     return `
       <label>Clase<select data-filter-scope="${scope}" data-filter="class">${classOpts}</select></label>
       <label>Posición héroe<select data-filter-scope="${scope}" data-filter="pos">${posOpts}</select></label>
-      ${streetOpts ? `<label>Calle peor fuga<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${streetOpts ? `<label>${streetLabel}<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${spotTypeOpts ? `<label>Tipo de spot<select data-filter-scope="${scope}" data-filter="spotType">${spotTypeOpts}</select></label>` : ''}
       ${kindOpts ? `<label>Tipo<select data-filter-scope="${scope}" data-filter="gameKind">${kindOpts}</select></label>` : ''}
       ${stackOpts ? `<label>Stack<select data-filter-scope="${scope}" data-filter="stackBin">${stackOpts}</select></label>` : ''}
       ${tagOpts ? `<label>Tag<select data-filter-scope="${scope}" data-filter="tag">${tagOpts}</select></label>` : ''}
       ${graveOpts}
       ${showDate ? `<label>Desde<input type="date" data-filter-scope="${scope}" data-filter="dateFrom" value="${escapeHtml(f.dateFrom || '')}"></label>
       <label>Hasta<input type="date" data-filter-scope="${scope}" data-filter="dateTo" value="${escapeHtml(f.dateTo || '')}"></label>` : ''}
-      <label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
-        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>
-      <label>EV real<select data-filter-scope="${scope}" data-filter="realOp">${cmpOpts('realOp', f.realOp)}</select>
-        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="realVal" value="${escapeHtml(f.realVal != null ? f.realVal : '')}"></label>`;
+      ${evFilters}`;
   }
 
   function bindHandFilters(hostId, scope, onChange) {
@@ -8493,6 +8541,14 @@
         };
         el.addEventListener('change', handler);
         if (el.tagName === 'INPUT' && el.type !== 'checkbox') el.addEventListener('input', handler);
+      });
+    } else {
+      // Sync DOM with state (e.g. street/spotType set from Stats leak bars).
+      host.querySelectorAll('[data-filter]').forEach((el) => {
+        const key = el.getAttribute('data-filter');
+        const val = (handListFilters[scope] && handListFilters[scope][key]) || '';
+        if (el.type === 'checkbox') el.checked = !!val;
+        else if (el.value !== val) el.value = val;
       });
     }
   }
@@ -8518,7 +8574,6 @@
     if (!passesDateRange(e.createdAt, f.dateFrom, f.dateTo)) return false;
     const evLoss = Number(e.evLoss) || 0;
     if (!passesEvCompare(evLoss, f.expOp, f.expVal)) return false;
-    if (!passesEvCompare(evLoss, f.realOp, f.realVal)) return false;
     return true;
   }
 
