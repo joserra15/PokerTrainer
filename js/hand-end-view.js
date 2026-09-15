@@ -416,7 +416,9 @@
       if (stats.finishPlace != null) grid += cell(stats.finishPlace + 'º', 'Puesto');
       if (stats.roiPct != null) grid += cell(stats.roiPct + '%', 'ROI');
       if (stats.profitEuro != null) {
-        grid += cell((stats.profitEuro >= 0 ? '+' : '') + Number(stats.profitEuro).toFixed(2) + '€', 'Profit €');
+        /* Torneos in-app usan Koins (no € reales). */
+        var profitVal = (stats.profitEuro >= 0 ? '+' : '') + Number(stats.profitEuro).toFixed(2) + ' Koins';
+        grid += cell(profitVal, 'Profit Koins');
       }
       if (stats.mttPhase) grid += cell(String(stats.mttPhase), 'Fase');
     }

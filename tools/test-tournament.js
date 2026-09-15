@@ -1385,9 +1385,33 @@ console.log('OK tournament-review-back');
   assert.ok(!/session-replay-hand|>Replay</.test(rr), 'no Replay on result');
   const hev = fs.readFileSync(path.join(ROOT, 'js/hand-end-view.js'), 'utf8');
   assert.ok(hev.includes('gradeLabel') || hev.includes('grade.letter'), 'session grade not raw Object');
+  assert.ok(/Profit Koins/.test(hev) && !/Profit €/.test(hev),
+    'session stats profit uses Koins in tournaments');
   const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
   assert.ok(appSrc.includes('fromTournament'), 'app handles fromTournament');
   assert.ok(appSrc.includes('session-hands-fold') || appSrc.includes('sessionHandsFold'), 'session hands fold');
+  assert.ok(/isTrnAi[\s\S]*Profit Koins/.test(appSrc) || /tournamentAi[\s\S]*Profit Koins/.test(appSrc),
+    'tournament AI session profit uses Koins');
+  const statsHtml = g.PTHandEndView.renderSessionStatsHtml({
+    gameKind: 'mtt',
+    nHands: 74,
+    finishPlace: 3,
+    roiPct: 238.4,
+    profitEuro: 11.92,
+    mttPhase: 'short',
+    netBB: 24.52,
+    accuracy: 92,
+    avgHandScore: 9.73,
+    vpipPct: 25.7,
+    pfrPct: 20.3,
+    stealPct: 44.4,
+    wtsdPct: 40.9,
+    wsdPct: 77.8,
+    evLossBB: 2.04
+  }, { title: 'Estadísticas de sesión' });
+  assert.ok(/Profit Koins/.test(statsHtml), 'result stats label Profit Koins');
+  assert.ok(/\+11\.92 Koins/.test(statsHtml), 'result stats value in Koins');
+  assert.ok(!/Profit €|\+11\.92€/.test(statsHtml), 'result stats no euro profit');
 }
 console.log('OK tournament-result-polish');
 
