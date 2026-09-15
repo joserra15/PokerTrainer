@@ -1269,16 +1269,16 @@
         </div>
       </div>
       <p class="muted-text" style="margin:-8px 0 8px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
-      <div class="adaptive-drill-help card-box">
-        <h3>¿Qué es el drill adaptativo?</h3>
+      <details class="adaptive-drill-help card-box">
+        <summary>¿Qué es el drill adaptativo?</summary>
         <p class="muted-text">En lugar de repasar errores al azar o en orden de llegada, el drill <strong>elige solo tus peores fugas</strong>:</p>
         <ol class="adaptive-drill-steps">
           <li>Agrupa tus errores por spot (tipo · posición · calle).</li>
           <li>Ordena esos spots por <strong>EV perdido</strong> y toma los más caros.</li>
           <li>Monta una cola de hasta ~25 manos y las lanza en el entrenador para repetirlas.</li>
         </ol>
-        <p class="muted-text">«Entrenar errores» sigue la lista completa; el drill adaptativo ataca primero donde más te sangra el EV.</p>
-      </div>
+        <p class="muted-text">«Entrenar errores» sigue la lista filtrada; el drill adaptativo ataca primero donde más te sangra el EV.</p>
+      </details>
       <div id="errors-filters" class="hand-filters"></div>
       <div id="errors-list" class="record-list"></div>
     </section>

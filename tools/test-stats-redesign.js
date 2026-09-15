@@ -46,6 +46,14 @@ assert(/Errores a repasar/.test(renderHomeSrc), 'home muestra errores a repasar'
 assert(/id="home-daily-spot"/.test(indexHtml), 'host spot del día en home');
 assert(/renderHomeDailySpot/.test(renderHomeSrc), 'home monta spot del día');
 
+// Menú Errores: filtros visibles + EV único + ayuda colapsable
+assert(/<details class="adaptive-drill-help/.test(indexHtml), 'ayuda drill adaptativo colapsable');
+assert(/clearErrorFilters/.test(appJs), 'empty state puede quitar filtros de errores');
+assert(/filteredErrorsList/.test(appJs), 'entrenar errores usa lista filtrada');
+assert(/EV perdido/.test(appJs) && /scope === 'errors'/.test(appJs), 'filtro EV perdido en errores');
+assert(/spotTypeOpts/.test(appJs) || /Tipo de spot/.test(appJs), 'filtro tipo de spot en errores');
+assert(/data-del="\$\{escapeHtml\(e\.id\)\}"/.test(appJs), 'data-del escapa id');
+
 assert(/data-stats-tab="trainer"/.test(renderStatsSrc), 'pestaña Entrenador');
 assert(/data-stats-tab="sessions"/.test(renderStatsSrc), 'pestaña Sesiones');
 assert(/__ptStatsTab/.test(appJs), 'tab activa persistida');
@@ -116,15 +124,35 @@ assert.strictEqual(sessionKey.type, 'postflop');
 assert.strictEqual(sessionKey.street, 'river');
 assert.strictEqual(sessionKey.pos, 'BTN');
 
+const enrichedKey = PTLeaks.parseLeakKey('RFI|BTN|flop|cash|mixed|-|flop');
+assert.strictEqual(enrichedKey.type, 'RFI', 'clave enriquecida: type');
+assert.strictEqual(enrichedKey.pos, 'BTN', 'clave enriquecida: pos');
+assert.strictEqual(enrichedKey.street, 'flop', 'clave enriquecida: street');
+assert.strictEqual(enrichedKey.family, 'cash', 'clave enriquecida: hub/family');
+assert.strictEqual(PTLeaks.labelForKey('RFI|BTN|flop|cash|mixed|-|flop'), 'RFI · BTN · Flop',
+  'labelForKey no confunde hub con calle');
+
+const enrichedAgg = PTLeaks.aggregateByStreet([
+  { class: 'error', evLoss: 2, spotKey: 'vsRFI|CO|turn|mtt|mixed|mid|turn', street: 'turn' }
+]);
+assert.ok(enrichedAgg.some((r) => r.street === 'turn'), 'aggregateByStreet con clave enriquecida');
+assert.ok(!enrichedAgg.some((r) => r.street === 'mtt' || r.street === 'CO'),
+  'aggregateByStreet no usa hub/pos como calle');
+
 const mixed = PTLeaks.aggregateLeaksMap({
   'mtt|postflop|BTN|river': { count: 10, evLoss: 40 },
   'cash6|RFI|UTG|preflop': { count: 4, evLoss: 8 },
-  'cash6|flop|BTN|flop': { count: 2, evLoss: 3 }
+  'cash6|flop|BTN|flop': { count: 2, evLoss: 3 },
+  'RFI|BTN|flop|cash|mixed|-|flop': { count: 5, evLoss: 12 }
 });
 assert.ok(mixed.byStreet.every((r) => /preflop|flop|turn|river|postflop/.test(r.street)),
   'agregado de sesiones no mezcla posiciones como calles');
 assert.ok(!mixed.byStreet.some((r) => r.street === 'BTN' || r.label === 'BTN'),
   'BTN no aparece como calle');
+assert.ok(mixed.byStreet.some((r) => r.street === 'flop' && r.count >= 5),
+  'clave enriquecida cuenta en byStreet flop');
+assert.ok(mixed.byType.some((r) => r.type === 'RFI'),
+  'clave enriquecida cuenta tipo RFI, no cash');
 
 const bars = PTLeaks.renderBreakdownBars('Test', [
   { street: 'flop', label: 'Flop', count: 6, evLoss: 12.4 }
