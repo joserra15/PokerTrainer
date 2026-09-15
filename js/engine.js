@@ -276,13 +276,20 @@
 
   function tablePositionsForHand(hand) {
     const PC = global.PTPlayConfig;
+    if (PC && hand.playConfig && PC.tablePositions) {
+      return PC.tablePositions(hand.playConfig);
+    }
     if (is9MaxHand(hand) && PC) return PC.POS_9;
     return DEAL_ORDER;
   }
 
   function preflopOrderForHand(hand) {
     const PC = global.PTPlayConfig;
-    if (is9MaxHand(hand) && PC) return PC.PREFLOP_ACTION_9;
+    if (PC && hand.playConfig) {
+      if (PC.isHuPhase && PC.isHuPhase(hand.playConfig)) return ['SB', 'BB'];
+      if (PC.isSpin && PC.isSpin(hand.playConfig)) return ['BTN', 'SB', 'BB'];
+      if (is9MaxHand(hand)) return PC.PREFLOP_ACTION_9;
+    }
     return PREFLOP_ACTION;
   }
 
@@ -937,7 +944,7 @@
   function collapseOthersToHU(hand, villainPos, extraAlive) {
     if (!hand.table) return;
     const alive = new Set([hand.hero.pos, villainPos].concat(extraAlive || []));
-    DEAL_ORDER.forEach(function (pos) {
+    tablePositionsForHand(hand).forEach(function (pos) {
       if (!alive.has(pos)) markFolded(hand, pos);
     });
   }

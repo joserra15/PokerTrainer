@@ -123,6 +123,15 @@
     { top: 16, left: 10 },
     { top: 16, left: 90 }
   ];
+  /* Heads Up: héroe abajo, único rival arriba-centro. */
+  const SEAT_COORDS_HU = [
+    { top: 96, left: 50 },
+    { top: 18, left: 50 }
+  ];
+  const SEAT_COORDS_MOBILE_HU = [
+    { top: 94, left: 50 },
+    { top: 14, left: 50 }
+  ];
   const SEAT_COORDS_MOBILE_9 = [
     { top: 93, left: 50 },
     { top: 80, left: 14 },
@@ -3522,8 +3531,9 @@
     if (boardArea) boardArea.classList.remove('has-villain-bar');
     const felt = document.querySelector('#play-active .table-felt');
     if (felt) {
+      felt.classList.toggle('table-hu', isHuTable());
       felt.classList.toggle('table-9max', is9MaxTable());
-      felt.classList.toggle('table-3max', is3MaxTable());
+      felt.classList.toggle('table-3max', is3MaxTable() && !isHuTable());
     }
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
@@ -3703,12 +3713,19 @@
     return (hand && hand.playConfig) || playSessionConfig;
   }
 
+  function isHuTable() {
+    const cfg = playTableConfig();
+    return !!(window.PTPlayConfig && cfg && PTPlayConfig.isHuPhase && PTPlayConfig.isHuPhase(cfg));
+  }
+
   function is9MaxTable() {
+    if (isHuTable()) return false;
     const cfg = playTableConfig();
     return !!(window.PTPlayConfig && cfg && PTPlayConfig.is9Max(cfg));
   }
 
   function is3MaxTable() {
+    if (isHuTable()) return false;
     const cfg = playTableConfig();
     if (!window.PTPlayConfig || !cfg) return false;
     if (PTPlayConfig.is3Max) return !!PTPlayConfig.is3Max(cfg);
@@ -3720,12 +3737,14 @@
     if (window.PTPlayConfig && cfg && PTPlayConfig.tablePositions) {
       return PTPlayConfig.tablePositions(cfg);
     }
+    if (isHuTable()) return ['SB', 'BB'];
     if (is3MaxTable()) return POS_3;
     return is9MaxTable() ? POS_9 : POS;
   }
 
   function seatCoordsForTable() {
     const mobile = isMobileLayout();
+    if (isHuTable()) return mobile ? SEAT_COORDS_MOBILE_HU : SEAT_COORDS_HU;
     if (is3MaxTable()) return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
     if (is9MaxTable()) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
     return mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;

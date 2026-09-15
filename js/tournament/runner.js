@@ -120,8 +120,16 @@
     if (!tableId) return null;
     var onTable = Seat.playersOnTable(state, tableId);
     if (onTable.length < 2) {
-      if (St.playersLeft(state) <= 1) finish(state, { reason: 'won' });
-      return null;
+      /* Mesa hero con <2 asientos pero aún hay campo: forzar rebalance y reintentar. */
+      if (St.playersLeft(state) > 1) {
+        try { Seat.rebalance(state); } catch (eReb) { /* */ }
+        tableId = heroTableId(state);
+        if (tableId) onTable = Seat.playersOnTable(state, tableId);
+      }
+      if (onTable.length < 2) {
+        if (St.playersLeft(state) <= 1) finish(state, { reason: 'won' });
+        return null;
+      }
     }
     var buttonId = Seat.assignButton(state, tableId);
     var ordered = Seat.seatOrderWithButton(onTable, buttonId);

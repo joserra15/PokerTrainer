@@ -21,6 +21,7 @@
     "test:asset-cache": "node tools/test-asset-cache-invalidation.js",
     "test:oauth-callback": "node tools/test-oauth-callback-explicit.js",
     "test:allin-runout": "node tools/test-allin-runout.js",
+    "test:mtt-hu": "node tools/test-mtt-heads-up-trainer.js",
     "test:river-nut-flush": "node tools/test-river-board-ace-nut-flush.js",
     "test:villain-hu": "node tools/test-villain-hu.js",
     "test:villain-nuts": "node tools/test-villain-never-fold-nuts.js",

@@ -4338,7 +4338,10 @@
       }
       /* HU WTA (2 jugadores, 1 pago): chip EV ≈ $EV — no etiquetar bubble/ICM. */
       var huWta = kind === 'hu' || (left === 2 && paid <= 1) || (seatedN === 2 && paid <= 1);
-      if (hub === 'mtt' && paid > 0 && left > 0 && !huWta) {
+      if (huWta) {
+        mttPhase = 'hu';
+        mttStructureSituation = 'hu';
+      } else if (hub === 'mtt' && paid > 0 && left > 0) {
         if (left === paid + 1) {
           mttPhase = 'bubble';
           mttStructureSituation = 'bubble';
@@ -7907,8 +7910,16 @@
     if (!tableId) return null;
     var onTable = Seat.playersOnTable(state, tableId);
     if (onTable.length < 2) {
-      if (St.playersLeft(state) <= 1) finish(state, { reason: 'won' });
-      return null;
+      /* Mesa hero con <2 asientos pero aún hay campo: forzar rebalance y reintentar. */
+      if (St.playersLeft(state) > 1) {
+        try { Seat.rebalance(state); } catch (eReb) { /* */ }
+        tableId = heroTableId(state);
+        if (tableId) onTable = Seat.playersOnTable(state, tableId);
+      }
+      if (onTable.length < 2) {
+        if (St.playersLeft(state) <= 1) finish(state, { reason: 'won' });
+        return null;
+      }
     }
     var buttonId = Seat.assignButton(state, tableId);
     var ordered = Seat.seatOrderWithButton(onTable, buttonId);

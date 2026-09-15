@@ -83,6 +83,18 @@ assert.strictEqual(cfg.playersSeated, 2);
 assert.strictEqual(cfg.playersLeft, 2);
 assert.strictEqual(cfg.placesPaid, 1);
 assert.deepStrictEqual(PC.tablePositions(cfg), ['SB', 'BB']);
+assert.strictEqual(PC.is9Max(cfg), false, 'spin HU no es 9-max');
+
+const cfgMttHu = PC.normalize({
+  formatHub: 'mtt', gameType: 'mtt', mttPhase: 'hu', stackDepth: 'bb25',
+  playersLeft: 2, placesPaid: 1, mttStructureSituation: 'hu'
+});
+assert.strictEqual(PC.is9Max(cfgMttHu), false, 'MTT HU no es 9-max');
+assert.deepStrictEqual(PC.tablePositions(cfgMttHu), ['SB', 'BB']);
+const huSc = PC.pickScenario(cfgMttHu, null);
+assert.ok(['RFI', 'vsRFI', 'face3bet', 'bbVsSbLimp', 'sbLimp'].indexOf(huSc.type) >= 0);
+if (huSc.type === 'RFI') assert.strictEqual(huSc.heroPos, 'SB');
+if (huSc.type === 'vsRFI') assert.strictEqual(huSc.key, 'BB_vs_SB');
 
 const cfgMid = PC.normalize({ formatHub: 'spin', gameType: 'spin3', mttPhase: 'mid', stackDepth: 'bb20' });
 assert.notStrictEqual(cfgMid.mttPhase, 'hu');
