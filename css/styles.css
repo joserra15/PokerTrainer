@@ -4966,6 +4966,94 @@ body.cookie-banner-open { padding-bottom: 0; }
   margin-top: 6px;
 }
 .admin-stat-online .admin-stat-value { color: #3fb950; }
+.admin-stat-clickable { cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
+.admin-stat-clickable:hover { border-color: var(--accent, #58a6ff); transform: translateY(-1px); }
+.admin-stat-alert {
+  border-color: #d29922;
+  box-shadow: 0 0 0 1px rgba(210, 153, 34, 0.25);
+}
+.admin-stat-alert .admin-stat-value { color: #d29922; }
+
+.admin-founder-queue {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(210, 153, 34, 0.45);
+  border-radius: 10px;
+  background: rgba(210, 153, 34, 0.08);
+}
+.admin-founder-queue.hidden { display: none; }
+.admin-founder-queue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.admin-founder-queue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-founder-queue-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--card, #161b22);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.admin-founder-queue-item:hover { border-color: var(--accent, #58a6ff); }
+.admin-founder-queue-item .muted-text { font-size: 11px; }
+
+.admin-plan-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.admin-status-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: transparent;
+}
+.admin-status-active { color: #3fb950; border-color: rgba(63, 185, 80, 0.45); }
+.admin-status-trialing { color: #58a6ff; border-color: rgba(88, 166, 255, 0.45); }
+.admin-status-expired { color: #f85149; border-color: rgba(248, 81, 73, 0.45); }
+.admin-status-canceled { color: #d29922; border-color: rgba(210, 153, 34, 0.45); }
+.admin-status-free { color: var(--muted); }
+
+.admin-users-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+  font-size: 13px;
+}
+.admin-users-pagination.hidden { display: none; }
+.admin-page-label { color: var(--muted); }
+.admin-page-size { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.admin-page-size select {
+  background: var(--card, #161b22);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
 .admin-section { margin-top: 8px; }
 .admin-section-head {
   display: flex;
