@@ -65,8 +65,31 @@
     return tp[1] === cp[1] && tp[2] === cp[2];
   }
 
+  /**
+   * Formatos soportados:
+   * - legado entrenador: type|pos|street
+   * - enriquecido (formatSpotKey): type|pos|street|hub|intent|phase|street
+   * - sesiones importadas: family|type|pos|street
+   */
   function parseLeakKey(key) {
     var parts = String(key || '').split('|');
+    // Enriquecido: type|pos|street|hub|intent|phase|street (≥5 segmentos)
+    if (parts.length >= 5) {
+      var streetEnriched = parts[2] || '';
+      if (!isKnownStreet(streetEnriched) && isKnownStreet(parts[parts.length - 1])) {
+        streetEnriched = parts[parts.length - 1];
+      }
+      return {
+        family: parts[3] || '',
+        type: parts[0] || 'postflop',
+        pos: parts[1] || '?',
+        street: streetEnriched || 'preflop',
+        formatHub: parts[3] || '',
+        practiceIntent: parts[4] || '',
+        phase: parts[5] || ''
+      };
+    }
+    // Sesiones: family|type|pos|street
     if (parts.length >= 4) {
       return {
         family: parts[0] || '',
@@ -127,7 +150,8 @@
     var list = aggregate(errors, opts);
     var map = {};
     list.forEach(function (l) {
-      var street = (l.key.split('|')[2]) || 'preflop';
+      var parsed = parseLeakKey(l.key);
+      var street = parsed.street || 'preflop';
       if (!map[street]) map[street] = { street: street, label: STREET_LABELS[street] || street, count: 0, evLoss: 0 };
       map[street].count += l.count;
       map[street].evLoss += l.evLoss;
@@ -140,7 +164,8 @@
     var list = aggregate(errors, opts);
     var map = {};
     list.forEach(function (l) {
-      var type = l.key.split('|')[0] || 'postflop';
+      var parsed = parseLeakKey(l.key);
+      var type = parsed.type || 'postflop';
       if (!map[type]) map[type] = { type: type, label: TYPE_LABELS[type] || type, count: 0, evLoss: 0 };
       map[type].count += l.count;
       map[type].evLoss += l.evLoss;

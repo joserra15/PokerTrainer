@@ -5,7 +5,7 @@
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 9;
+  var AGG_VERSION = 10;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
@@ -75,6 +75,17 @@
     return out;
   }
 
+  function localDateKey(date) {
+    var d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1);
+    if (m.length < 2) m = '0' + m;
+    var day = String(d.getDate());
+    if (day.length < 2) day = '0' + day;
+    return y + '-' + m + '-' + day;
+  }
+
   function weekKey(date) {
     var d = new Date(date);
     if (isNaN(d.getTime())) d = new Date();
@@ -82,7 +93,7 @@
     var diff = d.getDate() - day + (day === 0 ? -6 : 1);
     var monday = new Date(d.getFullYear(), d.getMonth(), diff);
     monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().slice(0, 10);
+    return localDateKey(monday);
   }
 
   function fmtWeekLabel(iso) {
@@ -100,7 +111,8 @@
       sessionById: {},
       trainerByHandId: {},
       trainerLeaks: {},
-      sessionLeaks: {}
+      sessionLeaks: {},
+      sessionLeaksBySession: {}
     };
   }
 
@@ -112,6 +124,7 @@
     if (!a.trainerByHandId) a.trainerByHandId = {};
     if (!a.trainerLeaks) a.trainerLeaks = {};
     if (!a.sessionLeaks) a.sessionLeaks = {};
+    if (!a.sessionLeaksBySession) a.sessionLeaksBySession = {};
     a.version = AGG_VERSION;
     return a;
   }
@@ -122,7 +135,9 @@
     var decN = stats.nDecisions || (
       (dist.optima || 0) + (dist.aceptable || 0) + (dist.imprecisa || 0) + (dist.error || 0)
     );
-    var good = decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0;
+    var good = stats.nGood != null
+      ? stats.nGood
+      : ((dist.optima || 0) + (dist.aceptable || 0)) || (decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0);
     var hands = stats.nHands || 0;
     var vpipHands = stats.vpipHands != null
       ? stats.vpipHands
@@ -152,16 +167,17 @@
       roiPct: stats.roiPct != null ? stats.roiPct : null,
       profitEuro: stats.profitEuro != null ? stats.profitEuro : null,
       byStakes: stats.byStakes || null,
-      day: (stub.createdAt || '').slice(0, 10) || null
+      day: stub.createdAt ? localDateKey(stub.createdAt) : localDateKey(Date.now())
     };
     addStyleCounters(row, pickStyleCounters(stats));
     return row;
   }
 
-  function rebuildSessionWeekly(agg) {
+  function rebuildSessionWeekly(agg, formatFilter) {
     var map = {};
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
+      if (!matchesFormatFilter(c.formatKey, formatFilter)) return;
       if (!map[c.week]) {
         map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
         addStyleCounters(map[c.week], {});
@@ -300,10 +316,11 @@
     return base;
   }
 
-  function rebuildByStakes(agg) {
+  function rebuildByStakes(agg, formatFilter) {
     var map = {};
     Object.keys(agg.sessionById || {}).forEach(function (id) {
       var c = agg.sessionById[id];
+      if (!matchesFormatFilter(c.formatKey, formatFilter)) return;
       var rows = c.byStakes;
       if (rows && rows.length) {
         rows.forEach(function (r) {
@@ -326,19 +343,19 @@
     }).sort(function (a, b) { return b.hands - a.hands; });
   }
 
-  function rebuildByDay(agg, days) {
+  function rebuildByDay(agg, days, formatFilter) {
     days = days || 14;
     var buckets = {};
     var now = new Date();
     for (var i = days - 1; i >= 0; i--) {
-      var d = new Date(now);
-      d.setDate(d.getDate() - i);
-      var k = d.toISOString().slice(0, 10);
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      var k = localDateKey(d);
       buckets[k] = { key: k, hands: 0, netBB: 0, sessions: 0 };
     }
     Object.keys(agg.sessionById || {}).forEach(function (id) {
       var c = agg.sessionById[id];
-      var day = c.day || (c.week ? c.week : null);
+      if (!matchesFormatFilter(c.formatKey, formatFilter)) return;
+      var day = c.day || null;
       if (!day || !buckets[day]) return;
       buckets[day].hands += c.hands || 0;
       buckets[day].netBB = round2(buckets[day].netBB + (c.netBB || 0));
@@ -384,23 +401,15 @@
   }
 
   function indexSessionLeaks(agg, session) {
-    if (!session || !session.hands) return;
-    (session.hands || []).forEach(function (h) {
-      (h.decisions || []).forEach(function (d) {
-        if (!LEAK_CLASSES[d.class]) return;
-        var k = sessionSpotKey(h, d);
-        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB, {
-          sessionId: session.id,
-          handId: h.id
-        });
-      });
-    });
+    indexSessionLeaksForSession(agg, session);
   }
 
   function rebuildSessionLeaks(agg, sessions) {
     agg.sessionLeaks = {};
+    agg.sessionLeaksBySession = {};
+    if (agg._sessionLeakKeys) agg._sessionLeakKeys = {};
     (sessions || []).forEach(function (s) {
-      if (s && s.hands && s.hands.length) indexSessionLeaks(agg, s);
+      if (s && s.hands && s.hands.length) indexSessionLeaksForSession(agg, s);
     });
   }
 
@@ -447,21 +456,64 @@
     return true;
   }
 
+  function recomputeSessionLeaks(agg) {
+    agg.sessionLeaks = {};
+    var bySession = agg.sessionLeaksBySession || {};
+    Object.keys(bySession).forEach(function (sid) {
+      var spots = bySession[sid] || {};
+      Object.keys(spots).forEach(function (k) {
+        var s = spots[k];
+        if (!s) return;
+        if (!agg.sessionLeaks[k]) {
+          agg.sessionLeaks[k] = {
+            key: k,
+            label: s.label || k,
+            count: 0,
+            evLoss: 0,
+            sessionId: sid,
+            handId: s.handId || null
+          };
+        }
+        var t = agg.sessionLeaks[k];
+        t.count += s.count || 0;
+        t.evLoss = round2(t.evLoss + (s.evLoss || 0));
+        if (s.label) t.label = s.label;
+        if (!t.sessionId) t.sessionId = sid;
+        if (!t.handId && s.handId) t.handId = s.handId;
+      });
+    });
+  }
+
   function indexSessionLeaksForSession(agg, session) {
+    if (!session || !session.id) return;
+    if (!agg.sessionLeaksBySession) agg.sessionLeaksBySession = {};
+    var map = {};
     (session.hands || []).forEach(function (h) {
       (h.decisions || []).forEach(function (d) {
         if (!LEAK_CLASSES[d.class]) return;
         var k = sessionSpotKey(h, d);
-        var leakKey = session.id + '|' + k;
-        if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
-        if (agg._sessionLeakKeys[leakKey]) return;
-        agg._sessionLeakKeys[leakKey] = true;
-        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB, {
-          sessionId: session.id,
-          handId: h.id
-        });
+        if (!map[k]) {
+          map[k] = {
+            key: k,
+            label: sessionSpotLabel(h, d, k),
+            count: 0,
+            evLoss: 0,
+            handId: h.id || null
+          };
+        }
+        map[k].count += 1;
+        map[k].evLoss = round2(map[k].evLoss + (Number(d.evLoss != null ? d.evLoss : d.evLossBB) || 0));
+        if (!map[k].handId && h.id) map[k].handId = h.id;
       });
     });
+    agg.sessionLeaksBySession[session.id] = map;
+    /* Limpiar claves legacy de índice por spot. */
+    if (agg._sessionLeakKeys) {
+      Object.keys(agg._sessionLeakKeys).forEach(function (k) {
+        if (k.indexOf(session.id + '|') === 0) delete agg._sessionLeakKeys[k];
+      });
+    }
+    recomputeSessionLeaks(agg);
   }
 
   function removeSession(st, sessionId) {
@@ -571,16 +623,13 @@
 
   function purgeSessionLeaksForSession(agg, sessionId) {
     if (!sessionId || !agg) return;
-    Object.keys(agg.sessionLeaks || {}).forEach(function (k) {
-      if (agg.sessionLeaks[k] && agg.sessionLeaks[k].sessionId === sessionId) {
-        delete agg.sessionLeaks[k];
-      }
-    });
+    if (agg.sessionLeaksBySession) delete agg.sessionLeaksBySession[sessionId];
     if (agg._sessionLeakKeys) {
       Object.keys(agg._sessionLeakKeys).forEach(function (k) {
         if (k.indexOf(sessionId + '|') === 0) delete agg._sessionLeakKeys[k];
       });
     }
+    recomputeSessionLeaks(agg);
   }
 
   function mergeAggregates(local, cloud) {
@@ -595,9 +644,49 @@
           out.trainerByHandId[id] = src.trainerByHandId[id];
         });
       }
+      if (src.sessionLeaksBySession) {
+        Object.keys(src.sessionLeaksBySession).forEach(function (sid) {
+          out.sessionLeaksBySession[sid] = JSON.parse(JSON.stringify(src.sessionLeaksBySession[sid]));
+        });
+      }
     });
     mergeLeakMaps(out.trainerLeaks, local && local.trainerLeaks, cloud && cloud.trainerLeaks);
-    mergeLeakMaps(out.sessionLeaks, local && local.sessionLeaks, cloud && cloud.sessionLeaks);
+    if (out.sessionLeaksBySession && Object.keys(out.sessionLeaksBySession).length) {
+      recomputeSessionLeaks(out);
+    } else {
+      mergeLeakMaps(out.sessionLeaks, local && local.sessionLeaks, cloud && cloud.sessionLeaks);
+    }
+    return out;
+  }
+
+
+  function sessionLeaksForFilter(agg, formatFilter) {
+    if (!formatFilter || formatFilter === 'all' || formatFilter === 'Todo') {
+      return agg.sessionLeaks || {};
+    }
+    var out = {};
+    var bySession = agg.sessionLeaksBySession || {};
+    Object.keys(bySession).forEach(function (sid) {
+      var row = agg.sessionById && agg.sessionById[sid];
+      var fk = row && row.formatKey;
+      if (!matchesFormatFilter(fk, formatFilter)) return;
+      var spots = bySession[sid] || {};
+      Object.keys(spots).forEach(function (k) {
+        var s = spots[k];
+        if (!out[k]) {
+          out[k] = {
+            key: k,
+            label: s.label || k,
+            count: 0,
+            evLoss: 0,
+            sessionId: sid,
+            handId: s.handId || null
+          };
+        }
+        out[k].count += s.count || 0;
+        out[k].evLoss = round2(out[k].evLoss + (s.evLoss || 0));
+      });
+    });
     return out;
   }
 
@@ -617,14 +706,15 @@
     trainerWeeklySeries: function (st, weeks) {
       return bucketToSeries(rebuildTrainerWeekly(ensureAggregates(st)), weeks);
     },
-    sessionWeeklySeries: function (st, weeks) {
-      return bucketToSeries(rebuildSessionWeekly(ensureAggregates(st)), weeks);
+    sessionWeeklySeries: function (st, weeks, formatFilter) {
+      return bucketToSeries(rebuildSessionWeekly(ensureAggregates(st), formatFilter), weeks);
     },
     trainerTopLeaks: function (st, limit) {
       return leaksToList(ensureAggregates(st).trainerLeaks, limit);
     },
-    sessionTopLeaks: function (st, limit) {
-      return leaksToList(ensureAggregates(st).sessionLeaks, limit);
+    sessionTopLeaks: function (st, limit, formatFilter) {
+      var agg = ensureAggregates(st);
+      return leaksToList(sessionLeaksForFilter(agg, formatFilter), limit);
     },
     sessionsTotal: function (st, formatFilter) {
       return rebuildSessionsTotal(ensureAggregates(st), formatFilter);
@@ -633,16 +723,17 @@
       var tot = rebuildSessionsTotal(ensureAggregates(st), 'all');
       return tot.byFormat || {};
     },
-    sessionsByStakes: function (st) {
-      return rebuildByStakes(ensureAggregates(st));
+    sessionsByStakes: function (st, formatFilter) {
+      return rebuildByStakes(ensureAggregates(st), formatFilter);
     },
-    sessionDailySeries: function (st, days) {
-      return rebuildByDay(ensureAggregates(st), days);
+    sessionDailySeries: function (st, days, formatFilter) {
+      return rebuildByDay(ensureAggregates(st), days, formatFilter);
     },
     formatFamily: formatFamily,
+    matchesFormatFilter: matchesFormatFilter,
+    localDateKey: localDateKey,
     refreshSessionLeaks: function (st, sessions) {
       var agg = ensureAggregates(st);
-      if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
       (sessions || []).forEach(function (s) {
         if (s && s.hands && s.hands.length) indexSessionLeaksForSession(agg, s);
       });

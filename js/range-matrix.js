@@ -51,7 +51,7 @@
     '3bet': {
       label: '3-Bet',
       heroPositions: ['BB', 'SB', 'BTN', 'CO', 'HJ'],
-      villainPositions: ['UTG', 'HJ', 'CO', 'BTN'],
+      villainPositions: ['UTG', 'HJ', 'CO', 'BTN', 'SB'],
       build: function (heroPos, villainPos) {
         return {
           spotKind: 'vsRFI',
@@ -615,7 +615,7 @@
   function villainPositionsForSpot(spotType, ctx) {
     const c = explorerCtx(ctx);
     if (spotType === '3bet') {
-      if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+      if (c.is9Max) return ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB'];
       return EXPLORER_SPOTS['3bet'].villainPositions;
     }
     if (spotType === '4bet') {

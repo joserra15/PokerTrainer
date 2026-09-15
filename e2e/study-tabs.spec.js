@@ -16,6 +16,24 @@ test.describe('Pestañas de estudio @smoke', () => {
   test('Errores muestra spot sembrado', async ({ page }) => {
     await goTab(page, 'errors');
     await expect(page.locator('#errors-list')).toContainText(/Call|fold|AKo|flop|error/i, { timeout: 15000 });
+    const filters = page.locator('#errors-filters');
+    await expect(filters.locator('[data-filter="street"]')).toBeVisible();
+    await expect(filters.locator('[data-filter="spotType"]')).toBeVisible();
+    await expect(filters.locator('[data-filter="expOp"]')).toBeVisible();
+    await expect(filters).toContainText(/EV perdido/i);
+    await expect(filters).not.toContainText(/EV esperado|EV real/i);
+    await expect(page.locator('details.adaptive-drill-help')).toBeVisible();
+    await expect(page.locator('details.adaptive-drill-help')).not.toHaveAttribute('open', '');
+
+    await filters.locator('[data-filter="street"]').selectOption('preflop');
+    await expect(page.locator('#errors-list')).toContainText(/preflop|AQo|vsRFI/i, { timeout: 10000 });
+    await expect(page.locator('#errors-list')).not.toContainText(/AKo/);
+
+    await filters.locator('[data-filter="street"]').selectOption('river');
+    await expect(page.locator('#errors-list')).toContainText(/Ningún error con estos filtros|Quitar filtros/i, { timeout: 10000 });
+    await page.locator('#errors-list [data-empty-action="clearErrorFilters"]').click();
+    await expect(page.locator('#errors-list')).toContainText(/AKo|AQo|Call/i, { timeout: 10000 });
+    await expect(filters.locator('[data-filter="street"]')).toHaveValue('');
   });
 
   test('Estadísticas renderizan contenido', async ({ page }) => {
@@ -28,11 +46,19 @@ test.describe('Pestañas de estudio @smoke', () => {
   });
 
 
-  test('Rangos muestra matriz', async ({ page }) => {
+  test('Rangos muestra matriz 13×13 al abrir sin clicks extra', async ({ page }) => {
     await goTab(page, 'ranges');
-    await page.waitForSelector('#ranges-matrix-host, .range-matrix, #tab-ranges', { timeout: 20000 });
-    const text = await page.locator('#tab-ranges').innerText();
-    expect(text.length).toBeGreaterThan(20);
+    // La matriz GTO debe pintar sola (RFI · UTG) al entrar en la pestaña.
+    await expect(page.locator('#ranges-spot-row button')).toHaveCount(6, { timeout: 20000 });
+    await expect(page.locator('#ranges-hero-pos button')).not.toHaveCount(0);
+    await expect(page.locator('#ranges-spot-title')).toContainText(/RFI/i);
+    const host = page.locator('#ranges-matrix-host');
+    await expect(host).not.toBeEmpty({ timeout: 20000 });
+    await expect(host).not.toContainText(/Combinación de posiciones no disponible/);
+    // 13×13 = 169 celdas de mano (+ labels de eje en algunos layouts)
+    await expect
+      .poll(async () => host.locator('td, .rm-cell, .range-matrix-cell, [data-hand]').count(), { timeout: 25000 })
+      .toBeGreaterThanOrEqual(169);
     await expect(page.locator('#tab-ranges')).not.toContainText(/pt\.|i18n\./);
   });
 

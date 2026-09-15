@@ -1092,6 +1092,20 @@
     return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0 || hasSchoolProgress(st)));
   }
 
+  /** Vacío de estudio (entrenador/sesiones), sin contar Escuela. */
+  function isStudyStatsEmpty(st) {
+    if (!st) return true;
+    if ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0) return false;
+    var agg = st.aggregates;
+    if (!agg || typeof agg !== 'object') return true;
+    if (agg.sessionById && Object.keys(agg.sessionById).length) return false;
+    if (agg.trainerByHandId && Object.keys(agg.trainerByHandId).length) return false;
+    if (agg.sessionLeaks && Object.keys(agg.sessionLeaks).length) return false;
+    if (agg.trainerLeaks && Object.keys(agg.trainerLeaks).length) return false;
+    if (agg.sessionLeaksBySession && Object.keys(agg.sessionLeaksBySession).length) return false;
+    return true;
+  }
+
   function hasRejectRemote(key) {
     return !!(getClearedAt()[key + '_reject']);
   }
@@ -1129,13 +1143,53 @@
   function mergeStatsWithClear(localStats, cloudStats, localCa, cloudCa) {
     const lClear = (localCa && localCa.stats) || 0;
     const cClear = effectiveCloudClear('stats', cloudCa);
-    if (lClear > cClear && isStatsEmpty(cloudStats)) {
+    /* Clear local más reciente: no resucitar agregados de estudio desde la nube
+       aunque Escuela haga que isStatsEmpty sea false. */
+    if (lClear > cClear && isStudyStatsEmpty(localStats)) {
+      var wiped = JSON.parse(JSON.stringify(localStats || defaultStats()));
+      var mergedSchool = mergeSchoolProgress(
+        localStats && localStats.school,
+        cloudStats && cloudStats.school
+      );
+      if (mergedSchool) wiped.school = mergedSchool;
+      if (global.PTStatsAggregate && global.PTStatsAggregate.defaultAggregates) {
+        wiped.aggregates = global.PTStatsAggregate.defaultAggregates();
+        wiped._aggVersion = global.PTStatsAggregate.AGG_VERSION || wiped._aggVersion;
+      } else {
+        wiped.aggregates = { version: 0, sessionById: {}, trainerByHandId: {}, trainerLeaks: {}, sessionLeaks: {}, sessionLeaksBySession: {} };
+      }
+      wipeStudyCounters(wiped);
+      return wiped;
+    }
+    if (cClear > lClear && isStudyStatsEmpty(cloudStats) && isStudyStatsEmpty(localStats)) {
+      return JSON.parse(JSON.stringify(cloudStats));
+    }
+    if (lClear > cClear && isStudyStatsEmpty(cloudStats)) {
       return JSON.parse(JSON.stringify(localStats));
     }
-    if (cClear > lClear && isStatsEmpty(localStats)) {
+    if (cClear > lClear && isStudyStatsEmpty(localStats)) {
       return JSON.parse(JSON.stringify(cloudStats));
     }
     return mergeStats(localStats, cloudStats);
+  }
+
+  function wipeStudyCounters(st) {
+    if (!st || typeof st !== 'object') return st;
+    st.handsPlayed = 0;
+    st.totalEvLoss = 0;
+    st.totalNet = 0;
+    st.decisions = 0;
+    st.optima = 0;
+    st.aceptable = 0;
+    st.imprecisa = 0;
+    st.error = 0;
+    st.byStreet = {
+      preflop: { n: 0, good: 0 },
+      flop: { n: 0, good: 0 },
+      turn: { n: 0, good: 0 },
+      river: { n: 0, good: 0 }
+    };
+    return st;
   }
 
   function hasLocalDataAfterClear(key, snapshot, localClearTs) {
@@ -1681,6 +1735,26 @@
 
   function clearStats() {
     const st = defaultStats();
+    /* Conservar progreso de Escuela (clave propia); solo resetear estudio. */
+    try {
+      var own = readSchoolProgressStore();
+      if (own) st.school = own;
+    } catch (eSch) { /* ignore */ }
+    if (global.PTStatsAggregate && global.PTStatsAggregate.defaultAggregates) {
+      st.aggregates = global.PTStatsAggregate.defaultAggregates();
+      st._aggVersion = global.PTStatsAggregate.AGG_VERSION || 10;
+    } else {
+      st.aggregates = {
+        version: 10,
+        sessionById: {},
+        trainerByHandId: {},
+        trainerLeaks: {},
+        sessionLeaks: {},
+        sessionLeaksBySession: {}
+      };
+      st._aggVersion = 10;
+    }
+    delete st._aggMigrated;
     writeStats(st);
     markCleared('stats');
     notifySync(['stats']);
@@ -2401,7 +2475,7 @@
       } else if (key === 'stats') {
         const localCleared = !!(localCa.stats && localCa.stats >= effectiveCloudClear('stats', cloudCaBucket));
         var nextStats;
-        if (isStatsEmpty(local.stats) && localCleared) {
+        if (isStudyStatsEmpty(local.stats) && localCleared) {
           nextStats = JSON.parse(JSON.stringify(local.stats));
           if (s) out['clearedAt' + s].stats = localCa.stats;
           else out.clearedAt.stats = localCa.stats;

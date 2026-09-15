@@ -5710,22 +5710,47 @@ window.PT_NASH_PUSH_JSON = {
     return out;
   }
 
-  function weightsToOpenRow(weights) {
+  function roundFreq(x) {
+    return Math.round(Number(x) * 1000) / 1000;
+  }
+
+  function copyOpenMeta(out, baseRow) {
+    if (!baseRow) return out;
+    if (baseRow.action_size_bb != null) out.action_size_bb = baseRow.action_size_bb;
+    if (baseRow.global_rfi_frequency != null) out.global_rfi_frequency = baseRow.global_rfi_frequency;
+    if (baseRow.default_action != null) out.default_action = baseRow.default_action;
+    return out;
+  }
+
+  /**
+   * Reconstruye raise/mix y combo_matrix fraccionaria desde pesos de continuación.
+   * Manos >=0.99 van a raise; el resto a mix + matrix con la frecuencia exacta.
+   */
+  function weightsToOpenRow(weights, baseRow) {
     const raise = [];
     const mix = [];
+    const combo_matrix = {};
     Object.keys(weights || {}).forEach(function (code) {
       const w = weights[code];
       if (w <= 0) return;
-      if (w >= 0.99) raise.push(code);
-      else mix.push(code);
+      if (w >= 0.99) {
+        raise.push(code);
+      } else {
+        mix.push(code);
+        combo_matrix[code] = { raise: roundFreq(w), fold: roundFreq(1 - w) };
+      }
     });
-    return { raise: raise.join(', '), mix: mix.join(', ') };
+    const out = { raise: raise.join(', '), mix: mix.join(', ') };
+    if (Object.keys(combo_matrix).length) out.combo_matrix = combo_matrix;
+    return copyOpenMeta(out, baseRow);
   }
 
   function adjustOpenRow(row, stackDepth) {
     if (!row || !W() || !HS()) return row;
     if (stackDepth === 'standard') return row;
-    const w = W().fromSets({ raise: row.raise, mix: row.mix });
+    // Incluir combo_matrix (y manos solo-matrix) antes de ajustar por stack.
+    let w = W().fromSets({ raise: row.raise, mix: row.mix });
+    w = W().applyComboMatrix(w, row.combo_matrix, 'rfi');
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
@@ -5737,18 +5762,43 @@ window.PT_NASH_PUSH_JSON = {
         if (w[code] >= 1 && s > 0.38 && s < 0.52) w[code] = 0.85;
       }
     });
-    return weightsToOpenRow(w);
+    return weightsToOpenRow(w, row);
+  }
+
+  /**
+   * Escala una fila de combo_matrix vsRFI al nuevo peso de continuación,
+   * preservando la proporción 3bet/call del dump.
+   */
+  function scaleVsRfiMatrixRow(orig, continueW) {
+    const three = Number(orig['3bet']) || Number(orig.threeBet) || Number(orig.raise) || 0;
+    const call = Number(orig.call) || 0;
+    const origCont = three + call;
+    if (continueW <= 0 || origCont <= 0) return null;
+    const ratio = three / origCont;
+    let newThree = continueW * ratio;
+    let newCall = continueW * (1 - ratio);
+    const sum = newThree + newCall;
+    if (sum > 1) {
+      newThree /= sum;
+      newCall /= sum;
+    }
+    return {
+      '3bet': roundFreq(newThree),
+      call: roundFreq(newCall),
+      fold: roundFreq(Math.max(0, 1 - newThree - newCall))
+    };
   }
 
   function adjustVsRfiRow(row, stackDepth) {
     if (!row || !W() || !HS()) return row;
     if (stackDepth === 'standard') return row;
-    const w = W().fromSets({
+    let w = W().fromSets({
       threeBet: row.threeBet,
       threeBetMix: row.threeBetMix,
       call: row.call,
       callMix: row.callMix
     });
+    w = W().applyComboMatrix(w, row.combo_matrix, 'vsRfi');
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
@@ -5781,12 +5831,21 @@ window.PT_NASH_PUSH_JSON = {
         callMix.push(code);
       }
     });
-    return {
+    const out = {
       threeBet: threeBet.join(', ') || row.threeBet,
       threeBetMix: threeBetMix.join(', ') || row.threeBetMix,
       call: call.join(', ') || row.call,
       callMix: callMix.join(', ') || row.callMix
     };
+    if (row.combo_matrix && typeof row.combo_matrix === 'object') {
+      const matrix = {};
+      Object.keys(row.combo_matrix).forEach(function (code) {
+        const scaled = scaleVsRfiMatrixRow(row.combo_matrix[code], w[code] || 0);
+        if (scaled) matrix[code] = scaled;
+      });
+      if (Object.keys(matrix).length) out.combo_matrix = matrix;
+    }
+    return out;
   }
 
   function tournamentOpenTable(c) {
@@ -26963,16 +27022,32 @@ window.PT_NASH_PUSH_JSON = {
 
     if (scope === 'statsGlobal' && dataObj) {
       const st = dataObj.stats || {};
-      const total = st.decisions || 0;
-      const acc = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
-      const leaks = dataObj.leaks || [];
+      const focus = dataObj.focus || 'trainer';
+      const fmt = dataObj.formatFilter || 'all';
       const title = greet + '¿Qué deberías entrenar ahora?';
-      const lead =
-        'Llevas <strong>' + (st.handsPlayed || 0) + ' manos</strong> en el entrenador con ' +
-        '<strong>' + acc + '%</strong> de acierto y ' +
-        '<strong>-' + formatBB(st.totalEvLoss || 0) + ' bb</strong> de EV perdido.' +
-        (leaks.length ? ' Tienes <strong>' + leaks.length + '</strong> leaks recurrentes detectados.' : '') +
-        coachAskSuffix();
+      let lead;
+      if (focus === 'sessions') {
+        const tot = dataObj.sessionsTotal || {};
+        const sessLeaks = dataObj.sessionLeaks || [];
+        const sessAcc = tot.decisions ? Math.round((tot.good / tot.decisions) * 100) : null;
+        const fmtLabel = fmt === 'all' ? 'todos los formatos' : ('formato ' + fmt);
+        lead =
+          'En sesiones importadas (' + fmtLabel + ') llevas <strong>' + (tot.hands || 0) + ' manos</strong>' +
+          (sessAcc != null ? (' con <strong>' + sessAcc + '%</strong> de acierto') : '') +
+          (tot.bbPer100 != null ? (' y <strong>' + tot.bbPer100 + '</strong> bb/100') : '') + '.' +
+          (sessLeaks.length ? ' Top fugas de sesión: <strong>' + sessLeaks.length + '</strong>.' : '') +
+          coachAskSuffix();
+      } else {
+        const total = st.decisions || 0;
+        const acc = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
+        const leaks = dataObj.leaks || [];
+        lead =
+          'Llevas <strong>' + (st.handsPlayed || 0) + ' manos</strong> en el entrenador con ' +
+          '<strong>' + acc + '%</strong> de acierto y ' +
+          '<strong>-' + formatBB(st.totalEvLoss || 0) + ' bb</strong> de EV perdido.' +
+          (leaks.length ? ' Tienes <strong>' + leaks.length + '</strong> leaks recurrentes detectados.' : '') +
+          coachAskSuffix();
+      }
       return { title: title, lead: lead };
     }
 
@@ -27987,8 +28062,13 @@ window.PT_NASH_PUSH_JSON = {
     return container.querySelector('.home-coach-panel');
   }
 
+  function refresh(host) {
+    /* getData se evalúa al disparar; no hace falta remount. */
+    if (!host) return;
+  }
+
   global.PTAIReport = {
-    mount, mountWelcome, trigger, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
+    mount, mountWelcome, trigger, refresh, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
     TRAINING_FOCUSES, focusFromLeak, lessonFromLeak, lessonsFromLeak, defaultQuestionChips, trackFunnel
   };
 })(window);
@@ -29246,6 +29326,20 @@ window.PT_NASH_PUSH_JSON = {
     return !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0 || hasSchoolProgress(st)));
   }
 
+  /** Vacío de estudio (entrenador/sesiones), sin contar Escuela. */
+  function isStudyStatsEmpty(st) {
+    if (!st) return true;
+    if ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0) return false;
+    var agg = st.aggregates;
+    if (!agg || typeof agg !== 'object') return true;
+    if (agg.sessionById && Object.keys(agg.sessionById).length) return false;
+    if (agg.trainerByHandId && Object.keys(agg.trainerByHandId).length) return false;
+    if (agg.sessionLeaks && Object.keys(agg.sessionLeaks).length) return false;
+    if (agg.trainerLeaks && Object.keys(agg.trainerLeaks).length) return false;
+    if (agg.sessionLeaksBySession && Object.keys(agg.sessionLeaksBySession).length) return false;
+    return true;
+  }
+
   function hasRejectRemote(key) {
     return !!(getClearedAt()[key + '_reject']);
   }
@@ -29283,13 +29377,53 @@ window.PT_NASH_PUSH_JSON = {
   function mergeStatsWithClear(localStats, cloudStats, localCa, cloudCa) {
     const lClear = (localCa && localCa.stats) || 0;
     const cClear = effectiveCloudClear('stats', cloudCa);
-    if (lClear > cClear && isStatsEmpty(cloudStats)) {
+    /* Clear local más reciente: no resucitar agregados de estudio desde la nube
+       aunque Escuela haga que isStatsEmpty sea false. */
+    if (lClear > cClear && isStudyStatsEmpty(localStats)) {
+      var wiped = JSON.parse(JSON.stringify(localStats || defaultStats()));
+      var mergedSchool = mergeSchoolProgress(
+        localStats && localStats.school,
+        cloudStats && cloudStats.school
+      );
+      if (mergedSchool) wiped.school = mergedSchool;
+      if (global.PTStatsAggregate && global.PTStatsAggregate.defaultAggregates) {
+        wiped.aggregates = global.PTStatsAggregate.defaultAggregates();
+        wiped._aggVersion = global.PTStatsAggregate.AGG_VERSION || wiped._aggVersion;
+      } else {
+        wiped.aggregates = { version: 0, sessionById: {}, trainerByHandId: {}, trainerLeaks: {}, sessionLeaks: {}, sessionLeaksBySession: {} };
+      }
+      wipeStudyCounters(wiped);
+      return wiped;
+    }
+    if (cClear > lClear && isStudyStatsEmpty(cloudStats) && isStudyStatsEmpty(localStats)) {
+      return JSON.parse(JSON.stringify(cloudStats));
+    }
+    if (lClear > cClear && isStudyStatsEmpty(cloudStats)) {
       return JSON.parse(JSON.stringify(localStats));
     }
-    if (cClear > lClear && isStatsEmpty(localStats)) {
+    if (cClear > lClear && isStudyStatsEmpty(localStats)) {
       return JSON.parse(JSON.stringify(cloudStats));
     }
     return mergeStats(localStats, cloudStats);
+  }
+
+  function wipeStudyCounters(st) {
+    if (!st || typeof st !== 'object') return st;
+    st.handsPlayed = 0;
+    st.totalEvLoss = 0;
+    st.totalNet = 0;
+    st.decisions = 0;
+    st.optima = 0;
+    st.aceptable = 0;
+    st.imprecisa = 0;
+    st.error = 0;
+    st.byStreet = {
+      preflop: { n: 0, good: 0 },
+      flop: { n: 0, good: 0 },
+      turn: { n: 0, good: 0 },
+      river: { n: 0, good: 0 }
+    };
+    return st;
   }
 
   function hasLocalDataAfterClear(key, snapshot, localClearTs) {
@@ -29835,6 +29969,26 @@ window.PT_NASH_PUSH_JSON = {
 
   function clearStats() {
     const st = defaultStats();
+    /* Conservar progreso de Escuela (clave propia); solo resetear estudio. */
+    try {
+      var own = readSchoolProgressStore();
+      if (own) st.school = own;
+    } catch (eSch) { /* ignore */ }
+    if (global.PTStatsAggregate && global.PTStatsAggregate.defaultAggregates) {
+      st.aggregates = global.PTStatsAggregate.defaultAggregates();
+      st._aggVersion = global.PTStatsAggregate.AGG_VERSION || 10;
+    } else {
+      st.aggregates = {
+        version: 10,
+        sessionById: {},
+        trainerByHandId: {},
+        trainerLeaks: {},
+        sessionLeaks: {},
+        sessionLeaksBySession: {}
+      };
+      st._aggVersion = 10;
+    }
+    delete st._aggMigrated;
     writeStats(st);
     markCleared('stats');
     notifySync(['stats']);
@@ -30555,7 +30709,7 @@ window.PT_NASH_PUSH_JSON = {
       } else if (key === 'stats') {
         const localCleared = !!(localCa.stats && localCa.stats >= effectiveCloudClear('stats', cloudCaBucket));
         var nextStats;
-        if (isStatsEmpty(local.stats) && localCleared) {
+        if (isStudyStatsEmpty(local.stats) && localCleared) {
           nextStats = JSON.parse(JSON.stringify(local.stats));
           if (s) out['clearedAt' + s].stats = localCa.stats;
           else out.clearedAt.stats = localCa.stats;
@@ -31427,7 +31581,7 @@ window.PT_NASH_PUSH_JSON = {
   'use strict';
 
   var LEAK_CLASSES = { imprecisa: true, error: true };
-  var AGG_VERSION = 9;
+  var AGG_VERSION = 10;
 
   var STYLE_OPP_KEYS = [
     'threeBetOpps', 'threeBetHits',
@@ -31497,6 +31651,17 @@ window.PT_NASH_PUSH_JSON = {
     return out;
   }
 
+  function localDateKey(date) {
+    var d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) d = new Date();
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1);
+    if (m.length < 2) m = '0' + m;
+    var day = String(d.getDate());
+    if (day.length < 2) day = '0' + day;
+    return y + '-' + m + '-' + day;
+  }
+
   function weekKey(date) {
     var d = new Date(date);
     if (isNaN(d.getTime())) d = new Date();
@@ -31504,7 +31669,7 @@ window.PT_NASH_PUSH_JSON = {
     var diff = d.getDate() - day + (day === 0 ? -6 : 1);
     var monday = new Date(d.getFullYear(), d.getMonth(), diff);
     monday.setHours(0, 0, 0, 0);
-    return monday.toISOString().slice(0, 10);
+    return localDateKey(monday);
   }
 
   function fmtWeekLabel(iso) {
@@ -31522,7 +31687,8 @@ window.PT_NASH_PUSH_JSON = {
       sessionById: {},
       trainerByHandId: {},
       trainerLeaks: {},
-      sessionLeaks: {}
+      sessionLeaks: {},
+      sessionLeaksBySession: {}
     };
   }
 
@@ -31534,6 +31700,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!a.trainerByHandId) a.trainerByHandId = {};
     if (!a.trainerLeaks) a.trainerLeaks = {};
     if (!a.sessionLeaks) a.sessionLeaks = {};
+    if (!a.sessionLeaksBySession) a.sessionLeaksBySession = {};
     a.version = AGG_VERSION;
     return a;
   }
@@ -31544,7 +31711,9 @@ window.PT_NASH_PUSH_JSON = {
     var decN = stats.nDecisions || (
       (dist.optima || 0) + (dist.aceptable || 0) + (dist.imprecisa || 0) + (dist.error || 0)
     );
-    var good = decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0;
+    var good = stats.nGood != null
+      ? stats.nGood
+      : ((dist.optima || 0) + (dist.aceptable || 0)) || (decN ? Math.round((decN * (stats.accuracy || 0)) / 100) : 0);
     var hands = stats.nHands || 0;
     var vpipHands = stats.vpipHands != null
       ? stats.vpipHands
@@ -31574,16 +31743,17 @@ window.PT_NASH_PUSH_JSON = {
       roiPct: stats.roiPct != null ? stats.roiPct : null,
       profitEuro: stats.profitEuro != null ? stats.profitEuro : null,
       byStakes: stats.byStakes || null,
-      day: (stub.createdAt || '').slice(0, 10) || null
+      day: stub.createdAt ? localDateKey(stub.createdAt) : localDateKey(Date.now())
     };
     addStyleCounters(row, pickStyleCounters(stats));
     return row;
   }
 
-  function rebuildSessionWeekly(agg) {
+  function rebuildSessionWeekly(agg, formatFilter) {
     var map = {};
     Object.keys(agg.sessionById).forEach(function (id) {
       var c = agg.sessionById[id];
+      if (!matchesFormatFilter(c.formatKey, formatFilter)) return;
       if (!map[c.week]) {
         map[c.week] = { hands: 0, sessions: 0, decisions: 0, good: 0, evLoss: 0, netBB: 0, vpipHands: 0, pfrHands: 0 };
         addStyleCounters(map[c.week], {});
@@ -31722,10 +31892,11 @@ window.PT_NASH_PUSH_JSON = {
     return base;
   }
 
-  function rebuildByStakes(agg) {
+  function rebuildByStakes(agg, formatFilter) {
     var map = {};
     Object.keys(agg.sessionById || {}).forEach(function (id) {
       var c = agg.sessionById[id];
+      if (!matchesFormatFilter(c.formatKey, formatFilter)) return;
       var rows = c.byStakes;
       if (rows && rows.length) {
         rows.forEach(function (r) {
@@ -31748,19 +31919,19 @@ window.PT_NASH_PUSH_JSON = {
     }).sort(function (a, b) { return b.hands - a.hands; });
   }
 
-  function rebuildByDay(agg, days) {
+  function rebuildByDay(agg, days, formatFilter) {
     days = days || 14;
     var buckets = {};
     var now = new Date();
     for (var i = days - 1; i >= 0; i--) {
-      var d = new Date(now);
-      d.setDate(d.getDate() - i);
-      var k = d.toISOString().slice(0, 10);
+      var d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      var k = localDateKey(d);
       buckets[k] = { key: k, hands: 0, netBB: 0, sessions: 0 };
     }
     Object.keys(agg.sessionById || {}).forEach(function (id) {
       var c = agg.sessionById[id];
-      var day = c.day || (c.week ? c.week : null);
+      if (!matchesFormatFilter(c.formatKey, formatFilter)) return;
+      var day = c.day || null;
       if (!day || !buckets[day]) return;
       buckets[day].hands += c.hands || 0;
       buckets[day].netBB = round2(buckets[day].netBB + (c.netBB || 0));
@@ -31806,23 +31977,15 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function indexSessionLeaks(agg, session) {
-    if (!session || !session.hands) return;
-    (session.hands || []).forEach(function (h) {
-      (h.decisions || []).forEach(function (d) {
-        if (!LEAK_CLASSES[d.class]) return;
-        var k = sessionSpotKey(h, d);
-        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB, {
-          sessionId: session.id,
-          handId: h.id
-        });
-      });
-    });
+    indexSessionLeaksForSession(agg, session);
   }
 
   function rebuildSessionLeaks(agg, sessions) {
     agg.sessionLeaks = {};
+    agg.sessionLeaksBySession = {};
+    if (agg._sessionLeakKeys) agg._sessionLeakKeys = {};
     (sessions || []).forEach(function (s) {
-      if (s && s.hands && s.hands.length) indexSessionLeaks(agg, s);
+      if (s && s.hands && s.hands.length) indexSessionLeaksForSession(agg, s);
     });
   }
 
@@ -31869,21 +32032,64 @@ window.PT_NASH_PUSH_JSON = {
     return true;
   }
 
+  function recomputeSessionLeaks(agg) {
+    agg.sessionLeaks = {};
+    var bySession = agg.sessionLeaksBySession || {};
+    Object.keys(bySession).forEach(function (sid) {
+      var spots = bySession[sid] || {};
+      Object.keys(spots).forEach(function (k) {
+        var s = spots[k];
+        if (!s) return;
+        if (!agg.sessionLeaks[k]) {
+          agg.sessionLeaks[k] = {
+            key: k,
+            label: s.label || k,
+            count: 0,
+            evLoss: 0,
+            sessionId: sid,
+            handId: s.handId || null
+          };
+        }
+        var t = agg.sessionLeaks[k];
+        t.count += s.count || 0;
+        t.evLoss = round2(t.evLoss + (s.evLoss || 0));
+        if (s.label) t.label = s.label;
+        if (!t.sessionId) t.sessionId = sid;
+        if (!t.handId && s.handId) t.handId = s.handId;
+      });
+    });
+  }
+
   function indexSessionLeaksForSession(agg, session) {
+    if (!session || !session.id) return;
+    if (!agg.sessionLeaksBySession) agg.sessionLeaksBySession = {};
+    var map = {};
     (session.hands || []).forEach(function (h) {
       (h.decisions || []).forEach(function (d) {
         if (!LEAK_CLASSES[d.class]) return;
         var k = sessionSpotKey(h, d);
-        var leakKey = session.id + '|' + k;
-        if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
-        if (agg._sessionLeakKeys[leakKey]) return;
-        agg._sessionLeakKeys[leakKey] = true;
-        bumpLeak(agg.sessionLeaks, k, sessionSpotLabel(h, d, k), d.evLoss || d.evLossBB, {
-          sessionId: session.id,
-          handId: h.id
-        });
+        if (!map[k]) {
+          map[k] = {
+            key: k,
+            label: sessionSpotLabel(h, d, k),
+            count: 0,
+            evLoss: 0,
+            handId: h.id || null
+          };
+        }
+        map[k].count += 1;
+        map[k].evLoss = round2(map[k].evLoss + (Number(d.evLoss != null ? d.evLoss : d.evLossBB) || 0));
+        if (!map[k].handId && h.id) map[k].handId = h.id;
       });
     });
+    agg.sessionLeaksBySession[session.id] = map;
+    /* Limpiar claves legacy de índice por spot. */
+    if (agg._sessionLeakKeys) {
+      Object.keys(agg._sessionLeakKeys).forEach(function (k) {
+        if (k.indexOf(session.id + '|') === 0) delete agg._sessionLeakKeys[k];
+      });
+    }
+    recomputeSessionLeaks(agg);
   }
 
   function removeSession(st, sessionId) {
@@ -31993,16 +32199,13 @@ window.PT_NASH_PUSH_JSON = {
 
   function purgeSessionLeaksForSession(agg, sessionId) {
     if (!sessionId || !agg) return;
-    Object.keys(agg.sessionLeaks || {}).forEach(function (k) {
-      if (agg.sessionLeaks[k] && agg.sessionLeaks[k].sessionId === sessionId) {
-        delete agg.sessionLeaks[k];
-      }
-    });
+    if (agg.sessionLeaksBySession) delete agg.sessionLeaksBySession[sessionId];
     if (agg._sessionLeakKeys) {
       Object.keys(agg._sessionLeakKeys).forEach(function (k) {
         if (k.indexOf(sessionId + '|') === 0) delete agg._sessionLeakKeys[k];
       });
     }
+    recomputeSessionLeaks(agg);
   }
 
   function mergeAggregates(local, cloud) {
@@ -32017,9 +32220,49 @@ window.PT_NASH_PUSH_JSON = {
           out.trainerByHandId[id] = src.trainerByHandId[id];
         });
       }
+      if (src.sessionLeaksBySession) {
+        Object.keys(src.sessionLeaksBySession).forEach(function (sid) {
+          out.sessionLeaksBySession[sid] = JSON.parse(JSON.stringify(src.sessionLeaksBySession[sid]));
+        });
+      }
     });
     mergeLeakMaps(out.trainerLeaks, local && local.trainerLeaks, cloud && cloud.trainerLeaks);
-    mergeLeakMaps(out.sessionLeaks, local && local.sessionLeaks, cloud && cloud.sessionLeaks);
+    if (out.sessionLeaksBySession && Object.keys(out.sessionLeaksBySession).length) {
+      recomputeSessionLeaks(out);
+    } else {
+      mergeLeakMaps(out.sessionLeaks, local && local.sessionLeaks, cloud && cloud.sessionLeaks);
+    }
+    return out;
+  }
+
+
+  function sessionLeaksForFilter(agg, formatFilter) {
+    if (!formatFilter || formatFilter === 'all' || formatFilter === 'Todo') {
+      return agg.sessionLeaks || {};
+    }
+    var out = {};
+    var bySession = agg.sessionLeaksBySession || {};
+    Object.keys(bySession).forEach(function (sid) {
+      var row = agg.sessionById && agg.sessionById[sid];
+      var fk = row && row.formatKey;
+      if (!matchesFormatFilter(fk, formatFilter)) return;
+      var spots = bySession[sid] || {};
+      Object.keys(spots).forEach(function (k) {
+        var s = spots[k];
+        if (!out[k]) {
+          out[k] = {
+            key: k,
+            label: s.label || k,
+            count: 0,
+            evLoss: 0,
+            sessionId: sid,
+            handId: s.handId || null
+          };
+        }
+        out[k].count += s.count || 0;
+        out[k].evLoss = round2(out[k].evLoss + (s.evLoss || 0));
+      });
+    });
     return out;
   }
 
@@ -32039,14 +32282,15 @@ window.PT_NASH_PUSH_JSON = {
     trainerWeeklySeries: function (st, weeks) {
       return bucketToSeries(rebuildTrainerWeekly(ensureAggregates(st)), weeks);
     },
-    sessionWeeklySeries: function (st, weeks) {
-      return bucketToSeries(rebuildSessionWeekly(ensureAggregates(st)), weeks);
+    sessionWeeklySeries: function (st, weeks, formatFilter) {
+      return bucketToSeries(rebuildSessionWeekly(ensureAggregates(st), formatFilter), weeks);
     },
     trainerTopLeaks: function (st, limit) {
       return leaksToList(ensureAggregates(st).trainerLeaks, limit);
     },
-    sessionTopLeaks: function (st, limit) {
-      return leaksToList(ensureAggregates(st).sessionLeaks, limit);
+    sessionTopLeaks: function (st, limit, formatFilter) {
+      var agg = ensureAggregates(st);
+      return leaksToList(sessionLeaksForFilter(agg, formatFilter), limit);
     },
     sessionsTotal: function (st, formatFilter) {
       return rebuildSessionsTotal(ensureAggregates(st), formatFilter);
@@ -32055,16 +32299,17 @@ window.PT_NASH_PUSH_JSON = {
       var tot = rebuildSessionsTotal(ensureAggregates(st), 'all');
       return tot.byFormat || {};
     },
-    sessionsByStakes: function (st) {
-      return rebuildByStakes(ensureAggregates(st));
+    sessionsByStakes: function (st, formatFilter) {
+      return rebuildByStakes(ensureAggregates(st), formatFilter);
     },
-    sessionDailySeries: function (st, days) {
-      return rebuildByDay(ensureAggregates(st), days);
+    sessionDailySeries: function (st, days, formatFilter) {
+      return rebuildByDay(ensureAggregates(st), days, formatFilter);
     },
     formatFamily: formatFamily,
+    matchesFormatFilter: matchesFormatFilter,
+    localDateKey: localDateKey,
     refreshSessionLeaks: function (st, sessions) {
       var agg = ensureAggregates(st);
-      if (!agg._sessionLeakKeys) agg._sessionLeakKeys = {};
       (sessions || []).forEach(function (s) {
         if (s && s.hands && s.hands.length) indexSessionLeaksForSession(agg, s);
       });
@@ -32763,8 +33008,31 @@ window.PT_NASH_PUSH_JSON = {
     return tp[1] === cp[1] && tp[2] === cp[2];
   }
 
+  /**
+   * Formatos soportados:
+   * - legado entrenador: type|pos|street
+   * - enriquecido (formatSpotKey): type|pos|street|hub|intent|phase|street
+   * - sesiones importadas: family|type|pos|street
+   */
   function parseLeakKey(key) {
     var parts = String(key || '').split('|');
+    // Enriquecido: type|pos|street|hub|intent|phase|street (≥5 segmentos)
+    if (parts.length >= 5) {
+      var streetEnriched = parts[2] || '';
+      if (!isKnownStreet(streetEnriched) && isKnownStreet(parts[parts.length - 1])) {
+        streetEnriched = parts[parts.length - 1];
+      }
+      return {
+        family: parts[3] || '',
+        type: parts[0] || 'postflop',
+        pos: parts[1] || '?',
+        street: streetEnriched || 'preflop',
+        formatHub: parts[3] || '',
+        practiceIntent: parts[4] || '',
+        phase: parts[5] || ''
+      };
+    }
+    // Sesiones: family|type|pos|street
     if (parts.length >= 4) {
       return {
         family: parts[0] || '',
@@ -32825,7 +33093,8 @@ window.PT_NASH_PUSH_JSON = {
     var list = aggregate(errors, opts);
     var map = {};
     list.forEach(function (l) {
-      var street = (l.key.split('|')[2]) || 'preflop';
+      var parsed = parseLeakKey(l.key);
+      var street = parsed.street || 'preflop';
       if (!map[street]) map[street] = { street: street, label: STREET_LABELS[street] || street, count: 0, evLoss: 0 };
       map[street].count += l.count;
       map[street].evLoss += l.evLoss;
@@ -32838,7 +33107,8 @@ window.PT_NASH_PUSH_JSON = {
     var list = aggregate(errors, opts);
     var map = {};
     list.forEach(function (l) {
-      var type = l.key.split('|')[0] || 'postflop';
+      var parsed = parseLeakKey(l.key);
+      var type = parsed.type || 'postflop';
       if (!map[type]) map[type] = { type: type, label: TYPE_LABELS[type] || type, count: 0, evLoss: 0 };
       map[type].count += l.count;
       map[type].evLoss += l.evLoss;
@@ -42943,10 +43213,11 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (tabId === 'ranges') {
       withLazyChunk('ranges', function () {
-        var pending = global.__ptPendingRanges || null;
+        // window — el IIFE de app.js es strict y no define `global`.
+        var pending = window.__ptPendingRanges || null;
         if (pending && typeof applyRangesExplorerState === 'function') {
           try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
-          global.__ptPendingRanges = null;
+          window.__ptPendingRanges = null;
         }
         renderRangesExplorer();
       });
@@ -43240,9 +43511,15 @@ window.PT_NASH_PUSH_JSON = {
     const clearStatsBtn = $('#clear-stats');
     if (clearStatsBtn) {
       clearStatsBtn.addEventListener('click', () => {
-        if (confirm('¿Resetear las estadísticas globales a cero? No se borra el histórico ni la lista de errores.')) {
+        if (confirm('¿Resetear las estadísticas de estudio (entrenador y sesiones) a cero? No se borra el histórico, la lista de errores ni el progreso de Escuela. La nube respetará este reset.')) {
           Store.clearStats();
+          const coachHost = document.getElementById('stats-coach');
+          if (coachHost) {
+            delete coachHost.dataset.ptCoachMounted;
+            coachHost.innerHTML = '';
+          }
           renderStats();
+          if (typeof renderHome === 'function') renderHome();
         }
       });
     }
@@ -45090,7 +45367,7 @@ window.PT_NASH_PUSH_JSON = {
    * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
    */
   function openRangesExplorer(opts) {
-    if (opts) global.__ptPendingRanges = opts;
+    if (opts) window.__ptPendingRanges = opts;
     if (typeof goToTab === 'function') goToTab('ranges');
   }
   window.openRangesExplorer = openRangesExplorer;
@@ -45710,7 +45987,8 @@ window.PT_NASH_PUSH_JSON = {
 
     const sizingRow = $('#ranges-sizing-row');
     if (sizingRow) {
-      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI');
+      // RFI: open 2.5x/3x no cambia el chart (solo vsRFI/squeeze ajustan pot/toCall).
+      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze');
       sizingRow.classList.toggle('hidden', !showSizing);
       sizingRow.querySelectorAll('[data-ranges-sizing]').forEach((b) => {
         b.classList.toggle('active', Number(b.dataset.rangesSizing) === Number(rangesState.openSize));
@@ -45850,25 +46128,32 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
 
+    const job = ++matrixJob;
     if (isPostflop) {
       host.innerHTML = '<p class="ranges-postflop-disclaimer muted-text" data-i18n="ranges.postflop.disclaimer">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p><div class="range-matrix-progress">Calculando…</div>';
       RM.computePostflopFreqMatrixAsync(input, function (done, total) {
+        if (job !== matrixJob) return;
         const prog = host.querySelector('.range-matrix-progress');
         if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
       }).then(function (result) {
+        if (job !== matrixJob) return;
         const disc = '<p class="ranges-postflop-disclaimer muted-text">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p>';
         host.innerHTML = disc + renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
+        if (job !== matrixJob) return;
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
       });
     } else {
       host.innerHTML = '<div class="range-matrix-progress">Calculando…</div>';
       RM.computeGtoMatrixAsync(input, function (done, total) {
+        if (job !== matrixJob) return;
         const prog = host.querySelector('.range-matrix-progress');
         if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
       }).then(function (result) {
+        if (job !== matrixJob) return;
         host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
+        if (job !== matrixJob) return;
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
       });
     }
@@ -47008,7 +47293,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function statsBarChartRows(title, series, field, suffix, colorVar) {
     if (!series || !series.length) return `<div class="stats-carousel-empty muted-text">Sin datos suficientes.</div>`;
-    const isSigned = field === 'netBB';
+    const isSigned = field === 'netBB' || field === 'bbPer100';
     const max = Math.max(1, ...series.map((s) => Math.abs(Number(s[field]) || 0)));
     const rows = series.map((s) => {
       const raw = s[field];
@@ -47035,7 +47320,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (!series || !series.length) return `<div class="stats-carousel-empty muted-text">Sin datos suficientes.</div>`;
     const max = Math.max(1, ...series.map((s) => Math.abs(Number(s[field]) || 0)));
-    const isSigned = field === 'netBB';
+    const isSigned = field === 'netBB' || field === 'bbPer100';
     const bars = series.map((s) => {
       const raw = s[field];
       const num = Number(raw) || 0;
@@ -48057,67 +48342,19 @@ window.PT_NASH_PUSH_JSON = {
       const on = btn.getAttribute('data-stats-tab') === next;
       btn.classList.toggle('active', on);
       btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.setAttribute('tabindex', on ? '0' : '-1');
     });
     $$('#tab-stats [data-stats-panel]').forEach((panel) => {
       const on = panel.getAttribute('data-stats-panel') === next;
       panel.classList.toggle('active', on);
       panel.hidden = !on;
+      panel.setAttribute('aria-hidden', on ? 'false' : 'true');
     });
   }
 
-  function renderStatsCarousel(sectionId, title, subtitle, slides) {
-    return `<section class="stats-section card-box" data-stats-section="${escapeHtml(sectionId)}">
-      <div class="stats-section-head">
-        <div>
-          <h3>${escapeHtml(title)}</h3>
-          <p class="muted-text">${escapeHtml(subtitle)}</p>
-        </div>
-      </div>
-      <div class="stats-carousel-stage">
-        <div class="stats-carousel" data-stats-carousel="${escapeHtml(sectionId)}">
-          ${slides.map((slide, idx) => `<article class="stats-slide${idx === 0 ? ' stats-slide-active' : ''}" data-stats-slide="${idx}">
-            <div class="stats-slide-head">
-              <h4>${escapeHtml(slide.title)}</h4>
-              <span class="muted-text">${idx + 1}/${slides.length}</span>
-            </div>
-            <div class="stats-slide-body">${slide.body}</div>
-          </article>`).join('')}
-        </div>
-      </div>
-      <div class="stats-carousel-nav">
-        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-prev" data-stats-prev="${escapeHtml(sectionId)}" aria-label="Anterior">‹</button>
-        <div class="stats-carousel-dots">
-          ${slides.map((slide, idx) => `<button type="button" class="stats-carousel-dot${idx === 0 ? ' active' : ''}" data-stats-dot="${escapeHtml(sectionId)}:${idx}" aria-label="${escapeHtml(slide.title)}"></button>`).join('')}
-        </div>
-        <button type="button" class="btn btn-ghost stats-carousel-side stats-carousel-side-next" data-stats-next="${escapeHtml(sectionId)}" aria-label="Siguiente">›</button>
-      </div>
-    </section>`;
-  }
 
-  function setStatsCarousel(sectionId, nextIndex) {
-    const root = document.querySelector(`[data-stats-carousel="${sectionId}"]`);
-    if (!root) return;
-    const slides = Array.from(root.querySelectorAll('[data-stats-slide]'));
-    if (!slides.length) return;
-    const total = slides.length;
-    const index = ((nextIndex % total) + total) % total;
-    slides.forEach((slide, idx) => slide.classList.toggle('stats-slide-active', idx === index));
-    $$(`[data-stats-dot^="${sectionId}:"]`).forEach((dot, idx) => dot.classList.toggle('active', idx === index));
-    root.dataset.index = String(index);
-  }
 
-  function getStatsCarouselIndices() {
-    const out = {};
-    $$('[data-stats-carousel]').forEach((root) => {
-      const id = root.getAttribute('data-stats-carousel');
-      if (id) out[id] = Number(root.dataset.index || 0);
-    });
-    return out;
-  }
 
-  function restoreStatsCarouselIndices(indices) {
-    Object.keys(indices || {}).forEach((id) => setStatsCarousel(id, indices[id]));
-  }
 
   function bindStatsView() {
     $$('#tab-stats [data-stats-tab]').forEach((btn) => {
@@ -48127,6 +48364,15 @@ window.PT_NASH_PUSH_JSON = {
       btn.onclick = () => {
         const leak = latestTrainerStatsLeaks.find((item) => item.key === btn.getAttribute('data-stats-train-leak'));
         if (leak) startLeakReplay(leak);
+      };
+    });
+    $$('[data-stats-train-preset]').forEach((btn) => {
+      btn.onclick = () => {
+        const key = btn.getAttribute('data-stats-train-preset');
+        const hands = Number(btn.getAttribute('data-stats-train-hands')) || 50;
+        const leak = latestTrainerStatsLeaks.find((item) => item.key === key);
+        if (!leak || !window.PTTrainerLeakPresets || !PTTrainerLeakPresets.applyPreset) return;
+        PTTrainerLeakPresets.applyPreset(leak, hands);
       };
     });
     $$('[data-stats-open-session]').forEach((btn) => {
@@ -48189,7 +48435,15 @@ window.PT_NASH_PUSH_JSON = {
       else if (action === 'learn') goToTab('learn');
       else if (action === 'pricing') goToTab('pricing');
       else if (action === 'contact') goToTab('contact');
+      else if (action === 'clearErrorFilters') clearErrorFilters();
     });
+  }
+
+  function clearErrorFilters() {
+    handListFilters.errors = emptyHandFilters();
+    const host = $('#errors-filters');
+    if (host) delete host.dataset.bound;
+    renderErrors();
   }
 
   function openSampleSessionFromEmpty() {
@@ -48315,7 +48569,10 @@ window.PT_NASH_PUSH_JSON = {
         box.innerHTML = emptyStateHtml({
           title: 'Ningún error con estos filtros',
           body: 'Quita filtros para ver todos tus spots fallados.',
-          actions: [{ label: 'Entrenar ahora', action: 'play', primary: true }]
+          actions: [
+            { label: 'Quitar filtros', action: 'clearErrorFilters', primary: true },
+            { label: 'Entrenar ahora', action: 'play' }
+          ]
         });
       }
       return;
@@ -48330,13 +48587,15 @@ window.PT_NASH_PUSH_JSON = {
       <div class="rec-right">
         <button class="btn btn-primary" style="padding:6px 12px;font-size:13px" data-train-id="${escapeHtml(e.id)}">Repetir</button>
         <button class="btn btn-secondary" style="margin-top:6px;padding:4px 10px;font-size:12px" data-coach-error-id="${escapeHtml(e.id)}">Explicar con ForgeCoach</button>
-        <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-del="${e.id}">Quitar</button>
+        <button class="btn btn-ghost" style="margin-top:6px;padding:4px 10px;font-size:12px" data-del="${escapeHtml(e.id)}">Quitar</button>
       </div>
     </div>`).join('');
     $$('#errors-list [data-train-id]').forEach((b) => b.addEventListener('click', () => {
       const rec = Store.getErrors().find((x) => x.id === b.dataset.trainId);
       if (!rec) return;
-      replayFromStored(rec);
+      if (!replayFromStored(rec)) {
+        alert('No se pudo repetir este spot. Puede faltar información de replay (seed o escenario).');
+      }
     }));
     $$('#errors-list [data-coach-error-id]').forEach((b) => b.addEventListener('click', () => {
       const rec = Store.getErrors().find((x) => x.id === b.dataset.coachErrorId);
@@ -48348,12 +48607,23 @@ window.PT_NASH_PUSH_JSON = {
     $$('#errors-list [data-del]').forEach((b) => b.addEventListener('click', () => { Store.removeError(b.dataset.del); renderErrors(); }));
   }
 
+  function filteredErrorsList() {
+    return Store.getErrors().filter((e) => passesErrorFilters(e, handListFilters.errors || emptyHandFilters()));
+  }
+
   function trainNextError() {
-    const errs = Store.getErrors();
-    if (!errs.length) { alert('No hay errores para entrenar.'); return; }
+    const errs = filteredErrorsList();
+    if (!errs.length) {
+      alert(Store.getErrors().length
+        ? 'No hay errores con los filtros actuales. Quita filtros o elige otros.'
+        : 'No hay errores para entrenar.');
+      return;
+    }
     // Load remaining errors into the queue so "nueva mano" continues sequentially
     leakReplayQueue = errs.slice(1);
-    replayFromStored(errs[0]);
+    if (!replayFromStored(errs[0])) {
+      alert('No se pudo cargar el primer error para entrenar.');
+    }
   }
 
   function startWorstSpotsDrill() {
@@ -48377,12 +48647,20 @@ window.PT_NASH_PUSH_JSON = {
   function matchErrorLeakFilter(e, filter) {
     if (!filter) return true;
     if (filter.street) {
-      const street = e.street || ((e.spotKey || '').split('|')[2]) || 'preflop';
+      let street = e.street || '';
+      if (!street && e.spotKey && window.PTLeaks && PTLeaks.parseLeakKey) {
+        street = PTLeaks.parseLeakKey(e.spotKey).street || '';
+      }
+      if (!street) street = ((e.spotKey || '').split('|')[2]) || 'preflop';
       if (String(street) !== String(filter.street)) return false;
     }
     if (filter.spotType) {
       const sc = e.scenarioRaw && typeof e.scenarioRaw === 'object' ? e.scenarioRaw : {};
-      const type = sc.type || (e.spotKey ? String(e.spotKey).split('|')[0] : '') || '';
+      let type = sc.type || '';
+      if (!type && e.spotKey && window.PTLeaks && PTLeaks.parseLeakKey) {
+        type = PTLeaks.parseLeakKey(e.spotKey).type || '';
+      }
+      if (!type && e.spotKey) type = String(e.spotKey).split('|')[0] || '';
       if (String(type) !== String(filter.spotType)) return false;
     }
     return true;
@@ -48518,6 +48796,24 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   // ---------- Estadísticas ----------
+
+  function sessionMatchesStatsFormat(session, formatFilter) {
+    if (!formatFilter || formatFilter === 'all') return true;
+    const stats = (session && session.stats) || {};
+    const formatKey = stats.formatKey
+      || (session.context && session.context.formatKey)
+      || (stats.format === '9max' ? 'cash9'
+        : (stats.format === 'mtt' ? 'mtt6'
+          : (stats.format === 'spin' ? 'spin3' : 'cash6')));
+    if (window.PTStatsAggregate && PTStatsAggregate.matchesFormatFilter) {
+      return PTStatsAggregate.matchesFormatFilter(formatKey, formatFilter);
+    }
+    const fam = window.PTStatsAggregate && PTStatsAggregate.formatFamily
+      ? PTStatsAggregate.formatFamily(formatKey)
+      : formatKey;
+    return fam === formatFilter || formatKey === formatFilter;
+  }
+
   function renderStats() {
     if (window.PTUsageUI && PTUsageUI.refreshHost) PTUsageUI.refreshHost($('#stats-usage'));
     const gameHost = $('#stats-gamification');
@@ -48539,10 +48835,11 @@ window.PT_NASH_PUSH_JSON = {
       ? PTStatsAggregate.sessionsTotalByFormat(st)
       : {};
     const trainerWeekly = window.PTStatsAggregate ? PTStatsAggregate.trainerWeeklySeries(st, 8) : [];
-    const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8) : [];
+    const sessionWeekly = window.PTStatsAggregate ? PTStatsAggregate.sessionWeeklySeries(st, 8, statsFormatFilter) : [];
     const trainerLeaks = trainerLeaksForStats(st);
-    const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5) : [];
-    const sessionDerived = buildSessionDerivedStats(sessions);
+    const sessionLeaks = window.PTStatsAggregate ? PTStatsAggregate.sessionTopLeaks(st, 5, statsFormatFilter) : [];
+    const filteredSessions = (sessions || []).filter((s) => sessionMatchesStatsFormat(s, statsFormatFilter));
+    const sessionDerived = buildSessionDerivedStats(filteredSessions);
     const box = $('#stats-content');
     const formatFilterOpts = [
       { v: 'all', l: 'Todo' },
@@ -48564,8 +48861,8 @@ window.PT_NASH_PUSH_JSON = {
 
     const sessionAccuracy = sessTot && sessTot.decisions ? Math.round((sessTot.good / sessTot.decisions) * 100) : null;
     const sessionStreetBars = renderStreetAccBarsFromPct(sessionDerived.accByStreet);
-    const sessionGradeSeries = buildSessionGradeSeries(sessions);
-    const sessionHudSeries = buildSessionHudSeries(sessions);
+    const sessionGradeSeries = buildSessionGradeSeries(filteredSessions);
+    const sessionHudSeries = buildSessionHudSeries(filteredSessions);
     const filterToIdealKey = {
       all: null,
       cash6: 'cash6',
@@ -48577,16 +48874,16 @@ window.PT_NASH_PUSH_JSON = {
     const aggFormat = Object.prototype.hasOwnProperty.call(filterToIdealKey, statsFormatFilter)
       ? filterToIdealKey[statsFormatFilter]
       : ((sessions || []).map((s) => s && s.stats && resolveStatsFormat(s.stats)).filter(Boolean)[0] || 'cash6');
-    const chartFormat = aggFormat || 'cash6';
+    const chartFormat = aggFormat; /* null cuando filtro = all: sin bandas cash6 engañosas */
     const aggIdeal = aggFormat
       ? idealForStatsFormat(aggFormat)
       : null;
     const sessionDistTotal = Object.values(sessionDerived.dist).reduce((sum, n) => sum + n, 0);
     const stakesRows = window.PTStatsAggregate && PTStatsAggregate.sessionsByStakes
-      ? PTStatsAggregate.sessionsByStakes(st)
+      ? PTStatsAggregate.sessionsByStakes(st, statsFormatFilter)
       : [];
     const dailySeries = window.PTStatsAggregate && PTStatsAggregate.sessionDailySeries
-      ? PTStatsAggregate.sessionDailySeries(st, 14)
+      ? PTStatsAggregate.sessionDailySeries(st, 14, statsFormatFilter)
       : [];
     const styleHtml = !aggFormat
       ? '<p class="muted-text">Filtra por Cash 6-max, Spins o MTT para ver el perfil de estilo con bandas de referencia correctas. «Todo» mezcla formatos.</p>'
@@ -48612,8 +48909,27 @@ window.PT_NASH_PUSH_JSON = {
       }</tbody></table>`
       : '<p class="muted-text">Importa sesiones con stakes detectados para ver bb/100 por nivel.</p>';
 
-    const trainerHtml = `<div class="stats-tab-panel${activeTab === 'trainer' ? ' active' : ''}" data-stats-panel="trainer"${activeTab === 'trainer' ? '' : ' hidden'}>
-      <section class="stats-block card-box stats-block-hero">
+    const trainerEmpty = !(st && ((st.handsPlayed || 0) > 0 || (st.decisions || 0) > 0));
+    const sessionsEmpty = !(sessTot && ((sessTot.hands || 0) > 0 || (sessTot.sessions || 0) > 0 || (sessTot.decisions || 0) > 0));
+    const trainerEmptyHtml = emptyStateHtml({
+      title: 'Aún no hay estadísticas del entrenador',
+      body: 'Juega manos en el entrenador para ver acierto por calle, evolución semanal y fugas.',
+      actions: [
+        { label: 'Ir al entrenador', action: 'play', primary: true },
+        { label: 'Calentamiento', action: 'warmup' }
+      ]
+    });
+    const sessionsEmptyHtml = emptyStateHtml({
+      title: 'Aún no hay estadísticas de sesiones',
+      body: 'Importa un historial o abre una sesión de ejemplo para ver HUD, bb/100 y fugas importadas.',
+      actions: [
+        { label: 'Ir a sesiones', action: 'sessions', primary: true },
+        { label: 'Sesión de ejemplo', action: 'sample' }
+      ]
+    });
+
+    const trainerHtml = `<div class="stats-tab-panel${activeTab === 'trainer' ? ' active' : ''}" id="stats-panel-trainer" role="tabpanel" aria-labelledby="stats-tab-trainer" data-stats-panel="trainer"${activeTab === 'trainer' ? '' : ' hidden'}>
+      ${trainerEmpty ? trainerEmptyHtml : `<section class="stats-block card-box stats-block-hero">
         <h3>Acierto por calle</h3>
         <p class="muted-text">Porcentaje de decisiones óptimas o aceptables en cada calle.</p>
         <div class="street-acc stats-street-grid stats-street-hero">${renderStreetAccBars(byStreet)}</div>
@@ -48634,11 +48950,12 @@ window.PT_NASH_PUSH_JSON = {
           <button type="button" class="btn btn-ghost" id="share-weekly-leak">Compartir peor leak de la semana</button>
         </div>
         <p class="muted-text adaptive-drill-help-inline">El drill agrupa tus errores por spot y lanza ~25 manos de tus fugas más caras.</p>
-      </section>
+      </section>`}
     </div>`;
 
-    const sessionsHtml = `<div class="stats-tab-panel${activeTab === 'sessions' ? ' active' : ''}" data-stats-panel="sessions"${activeTab === 'sessions' ? '' : ' hidden'}>
+    const sessionsHtml = `<div class="stats-tab-panel${activeTab === 'sessions' ? ' active' : ''}" id="stats-panel-sessions" role="tabpanel" aria-labelledby="stats-tab-sessions" data-stats-panel="sessions"${activeTab === 'sessions' ? '' : ' hidden'}>
       ${formatFilterHtml}
+      ${sessionsEmpty ? sessionsEmptyHtml : `<div class="stats-sessions-body">
       <section class="stats-block card-box stats-block-hero">
         <h3>Acierto por calle</h3>
         <p class="muted-text">Acierto GTO en las sesiones importadas, calle a calle.</p>
@@ -48651,7 +48968,7 @@ window.PT_NASH_PUSH_JSON = {
       </section>
       <section class="stats-block card-box">
         <h3>Resumen</h3>
-        <div class="stats-overview-grid stats-overview-compact" data-style-format="${escapeHtml(aggFormat)}">
+        <div class="stats-overview-grid stats-overview-compact" data-style-format="${escapeHtml(aggFormat || '')}">
           ${explainableStatCard('accuracy', 'Acierto', sessionAccuracy == null ? '—' : sessionAccuracy + '%', aggFormat)}
           ${explainableStatCard('sessions', 'Sesiones', String(sessTot ? sessTot.sessions : 0), aggFormat)}
           ${explainableStatCard('nHands', 'Manos', String(sessTot ? sessTot.hands : 0), aggFormat)}
@@ -48667,7 +48984,7 @@ window.PT_NASH_PUSH_JSON = {
         <summary>Detalle avanzado</summary>
         <div class="stats-advanced-body">
           <h4>HUD</h4>
-          <div class="stats-overview-grid" data-style-format="${escapeHtml(chartFormat)}">
+          <div class="stats-overview-grid" data-style-format="${escapeHtml(chartFormat || '')}">
             ${explainableStatCard('vpip', 'VPIP', fmtHudPct(sessTot && sessTot.vpipPct), chartFormat, '', null, aggIdeal && aggIdeal.vpipMin != null ? `ideal ${aggIdeal.vpipMin}–${aggIdeal.vpipMax}%` : '')}
             ${explainableStatCard('pfr', 'PFR', fmtHudPct(sessTot && sessTot.pfrPct), chartFormat, '', null, aggIdeal && aggIdeal.pfrMin != null ? `ideal ${aggIdeal.pfrMin}–${aggIdeal.pfrMax}%` : '')}
             ${explainableStatCard('threeBet', '3-Bet', fmtHudPct(sessTot && sessTot.threeBetPct), chartFormat)}
@@ -48691,13 +49008,14 @@ window.PT_NASH_PUSH_JSON = {
           ${stakesHtml}
         </div>
       </details>
+      </div>`}
     </div>`;
 
     box.innerHTML = `
       <div class="stats-redesign">
         <div class="stats-tabs" role="tablist" aria-label="Tipo de estadísticas">
-          <button type="button" class="stats-tab${activeTab === 'trainer' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'trainer' ? 'true' : 'false'}" data-stats-tab="trainer">Entrenador</button>
-          <button type="button" class="stats-tab${activeTab === 'sessions' ? ' active' : ''}" role="tab" aria-selected="${activeTab === 'sessions' ? 'true' : 'false'}" data-stats-tab="sessions">Sesiones</button>
+          <button type="button" class="stats-tab${activeTab === 'trainer' ? ' active' : ''}" id="stats-tab-trainer" role="tab" aria-selected="${activeTab === 'trainer' ? 'true' : 'false'}" aria-controls="stats-panel-trainer" tabindex="${activeTab === 'trainer' ? '0' : '-1'}" data-stats-tab="trainer">Entrenador</button>
+          <button type="button" class="stats-tab${activeTab === 'sessions' ? ' active' : ''}" id="stats-tab-sessions" role="tab" aria-selected="${activeTab === 'sessions' ? 'true' : 'false'}" aria-controls="stats-panel-sessions" tabindex="${activeTab === 'sessions' ? '0' : '-1'}" data-stats-tab="sessions">Sesiones</button>
         </div>
         ${trainerHtml}
         ${sessionsHtml}
@@ -48716,28 +49034,37 @@ window.PT_NASH_PUSH_JSON = {
 
     const coachHost = $('#stats-coach');
     if (coachHost && window.PTAIReport) {
-      coachHost.innerHTML = '';
-      window.PTAIReport.mount(coachHost, {
-        scope: 'statsGlobal',
-        impressionSource: 'stats',
-        getData: () => {
-          const stats = Store.getStats();
-          const Agg = window.PTStatsAggregate;
-          const listed = Store.getSessions ? Store.getSessions() : [];
-          return {
-            stats: stats,
-            weekly: Agg ? Agg.trainerWeeklySeries(stats, 8) : (window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : []),
-            weeklySessions: Agg ? Agg.sessionWeeklySeries(stats, 8) : [],
-            leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : [],
-            sessionLeaks: Agg ? Agg.sessionTopLeaks(stats, 5) : [],
-            sessionsTotal: Agg ? Agg.sessionsTotal(stats) : null,
-            sessionStreet: buildSessionDerivedStats(listed).accByStreet,
-            focus: getActiveStatsTab()
-          };
-        },
-        persist: { kind: 'stats' }
-      });
+      if (!coachHost.dataset.ptCoachMounted) {
+        coachHost.dataset.ptCoachMounted = '1';
+        window.PTAIReport.mount(coachHost, {
+          scope: 'statsGlobal',
+          impressionSource: 'stats',
+          getData: () => {
+            const stats = Store.getStats();
+            const Agg = window.PTStatsAggregate;
+            const listed = Store.getSessions ? Store.getSessions() : [];
+            const focus = getActiveStatsTab();
+            const fmt = (window.__ptStatsFormatFilter != null) ? window.__ptStatsFormatFilter : 'all';
+            const filtered = (listed || []).filter((s) => sessionMatchesStatsFormat(s, fmt));
+            return {
+              stats: stats,
+              weekly: Agg ? Agg.trainerWeeklySeries(stats, 8) : (window.PTProgress ? PTProgress.buildWeeklySeries(Store.getHistory(), 8) : []),
+              weeklySessions: Agg ? Agg.sessionWeeklySeries(stats, 8, fmt) : [],
+              leaks: window.PTLeaks ? PTLeaks.topLeaks(Store.getErrors(), 5) : [],
+              sessionLeaks: Agg ? Agg.sessionTopLeaks(stats, 5, fmt) : [],
+              sessionsTotal: Agg ? Agg.sessionsTotal(stats, fmt) : null,
+              sessionStreet: buildSessionDerivedStats(filtered).accByStreet,
+              focus: focus,
+              formatFilter: fmt
+            };
+          },
+          persist: { kind: 'stats' }
+        });
+      } else if (window.PTAIReport.refresh) {
+        window.PTAIReport.refresh(coachHost);
+      }
     }
+    bindEmptyStateActions($('#stats-content'));
     scheduleSessionLeaksRebuild(st, sessions);
   }
 
@@ -48926,7 +49253,10 @@ window.PT_NASH_PUSH_JSON = {
     opts = opts || {};
     const f = handListFilters[scope] || emptyHandFilters();
     const showDate = opts.showDate !== false;
-    const classOpts = FILTER_CLASSES.map((c) =>
+    const classList = scope === 'errors'
+      ? ['', 'imprecisa', 'error']
+      : FILTER_CLASSES;
+    const classOpts = classList.map((c) =>
       `<option value="${c}"${f.class === c ? ' selected' : ''}>${c ? verdictWord(c) : 'Todas las clases'}</option>`
     ).join('');
     const posOpts = FILTER_POSITIONS.map((p) =>
@@ -48934,9 +49264,16 @@ window.PT_NASH_PUSH_JSON = {
     ).join('');
     const cmpOpts = (sel, val) =>
       `<option value=""${!val ? ' selected' : ''}>—</option><option value="gte"${val === 'gte' ? ' selected' : ''}>≥</option><option value="lte"${val === 'lte' ? ' selected' : ''}>≤</option>`;
-    const streetOpts = scope === 'sessionHands'
+    const streetOpts = (scope === 'sessionHands' || scope === 'errors')
       ? ['', 'preflop', 'flop', 'turn', 'river'].map((st) =>
         `<option value="${st}"${f.street === st ? ' selected' : ''}>${st || 'Todas las calles'}</option>`
+      ).join('')
+      : '';
+    const typeLabels = (window.PTLeaks && PTLeaks.TYPE_LABELS) || {};
+    const spotTypeKeys = ['', 'RFI', 'vsRFI', 'face3bet', 'face4bet', 'squeeze', 'bbVsSbLimp', 'sbLimp', 'cold4bet', 'isoLimp', 'isoL', 'limp', 'postflop'];
+    const spotTypeOpts = scope === 'errors'
+      ? spotTypeKeys.map((t) =>
+        `<option value="${escapeHtml(t)}"${f.spotType === t ? ' selected' : ''}>${t ? escapeHtml(typeLabels[t] || t) : 'Todos los tipos'}</option>`
       ).join('')
       : '';
     const kindOpts = scope === 'sessionHands'
@@ -48964,20 +49301,26 @@ window.PT_NASH_PUSH_JSON = {
     const graveOpts = scope === 'sessionHands'
       ? `<label class="session-grave-filter"><input type="checkbox" data-filter-scope="${scope}" data-filter="graveOnly" value="1"${f.graveOnly ? ' checked' : ''}> Solo errores graves</label>`
       : '';
+    const streetLabel = scope === 'errors' ? 'Calle' : 'Calle peor fuga';
+    const evFilters = scope === 'errors'
+      ? `<label>EV perdido<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>`
+      : `<label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>
+      <label>EV real<select data-filter-scope="${scope}" data-filter="realOp">${cmpOpts('realOp', f.realOp)}</select>
+        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="realVal" value="${escapeHtml(f.realVal != null ? f.realVal : '')}"></label>`;
     return `
       <label>Clase<select data-filter-scope="${scope}" data-filter="class">${classOpts}</select></label>
       <label>Posición héroe<select data-filter-scope="${scope}" data-filter="pos">${posOpts}</select></label>
-      ${streetOpts ? `<label>Calle peor fuga<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${streetOpts ? `<label>${streetLabel}<select data-filter-scope="${scope}" data-filter="street">${streetOpts}</select></label>` : ''}
+      ${spotTypeOpts ? `<label>Tipo de spot<select data-filter-scope="${scope}" data-filter="spotType">${spotTypeOpts}</select></label>` : ''}
       ${kindOpts ? `<label>Tipo<select data-filter-scope="${scope}" data-filter="gameKind">${kindOpts}</select></label>` : ''}
       ${stackOpts ? `<label>Stack<select data-filter-scope="${scope}" data-filter="stackBin">${stackOpts}</select></label>` : ''}
       ${tagOpts ? `<label>Tag<select data-filter-scope="${scope}" data-filter="tag">${tagOpts}</select></label>` : ''}
       ${graveOpts}
       ${showDate ? `<label>Desde<input type="date" data-filter-scope="${scope}" data-filter="dateFrom" value="${escapeHtml(f.dateFrom || '')}"></label>
       <label>Hasta<input type="date" data-filter-scope="${scope}" data-filter="dateTo" value="${escapeHtml(f.dateTo || '')}"></label>` : ''}
-      <label>EV esperado<select data-filter-scope="${scope}" data-filter="expOp">${cmpOpts('expOp', f.expOp)}</select>
-        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="expVal" value="${escapeHtml(f.expVal != null ? f.expVal : '')}"></label>
-      <label>EV real<select data-filter-scope="${scope}" data-filter="realOp">${cmpOpts('realOp', f.realOp)}</select>
-        <input type="number" step="0.01" placeholder="bb" data-filter-scope="${scope}" data-filter="realVal" value="${escapeHtml(f.realVal != null ? f.realVal : '')}"></label>`;
+      ${evFilters}`;
   }
 
   function bindHandFilters(hostId, scope, onChange) {
@@ -48995,6 +49338,14 @@ window.PT_NASH_PUSH_JSON = {
         };
         el.addEventListener('change', handler);
         if (el.tagName === 'INPUT' && el.type !== 'checkbox') el.addEventListener('input', handler);
+      });
+    } else {
+      // Sync DOM with state (e.g. street/spotType set from Stats leak bars).
+      host.querySelectorAll('[data-filter]').forEach((el) => {
+        const key = el.getAttribute('data-filter');
+        const val = (handListFilters[scope] && handListFilters[scope][key]) || '';
+        if (el.type === 'checkbox') el.checked = !!val;
+        else if (el.value !== val) el.value = val;
       });
     }
   }
@@ -49020,7 +49371,6 @@ window.PT_NASH_PUSH_JSON = {
     if (!passesDateRange(e.createdAt, f.dateFrom, f.dateTo)) return false;
     const evLoss = Number(e.evLoss) || 0;
     if (!passesEvCompare(evLoss, f.expOp, f.expVal)) return false;
-    if (!passesEvCompare(evLoss, f.realOp, f.realVal)) return false;
     return true;
   }
 
