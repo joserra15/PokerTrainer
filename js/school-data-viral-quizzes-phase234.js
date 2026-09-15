@@ -1,6 +1,6 @@
 /*
  * school-data-viral-quizzes-phase234.js — Fases 2–4: sizing, RFI, equity,
- * texture, combos, examen cronometrado, Nash, ICM, nut adv, SPR.
+ * texture, examen cronometrado, Nash, ICM, nut adv, SPR.
  */
 (function (global) {
   'use strict';
@@ -73,18 +73,6 @@
     }, teach);
   }
 
-  function comboSpot(id, seed, board, line, handType, options, correctId, teach) {
-    return mcqSpot(id, 'comboQuiz', seed, {
-      prompt: '¿Cuántos combos de ' + handType + ' quedan?',
-      board: board,
-      line: line || '',
-      handType: handType,
-      options: options,
-      correctId: correctId,
-      teachBack: teach
-    }, teach);
-  }
-
   function nashSpot(id, seed, pos, hand, stackBB, correctId, teach) {
     return mcqSpot(id, 'nashQuiz', seed, {
       prompt: 'Push o fold con ' + stackBB + ' bb efectivos',
@@ -136,9 +124,6 @@
     }, teach);
   }
 
-  var comboOpts = function (vals) {
-    return vals.map(function (v) { return { id: String(v), label: String(v) + ' combos' }; });
-  };
   var eqOpts = function () {
     return [
       { id: '25', label: '~25 %' },
@@ -268,29 +253,6 @@
       { id: 'wet', label: 'Wet · RA caller' },
       { id: 'paired', label: 'Paired · static' }
     ], 'dry', 'AQ4 rainbow: seco A-high. Opener domina distribución Ax.')
-  ];
-
-  PACKS['Q-02'] = [
-    comboSpot('q02-01', 91001, ['As', 'Kd', '7c'], 'Preflop UTG open', 'AK', comboOpts([4, 6, 9, 12]), '6',
-      'Sin blockers visibles: AK offsuit = 12 combos, pero si hay As/Kd en board quedan ~6 combos de Ax/Kx relevantes.'),
-    comboSpot('q02-02', 91002, ['Ah', 'Kh', 'Qh'], 'Monotone flop', 'nut flush', comboOpts([2, 4, 6, 9]), '4',
-      'Monotone A-high: nut flush combos reducidos por blockers — ~4–6 según palo.'),
-    comboSpot('q02-03', 91003, ['Ts', 'Tc', '4d'], 'Paired flop', 'TT', comboOpts([1, 3, 6, 9]), '3',
-      'Board TT4: set de T queda 1 combo si tienes Tx; TT preflop quedan 3 combos (una T en board).'),
-    comboSpot('q02-04', 91004, ['9s', '8s', '7h'], 'Wet flop', '98s', comboOpts([2, 4, 8, 12]), '4',
-      '987: 98s conecta — quedan ~4 combos de 98 suited sin blockers en board.'),
-    comboSpot('q02-05', 91005, ['Ks', '7d', '2c'], 'Dry flop', '77', comboOpts([3, 6, 9, 12]), '6',
-      'K72 seco: 77 preflop = 6 combos (ningún 7 en board).'),
-    comboSpot('q02-06', 91006, ['Ac', 'Ad', '7h'], 'Paired A', 'AA', comboOpts([1, 3, 6, 9]), '1',
-      'Board AA7: solo queda 1 combo de AA (dos ases en board).'),
-    comboSpot('q02-07', 91007, ['Qh', 'Jh', '4c', '2d', 'Ks'], 'River', 'KQ', comboOpts([4, 8, 12, 16]), '8',
-      'River K en QJ42: KQ offsuit pierde combos por blockers — ~8–9 restantes.'),
-    comboSpot('q02-08', 91008, ['5h', '4h', '3d'], 'Low connected', '54s', comboOpts([2, 4, 6, 8]), '4',
-      '543: 54s conecta — 4 combos base sin blockers.'),
-    comboSpot('q02-09', 91009, ['Js', 'Ts', '9d', '4c', '2h'], 'Turn raise line', 'JT', comboOpts([6, 9, 12, 16]), '9',
-      'JT9 board: JT suited ~9 combos sin blockers fuertes en línea agresiva.'),
-    comboSpot('q02-10', 91010, ['Ah', '8d', '3c', 'Kd', '2s'], 'River', 'A8', comboOpts([8, 12, 16, 20]), '12',
-      'A83-K-2: A8 offsuit ~12 combos preflop; blockers en board reducen sets/two pair.')
   ];
 
   PACKS['N-01'] = [
@@ -515,16 +477,6 @@
       ],
       examples: [{ title: 'AK7 vs 987', body: 'Seco vs wet — respuesta distinta.' }],
       aiQuestions: ['¿Qué es wet?', '¿Monotone?', '¿Paired?'], spots: [] },
-    { id: 'Q-02', title: '¿Cuántos combos quedan?', route: 'ranges', module: 'M1', order: 4.8, plan: 'study',
-      xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
-      concept: 'Contar combos tras blockers en board y línea. Puente entre R-04 y lectura de villano.',
-      theory: [
-        'Preflop: 6 combos por pareja, 4 suited y 12 offsuit por mano no pareja; esa aritmética base alimenta todos los conteos postflop.',
-        'Cada carta en board o en tu mano bloquea combos rivales: un As en tu mano quita AA y muchos Ax del rango que enfrentas.',
-        'Una línea agresiva (open + c-bet + barrel) elimina basura del rango rival: al contar combos, recorta lo que ya habría foldado.'
-      ],
-      examples: [{ title: 'AA en board Axx', body: 'Queda 1 combo de AA.' }],
-      aiQuestions: ['¿Combos de AK?', '¿Blockers en monotone?', '¿Paired board?'], spots: [] },
     { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 20.95, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0, exam: true, timedSeconds: 75,
       concept: 'Examen cronometrado: 75 s por spot. Entrena decisión rápida como en mesa real.',
