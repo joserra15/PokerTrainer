@@ -2425,10 +2425,11 @@
     }
     if (tabId === 'ranges') {
       withLazyChunk('ranges', function () {
-        var pending = global.__ptPendingRanges || null;
+        // window — el IIFE de app.js es strict y no define `global`.
+        var pending = window.__ptPendingRanges || null;
         if (pending && typeof applyRangesExplorerState === 'function') {
           try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
-          global.__ptPendingRanges = null;
+          window.__ptPendingRanges = null;
         }
         renderRangesExplorer();
       });
@@ -4578,7 +4579,7 @@
    * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
    */
   function openRangesExplorer(opts) {
-    if (opts) global.__ptPendingRanges = opts;
+    if (opts) window.__ptPendingRanges = opts;
     if (typeof goToTab === 'function') goToTab('ranges');
   }
   window.openRangesExplorer = openRangesExplorer;
@@ -5198,7 +5199,8 @@
 
     const sizingRow = $('#ranges-sizing-row');
     if (sizingRow) {
-      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI');
+      // RFI: open 2.5x/3x no cambia el chart (solo vsRFI/squeeze ajustan pot/toCall).
+      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze');
       sizingRow.classList.toggle('hidden', !showSizing);
       sizingRow.querySelectorAll('[data-ranges-sizing]').forEach((b) => {
         b.classList.toggle('active', Number(b.dataset.rangesSizing) === Number(rangesState.openSize));
@@ -5338,25 +5340,32 @@
       return;
     }
 
+    const job = ++matrixJob;
     if (isPostflop) {
       host.innerHTML = '<p class="ranges-postflop-disclaimer muted-text" data-i18n="ranges.postflop.disclaimer">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p><div class="range-matrix-progress">Calculando…</div>';
       RM.computePostflopFreqMatrixAsync(input, function (done, total) {
+        if (job !== matrixJob) return;
         const prog = host.querySelector('.range-matrix-progress');
         if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
       }).then(function (result) {
+        if (job !== matrixJob) return;
         const disc = '<p class="ranges-postflop-disclaimer muted-text">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p>';
         host.innerHTML = disc + renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
+        if (job !== matrixJob) return;
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
       });
     } else {
       host.innerHTML = '<div class="range-matrix-progress">Calculando…</div>';
       RM.computeGtoMatrixAsync(input, function (done, total) {
+        if (job !== matrixJob) return;
         const prog = host.querySelector('.range-matrix-progress');
         if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
       }).then(function (result) {
+        if (job !== matrixJob) return;
         host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
+        if (job !== matrixJob) return;
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
       });
     }

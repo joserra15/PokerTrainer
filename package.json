@@ -90,6 +90,7 @@
     "test:audit-ranges": "node tools/audit-ranges-vs-consensus.js",
     "test:audit-pro-dump": "node tools/audit-ranges-vs-pro-dump.js",
     "test:range-tables": "node tools/test-range-tables.js",
+    "test:ranges-explorer-p0": "node tools/test-ranges-explorer-p0.js",
     "sync:ranges": "node tools/sync-ranges-solver-data.js",
     "test:trainer-presets": "node tools/test-trainer-presets.js",
     "test:trainer-audit": "node tools/test-trainer-audit-fixes.js",
