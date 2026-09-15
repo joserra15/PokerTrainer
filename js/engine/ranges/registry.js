@@ -142,22 +142,47 @@
     return out;
   }
 
-  function weightsToOpenRow(weights) {
+  function roundFreq(x) {
+    return Math.round(Number(x) * 1000) / 1000;
+  }
+
+  function copyOpenMeta(out, baseRow) {
+    if (!baseRow) return out;
+    if (baseRow.action_size_bb != null) out.action_size_bb = baseRow.action_size_bb;
+    if (baseRow.global_rfi_frequency != null) out.global_rfi_frequency = baseRow.global_rfi_frequency;
+    if (baseRow.default_action != null) out.default_action = baseRow.default_action;
+    return out;
+  }
+
+  /**
+   * Reconstruye raise/mix y combo_matrix fraccionaria desde pesos de continuación.
+   * Manos >=0.99 van a raise; el resto a mix + matrix con la frecuencia exacta.
+   */
+  function weightsToOpenRow(weights, baseRow) {
     const raise = [];
     const mix = [];
+    const combo_matrix = {};
     Object.keys(weights || {}).forEach(function (code) {
       const w = weights[code];
       if (w <= 0) return;
-      if (w >= 0.99) raise.push(code);
-      else mix.push(code);
+      if (w >= 0.99) {
+        raise.push(code);
+      } else {
+        mix.push(code);
+        combo_matrix[code] = { raise: roundFreq(w), fold: roundFreq(1 - w) };
+      }
     });
-    return { raise: raise.join(', '), mix: mix.join(', ') };
+    const out = { raise: raise.join(', '), mix: mix.join(', ') };
+    if (Object.keys(combo_matrix).length) out.combo_matrix = combo_matrix;
+    return copyOpenMeta(out, baseRow);
   }
 
   function adjustOpenRow(row, stackDepth) {
     if (!row || !W() || !HS()) return row;
     if (stackDepth === 'standard') return row;
-    const w = W().fromSets({ raise: row.raise, mix: row.mix });
+    // Incluir combo_matrix (y manos solo-matrix) antes de ajustar por stack.
+    let w = W().fromSets({ raise: row.raise, mix: row.mix });
+    w = W().applyComboMatrix(w, row.combo_matrix, 'rfi');
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
@@ -169,18 +194,43 @@
         if (w[code] >= 1 && s > 0.38 && s < 0.52) w[code] = 0.85;
       }
     });
-    return weightsToOpenRow(w);
+    return weightsToOpenRow(w, row);
+  }
+
+  /**
+   * Escala una fila de combo_matrix vsRFI al nuevo peso de continuación,
+   * preservando la proporción 3bet/call del dump.
+   */
+  function scaleVsRfiMatrixRow(orig, continueW) {
+    const three = Number(orig['3bet']) || Number(orig.threeBet) || Number(orig.raise) || 0;
+    const call = Number(orig.call) || 0;
+    const origCont = three + call;
+    if (continueW <= 0 || origCont <= 0) return null;
+    const ratio = three / origCont;
+    let newThree = continueW * ratio;
+    let newCall = continueW * (1 - ratio);
+    const sum = newThree + newCall;
+    if (sum > 1) {
+      newThree /= sum;
+      newCall /= sum;
+    }
+    return {
+      '3bet': roundFreq(newThree),
+      call: roundFreq(newCall),
+      fold: roundFreq(Math.max(0, 1 - newThree - newCall))
+    };
   }
 
   function adjustVsRfiRow(row, stackDepth) {
     if (!row || !W() || !HS()) return row;
     if (stackDepth === 'standard') return row;
-    const w = W().fromSets({
+    let w = W().fromSets({
       threeBet: row.threeBet,
       threeBetMix: row.threeBetMix,
       call: row.call,
       callMix: row.callMix
     });
+    w = W().applyComboMatrix(w, row.combo_matrix, 'vsRfi');
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
@@ -213,12 +263,21 @@
         callMix.push(code);
       }
     });
-    return {
+    const out = {
       threeBet: threeBet.join(', ') || row.threeBet,
       threeBetMix: threeBetMix.join(', ') || row.threeBetMix,
       call: call.join(', ') || row.call,
       callMix: callMix.join(', ') || row.callMix
     };
+    if (row.combo_matrix && typeof row.combo_matrix === 'object') {
+      const matrix = {};
+      Object.keys(row.combo_matrix).forEach(function (code) {
+        const scaled = scaleVsRfiMatrixRow(row.combo_matrix[code], w[code] || 0);
+        if (scaled) matrix[code] = scaled;
+      });
+      if (Object.keys(matrix).length) out.combo_matrix = matrix;
+    }
+    return out;
   }
 
   function tournamentOpenTable(c) {

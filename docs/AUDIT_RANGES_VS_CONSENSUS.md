@@ -1,5 +1,8 @@
 # Residuales: charts vs consenso GTO (cash 6-max 100bb)
 
+Auditoría de producto del explorador (UI, stack short/deep, spots):
+[`AUDIT_MENU_RANGOS.md`](AUDIT_MENU_RANGOS.md).
+
 Tras la pasada de paridad con dump profesional MCCFR (2026-09-07), con
 excepción explícita de **BB vs UTG** (restaurado al chart de estudio 2026-09-08):
 
