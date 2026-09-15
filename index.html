@@ -1094,8 +1094,8 @@
           </div>
           <div class="setup-chips" id="ranges-stack-depth" aria-label="Profundidad de stack">
             <button type="button" class="setup-chip active" data-val="standard" data-ranges-hub="cash">100bb</button>
-            <button type="button" class="setup-chip" data-val="short" data-ranges-hub="cash">40bb</button>
-            <button type="button" class="setup-chip" data-val="deep" data-ranges-hub="cash">150bb</button>
+            <button type="button" class="setup-chip" data-val="short" data-ranges-hub="cash">50bb</button>
+            <button type="button" class="setup-chip" data-val="deep" data-ranges-hub="cash">200bb</button>
             <button type="button" class="setup-chip" data-val="bb100" data-ranges-hub="mtt" hidden>100bb</button>
             <button type="button" class="setup-chip" data-val="bb50" data-ranges-hub="mtt" hidden>50bb</button>
             <button type="button" class="setup-chip" data-val="bb25" data-ranges-hub="spin mtt" hidden>25bb</button>
@@ -1269,16 +1269,16 @@
         </div>
       </div>
       <p class="muted-text" style="margin:-8px 0 8px">Solo la lista de spots fallados. El histórico y las estadísticas globales no se modifican.</p>
-      <div class="adaptive-drill-help card-box">
-        <h3>¿Qué es el drill adaptativo?</h3>
+      <details class="adaptive-drill-help card-box">
+        <summary>¿Qué es el drill adaptativo?</summary>
         <p class="muted-text">En lugar de repasar errores al azar o en orden de llegada, el drill <strong>elige solo tus peores fugas</strong>:</p>
         <ol class="adaptive-drill-steps">
           <li>Agrupa tus errores por spot (tipo · posición · calle).</li>
           <li>Ordena esos spots por <strong>EV perdido</strong> y toma los más caros.</li>
           <li>Monta una cola de hasta ~25 manos y las lanza en el entrenador para repetirlas.</li>
         </ol>
-        <p class="muted-text">«Entrenar errores» sigue la lista completa; el drill adaptativo ataca primero donde más te sangra el EV.</p>
-      </div>
+        <p class="muted-text">«Entrenar errores» sigue la lista filtrada; el drill adaptativo ataca primero donde más te sangra el EV.</p>
+      </details>
       <div id="errors-filters" class="hand-filters"></div>
       <div id="errors-list" class="record-list"></div>
     </section>
@@ -1289,7 +1289,7 @@
         <h2><span class="panel-icon home-card-icon home-card-icon-stats" aria-hidden="true"><svg viewBox="0 0 24 24" class="home-card-icon-svg"><path d="M4 19h16"/><path d="M7 16l3-3 3 2 4-6"/></svg></span>Estadísticas globales</h2>
         <button id="clear-stats" class="btn btn-danger">Resetear estadísticas</button>
       </div>
-      <p class="muted-text stats-reset-hint">Acumulado persistente del entrenador y sesiones importadas. Borrar histórico o sesiones no resta estos totales semanales ni los leaks agregados.</p>
+      <p class="muted-text stats-reset-hint">Acumulado de estudio del entrenador y sesiones importadas. «Resetear» pone a cero estos totales (la nube respeta el reset). Borrar histórico o sesiones no recalcula automáticamente los agregados ya guardados. El progreso de Escuela no se borra.</p>
       <div id="stats-usage" class="usage-quota-host hidden" aria-label="Límites del plan"></div>
       <div id="stats-gamification" class="hidden" hidden></div>
       <div id="progress-dashboard" class="hidden" hidden></div>

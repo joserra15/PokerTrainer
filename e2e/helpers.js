@@ -132,9 +132,27 @@ async function seedStudyData(page) {
       chosen: 'Call',
       best: 'fold',
       evLoss: 1.2,
-      spotKey: 'RFI|BTN|flop',
+      spotKey: 'RFI|BTN|flop|cash|mixed|-|flop',
+      scenarioRaw: { type: 'RFI', heroPos: 'BTN' },
+      scenario: 'RFI BTN flop e2e',
       heroCode: 'AKo',
-      heroPos: 'BTN'
+      heroPos: 'BTN',
+      heroCards: ['As', 'Kd']
+    }, {
+      id: 'e2e-e2',
+      handId: 'e2e-h2',
+      createdAt: now,
+      street: 'preflop',
+      class: 'imprecisa',
+      chosen: 'Call',
+      best: 'raise',
+      evLoss: 0.4,
+      spotKey: 'vsRFI|BB|preflop|cash|mixed|-|preflop',
+      scenarioRaw: { type: 'vsRFI', heroPos: 'BB' },
+      scenario: 'vsRFI BB preflop e2e',
+      heroCode: 'AQo',
+      heroPos: 'BB',
+      heroCards: ['Ah', 'Qd']
     }]));
     localStorage.setItem('pt_stats_v1_' + uid, JSON.stringify({
       handsPlayed: 3,
