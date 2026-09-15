@@ -6795,7 +6795,10 @@
       }
       if (st.profitEuro != null) {
         const pCls = st.profitEuro >= 0 ? 'net-pos' : 'net-neg';
-        cards.push(`<div class="stat-card"><div class="big ${pCls}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}€</div><div class="lbl">Profit €</div></div>`);
+        const isTrnAi = st.source === 'tournamentAi';
+        const unit = isTrnAi ? ' Koins' : '€';
+        const profitLbl = isTrnAi ? 'Profit Koins' : 'Profit €';
+        cards.push(`<div class="stat-card"><div class="big ${pCls}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}${unit}</div><div class="lbl">${profitLbl}</div></div>`);
       }
       if (hub === 'mtt' && st.mttPhase) {
         cards.push(`<div class="stat-card"><div class="big">${escapeHtml(mttPhaseLabel(st.mttPhase))}</div><div class="lbl">Fase dominante</div></div>`);
@@ -9437,7 +9440,7 @@
         <div class="stats-content">
           <div class="stat-card"><div class="big">${place != null ? place + 'º' : '—'}</div><div class="lbl">Puesto</div></div>
           <div class="stat-card"><div class="big">${Number(prize).toFixed(2)}</div><div class="lbl">Premio (Koins)</div></div>
-          <div class="stat-card"><div class="big ${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)}</div><div class="lbl">Profit</div></div>
+          <div class="stat-card"><div class="big ${pCls}">${profit >= 0 ? '+' : ''}${Number(profit).toFixed(2)} Koins</div><div class="lbl">Profit Koins</div></div>
           <div class="stat-card"><div class="big">${roi != null ? roi + '%' : '—'}</div><div class="lbl">ROI</div></div>
           <div class="stat-card"><div class="big">${Number(buyIn).toFixed(2)}</div><div class="lbl">Buy-in</div></div>
           <div class="stat-card"><div class="big">${nHands}</div><div class="lbl">Manos</div></div>
