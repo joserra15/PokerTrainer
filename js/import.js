@@ -1794,7 +1794,14 @@
     );
   }
 
-  function styleIdealForFormat(format) {
+  function formatHubFromKey(formatKey, gameKind) {
+    const k = String(formatKey || '');
+    if (gameKind === 'spin' || k.indexOf('spin') === 0) return 'spin';
+    if (gameKind === 'mtt' || gameKind === 'sng' || k.indexOf('mtt') === 0) return 'mtt';
+    return 'cash';
+  }
+
+  function baseStyleIdealForFormat(format) {
     if (!format) return STYLE_IDEAL_6MAX;
     if (STYLE_IDEAL_BY_FORMAT[format]) return STYLE_IDEAL_BY_FORMAT[format];
     const U = global.PTHHUtils;
@@ -1804,6 +1811,95 @@
       return STYLE_IDEAL_BY_FORMAT[legacy] || STYLE_IDEAL_BY_FORMAT[format] || STYLE_IDEAL_6MAX;
     }
     return STYLE_IDEAL_6MAX;
+  }
+
+  /**
+   * Ideales por formatKey, opcionalmente afinados por fase MTT / stack medio (spins).
+   * @param {string} format
+   * @param {{ mttPhase?: string, avgStackBB?: number, gameKind?: string }|null} ctx
+   */
+  function styleIdealForFormat(format, ctx) {
+    let ideal = cloneIdeal(baseStyleIdealForFormat(format));
+    ctx = ctx || {};
+    const hub = formatHubFromKey(format, ctx.gameKind);
+    const phase = ctx.mttPhase || null;
+    const stack = ctx.avgStackBB != null && !Number.isNaN(Number(ctx.avgStackBB))
+      ? Number(ctx.avgStackBB) : null;
+
+    if (hub === 'spin') {
+      // Stack corto: más shove / open density; menos énfasis en limps y c-bets profundos.
+      if (stack != null && stack <= 15) {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 42, vpipMax: 62, pfrMin: 35, pfrMax: 55,
+          stealMin: 55, stealMax: 80,
+          threeBetMin: 6, threeBetMax: 14,
+          limpMin: 0, limpMax: 2,
+          cbetFlopMin: 35, cbetFlopMax: 65,
+          wtsdMin: 18, wtsdMax: 30,
+          gapMin: 2, gapMax: 10
+        });
+      } else if (stack != null && stack <= 25) {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 38, vpipMax: 58, pfrMin: 30, pfrMax: 50,
+          stealMin: 50, stealMax: 75,
+          limpMin: 0, limpMax: 3,
+          gapMin: 2, gapMax: 10
+        });
+      }
+      if (phase === 'push' || phase === 'short') {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: Math.max(ideal.vpipMin, 40), vpipMax: Math.max(ideal.vpipMax, 65),
+          pfrMin: Math.max(ideal.pfrMin, 32), pfrMax: Math.max(ideal.pfrMax, 58),
+          stealMin: Math.max(ideal.stealMin || 45, 55), stealMax: Math.max(ideal.stealMax || 70, 80)
+        });
+      }
+    } else if (hub === 'mtt') {
+      if (phase === 'early') {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 15, vpipMax: 24, pfrMin: 12, pfrMax: 20,
+          stealMin: 22, stealMax: 35,
+          threeBetMin: 4, threeBetMax: 8,
+          foldToStealMin: 55, foldToStealMax: 70,
+          wtsdMin: 26, wtsdMax: 34,
+          cbetFlopMin: 48, cbetFlopMax: 68
+        });
+      } else if (phase === 'mid' || phase === 'bubble') {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 16, vpipMax: 26, pfrMin: 13, pfrMax: 22,
+          stealMin: 26, stealMax: 40,
+          foldToStealMin: 48, foldToStealMax: 65,
+          threeBetMin: 5, threeBetMax: 9
+        });
+        if (phase === 'bubble') {
+          ideal = cloneIdeal(ideal, {
+            stealMin: 24, stealMax: 38,
+            foldToStealMin: 50, foldToStealMax: 68,
+            limpMin: 0, limpMax: 3
+          });
+        }
+      } else if (phase === 'short' || phase === 'push' || phase === 'hu') {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 22, vpipMax: 38, pfrMin: 18, pfrMax: 34,
+          stealMin: 35, stealMax: 55,
+          foldToStealMin: 40, foldToStealMax: 58,
+          threeBetMin: 6, threeBetMax: 12,
+          cbetFlopMin: 40, cbetFlopMax: 65,
+          wtsdMin: 22, wtsdMax: 32,
+          gapMin: 2, gapMax: 8
+        });
+      } else if (stack != null && stack <= 15) {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 22, vpipMax: 36, pfrMin: 18, pfrMax: 32,
+          stealMin: 32, stealMax: 50
+        });
+      }
+    }
+
+    ideal._formatKey = format || null;
+    ideal._hub = hub;
+    ideal._mttPhase = phase;
+    ideal._avgStackBB = stack;
+    return ideal;
   }
 
   function formatKeyToRangeGameType(formatKey) {
@@ -2045,8 +2141,9 @@
     return { status: 'ok', soft: false };
   }
 
-  function assessVpipPfr(vpipPct, pfrPct, handsN, ideal) {
+  function assessVpipPfr(vpipPct, pfrPct, handsN, ideal, formatKey) {
     const I = ideal || STYLE_IDEAL;
+    const hub = formatHubFromKey(formatKey || (I && I._formatKey), I && I._hub);
     if (vpipPct == null || pfrPct == null) {
       return {
         status: 'unknown',
@@ -2065,16 +2162,40 @@
 
     if (vpipPct < I.vpipMin) {
       if (!soft) status = 'low';
-      parts.push(
-        'VPIP bajo (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
-        '%). Estás jugando demasiado tight: abre un poco más desde late (BTN/CO) y revisa folds excesivos vs opens pequeños.'
-      );
+      if (hub === 'spin') {
+        parts.push(
+          'VPIP bajo (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
+          '%). En spins conviene abrir/shovear más: amplía opens y jams desde BTN/SB cuando el stack lo permite.'
+        );
+      } else if (hub === 'mtt') {
+        parts.push(
+          'VPIP bajo (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
+          '%). Estás demasiado tight: añade steals y opens late según tu stack y la fase del torneo.'
+        );
+      } else {
+        parts.push(
+          'VPIP bajo (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
+          '%). Estás jugando demasiado tight: abre un poco más desde late (BTN/CO) y revisa folds excesivos vs opens pequeños.'
+        );
+      }
     } else if (vpipPct > I.vpipMax) {
       if (!soft) status = 'high';
-      parts.push(
-        'VPIP alto (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
-        '%). Estás entrando en demasiadas manos: recorta limps y calls especulativos out of position; prioriza raises con manos con plan postflop.'
-      );
+      if (hub === 'spin') {
+        parts.push(
+          'VPIP alto (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
+          '%). Entras en demasiados pots: recorta flats débiles y prioriza opens/shoves con plan ICM (no calls especulativos deep).'
+        );
+      } else if (hub === 'mtt') {
+        parts.push(
+          'VPIP alto (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
+          '%). Demasiado volumen preflop: preserva stack, reduce flats OOP y prioriza steals/opens con fold equity.'
+        );
+      } else {
+        parts.push(
+          'VPIP alto (' + vpipPct + '%; ideal ~' + I.vpipMin + '–' + I.vpipMax +
+          '%). Estás entrando en demasiadas manos: recorta limps y calls especulativos out of position; prioriza raises con manos con plan postflop.'
+        );
+      }
     } else {
       parts.push(
         'VPIP adecuado (' + vpipPct + '% dentro de ~' + I.vpipMin + '–' + I.vpipMax + '%).'
@@ -2083,16 +2204,40 @@
 
     if (pfrPct < I.pfrMin) {
       if (!soft && status === 'ok') status = 'low';
-      parts.push(
-        'PFR bajo (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
-        '%). Demasiado pasivo preflop: convierte más limps/calls en opens o 3-bets cuando la mano lo justifica.'
-      );
+      if (hub === 'spin') {
+        parts.push(
+          'PFR bajo (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
+          '%). Demasiado pasivo: convierte más flats en opens o jams en vez de pagar ciegas.'
+        );
+      } else if (hub === 'mtt') {
+        parts.push(
+          'PFR bajo (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
+          '%). Poca iniciativa: abre/roba más cuando folded-to-you y evita completar SB sin plan.'
+        );
+      } else {
+        parts.push(
+          'PFR bajo (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
+          '%). Demasiado pasivo preflop: convierte más limps/calls en opens o 3-bets cuando la mano lo justifica.'
+        );
+      }
     } else if (pfrPct > I.pfrMax) {
       if (!soft && status === 'ok') status = 'high';
-      parts.push(
-        'PFR alto (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
-        '%). Estás subiendo de más: reduce opens light UTG/HJ y 3-bets sin equity o sin fold equity clara.'
-      );
+      if (hub === 'spin') {
+        parts.push(
+          'PFR alto (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
+          '%). Abres/shoveas de más: reduce opens light vs stacks que defienden wide y cuida ICM.'
+        );
+      } else if (hub === 'mtt') {
+        parts.push(
+          'PFR alto (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
+          '%). Demasiada agresión preflop: recorta opens early y steals vs blinds pegajosos / burbuja.'
+        );
+      } else {
+        parts.push(
+          'PFR alto (' + pfrPct + '%; ideal ~' + I.pfrMin + '–' + I.pfrMax +
+          '%). Estás subiendo de más: reduce opens light UTG/HJ y 3-bets sin equity o sin fold equity clara.'
+        );
+      }
     } else {
       parts.push(
         'PFR adecuado (' + pfrPct + '% dentro de ~' + I.pfrMin + '–' + I.pfrMax + '%).'
@@ -2101,16 +2246,27 @@
 
     if (gap > I.gapMax) {
       if (!soft && status === 'ok') status = 'gap';
-      parts.push(
-        'Hueco VPIP−PFR amplio (' + gap + ' pts; típico ~' + I.gapMin + '–' + I.gapMax +
-        '). Indica muchos limps/calls: prioriza raise-or-fold y evita completar SB o flattear manos débiles.'
-      );
+      if (hub === 'spin' || hub === 'mtt') {
+        parts.push(
+          'Hueco VPIP−PFR amplio (' + gap + ' pts; típico ~' + I.gapMin + '–' + I.gapMax +
+          '). Muchos flats: prioriza open/shove-or-fold y evita completar ciegas con manos débiles.'
+        );
+      } else {
+        parts.push(
+          'Hueco VPIP−PFR amplio (' + gap + ' pts; típico ~' + I.gapMin + '–' + I.gapMax +
+          '). Indica muchos limps/calls: prioriza raise-or-fold y evita completar SB o flattear manos débiles.'
+        );
+      }
       if (gap > 10) {
-        parts.push('Con más de 10 pts de hueco el perfil es claramente calling-station: value-bet fino y faroles mínimos.');
+        parts.push(hub === 'cash'
+          ? 'Con más de 10 pts de hueco el perfil es claramente calling-station: value-bet fino y faroles mínimos.'
+          : 'Con más de 10 pts de hueco el perfil es demasiado calling: prioriza iniciativa (open/jam) frente a flats.');
       }
     } else if (gap < I.gapMin && vpipPct >= I.vpipMin) {
       parts.push(
-        'Hueco VPIP−PFR muy estrecho (' + gap + ' pts): casi no flateas. Está bien si es intencional; asegúrate de no overfoldear spots rentables de call (p. ej. BB vs opens pequeños).'
+        hub === 'spin' || hub === 'mtt'
+          ? ('Hueco VPIP−PFR muy estrecho (' + gap + ' pts): casi no flateas. Bien en short-stack; asegúrate de no overfoldear BB vs opens pequeños.')
+          : ('Hueco VPIP−PFR muy estrecho (' + gap + ' pts): casi no flateas. Está bien si es intencional; asegúrate de no overfoldear spots rentables de call (p. ej. BB vs opens pequeños).')
       );
     }
 
@@ -2125,7 +2281,7 @@
     else if (status === 'gap') label = 'Desbalance pasivo';
     else if (status === 'low_sample') label = 'Muestra insuficiente';
 
-    return { status, label, comment: parts.join(' '), gap, ideal: I, sample: trust };
+    return { status, label, comment: parts.join(' '), gap, ideal: I, sample: trust, hub: hub };
   }
 
   function assessMetricLine(name, pct, min, max, trust, tips) {
@@ -2196,97 +2352,90 @@
     return drills.slice(0, 4);
   }
 
+  function styleTipsForHub(hub) {
+    const cash = {
+      '3-Bet': { low: 'Amplía 3-bets light IP y vs opens late.', high: 'Recorta 3-bets sin plan; prioriza valor + bluffs con blockers.' },
+      'Fold to 3-Bet': { low: 'Estás defendiendo de más vs 3-bets: foldea peores suited connectors OOP.', high: 'Overfold vs 3-bet: defiende más IP y 4-betea polarizado.' },
+      '4-Bet': { low: 'Añade 4-bets polarizados (value + blockers) vs 3-bets.', high: '4-beteas demasiado light: reduce bluffs sin plan postflop.' },
+      'Fold to 4-Bet': { low: 'Llamas/shippeas de más vs 4-bet: foldea peores bluffcatchers.', high: 'Overfold vs 4-bet: defiende más combos de valor.' },
+      'Limp': { low: 'Casi no limpeas (bien en regs).', high: 'Limpeas demasiado: prefer raise or fold, sobre todo EP/MP.' },
+      'Overlimp': { low: 'Pocos overlimps.', high: 'Overlimpeas: aísla o foldea en vez de pagar limps.' },
+      'Iso-limp': { low: 'Aísla poco vs limpers: añade value + blockers.', high: 'Iso demasiado wide: reduce basura OOP.' },
+      'Steal': { low: 'Roba más desde CO/BTN/SB cuando llega folded to you.', high: 'Steals demasiado anchos: reduce basura OOP y vs blinds sticky.' },
+      'Fold to Steal': { low: 'Defiendes de más los blinds: recorta calls dominados.', high: 'Overfold a steals: amplia defensa BB vs opens late.' },
+      'Squeeze': { low: 'Añade squeezes con blockers cuando hay open+call.', high: 'Squeezes demasiado light: prioriza manos con equity o fold equity.' },
+      'C-Bet flop': { low: 'C-beteas poco: añade polarización en boards favorables.', high: 'C-bet demasiado automático: check más en boards malos OOP.' },
+      'Fold to C-Bet': { low: 'Pegajoso vs c-bet: foldea peores backdoors OOP.', high: 'Overfold al c-bet: defiende más equity y floats IP.' },
+      'C-Bet turn': { low: 'Barrelas poco en turn: añade presión en boards buenos.', high: 'Demasiados barrels: check más cuando el board no favorece tu rango.' },
+      'C-Bet river': { low: 'Pocos rivers como aggressor: value fino + bluffs con blockers.', high: 'Overbarrel river: reduce bluffs sin nut advantage.' },
+      'Delayed C-Bet': { low: 'Poco delayed tras check flop: añade leads en turn favorables.', high: 'Demasiados delayed: elige boards donde el check-raise range del villano sea estrecho.' },
+      'AF': { low: 'Pasivo postflop: sustituye calls por bets/raises con value y bluffs.', high: 'Agresión excesiva: reduce bluffs multi-street sin equity.' },
+      'AFq': { low: 'Pocas acciones agresivas postflop.', high: 'Demasiada frecuencia agresiva postflop.' },
+      'WTSD': { low: 'Llegas poco a showdown: no overfoldees equity realizable.', high: 'Calling station en calles tardías: foldea peores manos vs presión.' },
+      'W$SD': { low: 'Ganas poco en showdown: value-bea más fino y evita peores calls.', high: 'Muy alto W$SD: puedes value-betear más thin.' },
+      'WWSF': { low: 'Ganas pocos botes vistos: más c-bets y value.', high: 'Buen winrate en flops vistos.' }
+    };
+    if (hub === 'spin') {
+      return Object.assign({}, cash, {
+        '3-Bet': { low: 'Añade 3-bets/shoves vs opens cuando el stack y ICM lo permiten.', high: 'Demasiados 3-bets light: prioriza jams con fold equity clara.' },
+        'Limp': { low: 'Casi no limpeas (correcto en spins).', high: 'Limpear en spins es fuga: open o jam, no flat sin plan.' },
+        'Overlimp': { low: 'Pocos overlimps.', high: 'No overlimpees en 3-max: aísla o foldea.' },
+        'Iso-limp': { low: 'Aísla limpers cuando hay fold equity.', high: 'Iso demasiado wide vs limpers sticky.' },
+        'Steal': { low: 'Roba/shovea más BTN/SB: en spins la densidad de open es clave.', high: 'Steals demasiado anchos vs blinds que defienden wide.' },
+        'Fold to Steal': { low: 'Defiendes de más los blinds: recorta flats dominados (ICM).', high: 'Overfold a steals: amplia defensa BB/SB vs opens late.' },
+        'C-Bet flop': { low: 'C-betea más en boards buenos; en short-stack prioriza jams pre.', high: 'C-bet automático en pots multi: check más OOP.' },
+        'WTSD': { low: 'Poco showdown: no overfoldees equity vs bets pequeñas.', high: 'Llegas demasiado a showdown: foldea peores vs presión ICM.' },
+        'AF': { low: 'Poca agresión: en spins prioriza iniciativa preflop y c-bets selectivos.', high: 'Agresión excesiva multi-street sin equity.' }
+      });
+    }
+    if (hub === 'mtt') {
+      return Object.assign({}, cash, {
+        '3-Bet': { low: 'Amplía 3-bets/steals según stack y fase (no solo valor puro).', high: '3-beteas light de más: cuida ICM en burbuja / pay jumps.' },
+        'Limp': { low: 'Casi no limpeas (bien en MTT).', high: 'Limpeas demasiado: en torneo prioriza raise/fold y preserva stack.' },
+        'Overlimp': { low: 'Pocos overlimps.', high: 'Overlimps caros en MTT: aísla o foldea.' },
+        'Steal': { low: 'Roba más en late cuando folded-to-you; el ante premia steals.', high: 'Steals anchos vs blinds pegajosos o en burbuja sin fold equity.' },
+        'Fold to Steal': { low: 'Defiendes de más: recorta calls OOP con stack medio.', high: 'Overfold a steals: defiende BB más wide vs opens late (salvo ICM crítico).' },
+        'C-Bet flop': { low: 'Añade c-bets en boards favorables; en short prioriza presión pre.', high: 'C-bet demasiado automático: check más preservando stack.' },
+        'WTSD': { low: 'Poco showdown: no tiros equity realizable barata.', high: 'Demasiado WTSD: foldea peores vs barrels en fases de presión.' },
+        'AF': { low: 'Pasivo postflop: más bets de valor y presión en spots buenos.', high: 'Agresión excesiva: reduce bluffs caros cerca de money.' }
+      });
+    }
+    return cash;
+  }
+
   function assessStyleStats(style, ideal) {
     const I = ideal || STYLE_IDEAL;
     if (!style) {
       return { status: 'unknown', label: 'Sin datos', comment: 'Sin métricas de estilo.', lines: [], drills: [], sample: {}, ideal: I };
     }
-    const formatKey = (style && (style.formatKey || style.format)) || null;
+    const formatKey = (style && (style.formatKey || style.format)) || (I && I._formatKey) || null;
+    const hub = formatHubFromKey(formatKey, style.gameKind || (I && I._hub));
+    const tips = styleTipsForHub(hub);
     const lines = [];
     const s = style;
     const samp = s.sample || {};
-    lines.push(assessMetricLine('3-Bet', s.threeBetPct, I.threeBetMin, I.threeBetMax, samp.threeBet, {
-      low: 'Amplía 3-bets light IP y vs opens late.',
-      high: 'Recorta 3-bets sin plan; prioriza valor + bluffs con blockers.'
-    }));
-    lines.push(assessMetricLine('Fold to 3-Bet', s.foldToThreeBetPct, I.foldToThreeBetMin, I.foldToThreeBetMax, samp.foldToThreeBet, {
-      low: 'Estás defendiendo de más vs 3-bets: foldea peores suited connectors OOP.',
-      high: 'Overfold vs 3-bet: defiende más IP y 4-betea polarizado.'
-    }));
-    lines.push(assessMetricLine('4-Bet', s.fourBetPct, I.fourBetMin, I.fourBetMax, samp.fourBet, {
-      low: 'Añade 4-bets polarizados (value + blockers) vs 3-bets.',
-      high: '4-beteas demasiado light: reduce bluffs sin plan postflop.'
-    }));
-    lines.push(assessMetricLine('Fold to 4-Bet', s.foldToFourBetPct, I.foldToFourBetMin, I.foldToFourBetMax, samp.foldToFourBet, {
-      low: 'Llamas/shippeas de más vs 4-bet: foldea peores bluffcatchers.',
-      high: 'Overfold vs 4-bet: defiende más combos de valor.'
-    }));
-    lines.push(assessMetricLine('Limp', s.limpPct, I.limpMin, I.limpMax, samp.limp, {
-      low: 'Casi no limpeas (bien en regs).',
-      high: 'Limpeas demasiado: prefer raise or fold, sobre todo EP/MP.'
-    }));
-    lines.push(assessMetricLine('Overlimp', s.overlimpPct, I.overlimpMin, I.overlimpMax, samp.overlimp, {
-      low: 'Pocos overlimps.',
-      high: 'Overlimpeas: aísla o foldea en vez de pagar limps.'
-    }));
-    lines.push(assessMetricLine('Iso-limp', s.isoLimpPct, I.isoLimpMin, I.isoLimpMax, samp.isoLimp, {
-      low: 'Aísla poco vs limpers: añade value + blockers.',
-      high: 'Iso demasiado wide: reduce basura OOP.'
-    }));
-    lines.push(assessMetricLine('Steal', s.stealPct, I.stealMin, I.stealMax, samp.steal, {
-      low: 'Roba más desde CO/BTN/SB cuando llega folded to you.',
-      high: 'Steals demasiado anchos: reduce basura OOP y vs blinds sticky.'
-    }));
-    lines.push(assessMetricLine('Fold to Steal', s.foldToStealPct, I.foldToStealMin, I.foldToStealMax, samp.foldToSteal, {
-      low: 'Defiendes de más los blinds: recorta calls dominados.',
-      high: 'Overfold a steals: amplia defensa BB vs opens late.'
-    }));
-    lines.push(assessMetricLine('Squeeze', s.squeezePct, I.squeezeMin, I.squeezeMax, samp.squeeze, {
-      low: 'Añade squeezes con blockers cuando hay open+call.',
-      high: 'Squeezes demasiado light: prioriza manos con equity o fold equity.'
-    }));
-    lines.push(assessMetricLine('C-Bet flop', s.cbetFlopPct, I.cbetFlopMin, I.cbetFlopMax, samp.cbetFlop, {
-      low: 'C-beteas poco: añade polarización en boards favorables.',
-      high: 'C-bet demasiado automático: check más en boards malos OOP.'
-    }));
-    lines.push(assessMetricLine('Fold to C-Bet', s.foldToCbetFlopPct, I.foldToCbetFlopMin, I.foldToCbetFlopMax, samp.foldToCbetFlop, {
-      low: 'Pegajoso vs c-bet: foldea peores backdoors OOP.',
-      high: 'Overfold al c-bet: defiende más equity y floats IP.'
-    }));
-    lines.push(assessMetricLine('C-Bet turn', s.cbetTurnPct, I.cbetTurnMin, I.cbetTurnMax, samp.cbetTurn, {
-      low: 'Barrelas poco en turn: añade presión en boards buenos.',
-      high: 'Demasiados barrels: check más cuando el board no favorece tu rango.'
-    }));
-    lines.push(assessMetricLine('C-Bet river', s.cbetRiverPct, I.cbetRiverMin, I.cbetRiverMax, samp.cbetRiver, {
-      low: 'Pocos rivers como aggressor: value fino + bluffs con blockers.',
-      high: 'Overbarrel river: reduce bluffs sin nut advantage.'
-    }));
-    lines.push(assessMetricLine('Delayed C-Bet', s.delayedCbetPct, I.delayedCbetMin, I.delayedCbetMax, samp.delayedCbet, {
-      low: 'Poco delayed tras check flop: añade leads en turn favorables.',
-      high: 'Demasiados delayed: elige boards donde el check-raise range del villano sea estrecho.'
-    }));
-    lines.push(assessMetricLine('AF', s.af, I.afMin, I.afMax, samp.af, {
-      low: 'Pasivo postflop: sustituye calls por bets/raises con value y bluffs.',
-      high: 'Agresión excesiva: reduce bluffs multi-street sin equity.'
-    }));
+    lines.push(assessMetricLine('3-Bet', s.threeBetPct, I.threeBetMin, I.threeBetMax, samp.threeBet, tips['3-Bet']));
+    lines.push(assessMetricLine('Fold to 3-Bet', s.foldToThreeBetPct, I.foldToThreeBetMin, I.foldToThreeBetMax, samp.foldToThreeBet, tips['Fold to 3-Bet']));
+    lines.push(assessMetricLine('4-Bet', s.fourBetPct, I.fourBetMin, I.fourBetMax, samp.fourBet, tips['4-Bet']));
+    lines.push(assessMetricLine('Fold to 4-Bet', s.foldToFourBetPct, I.foldToFourBetMin, I.foldToFourBetMax, samp.foldToFourBet, tips['Fold to 4-Bet']));
+    lines.push(assessMetricLine('Limp', s.limpPct, I.limpMin, I.limpMax, samp.limp, tips['Limp']));
+    lines.push(assessMetricLine('Overlimp', s.overlimpPct, I.overlimpMin, I.overlimpMax, samp.overlimp, tips['Overlimp']));
+    lines.push(assessMetricLine('Iso-limp', s.isoLimpPct, I.isoLimpMin, I.isoLimpMax, samp.isoLimp, tips['Iso-limp']));
+    lines.push(assessMetricLine('Steal', s.stealPct, I.stealMin, I.stealMax, samp.steal, tips['Steal']));
+    lines.push(assessMetricLine('Fold to Steal', s.foldToStealPct, I.foldToStealMin, I.foldToStealMax, samp.foldToSteal, tips['Fold to Steal']));
+    lines.push(assessMetricLine('Squeeze', s.squeezePct, I.squeezeMin, I.squeezeMax, samp.squeeze, tips['Squeeze']));
+    lines.push(assessMetricLine('C-Bet flop', s.cbetFlopPct, I.cbetFlopMin, I.cbetFlopMax, samp.cbetFlop, tips['C-Bet flop']));
+    lines.push(assessMetricLine('Fold to C-Bet', s.foldToCbetFlopPct, I.foldToCbetFlopMin, I.foldToCbetFlopMax, samp.foldToCbetFlop, tips['Fold to C-Bet']));
+    lines.push(assessMetricLine('C-Bet turn', s.cbetTurnPct, I.cbetTurnMin, I.cbetTurnMax, samp.cbetTurn, tips['C-Bet turn']));
+    lines.push(assessMetricLine('C-Bet river', s.cbetRiverPct, I.cbetRiverMin, I.cbetRiverMax, samp.cbetRiver, tips['C-Bet river']));
+    lines.push(assessMetricLine('Delayed C-Bet', s.delayedCbetPct, I.delayedCbetMin, I.delayedCbetMax, samp.delayedCbet, tips['Delayed C-Bet']));
+    lines.push(assessMetricLine('AF', s.af, I.afMin, I.afMax, samp.af, tips['AF']));
     if (s.afq != null) {
-      lines.push(assessMetricLine('AFq', s.afq, I.afqMin, I.afqMax, samp.af, {
-        low: 'Pocas acciones agresivas postflop.',
-        high: 'Demasiada frecuencia agresiva postflop.'
-      }));
+      lines.push(assessMetricLine('AFq', s.afq, I.afqMin, I.afqMax, samp.af, tips['AFq']));
     }
-    lines.push(assessMetricLine('WTSD', s.wtsdPct, I.wtsdMin, I.wtsdMax, samp.wtsd, {
-      low: 'Llegas poco a showdown: no overfoldees equity realizable.',
-      high: 'Calling station en calles tardías: foldea peores manos vs presión.'
-    }));
-    lines.push(assessMetricLine('W$SD', s.wsdPct, I.wsdMin, I.wsdMax, samp.wsd, {
-      low: 'Ganas poco en showdown: value-bea más fino y evita peores calls.',
-      high: 'Muy alto W$SD: puedes value-betear más thin.'
-    }));
-    lines.push(assessMetricLine('WWSF', s.wwsfPct, I.wwsfMin, I.wwsfMax, samp.wwsf, {
-      low: 'Ganas pocos botes vistos: más c-bets y value.',
-      high: 'Buen winrate en flops vistos.'
-    }));
+    lines.push(assessMetricLine('WTSD', s.wtsdPct, I.wtsdMin, I.wtsdMax, samp.wtsd, tips['WTSD']));
+    lines.push(assessMetricLine('W$SD', s.wsdPct, I.wsdMin, I.wsdMax, samp.wsd, tips['W$SD']));
+    lines.push(assessMetricLine('WWSF', s.wwsfPct, I.wwsfMin, I.wwsfMax, samp.wwsf, tips['WWSF']));
 
     const hard = lines.filter((l) => l.status === 'low' || l.status === 'high');
     let status = 'ok';
@@ -2311,7 +2460,8 @@
       lines,
       drills,
       ideal: I,
-      formatKey: formatKey || null
+      formatKey: formatKey || null,
+      hub: hub
     };
   }
 
@@ -2399,26 +2549,29 @@
     return h;
   }
 
+  function applyCashShortHandedBump(ideal, formatKey, shortShare) {
+    if (!(shortShare > 0.5 && (formatKey === 'cash6' || formatKey === 'cash9'))) return ideal;
+    return cloneIdeal(ideal, {
+      vpipMin: ideal.vpipMin + 3, vpipMax: ideal.vpipMax + 5,
+      pfrMin: ideal.pfrMin + 2, pfrMax: ideal.pfrMax + 4,
+      stealMin: (ideal.stealMin || 30) + 5, stealMax: (ideal.stealMax || 40) + 8
+    });
+  }
+
   function computeStats(hands) {
     const n = hands.length;
     const formatKey = inferSessionFormatKey(hands);
     const format = inferSessionFormat(hands);
-    let ideal = styleIdealForFormat(formatKey);
-    // Short-handed efectivo: afloja bandas cash si muchas manos a mesa incompleta
-    const shortN = (hands || []).filter((h) => h && h.shortHanded).length;
-    if (shortN > n * 0.5 && (formatKey === 'cash6' || formatKey === 'cash9')) {
-      ideal = cloneIdeal(ideal, {
-        vpipMin: ideal.vpipMin + 3, vpipMax: ideal.vpipMax + 5,
-        pfrMin: ideal.pfrMin + 2, pfrMax: ideal.pfrMax + 4,
-        stealMin: (ideal.stealMin || 30) + 5, stealMax: (ideal.stealMax || 40) + 8
-      });
-    }
-    STYLE_IDEAL = ideal;
-
     const U = global.PTHHUtils;
     const ctx = U && U.buildSessionContext ? U.buildSessionContext(hands, null) : null;
     const gameKind = (ctx && ctx.gameKind) || 'cash';
     const tableMax = ctx && ctx.tableMax;
+    // Ideal base (sample thresholds); se re-resuelve con fase/stack tras el bucle.
+    let ideal = styleIdealForFormat(formatKey, { gameKind: gameKind });
+    const shortN = (hands || []).filter((h) => h && h.shortHanded).length;
+    const shortShare = n ? shortN / n : 0;
+    ideal = applyCashShortHandedBump(ideal, formatKey, shortShare);
+    STYLE_IDEAL = ideal;
 
     let decN = 0, decGood = 0, evLoss = 0, netBB = 0, evLossEuro = 0;
     let handScoreSum = 0, handScoreN = 0;
@@ -2440,6 +2593,7 @@
     const tourneyInvested = {};
     const stakeTierCount = {};
     const phaseCount = {};
+    const stackDepths = [];
     const byStakesMap = {};
     let cbetFlopOpps = 0, cbetFlopHits = 0;
     let cbetFlopIpOpps = 0, cbetFlopIpHits = 0;
@@ -2484,6 +2638,9 @@
       }
       if (h.stakeTier) stakeTierCount[h.stakeTier] = (stakeTierCount[h.stakeTier] || 0) + 1;
       if (h.mttPhase) phaseCount[h.mttPhase] = (phaseCount[h.mttPhase] || 0) + 1;
+      if (h.stackDepthBB != null && !Number.isNaN(Number(h.stackDepthBB))) {
+        stackDepths.push(Number(h.stackDepthBB));
+      }
       const stakeKey = h.stakesLabel || (h.bb ? ((h.currency || '€') + (h.sb || h.bb / 2) + '/' + (h.currency || '€') + h.bb) : 'unknown');
       if (!byStakesMap[stakeKey]) byStakesMap[stakeKey] = { hands: 0, netBB: 0, stakeTier: h.stakeTier || null };
       byStakesMap[stakeKey].hands++;
@@ -2542,6 +2699,27 @@
       accByStreet[st] = street[st].n ? Math.round((street[st].good / street[st].n) * 100) : null;
     });
 
+    let dominantPhase = null;
+    let bestPhaseN = -1;
+    Object.keys(phaseCount).forEach((k) => {
+      if (phaseCount[k] > bestPhaseN) { bestPhaseN = phaseCount[k]; dominantPhase = k; }
+    });
+    let avgStackBB = null;
+    if (stackDepths.length) {
+      const sorted = stackDepths.slice().sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      avgStackBB = sorted.length % 2 ? sorted[mid]
+        : Math.round(((sorted[mid - 1] + sorted[mid]) / 2) * 10) / 10;
+    }
+    // Re-resolver ideales con fase MTT / stack medio (spins) antes del coaching.
+    ideal = styleIdealForFormat(formatKey, {
+      gameKind: gameKind,
+      mttPhase: dominantPhase,
+      avgStackBB: avgStackBB
+    });
+    ideal = applyCashShortHandedBump(ideal, formatKey, shortShare);
+    STYLE_IDEAL = ideal;
+
     const byNet = hands.slice().sort((a, b) => b.heroNetBB - a.heroNetBB);
     const best5 = byNet.slice(0, 5);
     const worst5 = byNet.slice(-5).reverse();
@@ -2565,7 +2743,7 @@
     const avgHandScore = handScoreN ? r2(handScoreSum / handScoreN) : null;
     const vpipPct = n ? Math.round((vpipN / n) * 1000) / 10 : null;
     const pfrPct = n ? Math.round((pfrN / n) * 1000) / 10 : null;
-    const vpipPfr = assessVpipPfr(vpipPct, pfrPct, n, ideal);
+    const vpipPfr = assessVpipPfr(vpipPct, pfrPct, n, ideal, formatKey);
 
     const limpPct = pctFrom(limpHits, limpOpps);
     const overlimpPct = pctFrom(overlimpHits, overlimpOpps);
@@ -2643,11 +2821,6 @@
     let bestTierN = -1;
     Object.keys(stakeTierCount).forEach((k) => {
       if (stakeTierCount[k] > bestTierN) { bestTierN = stakeTierCount[k]; dominantStakeTier = k; }
-    });
-    let dominantPhase = null;
-    let bestPhaseN = -1;
-    Object.keys(phaseCount).forEach((k) => {
-      if (phaseCount[k] > bestPhaseN) { bestPhaseN = phaseCount[k]; dominantPhase = k; }
     });
 
     const style = {
@@ -2742,6 +2915,7 @@
       stakesLabel: (ctx && ctx.stakesLabel) || '',
       stakeTier: dominantStakeTier,
       mttPhase: dominantPhase,
+      avgStackBB: avgStackBB,
       shortHandedShare: ctx ? ctx.shortHandedShare : 0,
       profitEuro, avgBuyIn, roiPct,
       styleIdeal: ideal,
@@ -2849,7 +3023,7 @@
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
     chunkParsedSession, MAX_HANDS_PER_SESSION, RAW_TEXT_MAX_CHARS,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
-    sampleTrust, styleIdealForFormat, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
+    sampleTrust, styleIdealForFormat, formatHubFromKey, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
     drillsFromAssess, buildHandTags, computeBbPer100CI,
     heroCandidatesFromParsed, needsHeroConfirmation, handDedupeKey,
     importFailureMessage,
