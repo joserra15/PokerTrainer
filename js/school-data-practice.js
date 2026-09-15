@@ -683,7 +683,7 @@
           ]
         }
       }),
-      LQ('r05-03', 'BTN', ['Ah', 'Qd'], ['Jc', '7d', '2s', '9h', '3c'], 76403, {
+      LQ('r05-03', 'BTN', ['Jd', '8h'], ['Jc', '7d', '2s', '9h', '3c'], 76403, {
         villainPos: 'BB', facingBet: true,
         lineStory: [
           { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
