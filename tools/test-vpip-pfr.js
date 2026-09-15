@@ -360,4 +360,41 @@ assert(withHands[0].pfrPct != null, 'semana con pfrPct');
 assert(withHands[0].threeBetOpps != null, 'semana con threeBetOpps');
 assert(withHands[0].bbPer100 != null, 'semana con bbPer100');
 
+// Ideales fase/stack (spin / MTT) + copy por hub
+const cashIdeal = Importer.styleIdealForFormat('cash6');
+const spinDeep = Importer.styleIdealForFormat('spin3', { gameKind: 'spin', avgStackBB: 25 });
+const spinShort = Importer.styleIdealForFormat('spin3', { gameKind: 'spin', avgStackBB: 12 });
+assert(spinDeep.vpipMin > cashIdeal.vpipMin, 'spin deep más loose que cash');
+assert(spinShort.vpipMin > spinDeep.vpipMin, 'spin short más loose que spin deep');
+assert(spinShort.stealMin > spinDeep.stealMin, 'spin short steal más alto');
+const mttEarly = Importer.styleIdealForFormat('mtt6', { gameKind: 'mtt', mttPhase: 'early' });
+const mttPush = Importer.styleIdealForFormat('mtt6', { gameKind: 'mtt', mttPhase: 'push' });
+assert(mttPush.stealMin > mttEarly.stealMin, 'mtt push steal > early');
+assert(mttEarly.vpipMax < mttPush.vpipMax, 'mtt early más tight que push');
+
+const assessSpinHi = Importer.assessVpipPfr(70, 20, 200, spinDeep, 'spin3');
+assert(assessSpinHi.status === 'high' || assessSpinHi.status === 'gap', 'spin VPIP alto detectado');
+assert(!/UTG/.test(assessSpinHi.comment), 'spin assess no menciona UTG');
+assert(!/limps y calls especulativos/.test(assessSpinHi.comment), 'spin assess no usa copy cash de limps');
+assert(/spins|ICM|opens\/shoves|jams/i.test(assessSpinHi.comment), 'spin assess habla de spins/ICM');
+
+const assessMttLow = Importer.assessVpipPfr(10, 8, 200, mttEarly, 'mtt6');
+assert(assessMttLow.status === 'low', 'mtt VPIP bajo');
+assert(/torneo|steals|stack/i.test(assessMttLow.comment), 'mtt assess menciona torneo/steals');
+
+const styleSpinAssess = Importer.assessStyleStats({
+  formatKey: 'spin3', gameKind: 'spin', limpPct: 12, limpOpps: 80,
+  sample: { limp: Importer.sampleTrust(80, 'limp', spinDeep) }
+}, spinDeep);
+const limpLine = (styleSpinAssess.lines || []).find((l) => l.key === 'Limp');
+assert(limpLine && limpLine.status === 'high', 'spin limp alto');
+assert(/spins|open o jam|Limpear en spins/i.test(limpLine.text), 'tip limp spin-aware');
+
+const spinTxt = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-spin-sample.txt'), 'utf8');
+const spinSes = Importer.buildSession(Importer.parseSession(spinTxt, 'PokerStars-spin-sample.txt'), 'PokerStars-spin-sample.txt');
+assert(spinSes.stats.formatKey === 'spin3', 'spin sample formatKey');
+assert(spinSes.stats.gameKind === 'spin', 'spin sample gameKind');
+assert(spinSes.stats.styleIdeal && spinSes.stats.styleIdeal.vpipMin >= 35, 'spin styleIdeal loose');
+assert(spinSes.stats.vpipPfr && spinSes.stats.vpipPfr.hub === 'spin', 'spin vpipPfr hub');
+
 console.log('*** HUD estilo (fases A–D) OK ***');

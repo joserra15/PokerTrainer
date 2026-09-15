@@ -382,11 +382,17 @@
       return '<div class="trn-stat-cell"><div class="trn-stat-val">' + esc(val == null ? '—' : String(val)) +
         '</div><div class="trn-stat-lbl">' + esc(lab) + '</div></div>';
     }
+    var kind = stats.gameKind || opts.gameKind || null;
+    var formatKey = stats.formatKey || opts.formatKey || '';
+    var hub = 'cash';
+    if (kind === 'spin' || String(formatKey).indexOf('spin') === 0) hub = 'spin';
+    else if (kind === 'mtt' || kind === 'sng' || String(formatKey).indexOf('mtt') === 0) hub = 'mtt';
     var acc = stats.accuracy != null ? (stats.accuracy + '%') : null;
     var vpip = stats.vpipPct != null ? (stats.vpipPct + '%') : null;
     var pfr = stats.pfrPct != null ? (stats.pfrPct + '%') : null;
     var wtsd = stats.wtsdPct != null ? (stats.wtsdPct + '%') : null;
     var wsd = stats.wsdPct != null ? (stats.wsdPct + '%') : null;
+    var steal = stats.stealPct != null ? (stats.stealPct + '%') : null;
     var avgScore = stats.avgHandScore != null ? stats.avgHandScore : null;
     var gradeRaw = stats.grade || (stats.styleAssess && stats.styleAssess.grade) || null;
     var gradeLabel = null;
@@ -404,21 +410,30 @@
     }
     var net = stats.netBB != null ? ((stats.netBB >= 0 ? '+' : '') + fmtBb(stats.netBB) + ' bb') : null;
     var ev = stats.evLossBB != null ? (fmtBb(stats.evLossBB) + ' bb') : null;
-    var html = '<div class="trn-session-stats">' +
+    var grid = '';
+    grid += cell(stats.nHands != null ? stats.nHands : stats.hands, 'Manos');
+    if (hub === 'spin' || hub === 'mtt') {
+      if (stats.finishPlace != null) grid += cell(stats.finishPlace + 'º', 'Puesto');
+      if (stats.roiPct != null) grid += cell(stats.roiPct + '%', 'ROI');
+      if (stats.profitEuro != null) {
+        grid += cell((stats.profitEuro >= 0 ? '+' : '') + Number(stats.profitEuro).toFixed(2) + '€', 'Profit €');
+      }
+      if (stats.mttPhase) grid += cell(String(stats.mttPhase), 'Fase');
+    }
+    grid += cell(net, hub === 'mtt' ? 'Net (chips)' : 'Net');
+    grid += cell(acc, 'Acierto GTO');
+    grid += cell(avgScore, 'Nota media');
+    grid += cell(vpip, 'VPIP');
+    grid += cell(pfr, 'PFR');
+    if ((hub === 'spin' || hub === 'mtt') && steal != null) grid += cell(steal, 'Steal');
+    grid += cell(wtsd, 'WTSD');
+    grid += cell(wsd, 'W$SD');
+    grid += cell(ev, 'EV loss');
+    grid += cell(stats.bbPer100 != null ? stats.bbPer100 : null, hub === 'mtt' ? 'bb/100 chips' : 'bb/100');
+    var html = '<div class="trn-session-stats" data-style-hub="' + esc(hub) + '">' +
       (opts.title ? ('<h3>' + esc(opts.title) + '</h3>') : '') +
       (gradeLabel ? ('<p class="trn-session-grade">Nota sesión: <strong>' + esc(gradeLabel) + '</strong></p>') : '') +
-      '<div class="trn-stats-grid">' +
-      cell(stats.nHands != null ? stats.nHands : stats.hands, 'Manos') +
-      cell(net, 'Net') +
-      cell(acc, 'Acierto GTO') +
-      cell(avgScore, 'Nota media') +
-      cell(vpip, 'VPIP') +
-      cell(pfr, 'PFR') +
-      cell(wtsd, 'WTSD') +
-      cell(wsd, 'W$SD') +
-      cell(ev, 'EV loss') +
-      cell(stats.bbPer100 != null ? stats.bbPer100 : null, 'bb/100') +
-      '</div></div>';
+      '<div class="trn-stats-grid">' + grid + '</div></div>';
     return html;
   }
 
