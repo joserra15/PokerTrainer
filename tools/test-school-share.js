@@ -44,7 +44,7 @@ assert.ok(/mountRangeAdvShare|buildRangeAdvShareHtml/.test(
 ), 'range adv monta share tras respuesta');
 assert.ok(/SCHOOL_PUBLIC\s*=\s*true/.test(schoolSrc), 'Escuela pública');
 assert.ok(/isSchoolHand/.test(storageSrc) && /isSchoolError/.test(storageSrc), 'filtro errores Escuela');
-assert.ok(/schoolHand/.test(storageSrc), 'saveHand omite errores Escuela');
+assert.ok(/isNonTrainerHand|nonTrainer/.test(storageSrc), 'saveHand omite Escuela/Legendary de stats');
 assert.ok(/school-share-hub/.test(styles), 'estilos hub share');
 assert.ok(/school-share-line-quiz/.test(styles), 'estilos share quiz línea');
 assert.ok(/school-share-range-adv/.test(styles), 'estilos share range advantage');
