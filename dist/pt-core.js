@@ -18479,8 +18479,12 @@ window.PT_NASH_PUSH_JSON = {
           c.mttStructureSituation = 'hu';
         }
       }
-      // Multiway no aplica en HU.
-      if (c.scenario === 'multiway' || c.scenario === 'squeeze') c.scenario = 'random';
+      // Multiway / early-pos no aplican en HU.
+      if (c.scenario === 'multiway' || c.scenario === 'squeeze'
+        || c.scenario === 'iso' || c.scenario === 'cold4bet'
+        || c.scenario === '4bet') {
+        c.scenario = 'random';
+      }
       c.allowMultiway = false;
     }
     if (Tax && Tax.normalizeTournamentType) {
@@ -18513,7 +18517,11 @@ window.PT_NASH_PUSH_JSON = {
       c.placesPaid = 1;
       c.mttStructureSituation = 'hu';
       c.allowMultiway = false;
-      if (c.scenario === 'multiway' || c.scenario === 'squeeze') c.scenario = 'random';
+      if (c.scenario === 'multiway' || c.scenario === 'squeeze'
+        || c.scenario === 'iso' || c.scenario === 'cold4bet'
+        || c.scenario === '4bet') {
+        c.scenario = 'random';
+      }
     }
 
     if (c.stackDepth === 'random') {
@@ -18701,6 +18709,8 @@ window.PT_NASH_PUSH_JSON = {
     } else {
       c.allowMultiway = !!c.allowMultiway;
     }
+    // Heads Up: nunca multiway, aunque el escenario sea random.
+    if (isHuPhase(c)) c.allowMultiway = false;
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
@@ -18708,8 +18718,18 @@ window.PT_NASH_PUSH_JSON = {
     return c;
   }
 
+  function isHuPhase(config) {
+    const c = config || {};
+    if (c.mttPhase === 'hu' || c.resolvedPhase === 'hu' || c.effectivePhase === 'hu') return true;
+    if (c.mttStructureSituation === 'hu') return true;
+    if (c.kind === 'hu' || c.tournamentKind === 'hu') return true;
+    return false;
+  }
+
   function is9Max(config) {
     const c = config || {};
+    // MTT Heads Up es 2-max: no usar anillo/coords/escenarios 9-max.
+    if (isHuPhase(c)) return false;
     if (c.legendaryMode && c.legendaryTableMax === 6) return false;
     return c.gameType === 'cash9' || c.gameType === 'mtt';
   }
@@ -18720,14 +18740,6 @@ window.PT_NASH_PUSH_JSON = {
 
   function isSpin(config) {
     return (config && config.gameType) === 'spin3' || (config && config.formatHub) === 'spin';
-  }
-
-  function isHuPhase(config) {
-    const c = config || {};
-    if (c.mttPhase === 'hu' || c.resolvedPhase === 'hu' || c.effectivePhase === 'hu') return true;
-    if (c.mttStructureSituation === 'hu') return true;
-    if (c.kind === 'hu' || c.tournamentKind === 'hu') return true;
-    return false;
   }
 
   function is3Max(config) {
@@ -19311,28 +19323,43 @@ window.PT_NASH_PUSH_JSON = {
     const pool = [];
     const sc = config.scenario || 'random';
     const spin = isSpin(config);
+    const hu = isHuPhase(config);
     const phase = config.resolvedPhase || (global.PTFormatTaxonomy
       ? global.PTFormatTaxonomy.resolvePhase(config)
       : 'early');
-    const pushMode = sc === 'push' || phase === 'push' || (spin && (config.stackBB || 25) <= 12 && sc === 'random');
+    const pushMode = sc === 'push' || phase === 'push'
+      || (hu && (config.stackBB || 25) <= 12)
+      || (spin && (config.stackBB || 25) <= 12 && sc === 'random');
 
     let types;
     if (sc === 'random') {
-      if (pushMode) types = ['RFI', 'vsRFI'];
+      if (hu) types = pushMode ? ['RFI', 'vsRFI'] : ['RFI', 'vsRFI', 'face3bet'];
+      else if (pushMode) types = ['RFI', 'vsRFI'];
       else if (spin) types = ['RFI', 'vsRFI', 'face3bet', 'bbVsSbLimp'];
       else if (isMtt(config) && (phase === 'short' || phase === 'bubble')) types = ['RFI', 'vsRFI', 'face3bet', 'squeeze'];
       else types = ['RFI', 'vsRFI', 'face3bet', 'squeeze', 'face4bet', 'isoLimp', 'bbVsSbLimp', 'sbLimp', 'cold4bet'];
     } else if (sc === 'multiway') {
-      const pot = config.multiwayPotType || 'any';
-      if (pot === 'srp3way') types = ['srp3way'];
-      else if (pot === 'srp4way') types = ['srp4way'];
-      else if (pot === 'limpPot') types = ['limpPot'];
-      else types = spin ? ['srp3way'] : ['srp3way', 'srp3way', 'srp4way', 'limpPot'];
+      // Multiway no aplica en HU (normalize ya fuerza random); defensa extra.
+      if (hu) types = ['RFI', 'vsRFI'];
+      else {
+        const pot = config.multiwayPotType || 'any';
+        if (pot === 'srp3way') types = ['srp3way'];
+        else if (pot === 'srp4way') types = ['srp4way'];
+        else if (pot === 'limpPot') types = ['limpPot'];
+        else types = spin ? ['srp3way'] : ['srp3way', 'srp3way', 'srp4way', 'limpPot'];
+      }
     } else {
       types = [mapScenarioType(sc)];
+      // Escenarios multiway / early-pos no existen en HU.
+      if (hu) {
+        const huOk = { RFI: 1, vsRFI: 1, face3bet: 1, bbVsSbLimp: 1, sbLimp: 1 };
+        types = types.filter(function (t) { return huOk[t]; });
+        if (!types.length) types = ['RFI'];
+      }
     }
 
-    const rfiPos = spin ? RFI_POS_SPIN : (is9Max(config) ? RFI_POS_9 : RFI_POS_6);
+    const rfiPos = hu ? RFI_POS_HU.slice()
+      : (spin ? RFI_POS_SPIN : (is9Max(config) ? RFI_POS_9 : RFI_POS_6));
 
     types.forEach((type) => {
       if (type === 'RFI') {
@@ -19345,7 +19372,10 @@ window.PT_NASH_PUSH_JSON = {
           });
         });
       } else if (type === 'vsRFI') {
-        if (spin) {
+        if (hu) {
+          // HU: solo SB vs BB (SB = botón / abre; BB defiende).
+          pool.push({ type: 'vsRFI', key: 'BB_vs_SB', pushFold: !!pushMode });
+        } else if (spin) {
           pool.push({ type: 'vsRFI', key: 'BB_vs_BTN', pushFold: !!pushMode });
           pool.push({ type: 'vsRFI', key: 'BB_vs_SB', pushFold: !!pushMode });
           pool.push({ type: 'vsRFI', key: 'SB_vs_BTN', pushFold: !!pushMode });
@@ -19353,7 +19383,9 @@ window.PT_NASH_PUSH_JSON = {
           vsKeys().forEach((key) => pool.push({ type: 'vsRFI', key: key, pushFold: !!pushMode }));
         }
       } else if (type === 'face3bet') {
-        if (spin) {
+        if (hu) {
+          pool.push({ type: 'face3bet', key: 'SB_vs_BB' });
+        } else if (spin) {
           pool.push({ type: 'face3bet', key: 'BTN_vs_SB' });
           pool.push({ type: 'face3bet', key: 'BTN_vs_BB' });
           pool.push({ type: 'face3bet', key: 'SB_vs_BB' });
@@ -19361,22 +19393,23 @@ window.PT_NASH_PUSH_JSON = {
           vs3betKeys().forEach((key) => pool.push({ type: 'face3bet', key: key }));
         }
       } else if (type === 'squeeze') {
-        if (!spin) SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
+        if (!spin && !hu) SQUEEZE_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'squeeze' }, c)));
       } else if (type === 'face4bet') {
-        if (!spin) vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
+        if (!spin && !hu) vsKeys().forEach((key) => pool.push({ type: 'face4bet', key: key }));
       } else if (type === 'isoLimp') {
-        if (!spin) ISO_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'isoLimp' }, c)));
+        if (!spin && !hu) ISO_COMBOS.forEach((c) => pool.push(Object.assign({ type: 'isoLimp' }, c)));
       } else if (type === 'bbVsSbLimp') {
         pool.push({ type: 'bbVsSbLimp', heroPos: 'BB' });
       } else if (type === 'sbLimp') {
-        if (!spin) pool.push({ type: 'sbLimp', heroPos: 'SB' });
+        if (hu || !spin) pool.push({ type: 'sbLimp', heroPos: 'SB' });
       } else if (type === 'cold4bet') {
-        if (!spin) {
+        if (!spin && !hu) {
           pool.push({ type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' });
           pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
           pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
         }
       } else if (type === 'srp3way') {
+        if (hu) return;
         pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'CO', callerPos: 'BTN', callerPositions: ['BTN'], potType: 'srp3way' });
         pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'HJ', callerPos: 'CO', callerPositions: ['CO'], potType: 'srp3way' });
         pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'UTG', callerPos: 'BTN', callerPositions: ['BTN'], potType: 'srp3way' });
@@ -19385,13 +19418,13 @@ window.PT_NASH_PUSH_JSON = {
           pool.push({ type: 'srp3way', heroPos: 'BB', openerPos: 'BTN', callerPos: 'SB', callerPositions: ['SB'], potType: 'srp3way' });
         }
       } else if (type === 'srp4way') {
-        if (!spin) {
+        if (!spin && !hu) {
           pool.push({ type: 'srp4way', heroPos: 'BB', openerPos: 'UTG', callerPos: 'CO', callerPositions: ['HJ', 'CO'], potType: 'srp4way' });
           pool.push({ type: 'srp4way', heroPos: 'BB', openerPos: 'HJ', callerPos: 'BTN', callerPositions: ['CO', 'BTN'], potType: 'srp4way' });
           pool.push({ type: 'srp4way', heroPos: 'BB', openerPos: 'CO', callerPos: 'SB', callerPositions: ['BTN', 'SB'], potType: 'srp4way' });
         }
       } else if (type === 'limpPot') {
-        if (!spin) {
+        if (!spin && !hu) {
           pool.push({ type: 'limpPot', heroPos: 'BB', limperPos: 'UTG', limperPositions: ['UTG', 'HJ'], potType: 'limpPot' });
           pool.push({ type: 'limpPot', heroPos: 'BB', limperPos: 'CO', limperPositions: ['HJ', 'CO'], potType: 'limpPot' });
           pool.push({ type: 'limpPot', heroPos: 'BB', limperPos: 'UTG', limperPositions: ['UTG', 'CO', 'BTN'], potType: 'limpPot' });
@@ -20441,13 +20474,20 @@ window.PT_NASH_PUSH_JSON = {
 
   function tablePositionsForHand(hand) {
     const PC = global.PTPlayConfig;
+    if (PC && hand.playConfig && PC.tablePositions) {
+      return PC.tablePositions(hand.playConfig);
+    }
     if (is9MaxHand(hand) && PC) return PC.POS_9;
     return DEAL_ORDER;
   }
 
   function preflopOrderForHand(hand) {
     const PC = global.PTPlayConfig;
-    if (is9MaxHand(hand) && PC) return PC.PREFLOP_ACTION_9;
+    if (PC && hand.playConfig) {
+      if (PC.isHuPhase && PC.isHuPhase(hand.playConfig)) return ['SB', 'BB'];
+      if (PC.isSpin && PC.isSpin(hand.playConfig)) return ['BTN', 'SB', 'BB'];
+      if (is9MaxHand(hand)) return PC.PREFLOP_ACTION_9;
+    }
     return PREFLOP_ACTION;
   }
 
@@ -21102,7 +21142,7 @@ window.PT_NASH_PUSH_JSON = {
   function collapseOthersToHU(hand, villainPos, extraAlive) {
     if (!hand.table) return;
     const alive = new Set([hand.hero.pos, villainPos].concat(extraAlive || []));
-    DEAL_ORDER.forEach(function (pos) {
+    tablePositionsForHand(hand).forEach(function (pos) {
       if (!alive.has(pos)) markFolded(hand, pos);
     });
   }
@@ -40411,11 +40451,17 @@ window.PT_NASH_PUSH_JSON = {
       return '<div class="trn-stat-cell"><div class="trn-stat-val">' + esc(val == null ? '—' : String(val)) +
         '</div><div class="trn-stat-lbl">' + esc(lab) + '</div></div>';
     }
+    var kind = stats.gameKind || opts.gameKind || null;
+    var formatKey = stats.formatKey || opts.formatKey || '';
+    var hub = 'cash';
+    if (kind === 'spin' || String(formatKey).indexOf('spin') === 0) hub = 'spin';
+    else if (kind === 'mtt' || kind === 'sng' || String(formatKey).indexOf('mtt') === 0) hub = 'mtt';
     var acc = stats.accuracy != null ? (stats.accuracy + '%') : null;
     var vpip = stats.vpipPct != null ? (stats.vpipPct + '%') : null;
     var pfr = stats.pfrPct != null ? (stats.pfrPct + '%') : null;
     var wtsd = stats.wtsdPct != null ? (stats.wtsdPct + '%') : null;
     var wsd = stats.wsdPct != null ? (stats.wsdPct + '%') : null;
+    var steal = stats.stealPct != null ? (stats.stealPct + '%') : null;
     var avgScore = stats.avgHandScore != null ? stats.avgHandScore : null;
     var gradeRaw = stats.grade || (stats.styleAssess && stats.styleAssess.grade) || null;
     var gradeLabel = null;
@@ -40433,21 +40479,30 @@ window.PT_NASH_PUSH_JSON = {
     }
     var net = stats.netBB != null ? ((stats.netBB >= 0 ? '+' : '') + fmtBb(stats.netBB) + ' bb') : null;
     var ev = stats.evLossBB != null ? (fmtBb(stats.evLossBB) + ' bb') : null;
-    var html = '<div class="trn-session-stats">' +
+    var grid = '';
+    grid += cell(stats.nHands != null ? stats.nHands : stats.hands, 'Manos');
+    if (hub === 'spin' || hub === 'mtt') {
+      if (stats.finishPlace != null) grid += cell(stats.finishPlace + 'º', 'Puesto');
+      if (stats.roiPct != null) grid += cell(stats.roiPct + '%', 'ROI');
+      if (stats.profitEuro != null) {
+        grid += cell((stats.profitEuro >= 0 ? '+' : '') + Number(stats.profitEuro).toFixed(2) + '€', 'Profit €');
+      }
+      if (stats.mttPhase) grid += cell(String(stats.mttPhase), 'Fase');
+    }
+    grid += cell(net, hub === 'mtt' ? 'Net (chips)' : 'Net');
+    grid += cell(acc, 'Acierto GTO');
+    grid += cell(avgScore, 'Nota media');
+    grid += cell(vpip, 'VPIP');
+    grid += cell(pfr, 'PFR');
+    if ((hub === 'spin' || hub === 'mtt') && steal != null) grid += cell(steal, 'Steal');
+    grid += cell(wtsd, 'WTSD');
+    grid += cell(wsd, 'W$SD');
+    grid += cell(ev, 'EV loss');
+    grid += cell(stats.bbPer100 != null ? stats.bbPer100 : null, hub === 'mtt' ? 'bb/100 chips' : 'bb/100');
+    var html = '<div class="trn-session-stats" data-style-hub="' + esc(hub) + '">' +
       (opts.title ? ('<h3>' + esc(opts.title) + '</h3>') : '') +
       (gradeLabel ? ('<p class="trn-session-grade">Nota sesión: <strong>' + esc(gradeLabel) + '</strong></p>') : '') +
-      '<div class="trn-stats-grid">' +
-      cell(stats.nHands != null ? stats.nHands : stats.hands, 'Manos') +
-      cell(net, 'Net') +
-      cell(acc, 'Acierto GTO') +
-      cell(avgScore, 'Nota media') +
-      cell(vpip, 'VPIP') +
-      cell(pfr, 'PFR') +
-      cell(wtsd, 'WTSD') +
-      cell(wsd, 'W$SD') +
-      cell(ev, 'EV loss') +
-      cell(stats.bbPer100 != null ? stats.bbPer100 : null, 'bb/100') +
-      '</div></div>';
+      '<div class="trn-stats-grid">' + grid + '</div></div>';
     return html;
   }
 
@@ -40585,6 +40640,15 @@ window.PT_NASH_PUSH_JSON = {
     { top: 94, left: 50 },
     { top: 16, left: 10 },
     { top: 16, left: 90 }
+  ];
+  /* Heads Up: héroe abajo, único rival arriba-centro. */
+  const SEAT_COORDS_HU = [
+    { top: 96, left: 50 },
+    { top: 18, left: 50 }
+  ];
+  const SEAT_COORDS_MOBILE_HU = [
+    { top: 94, left: 50 },
+    { top: 14, left: 50 }
   ];
   const SEAT_COORDS_MOBILE_9 = [
     { top: 93, left: 50 },
@@ -43985,8 +44049,9 @@ window.PT_NASH_PUSH_JSON = {
     if (boardArea) boardArea.classList.remove('has-villain-bar');
     const felt = document.querySelector('#play-active .table-felt');
     if (felt) {
+      felt.classList.toggle('table-hu', isHuTable());
       felt.classList.toggle('table-9max', is9MaxTable());
-      felt.classList.toggle('table-3max', is3MaxTable());
+      felt.classList.toggle('table-3max', is3MaxTable() && !isHuTable());
     }
     const cfg = (hand && hand.playConfig) || playSessionConfig;
     if (!(cfg && cfg.legendaryMode)) {
@@ -44166,12 +44231,19 @@ window.PT_NASH_PUSH_JSON = {
     return (hand && hand.playConfig) || playSessionConfig;
   }
 
+  function isHuTable() {
+    const cfg = playTableConfig();
+    return !!(window.PTPlayConfig && cfg && PTPlayConfig.isHuPhase && PTPlayConfig.isHuPhase(cfg));
+  }
+
   function is9MaxTable() {
+    if (isHuTable()) return false;
     const cfg = playTableConfig();
     return !!(window.PTPlayConfig && cfg && PTPlayConfig.is9Max(cfg));
   }
 
   function is3MaxTable() {
+    if (isHuTable()) return false;
     const cfg = playTableConfig();
     if (!window.PTPlayConfig || !cfg) return false;
     if (PTPlayConfig.is3Max) return !!PTPlayConfig.is3Max(cfg);
@@ -44183,12 +44255,14 @@ window.PT_NASH_PUSH_JSON = {
     if (window.PTPlayConfig && cfg && PTPlayConfig.tablePositions) {
       return PTPlayConfig.tablePositions(cfg);
     }
+    if (isHuTable()) return ['SB', 'BB'];
     if (is3MaxTable()) return POS_3;
     return is9MaxTable() ? POS_9 : POS;
   }
 
   function seatCoordsForTable() {
     const mobile = isMobileLayout();
+    if (isHuTable()) return mobile ? SEAT_COORDS_MOBILE_HU : SEAT_COORDS_HU;
     if (is3MaxTable()) return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
     if (is9MaxTable()) return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
     return mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
@@ -47034,19 +47108,21 @@ window.PT_NASH_PUSH_JSON = {
     const format = formatHint || '6max';
     const ideal = idealForStatsFormat(format);
     const formatLabel = formatDisplayLabel(format);
+    const hub = sessionStatsHub({ formatKey: format, gameKind: null }, format);
     const w = Math.max(300, series.length * 40);
     const h = 168;
     const pad = { l: 30, r: 12, t: 14, b: 30 };
     const innerW = w - pad.l - pad.r;
     const innerH = h - pad.t - pad.b;
-    const yMax = 40;
+    const yMax = hub === 'spin' ? 70 : (hub === 'mtt' ? 50 : 40);
+    const yTicks = hub === 'spin' ? [0, 20, 40, 60, 70] : (hub === 'mtt' ? [0, 10, 20, 30, 40, 50] : [0, 10, 20, 30, 40]);
     const yOf = (v) => pad.t + innerH - (Math.max(0, Math.min(yMax, v)) / yMax) * innerH;
     const xOf = (i) => pad.l + (series.length === 1 ? innerW / 2 : (i / (series.length - 1)) * innerW);
     const ptsV = series.map((s, i) => ({ x: xOf(i), y: yOf(s.vpipPct), s }));
     const ptsP = series.map((s, i) => ({ x: xOf(i), y: yOf(s.pfrPct), s }));
     const polyV = ptsV.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
     const polyP = ptsP.map((p) => p.x.toFixed(1) + ',' + p.y.toFixed(1)).join(' ');
-    const grid = [0, 10, 20, 30, 40].map((v) => {
+    const grid = yTicks.map((v) => {
       const y = yOf(v);
       return `<line x1="${pad.l}" y1="${y}" x2="${w - pad.r}" y2="${y}" stroke="var(--border)" stroke-dasharray="2 4" opacity="0.45"/>
         <text x="${pad.l - 6}" y="${y + 3}" text-anchor="end" font-size="8" fill="var(--muted)">${v}</text>`;
@@ -47188,9 +47264,92 @@ window.PT_NASH_PUSH_JSON = {
     return html;
   }
 
-  function idealForStatsFormat(format) {
-    if (window.Importer && Importer.styleIdealForFormat) return Importer.styleIdealForFormat(format);
+  function idealForStatsFormat(format, ctx) {
+    if (window.Importer && Importer.styleIdealForFormat) return Importer.styleIdealForFormat(format, ctx || null);
     return (window.Importer && Importer.STYLE_IDEAL) || {};
+  }
+
+  function sessionStatsHub(st, fmtKey) {
+    const kind = (st && st.gameKind) || null;
+    if (window.Importer && Importer.formatHubFromKey) {
+      return Importer.formatHubFromKey(fmtKey || (st && st.formatKey) || 'cash6', kind);
+    }
+    const k = String(fmtKey || (st && st.formatKey) || '');
+    if (kind === 'spin' || k.indexOf('spin') === 0) return 'spin';
+    if (kind === 'mtt' || kind === 'sng' || k.indexOf('mtt') === 0) return 'mtt';
+    return 'cash';
+  }
+
+  function mttPhaseLabel(phase) {
+    return ({
+      early: 'Early', mid: 'Mid', short: 'Short', push: 'Push', bubble: 'Burbuja', hu: 'HU'
+    })[phase] || phase || '—';
+  }
+
+  /** Grilla principal de KPIs adaptada a cash / spin / MTT. */
+  function sessionPrimaryStatsHtml(st, fmtKey) {
+    const hub = sessionStatsHub(st, fmtKey);
+    const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
+    const cards = [];
+    cards.push(explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), fmtKey));
+    if (hub === 'spin' || hub === 'mtt') {
+      if (st.roiPct != null) {
+        cards.push(`<div class="stat-card"><div class="big">${st.roiPct}%</div><div class="lbl">ROI${hub === 'spin' ? ' (aprox.)' : ''}</div></div>`);
+      }
+      if (st.profitEuro != null) {
+        const pCls = st.profitEuro >= 0 ? 'net-pos' : 'net-neg';
+        cards.push(`<div class="stat-card"><div class="big ${pCls}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}€</div><div class="lbl">Profit €</div></div>`);
+      }
+      if (hub === 'mtt' && st.mttPhase) {
+        cards.push(`<div class="stat-card"><div class="big">${escapeHtml(mttPhaseLabel(st.mttPhase))}</div><div class="lbl">Fase dominante</div></div>`);
+      }
+      if (st.avgBuyIn != null && hub === 'spin') {
+        cards.push(`<div class="stat-card"><div class="big">${Number(st.avgBuyIn).toFixed(2)}€</div><div class="lbl">Buy-in medio</div></div>`);
+      }
+    }
+    cards.push(explainableStatCard('netBB', hub === 'mtt' ? 'Net (chips bb)' : 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, fmtKey, netCls));
+    cards.push(explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, fmtKey));
+    cards.push(explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, fmtKey, 'net-neg'));
+    if (st.avgHandScore != null) {
+      cards.push(`<div class="stat-card"><div class="big">${fmtHandScore(st.avgHandScore)}<span class="hand-score-over">/10</span></div><div class="lbl">Nota media por mano</div></div>`);
+    }
+    cards.push(explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), fmtKey));
+    cards.push(explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), fmtKey));
+    if (hub === 'spin' || hub === 'mtt') {
+      if (st.stealPct != null) cards.push(explainableStatCard('steal', 'Steal', fmtHudPct(st.stealPct), fmtKey));
+      cards.push(explainableStatCard('bbPer100', hub === 'mtt' ? 'bb/100 (chips)' : 'bb/100', fmtHudAf(st.bbPer100), fmtKey));
+      if (st.wtsdPct != null) cards.push(explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), fmtKey));
+      if (st.threeBetPct != null) cards.push(explainableStatCard('threeBet', '3-Bet', fmtHudPct(st.threeBetPct), fmtKey));
+      if (st.fourBetPct != null) cards.push(explainableStatCard('threeBet', '4-Bet', fmtHudPct(st.fourBetPct), fmtKey));
+      if (st.limpPct != null && Number(st.limpPct) > 0) {
+        cards.push(explainableStatCard('vpip', 'Limp %', fmtHudPct(st.limpPct), fmtKey));
+      }
+    } else {
+      cards.push(explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), fmtKey));
+      cards.push(explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), fmtKey));
+      if (st.fourBetPct != null) cards.push(explainableStatCard('threeBet', '4-Bet', fmtHudPct(st.fourBetPct), fmtKey));
+      if (st.limpPct != null) cards.push(explainableStatCard('vpip', 'Limp %', fmtHudPct(st.limpPct), fmtKey));
+      if (st.delayedCbetPct != null) cards.push(explainableStatCard('cbetTurn', 'Delayed C-Bet', fmtHudPct(st.delayedCbetPct), fmtKey));
+    }
+    return cards.join('\n        ');
+  }
+
+  function sessionBbPer100NoteHtml(st, hub) {
+    const notes = [];
+    if (hub === 'mtt') {
+      notes.push('En MTT el bb/100 mide fichas, no euros; usa ROI/profit cuando haya buy-in.');
+    } else if (hub === 'spin' && st.roiPct == null) {
+      notes.push('En spins prioriza ROI/profit € cuando el HH trae buy-in; bb/100 es contexto de volumen.');
+    }
+    if (st.bbPer100CI || (st.style && st.style.bbPer100CI)) {
+      const ci = st.bbPer100CI || st.style.bbPer100CI;
+      notes.push('bb/100 IC95%: ' + fmtHudAf(ci.low) + ' … ' + fmtHudAf(ci.high)
+        + (st.bbPer100Note ? ' · ' + st.bbPer100Note : ''));
+    } else if (st.bbPer100Note) {
+      notes.push(st.bbPer100Note);
+    }
+    if (!notes.length) return '';
+    return `<p class="muted-text stats-section-note">${escapeHtml(notes.join(' · '))}</p>`;
   }
 
   function bandText(min, max, unit) {
@@ -47596,60 +47755,67 @@ window.PT_NASH_PUSH_JSON = {
 
   function sessionStyleProfileHtml(st) {
     const format = resolveStatsFormat(st);
+    const hub = sessionStatsHub(st, format);
     const ideal = st.styleIdeal || (st.styleAssess && st.styleAssess.ideal)
-      || idealForStatsFormat(format);
+      || idealForStatsFormat(format, {
+        gameKind: st.gameKind,
+        mttPhase: st.mttPhase,
+        avgStackBB: st.avgStackBB
+      });
     const style = st.style || st;
     const assess = st.styleAssess || (window.Importer && Importer.assessStyleStats
-      ? Importer.assessStyleStats(Object.assign({}, style, { formatKey: format }), ideal)
+      ? Importer.assessStyleStats(Object.assign({}, style, { formatKey: format, gameKind: st.gameKind || hub }), ideal)
       : null);
     const sample = (style && style.sample) || {};
     const formatLabel = formatDisplayLabel(format);
-    const cards = [
-      styleMetricCard('3-Bet', fmtHudPct(st.threeBetPct != null ? st.threeBetPct : style.threeBetPct), sample.threeBet,
-        ideal.threeBetMin != null ? `ideal ${ideal.threeBetMin}–${ideal.threeBetMax}%` : '', 'threeBet', format),
-      styleMetricCard('Fold to 3-Bet', fmtHudPct(st.foldToThreeBetPct != null ? st.foldToThreeBetPct : style.foldToThreeBetPct), sample.foldToThreeBet,
-        ideal.foldToThreeBetMin != null ? `ideal ${ideal.foldToThreeBetMin}–${ideal.foldToThreeBetMax}%` : '', 'foldToThreeBet', format),
-      styleMetricCard('4-Bet', fmtHudPct(st.fourBetPct != null ? st.fourBetPct : style.fourBetPct), sample.fourBet,
-        ideal.fourBetMin != null ? `ideal ${ideal.fourBetMin}–${ideal.fourBetMax}%` : '', 'fourBet', format),
-      styleMetricCard('Limp', fmtHudPct(st.limpPct != null ? st.limpPct : style.limpPct), sample.limp,
-        ideal.limpMin != null ? `ideal ${ideal.limpMin}–${ideal.limpMax}%` : '', 'limp', format),
-      styleMetricCard('Overlimp', fmtHudPct(st.overlimpPct != null ? st.overlimpPct : style.overlimpPct), sample.overlimp,
-        ideal.overlimpMin != null ? `ideal ${ideal.overlimpMin}–${ideal.overlimpMax}%` : '', 'overlimp', format),
-      styleMetricCard('Iso-limp', fmtHudPct(st.isoLimpPct != null ? st.isoLimpPct : style.isoLimpPct), sample.isoLimp,
-        ideal.isoLimpMin != null ? `ideal ${ideal.isoLimpMin}–${ideal.isoLimpMax}%` : '', 'isoLimp', format),
-      styleMetricCard('Steal', fmtHudPct(st.stealPct != null ? st.stealPct : style.stealPct), sample.steal,
-        ideal.stealMin != null ? `ideal ${ideal.stealMin}–${ideal.stealMax}%` : '', 'steal', format),
-      styleMetricCard('Fold to Steal', fmtHudPct(st.foldToStealPct != null ? st.foldToStealPct : style.foldToStealPct), sample.foldToSteal,
-        ideal.foldToStealMin != null ? `ideal ${ideal.foldToStealMin}–${ideal.foldToStealMax}%` : '', 'foldToSteal', format),
-      styleMetricCard('Squeeze', fmtHudPct(st.squeezePct != null ? st.squeezePct : style.squeezePct), sample.squeeze,
-        ideal.squeezeMin != null ? `ideal ${ideal.squeezeMin}–${ideal.squeezeMax}%` : '', 'squeeze', format),
-      styleMetricCard('C-Bet flop', fmtHudPct(st.cbetFlopPct != null ? st.cbetFlopPct : style.cbetFlopPct), sample.cbetFlop,
-        ideal.cbetFlopMin != null ? `ideal ${ideal.cbetFlopMin}–${ideal.cbetFlopMax}%` : '', 'cbetFlop', format),
-      styleMetricCard('C-Bet turn', fmtHudPct(st.cbetTurnPct != null ? st.cbetTurnPct : style.cbetTurnPct), sample.cbetTurn,
-        ideal.cbetTurnMin != null ? `ideal ${ideal.cbetTurnMin}–${ideal.cbetTurnMax}%` : '', 'cbetTurn', format),
-      styleMetricCard('Delayed C-Bet', fmtHudPct(st.delayedCbetPct != null ? st.delayedCbetPct : style.delayedCbetPct), sample.delayedCbet,
-        ideal.delayedCbetMin != null ? `ideal ${ideal.delayedCbetMin}–${ideal.delayedCbetMax}%` : '', 'delayedCbet', format),
-      styleMetricCard('C-Bet river', fmtHudPct(st.cbetRiverPct != null ? st.cbetRiverPct : style.cbetRiverPct), sample.cbetRiver,
-        ideal.cbetRiverMin != null ? `ideal ${ideal.cbetRiverMin}–${ideal.cbetRiverMax}%` : '', 'cbetRiver', format),
-      styleMetricCard('Fold to C-Bet', fmtHudPct(st.foldToCbetFlopPct != null ? st.foldToCbetFlopPct : style.foldToCbetFlopPct), sample.foldToCbetFlop,
-        ideal.foldToCbetFlopMin != null ? `ideal ${ideal.foldToCbetFlopMin}–${ideal.foldToCbetFlopMax}%` : '', 'foldToCbet', format),
-      styleMetricCard('AF', fmtHudAf(st.af != null ? st.af : style.af), sample.af,
-        ideal.afMin != null ? `ideal ${ideal.afMin}–${ideal.afMax}` : '', 'af', format),
-      styleMetricCard('AFq', fmtHudPct(st.afq != null ? st.afq : style.afq), sample.af,
-        ideal.afqMin != null ? `ideal ${ideal.afqMin}–${ideal.afqMax}%` : '', 'afq', format),
-      styleMetricCard('WTSD', fmtHudPct(st.wtsdPct != null ? st.wtsdPct : style.wtsdPct), sample.wtsd,
-        ideal.wtsdMin != null ? `ideal ${ideal.wtsdMin}–${ideal.wtsdMax}%` : '', 'wtsd', format),
-      styleMetricCard('W$SD', fmtHudPct(st.wsdPct != null ? st.wsdPct : style.wsdPct), sample.wsd,
-        ideal.wsdMin != null ? `ideal ${ideal.wsdMin}–${ideal.wsdMax}%` : '', 'wsd', format),
-      styleMetricCard('WWSF', fmtHudPct(st.wwsfPct != null ? st.wwsfPct : style.wwsfPct), sample.wwsf,
-        ideal.wwsfMin != null ? `ideal ${ideal.wwsfMin}–${ideal.wwsfMax}%` : '', 'wwsf', format),
-      styleMetricCard('bb/100', fmtHudAf(st.bbPer100 != null ? st.bbPer100 : style.bbPer100), sample.vpip, 'resultado / 100 manos', 'bbPer100', format)
-    ].join('');
+    const metricDefs = [
+      { key: 'threeBet', name: '3-Bet', val: st.threeBetPct != null ? st.threeBetPct : style.threeBetPct, samp: sample.threeBet, hint: ideal.threeBetMin != null ? `ideal ${ideal.threeBetMin}–${ideal.threeBetMax}%` : '', explain: 'threeBet' },
+      { key: 'foldToThreeBet', name: 'Fold to 3-Bet', val: st.foldToThreeBetPct != null ? st.foldToThreeBetPct : style.foldToThreeBetPct, samp: sample.foldToThreeBet, hint: ideal.foldToThreeBetMin != null ? `ideal ${ideal.foldToThreeBetMin}–${ideal.foldToThreeBetMax}%` : '', explain: 'foldToThreeBet' },
+      { key: 'fourBet', name: '4-Bet', val: st.fourBetPct != null ? st.fourBetPct : style.fourBetPct, samp: sample.fourBet, hint: ideal.fourBetMin != null ? `ideal ${ideal.fourBetMin}–${ideal.fourBetMax}%` : '', explain: 'fourBet' },
+      { key: 'steal', name: 'Steal', val: st.stealPct != null ? st.stealPct : style.stealPct, samp: sample.steal, hint: ideal.stealMin != null ? `ideal ${ideal.stealMin}–${ideal.stealMax}%` : '', explain: 'steal' },
+      { key: 'foldToSteal', name: 'Fold to Steal', val: st.foldToStealPct != null ? st.foldToStealPct : style.foldToStealPct, samp: sample.foldToSteal, hint: ideal.foldToStealMin != null ? `ideal ${ideal.foldToStealMin}–${ideal.foldToStealMax}%` : '', explain: 'foldToSteal' },
+      { key: 'squeeze', name: 'Squeeze', val: st.squeezePct != null ? st.squeezePct : style.squeezePct, samp: sample.squeeze, hint: ideal.squeezeMin != null ? `ideal ${ideal.squeezeMin}–${ideal.squeezeMax}%` : '', explain: 'squeeze' },
+      { key: 'cbetFlop', name: 'C-Bet flop', val: st.cbetFlopPct != null ? st.cbetFlopPct : style.cbetFlopPct, samp: sample.cbetFlop, hint: ideal.cbetFlopMin != null ? `ideal ${ideal.cbetFlopMin}–${ideal.cbetFlopMax}%` : '', explain: 'cbetFlop' },
+      { key: 'cbetTurn', name: 'C-Bet turn', val: st.cbetTurnPct != null ? st.cbetTurnPct : style.cbetTurnPct, samp: sample.cbetTurn, hint: ideal.cbetTurnMin != null ? `ideal ${ideal.cbetTurnMin}–${ideal.cbetTurnMax}%` : '', explain: 'cbetTurn' },
+      { key: 'delayedCbet', name: 'Delayed C-Bet', val: st.delayedCbetPct != null ? st.delayedCbetPct : style.delayedCbetPct, samp: sample.delayedCbet, hint: ideal.delayedCbetMin != null ? `ideal ${ideal.delayedCbetMin}–${ideal.delayedCbetMax}%` : '', explain: 'delayedCbet' },
+      { key: 'cbetRiver', name: 'C-Bet river', val: st.cbetRiverPct != null ? st.cbetRiverPct : style.cbetRiverPct, samp: sample.cbetRiver, hint: ideal.cbetRiverMin != null ? `ideal ${ideal.cbetRiverMin}–${ideal.cbetRiverMax}%` : '', explain: 'cbetRiver' },
+      { key: 'foldToCbet', name: 'Fold to C-Bet', val: st.foldToCbetFlopPct != null ? st.foldToCbetFlopPct : style.foldToCbetFlopPct, samp: sample.foldToCbetFlop, hint: ideal.foldToCbetFlopMin != null ? `ideal ${ideal.foldToCbetFlopMin}–${ideal.foldToCbetFlopMax}%` : '', explain: 'foldToCbet' },
+      { key: 'af', name: 'AF', val: st.af != null ? st.af : style.af, samp: sample.af, hint: ideal.afMin != null ? `ideal ${ideal.afMin}–${ideal.afMax}` : '', explain: 'af', af: true },
+      { key: 'afq', name: 'AFq', val: st.afq != null ? st.afq : style.afq, samp: sample.af, hint: ideal.afqMin != null ? `ideal ${ideal.afqMin}–${ideal.afqMax}%` : '', explain: 'afq' },
+      { key: 'wtsd', name: 'WTSD', val: st.wtsdPct != null ? st.wtsdPct : style.wtsdPct, samp: sample.wtsd, hint: ideal.wtsdMin != null ? `ideal ${ideal.wtsdMin}–${ideal.wtsdMax}%` : '', explain: 'wtsd' },
+      { key: 'wsd', name: 'W$SD', val: st.wsdPct != null ? st.wsdPct : style.wsdPct, samp: sample.wsd, hint: ideal.wsdMin != null ? `ideal ${ideal.wsdMin}–${ideal.wsdMax}%` : '', explain: 'wsd' },
+      { key: 'wwsf', name: 'WWSF', val: st.wwsfPct != null ? st.wwsfPct : style.wwsfPct, samp: sample.wwsf, hint: ideal.wwsfMin != null ? `ideal ${ideal.wwsfMin}–${ideal.wwsfMax}%` : '', explain: 'wwsf' },
+      { key: 'bbPer100', name: 'bb/100', val: st.bbPer100 != null ? st.bbPer100 : style.bbPer100, samp: sample.vpip, hint: hub === 'mtt' ? 'chips / 100 manos' : 'resultado / 100 manos', explain: 'bbPer100', af: true },
+      { key: 'limp', name: 'Limp', val: st.limpPct != null ? st.limpPct : style.limpPct, samp: sample.limp, hint: ideal.limpMin != null ? `ideal ${ideal.limpMin}–${ideal.limpMax}%` : '', explain: 'limp' },
+      { key: 'overlimp', name: 'Overlimp', val: st.overlimpPct != null ? st.overlimpPct : style.overlimpPct, samp: sample.overlimp, hint: ideal.overlimpMin != null ? `ideal ${ideal.overlimpMin}–${ideal.overlimpMax}%` : '', explain: 'overlimp' },
+      { key: 'isoLimp', name: 'Iso-limp', val: st.isoLimpPct != null ? st.isoLimpPct : style.isoLimpPct, samp: sample.isoLimp, hint: ideal.isoLimpMin != null ? `ideal ${ideal.isoLimpMin}–${ideal.isoLimpMax}%` : '', explain: 'isoLimp' }
+    ];
+    const orderCash = ['threeBet', 'foldToThreeBet', 'fourBet', 'limp', 'overlimp', 'isoLimp', 'steal', 'foldToSteal', 'squeeze', 'cbetFlop', 'cbetTurn', 'delayedCbet', 'cbetRiver', 'foldToCbet', 'af', 'afq', 'wtsd', 'wsd', 'wwsf', 'bbPer100'];
+    const orderTour = ['steal', 'foldToSteal', 'threeBet', 'foldToThreeBet', 'fourBet', 'squeeze', 'cbetFlop', 'cbetTurn', 'cbetRiver', 'foldToCbet', 'af', 'afq', 'wtsd', 'wsd', 'wwsf', 'bbPer100', 'delayedCbet', 'limp', 'overlimp', 'isoLimp'];
+    const order = hub === 'cash' ? orderCash : orderTour;
+    const byKey = {};
+    metricDefs.forEach((m) => { byKey[m.key] = m; });
+    const cards = order.map((k) => {
+      const m = byKey[k];
+      if (!m) return '';
+      if ((hub === 'spin' || hub === 'mtt') && (k === 'limp' || k === 'overlimp' || k === 'isoLimp')) {
+        if (m.val == null || Number(m.val) === 0) return '';
+      }
+      if ((hub === 'spin' || hub === 'mtt') && k === 'delayedCbet' && (m.val == null || Number(m.val) === 0)) return '';
+      const shown = m.af ? fmtHudAf(m.val) : fmtHudPct(m.val);
+      return styleMetricCard(m.name, shown, m.samp, m.hint, m.explain, format);
+    }).join('');
 
     const bars = [
       styleIdealBar('VPIP', st.vpipPct != null ? st.vpipPct : style.vpipPct, ideal.vpipMin, ideal.vpipMax, sample.vpip),
       styleIdealBar('PFR', st.pfrPct != null ? st.pfrPct : style.pfrPct, ideal.pfrMin, ideal.pfrMax, sample.pfr),
-      styleIdealBar('3-Bet', st.threeBetPct != null ? st.threeBetPct : style.threeBetPct, ideal.threeBetMin, ideal.threeBetMax, sample.threeBet),
+      styleIdealBar(hub === 'cash' ? '3-Bet' : 'Steal',
+        hub === 'cash'
+          ? (st.threeBetPct != null ? st.threeBetPct : style.threeBetPct)
+          : (st.stealPct != null ? st.stealPct : style.stealPct),
+        hub === 'cash' ? ideal.threeBetMin : ideal.stealMin,
+        hub === 'cash' ? ideal.threeBetMax : ideal.stealMax,
+        hub === 'cash' ? sample.threeBet : sample.steal),
       styleIdealBar('C-Bet flop', st.cbetFlopPct != null ? st.cbetFlopPct : style.cbetFlopPct, ideal.cbetFlopMin, ideal.cbetFlopMax, sample.cbetFlop),
       styleIdealBar('AF', st.af != null ? st.af : style.af, ideal.afMin, ideal.afMax, sample.af),
       styleIdealBar('WTSD', st.wtsdPct != null ? st.wtsdPct : style.wtsdPct, ideal.wtsdMin, ideal.wtsdMax, sample.wtsd)
@@ -47683,11 +47849,15 @@ window.PT_NASH_PUSH_JSON = {
             `<tr><td>${escapeHtml(r.stakesLabel)}</td><td>${r.hands}</td><td class="${r.netBB >= 0 ? 'net-pos' : 'net-neg'}">${r.netBB >= 0 ? '+' : ''}${fmtBB(r.netBB)}</td><td>${r.bbPer100 == null ? '—' : fmtHudAf(r.bbPer100)}</td></tr>`
           ).join('')}</tbody></table></div>`
       : '';
+    const phaseNote = (hub === 'mtt' || hub === 'spin') && st.mttPhase
+      ? `<p class="muted-text stats-section-note" style="margin:6px 0 0">Fase dominante: <strong>${escapeHtml(mttPhaseLabel(st.mttPhase))}</strong>${st.avgStackBB != null ? ' · stack medio ~' + st.avgStackBB + ' bb' : ''}.</p>`
+      : '';
 
-    return `<div class="card-box session-hud-note session-style-profile ${statusCls}" style="margin-top:14px" data-style-format="${escapeHtml(format)}">
+    return `<div class="card-box session-hud-note session-style-profile ${statusCls}" style="margin-top:14px" data-style-format="${escapeHtml(format)}" data-style-hub="${escapeHtml(hub)}">
       <h3>Perfil de estilo <span class="badge ${statusCls === 'hud-ok' ? 'grade-A' : (statusCls === 'hud-unknown' ? 'grade-C' : 'grade-D')}">${escapeHtml(label)}</span>
         <span class="badge grade-C">${escapeHtml(formatLabel)}</span></h3>
       <p class="muted-text stats-section-note" style="margin:6px 0 0">Pulsa un cuadrito para ver qué mide esa métrica (adaptado a ${escapeHtml(formatLabel)}).</p>
+      ${phaseNote}
       <div class="style-bars">${bars}</div>
       <div class="stats-content style-metrics-grid">${cards}</div>
       ${cbetSplit}
@@ -47703,9 +47873,13 @@ window.PT_NASH_PUSH_JSON = {
 
   function sessionHudCommentHtml(st) {
     const format = resolveStatsFormat(st);
-    const ideal = st.styleIdeal || idealForStatsFormat(format);
+    const ideal = st.styleIdeal || idealForStatsFormat(format, {
+      gameKind: st.gameKind,
+      mttPhase: st.mttPhase,
+      avgStackBB: st.avgStackBB
+    });
     const note = st.vpipPfr || (window.Importer && Importer.assessVpipPfr
-      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct, st.nHands, ideal)
+      ? Importer.assessVpipPfr(st.vpipPct, st.pfrPct, st.nHands, ideal, format)
       : null);
     const formatLabel = formatDisplayLabel(format);
     const vpipCards = [
@@ -48392,8 +48566,21 @@ window.PT_NASH_PUSH_JSON = {
     const sessionStreetBars = renderStreetAccBarsFromPct(sessionDerived.accByStreet);
     const sessionGradeSeries = buildSessionGradeSeries(sessions);
     const sessionHudSeries = buildSessionHudSeries(sessions);
-    const aggFormat = (sessions || []).map((s) => s && s.stats && resolveStatsFormat(s.stats)).filter(Boolean)[0] || '6max';
-    const aggIdeal = idealForStatsFormat(aggFormat);
+    const filterToIdealKey = {
+      all: null,
+      cash6: 'cash6',
+      cash9: 'cash9',
+      spin: 'spin3',
+      mtt: 'mtt',
+      shorthand: 'shorthand'
+    };
+    const aggFormat = Object.prototype.hasOwnProperty.call(filterToIdealKey, statsFormatFilter)
+      ? filterToIdealKey[statsFormatFilter]
+      : ((sessions || []).map((s) => s && s.stats && resolveStatsFormat(s.stats)).filter(Boolean)[0] || 'cash6');
+    const chartFormat = aggFormat || 'cash6';
+    const aggIdeal = aggFormat
+      ? idealForStatsFormat(aggFormat)
+      : null;
     const sessionDistTotal = Object.values(sessionDerived.dist).reduce((sum, n) => sum + n, 0);
     const stakesRows = window.PTStatsAggregate && PTStatsAggregate.sessionsByStakes
       ? PTStatsAggregate.sessionsByStakes(st)
@@ -48401,18 +48588,22 @@ window.PT_NASH_PUSH_JSON = {
     const dailySeries = window.PTStatsAggregate && PTStatsAggregate.sessionDailySeries
       ? PTStatsAggregate.sessionDailySeries(st, 14)
       : [];
-    const styleHtml = sessTot && (sessTot.threeBetOpps != null || sessTot.vpipPct != null)
-      ? sessionStyleProfileHtml(Object.assign({}, sessTot, {
-        format: aggFormat,
-        styleIdeal: aggIdeal,
-        styleAssess: (window.Importer && Importer.assessStyleStats)
-          ? Importer.assessStyleStats(sessTot, aggIdeal)
-          : null,
-        bbPer100Note: sessTot.hands < 20000
-          ? 'Varianza alta con menos de 20k manos; interpreta bb/100 con cautela.'
-          : null
-      }))
-      : '<p class="muted-text">Importa o reabre sesiones para ver el perfil de estilo.</p>';
+    const styleHtml = !aggFormat
+      ? '<p class="muted-text">Filtra por Cash 6-max, Spins o MTT para ver el perfil de estilo con bandas de referencia correctas. «Todo» mezcla formatos.</p>'
+      : (sessTot && (sessTot.threeBetOpps != null || sessTot.vpipPct != null)
+        ? sessionStyleProfileHtml(Object.assign({}, sessTot, {
+          format: aggFormat,
+          formatKey: aggFormat,
+          gameKind: sessionStatsHub({ formatKey: aggFormat }, aggFormat),
+          styleIdeal: aggIdeal,
+          styleAssess: (window.Importer && Importer.assessStyleStats)
+            ? Importer.assessStyleStats(Object.assign({}, sessTot, { formatKey: aggFormat, gameKind: sessionStatsHub({ formatKey: aggFormat }, aggFormat) }), aggIdeal)
+            : null,
+          bbPer100Note: sessTot.hands < 20000
+            ? 'Varianza alta con menos de 20k manos; interpreta bb/100 con cautela.'
+            : null
+        }))
+        : '<p class="muted-text">Importa o reabre sesiones para ver el perfil de estilo.</p>');
     const stakesHtml = stakesRows.length
       ? `<table class="style-pos-table"><thead><tr><th>Stakes</th><th>Manos</th><th>Net</th><th>bb/100</th></tr></thead><tbody>${
         stakesRows.slice(0, 12).map((r) =>
@@ -48476,14 +48667,14 @@ window.PT_NASH_PUSH_JSON = {
         <summary>Detalle avanzado</summary>
         <div class="stats-advanced-body">
           <h4>HUD</h4>
-          <div class="stats-overview-grid" data-style-format="${escapeHtml(aggFormat)}">
-            ${explainableStatCard('vpip', 'VPIP', fmtHudPct(sessTot && sessTot.vpipPct), aggFormat, '', null, aggIdeal.vpipMin != null ? `ideal ${aggIdeal.vpipMin}–${aggIdeal.vpipMax}%` : '')}
-            ${explainableStatCard('pfr', 'PFR', fmtHudPct(sessTot && sessTot.pfrPct), aggFormat, '', null, aggIdeal.pfrMin != null ? `ideal ${aggIdeal.pfrMin}–${aggIdeal.pfrMax}%` : '')}
-            ${explainableStatCard('threeBet', '3-Bet', fmtHudPct(sessTot && sessTot.threeBetPct), aggFormat)}
-            ${explainableStatCard('cbetFlop', 'C-Bet flop', fmtHudPct(sessTot && sessTot.cbetFlopPct), aggFormat)}
-            ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(sessTot && sessTot.wtsdPct), aggFormat)}
-            ${explainableStatCard('netBB', 'Resultado real', sessTot ? ((sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB)) : '—', aggFormat, sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg')}
-            ${explainableStatCard('evLoss', 'EV perdido', sessTot ? ('-' + fmtBB(sessTot.evLoss)) : '—', aggFormat, 'net-neg')}
+          <div class="stats-overview-grid" data-style-format="${escapeHtml(chartFormat)}">
+            ${explainableStatCard('vpip', 'VPIP', fmtHudPct(sessTot && sessTot.vpipPct), chartFormat, '', null, aggIdeal && aggIdeal.vpipMin != null ? `ideal ${aggIdeal.vpipMin}–${aggIdeal.vpipMax}%` : '')}
+            ${explainableStatCard('pfr', 'PFR', fmtHudPct(sessTot && sessTot.pfrPct), chartFormat, '', null, aggIdeal && aggIdeal.pfrMin != null ? `ideal ${aggIdeal.pfrMin}–${aggIdeal.pfrMax}%` : '')}
+            ${explainableStatCard('threeBet', '3-Bet', fmtHudPct(sessTot && sessTot.threeBetPct), chartFormat)}
+            ${explainableStatCard('cbetFlop', 'C-Bet flop', fmtHudPct(sessTot && sessTot.cbetFlopPct), chartFormat)}
+            ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(sessTot && sessTot.wtsdPct), chartFormat)}
+            ${explainableStatCard('netBB', 'Resultado real', sessTot ? ((sessTot.netBB >= 0 ? '+' : '') + fmtBB(sessTot.netBB)) : '—', chartFormat, sessTot && sessTot.netBB >= 0 ? 'net-pos' : 'net-neg')}
+            ${explainableStatCard('evLoss', 'EV perdido', sessTot ? ('-' + fmtBB(sessTot.evLoss)) : '—', chartFormat, 'net-neg')}
           </div>
           <h4>Distribución de decisiones</h4>
           <p class="muted-text" style="margin:0 0 8px;font-size:12px">Mismo desglose que aparece bajo el acierto por calle de arriba.</p>
@@ -48492,7 +48683,7 @@ window.PT_NASH_PUSH_JSON = {
           ${styleHtml}
           <h4>Evolución</h4>
           ${statsGradeLineChart('Nota por sesión (0–10)', sessionGradeSeries)}
-          ${statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries, aggFormat)}
+          ${statsHudLineChart('VPIP y PFR por sesión', sessionHudSeries, chartFormat)}
           ${statsBarChartRows('bb/100 diario (14d)', dailySeries, 'bbPer100', '', '--accent')}
           ${statsBarChartRows('VPIP semanal', sessionWeekly, 'vpipPct', '%', '--accent')}
           ${statsBarChartRows('PFR semanal', sessionWeekly, 'pfrPct', '%', '--gold')}
@@ -49718,6 +49909,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     const netCls = st.netBB >= 0 ? 'net-pos' : 'net-neg';
     const accSt = st.accByStreet;
+    const hub = sessionStatsHub(st, resolveStatsFormat(st));
 
     const fmtKey = resolveStatsFormat(st);
     const buildVer = window.PT_BUILD || '';
@@ -49745,7 +49937,7 @@ window.PT_NASH_PUSH_JSON = {
       ${reanalyzeBanner}
       <h2>${escapeHtml(s.fileName)} <span class="badge grade-${gradeLetter}">Nota ${st.grade ? st.grade.letter : '—'} · ${gradeScore}/10</span> ${sessionContextBadgesHtml(s)}</h2>
       <p class="muted-text">${escapeHtml(st.grade && st.grade.verdict ? st.grade.verdict : 'Sesión de torneo IA')}</p>
-      <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}</p>
+      <p class="muted-text" style="font-size:12px">${escapeHtml(importDiscardSummaryHtml(s))} · Formato coaching: <strong>${escapeHtml(formatDisplayLabel(fmtKey))}</strong>${st.shortHandedShare > 20 ? ' · Mesa corta ~' + st.shortHandedShare + '%' : ''}${st.mttPhase ? ' · Fase ' + mttPhaseLabel(st.mttPhase) : ''}</p>
       <div class="session-export-bar">
         <span class="muted-text" data-i18n="export.session">Exportar informe</span>
         <label class="session-export-errors"><input type="checkbox" id="session-export-errors-only" /> <span data-i18n="export.errorsOnly">Solo manos con fuga</span></label>
@@ -49753,23 +49945,10 @@ window.PT_NASH_PUSH_JSON = {
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="csv" data-i18n="export.csv">CSV</button>
         <button type="button" class="btn btn-ghost btn-sm" data-export-session="pdf" data-i18n="export.pdf">PDF / Imprimir</button>
       </div>
-      <div class="stats-content" data-style-format="${escapeHtml(fmtKey)}">
-        ${explainableStatCard('nHands', 'Manos jugadas', String(st.nHands), fmtKey)}
-        ${explainableStatCard('netBB', 'bb ganadas/perdidas', `${st.netBB >= 0 ? '+' : ''}${fmtBB(st.netBB)}`, fmtKey, netCls)}
-        ${explainableStatCard('accuracy', 'Acierto global', `${st.accuracy}%`, fmtKey)}
-        ${explainableStatCard('evLoss', 'EV perdido total (bb)', `-${fmtBB(st.evLossBB)}`, fmtKey, 'net-neg')}
-        ${st.avgHandScore != null ? `<div class="stat-card"><div class="big">${fmtHandScore(st.avgHandScore)}<span class="hand-score-over">/10</span></div><div class="lbl">Nota media por mano</div></div>` : ''}
-        ${explainableStatCard('vpip', 'VPIP', fmtHudPct(st.vpipPct), fmtKey)}
-        ${explainableStatCard('pfr', 'PFR', fmtHudPct(st.pfrPct), fmtKey)}
-        ${explainableStatCard('bbPer100', 'bb/100', fmtHudAf(st.bbPer100), fmtKey)}
-        ${explainableStatCard('wtsd', 'WTSD', fmtHudPct(st.wtsdPct), fmtKey)}
-        ${st.fourBetPct != null ? explainableStatCard('threeBet', '4-Bet', fmtHudPct(st.fourBetPct), fmtKey) : ''}
-        ${st.limpPct != null ? explainableStatCard('vpip', 'Limp %', fmtHudPct(st.limpPct), fmtKey) : ''}
-        ${st.delayedCbetPct != null ? explainableStatCard('cbetTurn', 'Delayed C-Bet', fmtHudPct(st.delayedCbetPct), fmtKey) : ''}
-        ${st.roiPct != null ? `<div class="stat-card"><div class="big">${st.roiPct}%</div><div class="lbl">ROI (aprox.)</div></div>` : ''}
-        ${st.profitEuro != null && (st.gameKind === 'spin' || st.gameKind === 'mtt' || st.gameKind === 'sng') ? `<div class="stat-card"><div class="big ${st.profitEuro >= 0 ? 'net-pos' : 'net-neg'}">${st.profitEuro >= 0 ? '+' : ''}${st.profitEuro.toFixed(2)}€</div><div class="lbl">Profit €</div></div>` : ''}
+      <div class="stats-content" data-style-format="${escapeHtml(fmtKey)}" data-style-hub="${escapeHtml(hub)}">
+        ${sessionPrimaryStatsHtml(st, fmtKey)}
       </div>
-      ${(st.bbPer100CI || (st.style && st.style.bbPer100CI)) ? `<p class="muted-text stats-section-note">bb/100 IC95%: ${fmtHudAf((st.bbPer100CI || st.style.bbPer100CI).low)} … ${fmtHudAf((st.bbPer100CI || st.style.bbPer100CI).high)}${st.bbPer100Note ? ' · ' + escapeHtml(st.bbPer100Note) : ''}</p>` : (st.bbPer100Note ? `<p class="muted-text stats-section-note">${escapeHtml(st.bbPer100Note)}</p>` : '')}
+      ${sessionBbPer100NoteHtml(st, hub)}
       ${sessionHudCommentHtml(st)}
       <div class="card-box" style="margin-top:14px">
         <h3>Acierto por calle</h3>

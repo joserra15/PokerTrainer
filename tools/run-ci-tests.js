@@ -52,6 +52,8 @@ const STEPS = [
   ['Test hotkeys, rake y ayuda', ['node', 'tools/test-hotkeys-rake-help.js']],
   // Fase 1 — scripts que ya existían fuera de CI
   ['Test all-in runout', ['node', 'tools/test-allin-runout.js']],
+  ['Test MTT Heads Up entrenador', ['node', 'tools/test-mtt-heads-up-trainer.js']],
+  ['Test villain HU fase/taxonomy', ['node', 'tools/test-villain-hu.js']],
   ['Test river nut flush', ['node', 'tools/test-river-board-ace-nut-flush.js']],
   ['Test river flush raise equity', ['node', 'tools/test-river-flush-raise-equity.js']],
   ['Test river monotone', ['node', 'tools/test-river-monotone-bet-range.js']],
