@@ -566,7 +566,14 @@
       winners.forEach(function (w) {
         wonById[w] = r2((wonById[w] || 0) + share);
       });
-      winnersByPot.push({ amount: pot.amount, winners: winners.slice() });
+      /* contested: ≥2 elegibles en la capa. Side pot a un solo jugador
+         (exceso del stack mayor) no es “victoria” de showdown ni empate. */
+      winnersByPot.push({
+        amount: pot.amount,
+        winners: winners.slice(),
+        eligible: (pot.eligible || []).slice(),
+        contested: (pot.eligible || []).length > 1
+      });
     });
     return { wonById: wonById, winnersByPot: winnersByPot };
   }
@@ -619,18 +626,34 @@
     hand.heroOptions = null;
     var hero = hand.seats.find(function (s) { return s.isHero; });
     var heroId = hero ? hero.id : null;
+    /* Ganadores de UI / «Gana»: solo capas disputadas (≥2 elegibles).
+       Empate: solo si alguna capa disputada se parte entre ≥2 manos iguales.
+       Antes: unión de todos los side pots → Ace-high vs King-high + side pot
+       del stack mayor salía «Empate» y ambos «Gana». */
     var potWinners = [];
+    var tied = false;
     if (winnersByPot && winnersByPot.length) {
       var seen = {};
       winnersByPot.forEach(function (p) {
+        if (p.contested && p.winners && p.winners.length > 1) tied = true;
+        if (!p.contested) return;
         (p.winners || []).forEach(function (id) {
           if (!seen[id]) { seen[id] = true; potWinners.push(id); }
         });
       });
+      if (!potWinners.length) {
+        winnersByPot.forEach(function (p) {
+          (p.winners || []).forEach(function (id) {
+            if (!seen[id]) { seen[id] = true; potWinners.push(id); }
+          });
+        });
+      }
     } else {
       potWinners = (winnerIds || []).slice();
+      tied = !!(showdown && potWinners.length > 1);
     }
-    var tied = !!(showdown && potWinners.length > 1);
+    if (showdown) tied = !!tied;
+    else tied = false;
     hand.result = {
       deltas: deltas,
       winners: potWinners,

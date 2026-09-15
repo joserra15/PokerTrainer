@@ -3097,7 +3097,63 @@ console.log('OK pushfold-freq-100');
       'folder pierde 100 got ' + hand.result.deltas.folder);
     assert.ok(hand.result.deltas.hero > hand.result.deltas.short,
       'en empate el stack mayor se lleva el side pot');
+    assert.strictEqual(hand.result.tied, true, 'chop AJ vs AJ sigue marcado empate');
+    assert.ok(hand.result.winners.indexOf('hero') >= 0 && hand.result.winners.indexOf('short') >= 0,
+      'ambos ganan el main pot en chop');
     console.log('OK tournament-side-pots-chop');
+  }
+
+  /* --- Side pots: Ace-high vs King-high NO es empate (bug Empate + doble Gana) --- */
+  {
+    const LH = g.PTTournamentLiveHand;
+    const prevCompare = g.Cards.compare;
+    g.Cards.compare = function (a, b) {
+      const ra = (a && a.rank) || [];
+      const rb = (b && b.rank) || [];
+      for (let i = 0; i < Math.max(ra.length, rb.length); i++) {
+        const x = ra[i] || 0;
+        const y = rb[i] || 0;
+        if (x !== y) return x - y;
+      }
+      return 0;
+    };
+    /* CoverCat AhJc (A-high) vs OakTable KdQd (K-high) en 5h7h9c8d2c.
+       Cover all-in corto; Oak cubre. Main → Cover; side → solo Oak.
+       Antes: tied=true y ambos en winners («Empate» + doble Gana). */
+    const aceHigh = { rank: [0, 14, 11, 9, 8, 7], name: 'Carta alta' };
+    const kingHigh = { rank: [0, 13, 12, 9, 8, 7], name: 'Carta alta' };
+    assert.ok(g.Cards.compare(aceHigh, kingHigh) > 0, 'Ace-high gana a King-high');
+    const hand = {
+      pot: 270,
+      board: ['5h', '7h', '9c', '8d', '2c'],
+      stage: 'playing',
+      seats: [
+        { id: 'hero', isHero: true, name: 'KazeDj', pos: 'SB', startStack: 200, invested: 30, stack: 170, folded: true, cards: ['8s', 'Ks'] },
+        { id: 'cover', isHero: false, name: 'CoverCat', pos: 'UTG1', startStack: 40, invested: 40, stack: 0, folded: false, cards: ['Ah', 'Jc'] },
+        { id: 'oak', isHero: false, name: 'OakTable', pos: 'HJ', startStack: 200, invested: 100, stack: 100, folded: false, cards: ['Kd', 'Qd'] },
+        { id: 'folder', isHero: false, name: 'Folder', pos: 'BB', startStack: 200, invested: 100, stack: 100, folded: true, cards: ['2c', '3d'] }
+      ]
+    };
+    LH.settle(hand, ['cover', 'oak'], true, {
+      handNames: { cover: 'Carta alta', oak: 'Carta alta' },
+      scoreById: { cover: aceHigh, oak: kingHigh }
+    });
+    assert.strictEqual(hand.result.tied, false,
+      'Ace-high vs King-high + side pot no es empate, tied=' + hand.result.tied);
+    assert.ok(Array.isArray(hand.result.winners) &&
+      hand.result.winners.length === 1 &&
+      hand.result.winners[0] === 'cover',
+      'solo CoverCat (mejor mano en bote disputado) en winners, got ' +
+      JSON.stringify(hand.result.winners));
+    assert.ok((hand.result.deltas.cover || 0) > 0, 'CoverCat gana fichas del main');
+    assert.ok((hand.result.winnersByPot || []).some(function (p) {
+      return p.contested && p.winners.length === 1 && p.winners[0] === 'cover';
+    }), 'main pot disputado → solo cover');
+    assert.ok((hand.result.winnersByPot || []).some(function (p) {
+      return !p.contested && p.winners.length === 1 && p.winners[0] === 'oak';
+    }), 'side pot no disputado → oak sin badge Gana');
+    g.Cards.compare = prevCompare;
+    console.log('OK tournament-side-pots-no-false-tie');
   }
 
   /* --- 7-handed: coords no apilan villanos --- */

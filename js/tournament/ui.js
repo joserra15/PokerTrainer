@@ -1989,7 +1989,10 @@ function reducedMotion() {
     var deltas = res.deltas || {};
     var heroDelta = heroId != null ? (Number(deltas[heroId]) || 0) : 0;
     var won = heroId && (res.winners || []).indexOf(heroId) >= 0;
-    var tied = !!res.tied || ((res.winners || []).length > 1 && won);
+    /* Empate solo si el motor marcó chop real (manos iguales en bote disputado).
+       No inferir empate solo porque winners.length>1: tras side pots el ganador
+       del main y el del side pueden ser distintos sin ser chop. */
+    var tied = !!res.tied;
     var outcomeCls = tied ? 'hand-end-tie'
       : (heroDelta > 0.02 ? 'hand-end-win' : (heroDelta < -0.02 ? 'hand-end-lose' : 'hand-end-tie'));
     var title;
@@ -2001,7 +2004,11 @@ function reducedMotion() {
     }).join(', ');
     if (tied && res.showdown) title = 'Empate en el showdown';
     else if (won && heroDelta > 0.02) title = res.showdown ? 'Ganas en showdown' : 'Ganas la mano';
-    else if (!won && winnerLabel) title = winnerLabel + ' gana el bote';
+    else if (!won && winnerSeats.length === 1 && winnerLabel) {
+      title = winnerLabel + ' gana el bote';
+    } else if (!won && winnerSeats.length > 1 && winnerLabel) {
+      title = winnerLabel + ' ganan botes';
+    } else if (!won && winnerLabel) title = winnerLabel + ' gana el bote';
     else if (heroDelta < -0.02) title = res.showdown ? 'Pierdes en showdown' : 'Pierdes la mano';
     else if (won) title = res.showdown ? 'Showdown' : 'Mano terminada';
     else title = 'Mano terminada';

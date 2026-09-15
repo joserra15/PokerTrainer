@@ -3783,7 +3783,14 @@
       winners.forEach(function (w) {
         wonById[w] = r2((wonById[w] || 0) + share);
       });
-      winnersByPot.push({ amount: pot.amount, winners: winners.slice() });
+      /* contested: ≥2 elegibles en la capa. Side pot a un solo jugador
+         (exceso del stack mayor) no es “victoria” de showdown ni empate. */
+      winnersByPot.push({
+        amount: pot.amount,
+        winners: winners.slice(),
+        eligible: (pot.eligible || []).slice(),
+        contested: (pot.eligible || []).length > 1
+      });
     });
     return { wonById: wonById, winnersByPot: winnersByPot };
   }
@@ -3836,18 +3843,34 @@
     hand.heroOptions = null;
     var hero = hand.seats.find(function (s) { return s.isHero; });
     var heroId = hero ? hero.id : null;
+    /* Ganadores de UI / «Gana»: solo capas disputadas (≥2 elegibles).
+       Empate: solo si alguna capa disputada se parte entre ≥2 manos iguales.
+       Antes: unión de todos los side pots → Ace-high vs King-high + side pot
+       del stack mayor salía «Empate» y ambos «Gana». */
     var potWinners = [];
+    var tied = false;
     if (winnersByPot && winnersByPot.length) {
       var seen = {};
       winnersByPot.forEach(function (p) {
+        if (p.contested && p.winners && p.winners.length > 1) tied = true;
+        if (!p.contested) return;
         (p.winners || []).forEach(function (id) {
           if (!seen[id]) { seen[id] = true; potWinners.push(id); }
         });
       });
+      if (!potWinners.length) {
+        winnersByPot.forEach(function (p) {
+          (p.winners || []).forEach(function (id) {
+            if (!seen[id]) { seen[id] = true; potWinners.push(id); }
+          });
+        });
+      }
     } else {
       potWinners = (winnerIds || []).slice();
+      tied = !!(showdown && potWinners.length > 1);
     }
-    var tied = !!(showdown && potWinners.length > 1);
+    if (showdown) tied = !!tied;
+    else tied = false;
     hand.result = {
       deltas: deltas,
       winners: potWinners,
@@ -10301,7 +10324,10 @@ function reducedMotion() {
     var deltas = res.deltas || {};
     var heroDelta = heroId != null ? (Number(deltas[heroId]) || 0) : 0;
     var won = heroId && (res.winners || []).indexOf(heroId) >= 0;
-    var tied = !!res.tied || ((res.winners || []).length > 1 && won);
+    /* Empate solo si el motor marcó chop real (manos iguales en bote disputado).
+       No inferir empate solo porque winners.length>1: tras side pots el ganador
+       del main y el del side pueden ser distintos sin ser chop. */
+    var tied = !!res.tied;
     var outcomeCls = tied ? 'hand-end-tie'
       : (heroDelta > 0.02 ? 'hand-end-win' : (heroDelta < -0.02 ? 'hand-end-lose' : 'hand-end-tie'));
     var title;
@@ -10313,7 +10339,11 @@ function reducedMotion() {
     }).join(', ');
     if (tied && res.showdown) title = 'Empate en el showdown';
     else if (won && heroDelta > 0.02) title = res.showdown ? 'Ganas en showdown' : 'Ganas la mano';
-    else if (!won && winnerLabel) title = winnerLabel + ' gana el bote';
+    else if (!won && winnerSeats.length === 1 && winnerLabel) {
+      title = winnerLabel + ' gana el bote';
+    } else if (!won && winnerSeats.length > 1 && winnerLabel) {
+      title = winnerLabel + ' ganan botes';
+    } else if (!won && winnerLabel) title = winnerLabel + ' gana el bote';
     else if (heroDelta < -0.02) title = res.showdown ? 'Pierdes en showdown' : 'Pierdes la mano';
     else if (won) title = res.showdown ? 'Showdown' : 'Mano terminada';
     else title = 'Mano terminada';
