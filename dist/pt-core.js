@@ -5710,22 +5710,47 @@ window.PT_NASH_PUSH_JSON = {
     return out;
   }
 
-  function weightsToOpenRow(weights) {
+  function roundFreq(x) {
+    return Math.round(Number(x) * 1000) / 1000;
+  }
+
+  function copyOpenMeta(out, baseRow) {
+    if (!baseRow) return out;
+    if (baseRow.action_size_bb != null) out.action_size_bb = baseRow.action_size_bb;
+    if (baseRow.global_rfi_frequency != null) out.global_rfi_frequency = baseRow.global_rfi_frequency;
+    if (baseRow.default_action != null) out.default_action = baseRow.default_action;
+    return out;
+  }
+
+  /**
+   * Reconstruye raise/mix y combo_matrix fraccionaria desde pesos de continuación.
+   * Manos >=0.99 van a raise; el resto a mix + matrix con la frecuencia exacta.
+   */
+  function weightsToOpenRow(weights, baseRow) {
     const raise = [];
     const mix = [];
+    const combo_matrix = {};
     Object.keys(weights || {}).forEach(function (code) {
       const w = weights[code];
       if (w <= 0) return;
-      if (w >= 0.99) raise.push(code);
-      else mix.push(code);
+      if (w >= 0.99) {
+        raise.push(code);
+      } else {
+        mix.push(code);
+        combo_matrix[code] = { raise: roundFreq(w), fold: roundFreq(1 - w) };
+      }
     });
-    return { raise: raise.join(', '), mix: mix.join(', ') };
+    const out = { raise: raise.join(', '), mix: mix.join(', ') };
+    if (Object.keys(combo_matrix).length) out.combo_matrix = combo_matrix;
+    return copyOpenMeta(out, baseRow);
   }
 
   function adjustOpenRow(row, stackDepth) {
     if (!row || !W() || !HS()) return row;
     if (stackDepth === 'standard') return row;
-    const w = W().fromSets({ raise: row.raise, mix: row.mix });
+    // Incluir combo_matrix (y manos solo-matrix) antes de ajustar por stack.
+    let w = W().fromSets({ raise: row.raise, mix: row.mix });
+    w = W().applyComboMatrix(w, row.combo_matrix, 'rfi');
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
@@ -5737,18 +5762,43 @@ window.PT_NASH_PUSH_JSON = {
         if (w[code] >= 1 && s > 0.38 && s < 0.52) w[code] = 0.85;
       }
     });
-    return weightsToOpenRow(w);
+    return weightsToOpenRow(w, row);
+  }
+
+  /**
+   * Escala una fila de combo_matrix vsRFI al nuevo peso de continuación,
+   * preservando la proporción 3bet/call del dump.
+   */
+  function scaleVsRfiMatrixRow(orig, continueW) {
+    const three = Number(orig['3bet']) || Number(orig.threeBet) || Number(orig.raise) || 0;
+    const call = Number(orig.call) || 0;
+    const origCont = three + call;
+    if (continueW <= 0 || origCont <= 0) return null;
+    const ratio = three / origCont;
+    let newThree = continueW * ratio;
+    let newCall = continueW * (1 - ratio);
+    const sum = newThree + newCall;
+    if (sum > 1) {
+      newThree /= sum;
+      newCall /= sum;
+    }
+    return {
+      '3bet': roundFreq(newThree),
+      call: roundFreq(newCall),
+      fold: roundFreq(Math.max(0, 1 - newThree - newCall))
+    };
   }
 
   function adjustVsRfiRow(row, stackDepth) {
     if (!row || !W() || !HS()) return row;
     if (stackDepth === 'standard') return row;
-    const w = W().fromSets({
+    let w = W().fromSets({
       threeBet: row.threeBet,
       threeBetMix: row.threeBetMix,
       call: row.call,
       callMix: row.callMix
     });
+    w = W().applyComboMatrix(w, row.combo_matrix, 'vsRfi');
     Object.keys(w).forEach(function (code) {
       const s = HS().handStrength01(code);
       if (stackDepth === 'short') {
@@ -5781,12 +5831,21 @@ window.PT_NASH_PUSH_JSON = {
         callMix.push(code);
       }
     });
-    return {
+    const out = {
       threeBet: threeBet.join(', ') || row.threeBet,
       threeBetMix: threeBetMix.join(', ') || row.threeBetMix,
       call: call.join(', ') || row.call,
       callMix: callMix.join(', ') || row.callMix
     };
+    if (row.combo_matrix && typeof row.combo_matrix === 'object') {
+      const matrix = {};
+      Object.keys(row.combo_matrix).forEach(function (code) {
+        const scaled = scaleVsRfiMatrixRow(row.combo_matrix[code], w[code] || 0);
+        if (scaled) matrix[code] = scaled;
+      });
+      if (Object.keys(matrix).length) out.combo_matrix = matrix;
+    }
+    return out;
   }
 
   function tournamentOpenTable(c) {
@@ -42943,10 +43002,11 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (tabId === 'ranges') {
       withLazyChunk('ranges', function () {
-        var pending = global.__ptPendingRanges || null;
+        // window — el IIFE de app.js es strict y no define `global`.
+        var pending = window.__ptPendingRanges || null;
         if (pending && typeof applyRangesExplorerState === 'function') {
           try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
-          global.__ptPendingRanges = null;
+          window.__ptPendingRanges = null;
         }
         renderRangesExplorer();
       });
@@ -45090,7 +45150,7 @@ window.PT_NASH_PUSH_JSON = {
    * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
    */
   function openRangesExplorer(opts) {
-    if (opts) global.__ptPendingRanges = opts;
+    if (opts) window.__ptPendingRanges = opts;
     if (typeof goToTab === 'function') goToTab('ranges');
   }
   window.openRangesExplorer = openRangesExplorer;
@@ -45710,7 +45770,8 @@ window.PT_NASH_PUSH_JSON = {
 
     const sizingRow = $('#ranges-sizing-row');
     if (sizingRow) {
-      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze' || rangesState.spot === 'RFI');
+      // RFI: open 2.5x/3x no cambia el chart (solo vsRFI/squeeze ajustan pot/toCall).
+      const showSizing = !isPostflop && (rangesState.spot === '3bet' || rangesState.spot === 'squeeze');
       sizingRow.classList.toggle('hidden', !showSizing);
       sizingRow.querySelectorAll('[data-ranges-sizing]').forEach((b) => {
         b.classList.toggle('active', Number(b.dataset.rangesSizing) === Number(rangesState.openSize));
@@ -45850,25 +45911,32 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
 
+    const job = ++matrixJob;
     if (isPostflop) {
       host.innerHTML = '<p class="ranges-postflop-disclaimer muted-text" data-i18n="ranges.postflop.disclaimer">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p><div class="range-matrix-progress">Calculando…</div>';
       RM.computePostflopFreqMatrixAsync(input, function (done, total) {
+        if (job !== matrixJob) return;
         const prog = host.querySelector('.range-matrix-progress');
         if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
       }).then(function (result) {
+        if (job !== matrixJob) return;
         const disc = '<p class="ranges-postflop-disclaimer muted-text">Vista heurística de frecuencias fold/call/raise. No es un solver full-tree.</p>';
         host.innerHTML = disc + renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
+        if (job !== matrixJob) return;
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
       });
     } else {
       host.innerHTML = '<div class="range-matrix-progress">Calculando…</div>';
       RM.computeGtoMatrixAsync(input, function (done, total) {
+        if (job !== matrixJob) return;
         const prog = host.querySelector('.range-matrix-progress');
         if (prog) prog.textContent = `Calculando… ${Math.round((done / total) * 100)}%`;
       }).then(function (result) {
+        if (job !== matrixJob) return;
         host.innerHTML = renderRangeMatrixGrid(result, null, 'gto');
       }).catch(function (e) {
+        if (job !== matrixJob) return;
         host.innerHTML = '<p class="muted-text">Error: ' + escapeHtml(e.message || 'fallo') + '</p>';
       });
     }

@@ -2425,10 +2425,11 @@
     }
     if (tabId === 'ranges') {
       withLazyChunk('ranges', function () {
-        var pending = global.__ptPendingRanges || null;
+        // window — el IIFE de app.js es strict y no define `global`.
+        var pending = window.__ptPendingRanges || null;
         if (pending && typeof applyRangesExplorerState === 'function') {
           try { applyRangesExplorerState(pending); } catch (ePend) { /* ignore */ }
-          global.__ptPendingRanges = null;
+          window.__ptPendingRanges = null;
         }
         renderRangesExplorer();
       });
@@ -4572,7 +4573,7 @@
    * Uso Escuela: openRangesExplorer({ spot:'RFI', heroPos:'BTN' })
    */
   function openRangesExplorer(opts) {
-    if (opts) global.__ptPendingRanges = opts;
+    if (opts) window.__ptPendingRanges = opts;
     if (typeof goToTab === 'function') goToTab('ranges');
   }
   window.openRangesExplorer = openRangesExplorer;
