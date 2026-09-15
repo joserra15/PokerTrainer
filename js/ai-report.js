@@ -491,16 +491,32 @@
 
     if (scope === 'statsGlobal' && dataObj) {
       const st = dataObj.stats || {};
-      const total = st.decisions || 0;
-      const acc = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
-      const leaks = dataObj.leaks || [];
+      const focus = dataObj.focus || 'trainer';
+      const fmt = dataObj.formatFilter || 'all';
       const title = greet + '¿Qué deberías entrenar ahora?';
-      const lead =
-        'Llevas <strong>' + (st.handsPlayed || 0) + ' manos</strong> en el entrenador con ' +
-        '<strong>' + acc + '%</strong> de acierto y ' +
-        '<strong>-' + formatBB(st.totalEvLoss || 0) + ' bb</strong> de EV perdido.' +
-        (leaks.length ? ' Tienes <strong>' + leaks.length + '</strong> leaks recurrentes detectados.' : '') +
-        coachAskSuffix();
+      let lead;
+      if (focus === 'sessions') {
+        const tot = dataObj.sessionsTotal || {};
+        const sessLeaks = dataObj.sessionLeaks || [];
+        const sessAcc = tot.decisions ? Math.round((tot.good / tot.decisions) * 100) : null;
+        const fmtLabel = fmt === 'all' ? 'todos los formatos' : ('formato ' + fmt);
+        lead =
+          'En sesiones importadas (' + fmtLabel + ') llevas <strong>' + (tot.hands || 0) + ' manos</strong>' +
+          (sessAcc != null ? (' con <strong>' + sessAcc + '%</strong> de acierto') : '') +
+          (tot.bbPer100 != null ? (' y <strong>' + tot.bbPer100 + '</strong> bb/100') : '') + '.' +
+          (sessLeaks.length ? ' Top fugas de sesión: <strong>' + sessLeaks.length + '</strong>.' : '') +
+          coachAskSuffix();
+      } else {
+        const total = st.decisions || 0;
+        const acc = total ? Math.round(((st.optima + st.aceptable) / total) * 100) : 0;
+        const leaks = dataObj.leaks || [];
+        lead =
+          'Llevas <strong>' + (st.handsPlayed || 0) + ' manos</strong> en el entrenador con ' +
+          '<strong>' + acc + '%</strong> de acierto y ' +
+          '<strong>-' + formatBB(st.totalEvLoss || 0) + ' bb</strong> de EV perdido.' +
+          (leaks.length ? ' Tienes <strong>' + leaks.length + '</strong> leaks recurrentes detectados.' : '') +
+          coachAskSuffix();
+      }
       return { title: title, lead: lead };
     }
 
@@ -1515,8 +1531,13 @@
     return container.querySelector('.home-coach-panel');
   }
 
+  function refresh(host) {
+    /* getData se evalúa al disparar; no hace falta remount. */
+    if (!host) return;
+  }
+
   global.PTAIReport = {
-    mount, mountWelcome, trigger, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
+    mount, mountWelcome, trigger, refresh, isEnabled, ensureConsent, fetchCoach, fetchHomeGreeting, parseHand, readCache, QUESTION_MAX,
     TRAINING_FOCUSES, focusFromLeak, lessonFromLeak, lessonsFromLeak, defaultQuestionChips, trackFunnel
   };
 })(window);
