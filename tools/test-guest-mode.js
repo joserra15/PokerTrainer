@@ -138,7 +138,7 @@ assert.ok(/¿Crees que no necesitas entrenar al Póker\? Juega estas 5 manos y c
 assert.ok(!/Juega 5 manos\. Mira si aciertas/.test(html), 'hero sin titular corto viejo');
 assert.ok(/Entrena cualquier spot de cash, spins o torneos/.test(html), 'entrenador: cash/spins/torneos');
 assert.ok(!/Mesa 6-max con evaluación GTO calle a calle/.test(html), 'entrenador sin copy 6-max viejo');
-assert.ok(/entrenador IA 24\/7/.test(html) && /how\.s3\.body/.test(html), 'paso 3: registro y estudio completo');
+assert.ok(/ForgeCoach/.test(html) && /how\.s3\.body/.test(html), 'paso 3: registro y ForgeCoach');
 assert.ok(!/trampas/.test(html.match(/guest-mode-banner[\s\S]{0,280}/)[0]), 'banner sin trampas');
 assert.ok(/guest-gate-streets/.test(html), 'resumen por calle');
 assert.ok(/guest-gate-modal/.test(html), 'modal gate');
