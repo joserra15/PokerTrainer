@@ -48,7 +48,10 @@ assert.ok(/onOpenCoach/.test(aiSrc), 'home CTA onOpenCoach');
 assert.ok(/trackAiFunnel/.test(analyticsSrc), 'analytics funnel helper');
 assert.ok(/ai_coach_impression/.test(adminSrc), 'admin label impression');
 assert.ok(/ai-question-chips/.test(cssSrc) && /ai-consent-banner/.test(cssSrc), 'CSS coach adoption');
-assert.ok(/rivales bot/.test(trnSrc), 'Torneos vs ForgeCoach branding');
+assert.ok(/pedir un informe a ForgeCoach/.test(trnSrc), 'Torneos lobby menciona ForgeCoach');
+assert.ok(!/rivales bot/.test(trnSrc), 'sin copy rivales bot en lobby');
+assert.ok(!/solo para premios y ROI/.test(trnSrc), 'sin copy ROI en lobby');
+assert.ok(!/Spin\/HU fácil/.test(trnSrc), 'sin hint de planes en lobby');
 
 const localStore = {};
 const sandbox = {
