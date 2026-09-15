@@ -10,7 +10,8 @@
     { id: 'premium', label: 'Coach' }
   ];
 
-  var PLAN_AI_LIMITS = { free: 0, pro: 5, premium: 35 };
+  /* Alineado con pt_plan_limits / copy comercial: free 3, Study 40, Coach 150. */
+  var PLAN_AI_LIMITS = { free: 3, pro: 40, premium: 150 };
   var DEMO_USER_ID = 'pt_demo_user';
 
 
@@ -45,6 +46,7 @@
     founder: '',
     push: '',
     community: '',
+    status: '',
     periodFrom: '',
     periodTo: '',
     renewalFrom: '',
@@ -53,6 +55,9 @@
     seenTo: ''
   };
   var adminUsersFiltersBound = false;
+  var adminUsersPage = 1;
+  var adminUsersPageSize = 25;
+  var adminServerStats = null;
   var adminMessageMode = 'single';
   var adminMessageRecipients = [];
   var adminMessageFilter = '';
@@ -658,12 +663,125 @@
       el.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
-    var s = res.data || {};
+    adminServerStats = res.data || {};
+    renderAdminStats();
+  }
+
+  function clientUserStats() {
+    var list = adminUsersCache || [];
+    var byPlan = { free: 0, pro: 0, premium: 0 };
+    var activePaid = 0;
+    var expired = 0;
+    var pendingFounder = 0;
+    list.forEach(function (u) {
+      if (!u) return;
+      var plan = u.plan || 'free';
+      if (byPlan[plan] != null) byPlan[plan] += 1;
+      var bucket = userSubscriptionBucket(u);
+      if (bucket === 'active' || bucket === 'trialing') activePaid += 1;
+      if (bucket === 'expired') expired += 1;
+      if ((!u.is_founder_study && u.founder_study_requested_at) ||
+          (!u.is_founder_coach && u.founder_coach_requested_at)) {
+        pendingFounder += 1;
+      }
+    });
+    return {
+      byPlan: byPlan,
+      activePaid: activePaid,
+      expired: expired,
+      pendingFounder: pendingFounder,
+      pushOn: list.filter(userHasPush).length
+    };
+  }
+
+  function renderAdminStats() {
+    var el = $('#admin-stats');
+    if (!el) return;
+    var s = adminServerStats || {};
+    var local = clientUserStats();
+    var byPlan = (s.by_plan && typeof s.by_plan === 'object') ? s.by_plan : local.byPlan;
+    var studyCount = byPlan.pro != null ? byPlan.pro : local.byPlan.pro;
+    var coachCount = byPlan.premium != null ? byPlan.premium : local.byPlan.premium;
+    var activePaid = s.active_paid != null ? s.active_paid : local.activePaid;
+    var pendingFounder = s.pending_founder != null ? s.pending_founder : local.pendingFounder;
     el.innerHTML =
-      '<div class="admin-stat-card"><span class="admin-stat-value">' + (s.total_users || 0) + '</span><span class="admin-stat-label">Usuarios</span></div>' +
-      '<div class="admin-stat-card"><span class="admin-stat-value">' + (s.active_today || 0) + '</span><span class="admin-stat-label">Activos hoy</span></div>' +
-      '<div class="admin-stat-card admin-stat-online"><span class="admin-stat-value">' + (s.online_now || 0) + '</span><span class="admin-stat-label">En línea</span></div>' +
-      '<div class="admin-stat-card"><span class="admin-stat-value">' + (s.ai_requests_today || 0) + '</span><span class="admin-stat-label">IA hoy (total)</span></div>';
+      '<div class="admin-stat-card" data-admin-stat="users"><span class="admin-stat-value">' + (s.total_users || local.byPlan.free + local.byPlan.pro + local.byPlan.premium || 0) + '</span><span class="admin-stat-label">Usuarios</span></div>' +
+      '<div class="admin-stat-card" data-admin-stat="active_today"><span class="admin-stat-value">' + (s.active_today || 0) + '</span><span class="admin-stat-label">Activos hoy</span></div>' +
+      '<div class="admin-stat-card admin-stat-online" data-admin-stat="online"><span class="admin-stat-value">' + (s.online_now || 0) + '</span><span class="admin-stat-label">En línea</span></div>' +
+      '<div class="admin-stat-card" data-admin-stat="ai_today"><span class="admin-stat-value">' + (s.ai_requests_today || 0) + '</span><span class="admin-stat-label">IA hoy</span></div>' +
+      '<div class="admin-stat-card admin-stat-clickable" data-admin-filter-plan="pro" title="Filtrar Study"><span class="admin-stat-value">' + studyCount + '</span><span class="admin-stat-label">Study</span></div>' +
+      '<div class="admin-stat-card admin-stat-clickable" data-admin-filter-plan="premium" title="Filtrar Coach"><span class="admin-stat-value">' + coachCount + '</span><span class="admin-stat-label">Coach</span></div>' +
+      '<div class="admin-stat-card admin-stat-clickable" data-admin-filter-status="active" title="Filtrar suscripciones activas"><span class="admin-stat-value">' + activePaid + '</span><span class="admin-stat-label">Pago activo</span></div>' +
+      '<div class="admin-stat-card admin-stat-clickable' + (pendingFounder ? ' admin-stat-alert' : '') + '" data-admin-filter-status="pending_founder" title="Solicitudes FOUNDER pendientes"><span class="admin-stat-value">' + pendingFounder + '</span><span class="admin-stat-label">FOUNDER pend.</span></div>';
+    el.querySelectorAll('[data-admin-filter-plan]').forEach(function (card) {
+      card.addEventListener('click', function () {
+        applyQuickFilter({ plan: card.getAttribute('data-admin-filter-plan') });
+      });
+    });
+    el.querySelectorAll('[data-admin-filter-status]').forEach(function (card) {
+      card.addEventListener('click', function () {
+        applyQuickFilter({ status: card.getAttribute('data-admin-filter-status') });
+      });
+    });
+    renderFounderQueue();
+  }
+
+  function applyQuickFilter(patch) {
+    patch = patch || {};
+    if (patch.plan != null) {
+      adminUsersFilters.plan = patch.plan;
+      var planEl = $('#admin-filter-plan');
+      if (planEl) planEl.value = patch.plan;
+    }
+    if (patch.status != null) {
+      adminUsersFilters.status = patch.status;
+      var stEl = $('#admin-filter-status');
+      if (stEl) stEl.value = patch.status;
+    }
+    if (patch.founder != null) {
+      adminUsersFilters.founder = patch.founder;
+      var fEl = $('#admin-filter-founder');
+      if (fEl) fEl.value = patch.founder;
+    }
+    adminUsersPage = 1;
+    renderUsersTable();
+  }
+
+  function renderFounderQueue() {
+    var host = $('#admin-founder-queue');
+    if (!host) return;
+    var pending = pendingFounderUsers();
+    if (!pending.length) {
+      host.classList.add('hidden');
+      host.innerHTML = '';
+      return;
+    }
+    host.classList.remove('hidden');
+    var items = pending.slice(0, 8).map(function (u) {
+      var bits = [];
+      if (!u.is_founder_study && u.founder_study_requested_at) bits.push('Study');
+      if (!u.is_founder_coach && u.founder_coach_requested_at) bits.push('Coach');
+      return '<button type="button" class="admin-founder-queue-item" data-user-id="' + escapeHtml(u.user_id) + '">' +
+        '<strong>' + escapeHtml(u.name || u.email || u.user_id) + '</strong>' +
+        '<span class="muted-text">' + escapeHtml(bits.join(' · ')) + '</span></button>';
+    }).join('');
+    host.innerHTML =
+      '<div class="admin-founder-queue-head">' +
+      '<strong>Cola FOUNDER</strong> · ' + pending.length + ' pendiente' + (pending.length === 1 ? '' : 's') +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-founder-queue-filter">Ver todas</button>' +
+      '</div>' +
+      '<div class="admin-founder-queue-list">' + items + '</div>';
+    var filterBtn = $('#admin-founder-queue-filter');
+    if (filterBtn) {
+      filterBtn.addEventListener('click', function () {
+        applyQuickFilter({ status: 'pending_founder' });
+      });
+    }
+    host.querySelectorAll('[data-user-id]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        openUserDetail(btn.getAttribute('data-user-id'));
+      });
+    });
   }
 
   function planSelect(userId, current, disabled) {
@@ -678,12 +796,8 @@
     if (!iso) return null;
     var d = new Date(iso);
     if (isNaN(d.getTime())) return null;
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1);
-    var day = String(d.getDate());
-    if (m.length < 2) m = '0' + m;
-    if (day.length < 2) day = '0' + day;
-    return y + '-' + m + '-' + day;
+    /* Usar UTC para que filtros date coincidan con timestamps ISO del servidor. */
+    return d.toISOString().slice(0, 10);
   }
 
   function dateInRange(iso, fromStr, toStr) {
@@ -771,6 +885,44 @@
       escapeHtml(pushStatusLabel(u)) + '</span>';
   }
 
+
+  function userSubscriptionBucket(u) {
+    var plan = (u && u.plan) || 'free';
+    var st = (u && u.subscription_status) || 'none';
+    var end = effectivePeriodEnd(u);
+    var expired = !!(end && new Date(end).getTime() < Date.now());
+    if (plan === 'free' && st !== 'active' && st !== 'trialing') return 'free';
+    if (st === 'trialing') return 'trialing';
+    if (expired || st === 'expired') return 'expired';
+    if (st === 'canceled' || st === 'canceling') return 'canceled';
+    if (st === 'active') return 'active';
+    if (plan === 'pro' || plan === 'premium') return expired ? 'expired' : 'active';
+    return st || 'none';
+  }
+
+  function statusBadgeHtml(u) {
+    var bucket = userSubscriptionBucket(u);
+    var labels = {
+      free: 'Gratis',
+      active: 'Activo',
+      trialing: 'Trial',
+      expired: 'Caducado',
+      canceled: 'Cancela',
+      none: '—'
+    };
+    var label = labels[bucket] || bucket;
+    return '<span class="admin-status-badge admin-status-' + escapeHtml(bucket) + '">' + escapeHtml(label) + '</span>';
+  }
+
+  function pendingFounderUsers() {
+    return (adminUsersCache || []).filter(function (u) {
+      if (!u || u.user_id === DEMO_USER_ID) return false;
+      var pendingStudy = !u.is_founder_study && !!u.founder_study_requested_at;
+      var pendingCoach = !u.is_founder_coach && !!u.founder_coach_requested_at;
+      return pendingStudy || pendingCoach;
+    });
+  }
+
   function filteredSortedUsers() {
     var q = String(adminUsersFilters.user || '').trim().toLowerCase();
     var plan = adminUsersFilters.plan || '';
@@ -783,6 +935,16 @@
         if (text.indexOf(q) < 0) return false;
       }
       if (plan && (u.plan || 'free') !== plan) return false;
+      var status = adminUsersFilters.status || '';
+      if (status) {
+        if (status === 'pending_founder') {
+          var ps = !u.is_founder_study && !!u.founder_study_requested_at;
+          var pc = !u.is_founder_coach && !!u.founder_coach_requested_at;
+          if (!ps && !pc) return false;
+        } else if (userSubscriptionBucket(u) !== status) {
+          return false;
+        }
+      }
       if (push === 'on' && !userHasPush(u)) return false;
       if (push === 'off' && userHasPush(u)) return false;
       var community = adminUsersFilters.community || '';
@@ -868,6 +1030,8 @@
     adminUsersFilters.push = pushEl ? String(pushEl.value || '') : '';
     var communityEl = $('#admin-filter-community');
     adminUsersFilters.community = communityEl ? String(communityEl.value || '') : '';
+    var statusEl = $('#admin-filter-status');
+    adminUsersFilters.status = statusEl ? String(statusEl.value || '') : '';
     adminUsersFilters.periodFrom = ($('#admin-filter-period-from') || {}).value || '';
     adminUsersFilters.periodTo = ($('#admin-filter-period-to') || {}).value || '';
     adminUsersFilters.renewalFrom = ($('#admin-filter-renewal-from') || {}).value || '';
@@ -878,12 +1042,13 @@
 
   function clearUsersFilters() {
     adminUsersFilters = {
-      user: '', plan: '', founder: '', push: '', community: '',
+      user: '', plan: '', founder: '', push: '', community: '', status: '',
       periodFrom: '', periodTo: '',
       renewalFrom: '', renewalTo: '',
       seenFrom: '', seenTo: ''
     };
-    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push', 'admin-filter-community',
+    adminUsersPage = 1;
+    ['admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push', 'admin-filter-community', 'admin-filter-status',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -898,7 +1063,7 @@
     if (adminUsersFiltersBound) return;
     adminUsersFiltersBound = true;
     var filterIds = [
-      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push', 'admin-filter-community',
+      'admin-filter-user', 'admin-filter-plan', 'admin-filter-founder', 'admin-filter-push', 'admin-filter-community', 'admin-filter-status',
       'admin-filter-period-from', 'admin-filter-period-to',
       'admin-filter-renewal-from', 'admin-filter-renewal-to',
       'admin-filter-seen-from', 'admin-filter-seen-to'
@@ -909,6 +1074,7 @@
       var evt = el.tagName === 'SELECT' || el.type === 'date' ? 'change' : 'input';
       el.addEventListener(evt, function () {
         readUsersFiltersFromDom();
+        adminUsersPage = 1;
         renderUsersTable();
       });
     });
@@ -938,16 +1104,23 @@
     bindUsersFiltersAndSort();
     updateSortHeaders();
     var me = currentUser();
-    var rows = filteredSortedUsers();
+    var allRows = filteredSortedUsers();
     var total = adminUsersCache.length;
     var pushOnCount = adminUsersCache.filter(userHasPush).length;
+    var pageSize = adminUsersPageSize || 25;
+    var maxPage = Math.max(1, Math.ceil(allRows.length / pageSize) || 1);
+    if (adminUsersPage > maxPage) adminUsersPage = maxPage;
+    if (adminUsersPage < 1) adminUsersPage = 1;
+    var start = (adminUsersPage - 1) * pageSize;
+    var rows = allRows.slice(start, start + pageSize);
     if (status) {
-      var base = rows.length === total
+      var base = allRows.length === total
         ? (total + ' usuario' + (total === 1 ? '' : 's'))
-        : (rows.length + ' de ' + total + ' usuarios');
-      status.textContent = base + ' · ' + pushOnCount + ' con push';
+        : (allRows.length + ' de ' + total + ' usuarios');
+      status.textContent = base + ' · ' + pushOnCount + ' con push · pág. ' + adminUsersPage + '/' + maxPage;
     }
-    if (!rows.length) {
+    renderUsersPagination(allRows.length, maxPage);
+    if (!allRows.length) {
       tbody.innerHTML = '<tr><td colspan="11" class="muted-text admin-users-empty">' +
         (total ? 'Ningún usuario coincide con los filtros.' : 'Sin usuarios.') +
         '</td></tr>';
@@ -971,7 +1144,8 @@
         '</span>' +
         '<span class="admin-user-email">' + escapeHtml(u.email) + '</span>' +
         '</td>' +
-        '<td data-col="plan">' + planSelect(u.user_id, u.plan || 'free', false) + '</td>' +
+        '<td data-col="plan"><div class="admin-plan-cell">' + planSelect(u.user_id, u.plan || 'free', false) +
+        statusBadgeHtml(u) + '</div></td>' +
         '<td class="admin-period" data-col="period">' + periodEndCell(u) + '</td>' +
         '<td class="admin-renewal" data-col="renewal">' + escapeHtml(formatRenewal(u)) + '</td>' +
         '<td data-col="ai">' + usageBarAi(u) + '</td>' +
@@ -1003,7 +1177,82 @@
     bindUserActions();
     bindUserRowClicks();
     renderAdminComposer();
+    renderAdminStats();
   }
+
+  function renderUsersPagination(filteredCount, maxPage) {
+    var host = $('#admin-users-pagination');
+    if (!host) return;
+    if (filteredCount <= adminUsersPageSize) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
+    host.classList.remove('hidden');
+    host.innerHTML =
+      '<button type="button" class="btn btn-ghost btn-sm" data-admin-page="prev"' + (adminUsersPage <= 1 ? ' disabled' : '') + '>Anterior</button>' +
+      '<span class="admin-page-label">Página ' + adminUsersPage + ' / ' + maxPage + ' (' + filteredCount + ')</span>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-admin-page="next"' + (adminUsersPage >= maxPage ? ' disabled' : '') + '>Siguiente</button>' +
+      '<label class="admin-page-size">Por pág. <select id="admin-page-size">' +
+      [25, 50, 100].map(function (n) {
+        return '<option value="' + n + '"' + (adminUsersPageSize === n ? ' selected' : '') + '>' + n + '</option>';
+      }).join('') +
+      '</select></label>';
+    var prev = host.querySelector('[data-admin-page="prev"]');
+    var next = host.querySelector('[data-admin-page="next"]');
+    if (prev) prev.addEventListener('click', function () {
+      if (adminUsersPage > 1) { adminUsersPage -= 1; renderUsersTable(); }
+    });
+    if (next) next.addEventListener('click', function () {
+      adminUsersPage += 1; renderUsersTable();
+    });
+    var sizeEl = $('#admin-page-size');
+    if (sizeEl) {
+      sizeEl.addEventListener('change', function () {
+        adminUsersPageSize = parseInt(sizeEl.value, 10) || 25;
+        adminUsersPage = 1;
+        renderUsersTable();
+      });
+    }
+  }
+
+  function exportUsersCsv() {
+    if (!requireAdminAccess()) return;
+    var rows = filteredSortedUsers();
+    var headers = ['user_id', 'name', 'email', 'plan', 'subscription_status', 'subscription_period_end', 'is_admin', 'is_founder_study', 'is_founder_coach', 'push', 'last_seen_at', 'ai_today'];
+    function csvEscape(v) {
+      var s = v == null ? '' : String(v);
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+    var lines = [headers.join(',')];
+    rows.forEach(function (u) {
+      lines.push([
+        u.user_id,
+        u.name,
+        u.email,
+        u.plan,
+        u.subscription_status,
+        u.subscription_period_end,
+        u.is_admin ? '1' : '0',
+        u.is_founder_study ? '1' : '0',
+        u.is_founder_coach ? '1' : '0',
+        userHasPush(u) ? '1' : '0',
+        u.last_seen_at,
+        u.ai_today
+      ].map(csvEscape).join(','));
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'pokerforge-usuarios.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
 
   async function loadUsers() {
     if (!requireAdminAccess()) return;
@@ -1032,6 +1281,7 @@
     adminUsersCache = (res.data || []).slice();
     normalizeRecipientSelection();
     renderUsersTable();
+    renderAdminStats();
     setAdminLoading(false);
   }
 
@@ -1647,6 +1897,7 @@
 
 
   async function setCommunityMember(userId, communityId, role, status) {
+    if (!requireAdminAccess()) return;
     var c = client();
     if (!c) return;
     var res = await c.rpc('pt_admin_set_community_member', {
@@ -1721,16 +1972,111 @@
       inp.onchange = function () {
         var uid = inp.dataset.userId;
         if (!uid || !inp.value) return;
-        var endIso = new Date(inp.value + 'T23:59:59').toISOString();
+        var endIso = new Date(inp.value + 'T23:59:59.999Z').toISOString();
         updateUser(uid, { subscription_period_end: endIso });
       };
     });
+  }
+
+  function confirmAdminChange(message) {
+    return window.confirm(message);
+  }
+
+  function patchUserInCache(userId, patch, serverRow) {
+    var idx = -1;
+    for (var i = 0; i < adminUsersCache.length; i++) {
+      if (adminUsersCache[i] && adminUsersCache[i].user_id === userId) { idx = i; break; }
+    }
+    if (idx < 0) return;
+    var row = adminUsersCache[idx];
+    var next = {};
+    for (var k in row) {
+      if (Object.prototype.hasOwnProperty.call(row, k)) next[k] = row[k];
+    }
+    if (patch.plan !== undefined) next.plan = patch.plan;
+    if (patch.is_admin !== undefined) next.is_admin = patch.is_admin;
+    if (patch.is_founder_study !== undefined) next.is_founder_study = patch.is_founder_study;
+    if (patch.is_founder_coach !== undefined) next.is_founder_coach = patch.is_founder_coach;
+    if (patch.subscription_period_end !== undefined) next.subscription_period_end = patch.subscription_period_end;
+    if (serverRow) {
+      if (serverRow.plan != null) next.plan = serverRow.plan;
+      if (serverRow.is_admin != null) next.is_admin = serverRow.is_admin;
+      if (serverRow.is_founder_study != null) next.is_founder_study = serverRow.is_founder_study;
+      if (serverRow.is_founder_coach != null) next.is_founder_coach = serverRow.is_founder_coach;
+      if (serverRow.subscription_period_end !== undefined) next.subscription_period_end = serverRow.subscription_period_end;
+      if (serverRow.subscription_status != null) next.subscription_status = serverRow.subscription_status;
+      if (serverRow.is_founder != null) next.is_founder = serverRow.is_founder;
+    }
+    if (next.is_founder_study || next.is_founder_coach) next.is_founder = true;
+    adminUsersCache[idx] = next;
   }
 
   async function updateUser(userId, patch) {
     if (!requireAdminAccess()) return;
     var c = client();
     if (!c) return;
+
+    var current = null;
+    for (var i = 0; i < adminUsersCache.length; i++) {
+      if (adminUsersCache[i] && adminUsersCache[i].user_id === userId) { current = adminUsersCache[i]; break; }
+    }
+
+    if (patch.plan !== undefined) {
+      var planLabel = patch.plan === 'pro' ? 'Study' : (patch.plan === 'premium' ? 'Coach' : 'Gratis');
+      if (!confirmAdminChange('¿Cambiar el plan de este usuario a ' + planLabel + '?')) {
+        renderUsersTable();
+        return;
+      }
+      if ((patch.plan === 'pro' || patch.plan === 'premium') &&
+          !patch.subscription_period_end &&
+          !(current && current.subscription_period_end)) {
+        var months = window.prompt('Meses de acceso (1–24). Deja vacío solo si quieres plan sin caducidad (no recomendado):', '1');
+        if (months === null) { renderUsersTable(); return; }
+        months = String(months).trim();
+        if (months === '') {
+          if (!confirmAdminChange('Vas a dejar un plan de pago SIN fecha de fin. ¿Continuar?')) {
+            renderUsersTable();
+            return;
+          }
+        } else {
+          var n = parseInt(months, 10);
+          if (!(n >= 1 && n <= 24)) {
+            alert('Indica un número de meses entre 1 y 24.');
+            renderUsersTable();
+            return;
+          }
+          var end = new Date();
+          end.setUTCMonth(end.getUTCMonth() + n);
+          end.setUTCHours(23, 59, 59, 999);
+          patch.subscription_period_end = end.toISOString();
+        }
+      }
+    }
+    if (patch.is_admin !== undefined) {
+      if (!confirmAdminChange(patch.is_admin
+        ? '¿Conceder permisos de administrador a este usuario?'
+        : '¿Quitar permisos de administrador a este usuario?')) {
+        renderUsersTable();
+        return;
+      }
+    }
+    if (patch.is_founder_study !== undefined) {
+      if (!confirmAdminChange(patch.is_founder_study
+        ? '¿Marcar FOUNDER Study?'
+        : '¿Quitar FOUNDER Study?')) {
+        renderUsersTable();
+        return;
+      }
+    }
+    if (patch.is_founder_coach !== undefined) {
+      if (!confirmAdminChange(patch.is_founder_coach
+        ? '¿Marcar FOUNDER Coach?'
+        : '¿Quitar FOUNDER Coach?')) {
+        renderUsersTable();
+        return;
+      }
+    }
+
     var args = { p_user_id: userId };
     if (patch.plan !== undefined) args.p_plan = patch.plan;
     if (patch.is_admin !== undefined) args.p_is_admin = patch.is_admin;
@@ -1768,7 +2114,7 @@
         if (global.PTAuth && global.PTAuth.renderAccountMenu) {
           global.PTAuth.renderAccountMenu(mePlan);
         }
-        global.dispatchEvent(new CustomEvent('pt-plan-changed', { detail: { userId: userId, plan: res.data.plan } }));
+        global.dispatchEvent(new CustomEvent('pt-plan-changed', { detail: { userId: userId, plan: res.data && res.data.plan } }));
       }
       if (userId === DEMO_USER_ID && global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) {
         if (global.PTEntitlements && global.PTEntitlements.refresh) {
@@ -1780,7 +2126,12 @@
         global.dispatchEvent(new CustomEvent('pt-plan-changed'));
       }
     }
-    await refresh();
+    patchUserInCache(userId, patch, res.data);
+    renderUsersTable();
+    renderAdminStats();
+    if (adminDetailUserId === userId) {
+      openUserDetail(userId);
+    }
   }
 
   function openInviteModal() {
@@ -3059,6 +3410,14 @@
       if (!requireAdminAccess()) return;
       refresh();
     });
+
+    var exportBtn = $('#admin-export-csv');
+    if (exportBtn && !exportBtn.dataset.bound) {
+      exportBtn.dataset.bound = '1';
+      exportBtn.addEventListener('click', function () {
+        exportUsersCsv();
+      });
+    }
 
     bindInviteModal();
     bindAdminMessages();

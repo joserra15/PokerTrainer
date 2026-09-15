@@ -29,11 +29,25 @@ assert.ok(/source=push&tab=contact/.test(src), 'deep link a Contacto');
 assert.ok(/function userHasPush/.test(src) && /pushStatusCell/.test(src), 'lista muestra estado push');
 assert.ok(/admin-filter-push/.test(src) && /push === 'on'/.test(src), 'filtro push activado/no');
 assert.ok(/data-col="push"/.test(src) && /colspan="11"/.test(src), 'columna Push en tabla');
+assert.ok(/PLAN_AI_LIMITS = \{ free: 3, pro: 40, premium: 150 \}/.test(src), 'límites IA alineados con planes');
+assert.ok(/function confirmAdminChange/.test(src) && /¿Cambiar el plan/.test(src), 'confirmación al cambiar plan');
+assert.ok(/toISOString\(\)\.slice\(0, 10\)/.test(src), 'filtros de fecha en UTC');
+assert.ok(/T23:59:59\.999Z/.test(src), 'fin de plan en UTC');
+assert.ok(/function patchUserInCache/.test(src) && /renderUsersTable\(\);\s*renderAdminStats\(\);/.test(src), 'refresh parcial tras update');
+assert.ok(/function exportUsersCsv/.test(src) && /admin-export-csv/.test(src), 'export CSV');
+assert.ok(/function renderUsersPagination/.test(src) && /adminUsersPageSize/.test(src), 'paginación de usuarios');
+assert.ok(/function renderFounderQueue/.test(src) && /pending_founder/.test(src), 'cola FOUNDER');
+assert.ok(/function statusBadgeHtml/.test(src) && /admin-status-badge/.test(src), 'badge de estado');
+assert.ok(/admin-filter-status/.test(src), 'filtro por estado');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');
 assert.ok(/admin-usage-panel/.test(html), 'panel uso en HTML');
 assert.ok(/id="admin-filter-push"/.test(html) && /data-sort="push"/.test(html), 'columna y filtro Push');
+assert.ok(/id="admin-filter-status"/.test(html), 'filtro estado en HTML');
+assert.ok(/id="admin-export-csv"/.test(html), 'botón export CSV');
+assert.ok(/id="admin-founder-queue"/.test(html), 'cola FOUNDER en HTML');
+assert.ok(/id="admin-users-pagination"/.test(html), 'paginación en HTML');
 
 const localStore = {};
 const sandbox = {

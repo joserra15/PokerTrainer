@@ -1503,6 +1503,7 @@
 
       <div id="admin-users-panel">
       <div id="admin-stats" class="admin-stats" aria-label="Resumen"></div>
+      <div id="admin-founder-queue" class="admin-founder-queue hidden" aria-live="polite"></div>
 
       <div class="admin-section">
         <div class="admin-section-head">
@@ -1510,6 +1511,7 @@
           <div class="admin-section-actions">
             <button type="button" id="admin-sync-payments" class="btn btn-ghost btn-sm">Sincronizar pagos</button>
             <button type="button" id="admin-sync-bonuses" class="btn btn-ghost btn-sm">Sincronizar bonos</button>
+            <button type="button" id="admin-export-csv" class="btn btn-ghost btn-sm">Exportar CSV</button>
             <button type="button" id="admin-invite-open" class="btn btn-primary btn-sm">Invitar usuario</button>
             <span id="admin-sync-status" class="muted-text admin-sync-status"></span>
             <span id="admin-users-status" class="muted-text"></span>
@@ -1557,6 +1559,18 @@
               <option value="mttlab">MTT LAB</option>
               <option value="mttlab_manager">MTT LAB · Manager</option>
               <option value="none">Sin comunidad</option>
+            </select>
+          </label>
+          <label class="admin-filter-field">
+            <span>Estado</span>
+            <select id="admin-filter-status">
+              <option value="">Todos</option>
+              <option value="active">Pago activo</option>
+              <option value="trialing">Trial</option>
+              <option value="expired">Caducado</option>
+              <option value="canceled">Cancela</option>
+              <option value="free">Gratis</option>
+              <option value="pending_founder">FOUNDER pendiente</option>
             </select>
           </label>
           <div class="admin-filter-field admin-filter-dates">
@@ -1625,6 +1639,7 @@
             <tbody id="admin-users-body"></tbody>
           </table>
         </div>
+        <div id="admin-users-pagination" class="admin-users-pagination hidden" aria-label="Paginación de usuarios"></div>
         <div id="admin-user-detail" class="admin-user-detail card-box hidden" aria-live="polite"></div>
         <p class="muted-text admin-foot-note">
           Planes: Gratis · Study (pro) · Coach (premium). Límite ForgeCoach mensual: Gratis 3 de prueba · Study 40 · Coach 150/mes. Análisis de manos guardadas: Gratis 5 · Study 20 · Coach 100. Los bonos se suman al cupo cuando agotas las incluidas.
@@ -1640,7 +1655,7 @@
   <div id="admin-invite-modal" class="modal admin-invite-modal hidden" role="dialog" aria-modal="true" aria-labelledby="admin-invite-title">
     <div class="modal-content admin-invite-content">
       <h3 id="admin-invite-title">Invitar usuario</h3>
-      <p class="muted-text">Genera un correo con enlace a PokerForgeAI. Puedes editar el texto antes de enviarlo.</p>
+      <p class="muted-text">Genera un correo con enlace a PokerForgeAI (no crea la cuenta ni asigna el plan automáticamente). Puedes editar el texto antes de enviarlo.</p>
       <label class="admin-invite-label" for="admin-invite-email">Correo del invitado</label>
       <input type="email" id="admin-invite-email" class="admin-invite-input" placeholder="nombre@ejemplo.com" autocomplete="off" />
       <label class="admin-invite-label" for="admin-invite-plan">Plan sugerido</label>
