@@ -11902,6 +11902,26 @@ window.PT_NASH_PUSH_JSON = {
       const inherit = Math.max(fromOver, fromPot * 0.5);
       if (inherit > 0) out.allin = inherit;
     }
+    /* Torneos / UI con bet|raise genéricos: el solver postflop usa bet_33/66/100.
+       Sin volcar esa masa → solo queda check → CHECK 100% falso y veredictos rotos. */
+    const hasSizedLegal = availableActions.some(function (a) {
+      return typeof a === 'string' && a.indexOf('bet_') === 0;
+    });
+    if (!hasSizedLegal && freqs) {
+      let sizedW = 0;
+      Object.keys(freqs).forEach(function (k) {
+        if (k === 'overbet' || (typeof k === 'string' && k.indexOf('bet_') === 0)) {
+          sizedW += Number(freqs[k]) || 0;
+        }
+      });
+      if (sizedW > 0) {
+        if (availableActions.indexOf('bet') >= 0) {
+          out.bet = (out.bet || 0) + sizedW;
+        } else if (availableActions.indexOf('raise') >= 0) {
+          out.raise = (out.raise || 0) + sizedW;
+        }
+      }
+    }
     let sum = 0;
     for (const k in out) sum += out[k];
     if (sum <= 0) {
@@ -12075,8 +12095,16 @@ window.PT_NASH_PUSH_JSON = {
       : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
       if (strongValueAggro && freq < 0.05) {
-        cls = 'optima';
-        best = chosen;
+        /* Mezcla casi pura pasiva (CHECK/FOLD ~100%): no marcar Óptima una
+           agresión residual — la UI enseñaría «Bet Óptima» junto a CHECK 100%. */
+        const passiveMix = (freqBest === 'check' || freqBest === 'fold') && maxFreq >= 0.85;
+        if (passiveMix) {
+          cls = 'imprecisa';
+          best = freqBest;
+        } else {
+          cls = 'optima';
+          best = chosen;
+        }
       } else if (chosenTrusted) {
         if (freq >= 0.15 || freqCls === 'optima' || freqCls === 'aceptable') {
           cls = 'optima';
@@ -12148,7 +12176,8 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     if (valueAggro && strongValueAggro && (cls === 'error' || cls === 'imprecisa')) {
-      cls = 'aceptable';
+      const passiveMix = (freqBest === 'check' || freqBest === 'fold') && maxFreq >= 0.85 && freq < 0.05;
+      if (!passiveMix) cls = 'aceptable';
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);

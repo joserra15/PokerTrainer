@@ -3144,9 +3144,6 @@
     const postflopCtx = postflopCtxForDecision(hand, d);
 
     const chosen = chosenOverride != null ? chosenOverride : d.chosen;
-    const chosenAction = chosen === 'bet'
-      ? probeBetIdFromSize(d.betSizeBB, potEvalBB)
-      : (chosen === 'bet_33' || chosen === 'bet_66' || chosen === 'bet_100' ? chosen : chosen);
     const storedOpts = d.options || d.availableActions
       || (d.input && (d.input.availableActions || d.input.options)) || null;
     let availableActions;
@@ -3157,6 +3154,21 @@
       availableActions = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['fold', 'raise', 'allin'];
     } else {
       availableActions = toCallBB > 0 ? ['fold', 'call', 'raise'] : ['check', 'bet_33', 'bet_66', 'bet_100'];
+    }
+    /* Torneos: opciones check/bet/allin. Remapear bet→bet_33 sin keys legales
+       dejaba freq=0 y la ficha de resumen desalineada del paso a paso. */
+    const hasSizedBet = availableActions.some(function (a) {
+      return typeof a === 'string' && a.indexOf('bet_') === 0;
+    });
+    const hasGenericBet = availableActions.indexOf('bet') >= 0;
+    let chosenAction = chosen;
+    if (chosen === 'bet') {
+      if (hasSizedBet || !hasGenericBet) {
+        chosenAction = probeBetIdFromSize(d.betSizeBB, potEvalBB);
+        if (availableActions.indexOf(chosenAction) < 0) availableActions.push(chosenAction);
+      }
+    } else if (chosen === 'bet_33' || chosen === 'bet_66' || chosen === 'bet_100') {
+      chosenAction = chosen;
     }
     const preflopInit = street === 'preflop'
       ? (d.initiative || (d.input && d.input.initiative)
