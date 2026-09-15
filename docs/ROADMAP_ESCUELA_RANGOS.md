@@ -29,17 +29,17 @@
 
 La ruta **Rangos** ya no es un teaser de 6 lecciones: hay **27 lecciones (R-01…R-27)** en módulos M0–M4, con teoría, packs de práctica y un bloque fuerte de **lectura de línea + quiz de villano** (R-05, R-07…R-27). Escuela está **pública para usuarios autenticados** (`SCHOOL_PUBLIC = true` en código).
 
-El gap pedagógico principal no es «falta contenido», sino **desalineación entre cómo se enseña la matriz y cómo se practica**:
+**Actualización (remediación Escuela):** R-01/R-02 ya son drills de matriz en código (`matrixQuiz` / `matrixPaint`, preview + «Abrir chart»). La tabla «promesa vs realidad» de abajo quedó **obsoleta** respecto a R-01/R-02; el gap pendiente es sobre todo puente leak→Rangos, exámenes de módulo y mantenimiento de packs.
 
-| Promesa (roadmap original) | Realidad actual |
-|----------------------------|-----------------|
-| R-01 = Quiz UI de matriz 13×13 | Open/fold con teachbacks sobre celdas; el usuario debe ir solo al menú Rangos |
-| R-02 = Matriz interactiva (construir RFI) | Open/fold BTN; «60 s» solo en copy |
-| Laboratorio = 6 lecciones | 27 lecciones; M2–M4 son quizzes de línea |
-| Menú Escuela admin-only | Público si hay login |
+| Promesa (roadmap original) | Realidad actual (código) |
+|----------------------------|--------------------------|
+| R-01 = Quiz UI de matriz 13×13 | **Hecho:** spots `matrixQuiz` + preview + openRanges |
+| R-02 = Matriz interactiva (construir RFI) | **Hecho:** `matrixPaint` + `matrixQuiz` (inRange) |
+| Laboratorio = 6 lecciones | 27+ lecciones; M2–M4 son quizzes de línea |
+| Menú Escuela admin-only | Público si hay login (`SCHOOL_PUBLIC = true`) |
 | Free solo R-01 | Free = R-01…R-03 |
 
-**Veredicto:** el Laboratorio es maduro en *lectura de rango tras línea* y débil en *alfabetización de chart*. El siguiente salto de producto es cerrar el puente Escuela ↔ pestaña Rangos y cumplir R-01/R-02 como drills de matriz, no como RFI genérico.
+**Veredicto:** el Laboratorio es maduro en *lectura de rango tras línea* y ya cubre el onboarding de matriz en R-01/R-02. El siguiente salto es cerrar puentes leak↔Rangos, exámenes de módulo y deuda de packs monolíticos.
 
 ---
 
@@ -51,15 +51,15 @@ Resumen orientado a **funcionalidad de producto** (lo que el usuario verá o pod
 
 | Capacidad | Hoy | Tras implantar (A–D) |
 |-----------|-----|----------------------|
-| Aprender a **leer** la matriz 13×13 | Solo texto + “ve al menú Rangos” | **Quiz interactivo** dentro de R-01 (señalar celdas, comparar anchos, leer %) |
-| **Construir** un RFI de memoria | Drill mental en copy + open/fold | **Pintar el rango** en la matriz (R-02, ~60 s) con nota de solapamiento |
-| Ir del Laboratorio al chart real | Cambio manual de pestaña | Botón **«Abrir chart»** con posición/contexto ya puestos |
-| Ver el chart **sin salir** de la lección | No | **Mini-matriz** en la ficha (R-01…R-04) |
-| De un **leak** a una lección de rangos | Solo lecciones Cash (`C-*`) | CTA también a **R-02 / R-04 / R-05…** según el leak |
-| De Cash/Spins/MTT al Laboratorio | Mención en texto | Botón **«Ir a lección R-0x»** |
-| Examen de módulo Rangos | No | Packs **examen** M1/M2 (opcional, Fase D) |
-| Escuela en inglés | No (ES-only de facto) | Label explícito ES-only **o** títulos/conceptos i18n |
-| Calidad interna (no UI) | Packs monolíticos, seeds dup, sin E2E Escuela | Generador/split de packs, seeds únicos, **E2E** del hub Rangos |
+| Aprender a **leer** la matriz 13×13 | **Quiz interactivo** en R-01 (`matrixQuiz`) | Refinar copy / más variantes de quiz |
+| **Construir** un RFI de memoria | **Pintar el rango** en R-02 (`matrixPaint`) | Ajustar scoring de solapamiento |
+| Ir del Laboratorio al chart real | Botón **«Abrir chart»** con contexto | Más CTAs desde Cash/Spins/MTT |
+| Ver el chart **sin salir** de la lección | **Mini-matriz** en ficha (R-01…R-04) | Extender preview a más lecciones |
+| De un **leak** a una lección de rangos | CTAs duales incl. R-* en leaks | Cobertura completa de leaks |
+| De Cash/Spins/MTT al Laboratorio | CTAs `relatedLessons` (p. ej. C-02/C-06/C-20/S-09/T-09) | Completar menciones restantes |
+| Examen de módulo Rangos | R-28 / R-29 (examen M1/M2) | Exámenes M3/M4 opcionales |
+| Escuela en inglés | ES-only con badge | Label explícito ES-only **o** i18n |
+| Calidad interna (no UI) | Packs grandes; tests Escuela | Split de packs de línea, más E2E |
 
 ### 2.2 Funcionalidades nuevas (detalle por pieza)
 
@@ -218,11 +218,11 @@ Fuente: [`ROADMAP_LECCIONES_DIRIGIDAS.md`](ROADMAP_LECCIONES_DIRIGIDAS.md) §12.
 
 ### 6.2 Debilidades
 
-1. **Onboarding de matriz roto pedagógicamente:** R-01/R-02 evalúan open/fold; se puede aprobar sin localizar una celda en el chart.
-2. **Fricción de contexto:** la teoría manda al menú Rangos, pero no hay CTA ni deep-link; el alumno sale del loop Escuela.
-3. **Leaks no remiten a Rangos:** un leak de RFI manda a C-02, nunca a R-02 / R-04.
-4. **Deuda de datos:** `school-data-ranges-line.js` monolítico (~302 KB); seeds duplicados en R-07…R-21.
-5. **Docs desactualizados** (headers «admin-only», tablas Free/Study del roadmap madre).
+1. **Onboarding de matriz (histórico):** el gap open/fold en R-01/R-02 **ya está cerrado** en código (`matrixQuiz` / `matrixPaint`); queda pulir variantes y scoring.
+2. **Fricción de contexto (parcial):** ya hay «Abrir chart» y `relatedLessons` en varias fichas; faltan CTAs en menciones restantes.
+3. **Leaks → Rangos (parcial):** hay CTAs duales en leaks; ampliar cobertura.
+4. **Deuda de datos:** `school-data-ranges-line.js` monolítico (~302 KB); seeds duplicados históricos en R-07…R-21.
+5. **Docs:** este roadmap se actualiza con la remediación; revisar tablas Free/Study del roadmap madre si divergen.
 6. **Sin E2E** del hub Rangos ni del flujo quiz de línea.
 7. **School copy solo ES** (aceptable a corto plazo; documentar como decisión de producto).
 

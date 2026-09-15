@@ -271,7 +271,7 @@
       id: 'C-13',
       title: 'Examen M1 · Preflop',
       route: 'cash', module: 'M1', order: 13, plan: 'study',
-      xp: 160, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 10,
+      xp: 160, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, exam: true, hands: 10,
       concept: 'Repaso del módulo: defensa BB, 3-bet, enfrentar 3-bet, squeeze, iso y BB vs SB limp. Sin teoría nueva.',
       theory: [
         'No hay concepto nuevo. Aplica C-07 a C-12: primero identifica el spot (¿open? ¿3-bet? ¿limp? ¿open+call?), luego decide.',

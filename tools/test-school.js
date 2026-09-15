@@ -1902,4 +1902,67 @@ function assertHeroLineCoherence(spotId, heroPos, heroCards, board, lineStory) {
   assert.ok(/Escuela de Póker/.test(switchRoot.innerHTML), 'hub PF muestra Escuela de Póker');
 })();
 
+/* Remediación Escuela: integridad de progresión, umbrales, CTAs y copy de módulos. */
+(function assertSchoolRemediation() {
+  const cash = Data.lessonsForRoute('cash').slice().sort(function (a, b) { return a.order - b.order; });
+  const x01 = Data.getLesson('X-01');
+  const d04 = Data.getLesson('D-04');
+  const c21 = Data.getLesson('C-21');
+  assert.ok(x01 && d04 && c21, 'X-01/D-04/C-21 existen');
+  assert.ok(x01.order < c21.order, 'X-01 antes de C-21');
+  assert.ok(d04.order < c21.order, 'D-04 antes de C-21');
+  assert.ok(x01.order < d04.order, 'X-01 antes de D-04');
+
+  ['C-06', 'C-13', 'C-20'].forEach(function (id) {
+    assert.strictEqual(Data.getLesson(id).exam, true, id + ' exam flag');
+  });
+
+  function assertRelated(id) {
+    const rel = Data.getLesson(id).relatedLessons || [];
+    assert.ok(rel.length >= 1, id + ' relatedLessons');
+    rel.forEach(function (rl) {
+      const item = typeof rl === 'string' ? { id: rl } : rl;
+      assert.ok(item.id, id + ' related id');
+    });
+  }
+  ['C-02', 'C-06', 'C-20', 'S-09', 'T-09'].forEach(assertRelated);
+
+  const exploit = Data.getLesson('C-32') || Data.getLesson('C-33');
+  if (exploit && exploit.relatedLessons && exploit.relatedLessons.length) {
+    const html = School.renderLesson
+      ? (function () {
+          const root = { innerHTML: '', querySelector: function () { return null; }, querySelectorAll: function () { return []; } };
+          const prev = School._state && School._state.lessonId;
+          School._state.view = 'lesson';
+          School._state.lessonId = exploit.id;
+          if (typeof School.render === 'function') School.render(root);
+          return root.innerHTML;
+        })()
+      : '';
+    if (html) {
+      assert.ok(html.indexOf('undefined') < 0 || html.indexOf('data-school-goto-lesson="undefined"') < 0,
+        'relatedLessons string no rompe CTA');
+    }
+  }
+
+  Data.getLessons().filter(function (l) {
+    return (l.route === 'spin' || l.route === 'mtt') && l.spots && l.spots.length;
+  }).forEach(function (l) {
+    assert.ok(l.passThreshold < 0.999, l.id + ' passThreshold < 1');
+    if (l.exam) {
+      assert.ok(l.passThreshold >= 0.84 && l.passThreshold <= 0.86, l.id + ' exam ~0.85');
+    } else {
+      assert.ok(Math.abs(l.passThreshold - 0.7) < 0.001, l.id + ' non-exam 0.7');
+    }
+  });
+
+  assert.ok(/M3 · Postflop avanzado/.test(schoolSrc), 'MODULE_COPY Cash M3');
+  assert.ok(/M4 · Heads-up Spin/.test(schoolSrc), 'MODULE_COPY Spin M4');
+  assert.ok(/M5 · Final table Pro/.test(schoolSrc), 'MODULE_COPY MTT M5');
+  assert.ok(/role="tab"/.test(schoolSrc) && /aria-selected=/.test(schoolSrc), 'route tabs a11y');
+  assert.ok(/Inicia sesión para acceder/.test(schoolSrc), 'auth gate copy');
+  assert.ok(/proScoring = lesson\.plan === 'coach'/.test(schoolSrc), 'coach scoring activo');
+  assert.ok(/var gate = canPlayLesson\(lessonId\)/.test(schoolSrc), 'openLesson gated');
+})();
+
 console.log('*** school G–J OK (M0 ' + spotCount + ' spots + Spins/MTT/Rangos/Pro + leaks→lección, abierta a usuarios) ***');

@@ -525,7 +525,7 @@
       ],
       examples: [{ title: 'AA en board Axx', body: 'Queda 1 combo de AA.' }],
       aiQuestions: ['¿Combos de AK?', '¿Blockers en monotone?', '¿Paired board?'], spots: [] },
-    { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 21, plan: 'study',
+    { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 20.95, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0, exam: true, timedSeconds: 75,
       concept: 'Examen cronometrado: 75 s por spot. Entrena decisión rápida como en mesa real.',
       theory: [
@@ -565,7 +565,7 @@
       ],
       examples: [{ title: 'AKQ monotone', body: 'Opener nut flush adv.' }],
       aiQuestions: ['Nut vs range adv?', '987 nut adv?', 'AA7 paired?'], spots: [] },
-    { id: 'D-04', title: 'SPR · ¿Estás committed?', route: 'cash', module: 'M2', order: 21.1, plan: 'study',
+    { id: 'D-04', title: 'SPR · ¿Estás committed?', route: 'cash', module: 'M2', order: 20.97, plan: 'study',
       xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
       concept: 'SPR (stack-to-pot ratio) = stack efectivo / bote. Bajo SPR → committed con top pair+; alto → pot control.',
       theory: [

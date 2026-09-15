@@ -1,10 +1,10 @@
 /*
  * school-data-m2.js — Cash M2 Postflop core (Study). C-14…C-20.
- * Se registra sobre PTSchoolData (Fase F). Menú sigue admin-only.
+ * Se registra sobre PTSchoolData. Escuela pública con auth (SCHOOL_PUBLIC=true).
  *
  * Estilo (C-09+ / M2 y futuras): términos de póker con ancla en español
- * la 1ª vez en la lección. Voz de profesor, no telegrama. Call = «hacer call».
- * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
+ * la 1ª vez en la lección. Frases de profesor, no telegramas de chart.
+ * Call = «hacer call». Limp = «limpear». Ver RoadMap §4.5.
  */
 (function (global) {
   'use strict';
@@ -291,7 +291,7 @@
       id: 'C-20',
       title: 'Examen M2 · Postflop',
       route: 'cash', module: 'M2', order: 20, plan: 'study',
-      xp: 170, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      xp: 170, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, exam: true, hands: 8,
       concept: 'Repaso M2: textura, c-bet IP/OOP, defensa vs c-bet, barrels y river. Sin teoría nueva.',
       theory: [
         'Clasifica el board, tu posición y tu plan. Seco + IP → c-bet pequeño frecuente. Wet + OOP → más checks.',
@@ -301,6 +301,10 @@
         title: 'Checklist de tres preguntas',
         body: '1) ¿Board seco o wet? 2) ¿Estoy IP u OOP? 3) ¿Mi plan es value, farol o ceder? Si respondes las tres, la acción suele aparecer sola.'
       }],
+      relatedLessons: [
+        { id: 'R-02', label: 'Ir a R-02 · Construir RFI BTN' },
+        { id: 'R-04', label: 'Ir a R-04 · Blockers' }
+      ],
       aiQuestions: [
         '¿Cuál es mi fuga postflop principal?',
         'Resume c-bet IP en seco en una frase de profesor.'
