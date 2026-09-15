@@ -2045,6 +2045,21 @@
       prof = Object.assign({}, prof, { postflop: pf });
     }
     prof = Object.assign({}, prof, { aiLevel: aiLevel });
+    var VP2 = global.GTOVillainProfiles;
+    if (VP2 && typeof VP2.applyHuAdjust === 'function') {
+      var cfg = (hand && hand.tournamentConfig) || {};
+      var st = (hand && hand.state) || {};
+      prof = VP2.applyHuAdjust(prof, {
+        kind: (hand && hand.kind) || cfg.kind || null,
+        tournamentKind: cfg.kind || null,
+        mttPhase: (hand && hand.mttPhase) || st.mttPhase || null,
+        mttStructureSituation: st.mttStructureSituation || null,
+        formatHub: (hand && hand.formatHub) || st.formatHub || null,
+        playersLeft: st.playersLeft != null ? st.playersLeft : null,
+        placesPaid: st.placesPaid != null ? st.placesPaid : (cfg.placesPaid != null ? cfg.placesPaid : null),
+        playersSeated: (hand && hand.seats && hand.seats.length) || null
+      });
+    }
     return prof;
   }
 
