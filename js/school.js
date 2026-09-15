@@ -693,7 +693,7 @@
    */
   function canPlayLesson(lessonId) {
     if (!schoolMenuVisible()) {
-      return { ok: false, reason: 'admin_only', message: 'La Escuela aún tiene acceso limitado.' };
+      return { ok: false, reason: 'auth', message: 'Inicia sesión para acceder a la Escuela.' };
     }
     var lesson = Data() && Data().getLesson(lessonId);
     if (!lesson) return { ok: false, reason: 'missing', message: 'Lección no encontrada.' };
@@ -830,9 +830,10 @@
     var goldTh = lesson.goldThreshold != null ? lesson.goldThreshold : 0.9;
     var total = 0;
     var weight = 0;
+    var proScoring = lesson.plan === 'coach';
     (spotResults || []).forEach(function (r) {
       weight += 1;
-      total += scorePoints(r.class, false);
+      total += scorePoints(r.class, proScoring);
     });
     var score = weight ? total / weight : 1;
     var pct = Math.round(score * 1000) / 10;
@@ -1783,20 +1784,23 @@
       M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
       M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
       M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, F/C/R, pot odds y defensa.' },
+      M3: { title: 'M3 · Postflop avanzado (Study)', lead: 'Range advantage, check-raise, multiway y river.' },
       M4: { title: 'M4 · Pro Cash (Coach)', lead: '4-bet, SRP OOP, explotación y examen Pro.' }
     },
     spin: {
       M0: { title: 'M0 · Intro Spins (Gratis)', lead: 'Lobbies, steal, defensa y examen.' },
       M1: { title: 'M1 · Short stack (Study)', lead: 'Iso, shove y charts.' },
-      M2: { title: 'M2 · ICM / HU (Study–Coach)', lead: 'Payout, pressure y heads-up.' },
-      M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' }
+      M2: { title: 'M2 · ICM / HU (Study→Coach)', lead: 'S-09–S-10 Study; desde S-11 (malos spots ICM) requiere Coach.' },
+      M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' },
+      M4: { title: 'M4 · Heads-up Spin (Coach)', lead: 'Chip-EV HU, guerra de ciegas y examen final.' }
     },
     mtt: {
       M0: { title: 'M0 · Early MTT (Gratis)', lead: 'Fases, paciencia y examen early.' },
       M1: { title: 'M1 · Mid / steal', lead: 'Steal, 3-bet y resteal.' },
       M2: { title: 'M2 · Short stack', lead: 'Push/fold antes de la burbuja.' },
       M3: { title: 'M3 · Antes de burbuja', lead: 'Ajuste de stack y presión.' },
-      M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' }
+      M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' },
+      M5: { title: 'M5 · Final table Pro (Coach)', lead: 'Roles FT, ICM extremo y examen Pro.' }
     },
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
@@ -1844,7 +1848,8 @@
       var active = r.id === routeId ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
       var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
-      return '<button type="button" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
+      return '<button type="button" role="tab" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
+        ' aria-selected="' + (r.id === routeId ? 'true' : 'false') + '"' +
         (r.status !== 'active' ? ' disabled title="' + esc(title) + '"' : '') + '>' +
         esc(r.label) + (r.status === 'soon' ? ' <span class="school-soon">Pronto</span>' : '') +
         '</button>';
@@ -1868,8 +1873,8 @@
             (p.perfect ? '★★★' : (p.gold ? '★★☆' : '★☆☆')) + '</span>';
         }
         var lock = '';
-        if (st === 'locked') lock = '<span class="school-node-lock" aria-hidden="true">Bloqueada</span>';
-        if (st === 'plan') lock = '<span class="school-node-lock school-node-plan" aria-hidden="true">' +
+        if (st === 'locked') lock = '<span class="school-node-lock">Bloqueada</span>';
+        if (st === 'plan') lock = '<span class="school-node-lock school-node-plan">' +
           planLabelFor(l.plan) + '</span>';
         return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
           (st === 'locked' ? ' disabled title="Completa la lección anterior."' : '') + '>' +
@@ -2008,8 +2013,11 @@
       related = '<section class="card-box school-section school-related">' +
         '<h3>Relacionado</h3><div class="school-related-links">' +
         lesson.relatedLessons.map(function (rl) {
+          var item = typeof rl === 'string' ? { id: rl, label: rl } : (rl || {});
+          var rid = item.id || '';
+          var label = item.label || rid;
           return '<button type="button" class="btn btn-ghost school-related-btn" data-school-goto-lesson="' +
-            esc(rl.id) + '">' + esc(rl.label || rl.id) + '</button>';
+            esc(rid) + '">' + esc(label) + '</button>';
         }).join('') +
         '</div></section>';
     }
@@ -2051,7 +2059,7 @@
       '<section class="card-box school-section">' +
       '<h3>Concepto</h3><ul class="school-theory">' + theory + '</ul></section>' +
       externalLinksHtml +
-      '<section class="card-box school-section"><h3>Ejemplos</h3>' + examples + '</section>' +
+      (examples ? '<section class="card-box school-section"><h3>Ejemplos</h3>' + examples + '</section>' : '') +
       previewHost +
       related +
       '<section class="card-box school-section">' +
@@ -2267,12 +2275,15 @@
     }
   }
 
-  /** Deep-link desde Leaks / reportes → lección (solo si el menú Escuela es visible). */
+  /** Deep-link desde Leaks / reportes → lección (mismas gates que el hub: plan + lineal). */
   function openLesson(lessonId) {
     if (!schoolMenuVisible() || !lessonId) return false;
-    var data = Data();
-    var lesson = data && data.getLesson(lessonId);
-    if (!lesson) return false;
+    var gate = canPlayLesson(lessonId);
+    if (!gate.ok) {
+      if (gate.upgrade) openUpgrade(gate.reason);
+      return false;
+    }
+    var lesson = gate.lesson;
     try { delete global.__ptPendingSchoolLesson; } catch (e) { /* ignore */ }
     state.route = lesson.route || 'cash';
     state.view = VIEW.lesson;
@@ -2290,8 +2301,12 @@
     var pending = global.__ptPendingSchoolLesson;
     if (!pending) return;
     try { delete global.__ptPendingSchoolLesson; } catch (e) { /* ignore */ }
-    var lesson = Data() && Data().getLesson(pending);
-    if (!lesson) return;
+    var gate = canPlayLesson(pending);
+    if (!gate.ok) {
+      if (gate.upgrade) openUpgrade(gate.reason);
+      return;
+    }
+    var lesson = gate.lesson;
     state.route = lesson.route || 'cash';
     state.view = VIEW.lesson;
     state.lessonId = lesson.id;
@@ -2335,7 +2350,7 @@
     if (!root) return;
     if (!schoolMenuVisible()) {
       root.innerHTML = '<div class="school-page school-gated">' +
-        '<p class="muted-text">La Escuela aún tiene acceso limitado.</p>' +
+        '<p class="muted-text">Inicia sesión para acceder a la Escuela de Póker.</p>' +
         '<p class="muted-text">Mientras tanto puedes entrenar spots o seguir la Guía básica.</p>' +
         '<div class="empty-state-actions">' +
         '<button type="button" class="btn btn-primary btn-sm" data-school-go="play">Entrenar</button> ' +

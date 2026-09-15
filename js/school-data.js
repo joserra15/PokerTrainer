@@ -597,7 +597,7 @@
       xp: 150,
       passThreshold: 0.7,
       goldThreshold: 0.9,
-      decisionEnd: true,
+      decisionEnd: true, exam: true,
       hands: 16,
       concept: 'Repaso del módulo: posición, RFI, fold equity, sizing mental y la SB, con trampas mezcladas. Sin teoría nueva.',
       theory: [
@@ -610,6 +610,10 @@
           title: 'Antes de pulsar',
           body: '1) Identifica la posición. 2) Pregúntate si ese combo se abre ahí. 3) Si no, fold. Si sí, open con tamaño normal. En SB, recuerda que no eres el botón.'
         }
+      ],
+      relatedLessons: [
+        { id: 'R-01', label: 'Ir a R-01 · Leer la matriz' },
+        { id: 'R-02', label: 'Ir a R-02 · Construir RFI BTN' }
       ],
       aiQuestions: [
         '¿Cuáles son mis fugas más típicas al abrir el bote?',

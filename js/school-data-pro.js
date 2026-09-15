@@ -1,6 +1,6 @@
 /*
  * school-data-pro.js — Fase I: Pro Cash C-26…C-31 (Coach)
- * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ * Escuela pública con auth (SCHOOL_PUBLIC=true).
  */
 (function (global) {
   'use strict';

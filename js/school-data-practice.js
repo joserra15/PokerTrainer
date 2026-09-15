@@ -169,10 +169,10 @@
     V('s13-04', 'BB_vs_BTN', ['Td', '6s'], 72304, 'T6o vs shove: fold. Olor a −EV $.', vsPush, 'fancy_play'),
     R('s13-05', 'SB', ['Kh', 'Js'], 72305, 'KJo SB corto: shove. Push/fold limpio.', pf10),
     V('s13-06', 'BB_vs_SB', ['Qh', '9c'], 72306, 'Q9o vs shove: fold. Overfold vs shove en examen ICM.', vsPush, 'fancy_play'),
-    R('s13-07', 'BTN', ['7s', '7c'], 72307, '77 ~10 bb: shove value.', pf10),
-    V('s13-08', 'BB_vs_BTN', ['8d', '6c'], 72308, '86o vs shove: fold.', vsPush, 'dominated'),
+    R('s13-07', 'BTN', ['7s', '7c'], 72307, '77 ~10 bb: shove value. Zona push/fold: all-in, no open min.', pf10),
+    V('s13-08', 'BB_vs_BTN', ['8d', '6c'], 72308, '86o vs shove: fold. Mano débil o dominada; fold limpio.', vsPush, 'dominated'),
     R('s13-09', 'BTN', ['Ts', 'Tc'], 72309, 'TT 12 bb: shove. No open min en examen.', pf12),
-    V('s13-10', 'BB_vs_BTN', ['Kd', 'Kh'], 72310, 'KK vs shove: call.', vsPush),
+    V('s13-10', 'BB_vs_BTN', ['Kd', 'Kh'], 72310, 'KK vs shove: call. Equity y precio justifican el call.', vsPush),
     R('s13-11', 'SB', ['Jd', '7h'], 72311, 'J7o SB corto: fold. No panic shove.', pf10, 'fancy_play'),
     V('s13-12', 'BB_vs_SB', ['As', 'Ah'], 72312, 'AA vs shove: call. Checklist cerrado.', vsPush)
   ];
@@ -185,9 +185,9 @@
     R('s14-05', 'SB', ['Kh', 'Js'], 72405, 'KJo SB corto: shove. Presión de pay jump no paraliza broadway usable.', pf10),
     V('s14-06', 'BB_vs_BTN', ['8h', '5d'], 72406, '85o vs shove: fold. Flip mediocre + jump = mala compra.', vsPush, 'fancy_play'),
     R('s14-07', 'BTN', ['Td', 'Tc'], 72407, 'TT: shove value. Par vs rango — no es flip de basura.', pf10),
-    V('s14-08', 'BB_vs_SB', ['Qd', '8c'], 72408, 'Q8o: fold.', vsPush, 'dominated'),
+    V('s14-08', 'BB_vs_SB', ['Qd', '8c'], 72408, 'Q8o: fold. Mano débil o dominada; fold limpio.', vsPush, 'dominated'),
     R('s14-09', 'BTN', ['Ah', 'Jh'], 72409, 'AJs: shove. Bubble mental ≠ never shove premiums.', pf12),
-    V('s14-10', 'BB_vs_BTN', ['Ks', 'Qs'], 72410, 'KQs: call vs shove.', vsPush),
+    V('s14-10', 'BB_vs_BTN', ['Ks', 'Qs'], 72410, 'KQs: call vs shove. Equity y precio justifican el call.', vsPush),
     R('s14-11', 'SB', ['Qh', '6s'], 72411, 'Q6o SB: fold. No compres el 2.º con panic shove.', pf10, 'fancy_play'),
     V('s14-12', 'BB_vs_BTN', ['Qs', 'Qd'], 72412, 'QQ: call. El bubble factor no tira ases.', vsPush)
   ];
@@ -213,7 +213,7 @@
     V('s16-03', 'BB_vs_BTN', ['Ad', 'Kd'], 72603, 'Vs maniac que abre/shovea wide: AKs call/3-bet value. Value más limpio, menos farol.', vs20),
     V('s16-04', 'BB_vs_BTN', ['Th', '7c'], 72604, 'Vs maniac con T7o: fold. Él paga y shovea wide — no farolees ni hero-calles basura.', vs20, 'fancy_play'),
     R('s16-05', 'SB', ['Ah', '4h'], 72605, 'Vs nit SB A4s: steal razonable. El nit tira ciegas; Ax suited castiga.', st20),
-    V('s16-06', 'BB_vs_BTN', ['Qd', '7c'], 72606, 'Q7o vs cualquier perfil: fold.', vs20, 'dominated'),
+    V('s16-06', 'BB_vs_BTN', ['Qd', '7c'], 72606, 'Q7o vs cualquier perfil: fold. Mano débil o dominada; fold limpio.', vs20, 'dominated'),
     R('s16-07', 'BTN', ['7h', '7d'], 72607, '77 vs nit: shove/open fuerte. Value — el nit foldea de más.', st20),
     V('s16-08', 'BB_vs_BTN', ['Td', 'Th'], 72608, 'TT vs maniac: 3-bet shove value. Cobra al que juega demasiadas manos.', vs20),
     R('s16-09', 'BTN', ['Jh', '9h'], 72609, 'J9s vs nit: steal OK. Vs maniac serías más cauto; aquí el nit tira.', st20),
@@ -230,10 +230,10 @@
     R('s17-05', 'BTN', ['As', 'Ts'], 72705, 'ATs 12 bb: shove. Push/fold limpio.', pf12),
     bb('s17-06', ['Ah', 'Js'], 72706, { teachBack: 'AJo BB vs limp SB: iso. En 3-max aíslas con fuertes, no check eterno.', playConfig: spin({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
     R('s17-07', 'SB', ['Jh', '8d'], 72707, 'J8o SB corto: fold. No panic.', pf10, 'fancy_play'),
-    V('s17-08', 'BB_vs_BTN', ['Jh', 'Jd'], 72708, 'JJ vs steal: 3-bet shove value.', vs20),
+    V('s17-08', 'BB_vs_BTN', ['Jh', 'Jd'], 72708, 'JJ vs steal: 3-bet shove value. 3-bet de valor o presión según el spot.', vs20),
     R('s17-09', 'BTN', ['5c', '4c'], 72709, '54s BTN 20 bb: open steal ~2,5 bb. Mano media del rango.', st20),
-    V('s17-10', 'BB_vs_BTN', ['Kc', '6h'], 72710, 'K6o vs steal: fold.', vs20, 'dominated'),
-    R('s17-11', 'BTN', ['Ts', 'Th'], 72711, 'TT ~10 bb: shove.', pf10),
+    V('s17-10', 'BB_vs_BTN', ['Kc', '6h'], 72710, 'K6o vs steal: fold. Mano débil o dominada; fold limpio.', vs20, 'dominated'),
+    R('s17-11', 'BTN', ['Ts', 'Th'], 72711, 'TT ~10 bb: shove. Zona push/fold: all-in, no open min.', pf10),
     V('s17-12', 'BB_vs_BTN', ['Ts', 'Tc'], 72712, 'TT vs shove/steal: call o 3-bet. Certificación: premium se cobra.', vsPush)
   ];
 
@@ -270,9 +270,9 @@
     V('t10-02', 'BB_vs_BTN', ['9h', '7d'], 74002, '97o vs shove: fold. Ni chip EV. “Ver” no es argumento.', vsPushM, 'dominated'),
     V('t10-03', 'BB_vs_SB', ['As', 'Kd'], 74003, 'AKo vs shove: call. Par fuerte — chip EV claro.', vsPushM),
     V('t10-04', 'BB_vs_BTN', ['Td', '6s'], 74004, 'T6o vs shove: fold. Equity insuficiente vs el rango.', vsPushM, 'fancy_play'),
-    V('t10-05', 'BB_vs_BTN', ['Jh', 'Jd'], 74005, 'JJ: call. Chip EV máximo.', vsPushM),
+    V('t10-05', 'BB_vs_BTN', ['Jh', 'Jd'], 74005, 'JJ: call. Chip EV máximo. Equity y precio justifican el call.', vsPushM),
     V('t10-06', 'BB_vs_SB', ['Jd', '8c'], 74006, 'J8o: fold. Dominada.', vsPushM, 'dominated'),
-    V('t10-07', 'BB_vs_BTN', ['Qs', 'Qd'], 74007, 'QQ: call.', vsPushM),
+    V('t10-07', 'BB_vs_BTN', ['Qs', 'Qd'], 74007, 'QQ: call. Equity y precio justifican el call.', vsPushM),
     V('t10-08', 'BB_vs_BTN', ['Qh', '9c'], 74008, 'Q9o vs shove BTN: fold frecuente. Zona gris hacia fold — no “quiero ver”.', vsPushM, 'fancy_play'),
     V('t10-09', 'BB_vs_SB', ['As', 'Js'], 74009, 'AJs vs shove SB: call sólido. Ax fuerte vs rango.', vsPushM),
     V('t10-10', 'BB_vs_BTN', ['8h', '7d'], 74010, '87o: fold. Precio vs all-in no está.', vsPushM, 'dominated'),
@@ -285,12 +285,12 @@
     V('t11-02', 'BB_vs_BTN', ['8h', '5d'], 74102, '85o: fold. $EV pide más tightness que chip EV — este ya era fold en fichas.', vsPushM, 'fancy_play'),
     V('t11-03', 'BB_vs_SB', ['Td', 'Th'], 74103, 'TT: call. ICM no tira damas.', vsPushM),
     V('t11-04', 'BB_vs_BTN', ['Qh', '9c'], 74104, 'Q9o vs shove: fold. Overfold vs chip EV: correcto cerca de premios.', vsPushM, 'fancy_play'),
-    V('t11-05', 'BB_vs_BTN', ['Ah', 'Ah'], 74105, 'AA: call.', vsPushM),
-    V('t11-06', 'BB_vs_SB', ['Qh', '9d'], 74106, 'Q9o: fold.', vsPushM, 'dominated'),
-    V('t11-07', 'BB_vs_BTN', ['Jh', 'Jc'], 74107, 'JJ: call.', vsPushM),
+    V('t11-05', 'BB_vs_BTN', ['Ah', 'Ah'], 74105, 'AA: call. Equity y precio justifican el call.', vsPushM),
+    V('t11-06', 'BB_vs_SB', ['Qh', '9d'], 74106, 'Q9o: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
+    V('t11-07', 'BB_vs_BTN', ['Jh', 'Jc'], 74107, 'JJ: call. Equity y precio justifican el call.', vsPushM),
     V('t11-08', 'BB_vs_BTN', ['Jh', '9d'], 74108, 'J9o: fold. $EV castiga el flip mediocre.', vsPushM, 'fancy_play'),
     V('t11-09', 'BB_vs_SB', ['As', 'Js'], 74109, 'AJs: call/continue. Ax fuerte — no panic fold ICM.', vsPushM),
-    V('t11-10', 'BB_vs_BTN', ['8h', '6c'], 74110, '86o: fold.', vsPushM, 'dominated'),
+    V('t11-10', 'BB_vs_BTN', ['8h', '6c'], 74110, '86o: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
     V('t11-11', 'BB_vs_BTN', ['9s', '9c'], 74111, '99 vs shove BTN: call frecuente. Par vs wide — $EV suele aguantar.', vsPushM),
     V('t11-12', 'BB_vs_CO', ['Kc', 'Td'], 74112, 'KTo vs shove CO: fold frecuente. ICM más tight que vs BTN.', vsPushM, 'fancy_play')
   ];
@@ -298,15 +298,15 @@
   PACKS['T-12'] = [
     R('t12-01', 'BTN', ['Ts', '9s'], 74201, 'Examen short: T9s BTN ~12 bb shove. ¿20–12 o push? Aquí push/fold.', push12),
     R('t12-02', 'BTN', ['8d', '6c'], 74202, '86o: fold. No open min a 9 bb.', push12, 'dominated'),
-    V('t12-03', 'BB_vs_BTN', ['Jc', 'Js'], 74203, 'JJ vs shove: call chip EV (y suele $EV).', vsPushM),
+    V('t12-03', 'BB_vs_BTN', ['Jc', 'Js'], 74203, 'JJ vs shove: call chip EV (y suele $EV). Equity y precio justifican el call.', vsPushM),
     V('t12-04', 'BB_vs_BTN', ['Qc', '7h'], 74204, 'Q7o vs shove: fold. ICM + equity.', vsPushM, 'fancy_play'),
     R('t12-05', 'CO', ['8h', '8d'], 74205, '88 ~12 bb: shove value. Zona 20–12/push: par medio va all-in.', push12),
-    R('t12-06', 'SB', ['Qd', '7c'], 74206, 'Q7o SB corto: fold.', pushM, 'fancy_play'),
-    V('t12-07', 'BB_vs_BTN', ['Ah', 'Qd'], 74207, 'AQo: call vs shove.', vsPushM),
-    R('t12-08', 'BTN', ['As', 'Ts'], 74208, 'ATs corto: shove.', push12),
-    V('t12-09', 'BB_vs_BTN', ['Js', '9c'], 74209, 'J9o vs shove: fold.', vsPushM, 'dominated'),
-    R('t12-10', 'SB', ['Ks', 'Ts'], 74210, 'KTs SB: shove frecuente.', pushM),
-    V('t12-11', 'BB_vs_SB', ['Qs', 'Qd'], 74211, 'QQ: call.', vsPushM),
+    R('t12-06', 'SB', ['Qd', '7c'], 74206, 'Q7o SB corto: fold. Mano débil o dominada; fold limpio.', pushM, 'fancy_play'),
+    V('t12-07', 'BB_vs_BTN', ['Ah', 'Qd'], 74207, 'AQo: call vs shove. Equity y precio justifican el call.', vsPushM),
+    R('t12-08', 'BTN', ['As', 'Ts'], 74208, 'ATs corto: shove. Zona push/fold: all-in, no open min.', push12),
+    V('t12-09', 'BB_vs_BTN', ['Js', '9c'], 74209, 'J9o vs shove: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
+    R('t12-10', 'SB', ['Ks', 'Ts'], 74210, 'KTs SB: shove frecuente. Zona push/fold: all-in, no open min.', pushM),
+    V('t12-11', 'BB_vs_SB', ['Qs', 'Qd'], 74211, 'QQ: call. Equity y precio justifican el call.', vsPushM),
     R('t12-12', 'BTN', ['Jd', '8h'], 74212, 'J8o 12 bb: shove. Checklist: bb → shove/fold → ejecuta.', push12)
   ];
 
@@ -351,7 +351,7 @@
     R('t15-08', 'CO', ['Ah', 'Jh'], 74508, 'AJs CO mid: open. Value — supervivencia no es parálisis.', mid25),
     F3('t15-09', 'CO_vs_BB', ['Ah', 'Td'], 74509, 'ATo CO vs 3-bet cover: fold frecuente. OOP + eliminación.', f3mid, 'fancy_play'),
     R('t15-10', 'BTN', ['Jh', '9h'], 74510, 'J9s BTN mid: open razonable. Jugabilidad en late.', mid25),
-    R('t15-11', 'UTG', ['Ad', '8c'], 74511, 'A8o UTG: fold.', mid25, 'dominated'),
+    R('t15-11', 'UTG', ['Ad', '8c'], 74511, 'A8o UTG: fold. Mano débil o dominada; fold limpio.', mid25, 'dominated'),
     F3('t15-12', 'BTN_vs_BB', ['Ts', 'Tc'], 74512, 'TT vs 3-bet: 4-bet/call value. Mid también stackea premiums.', f3mid)
   ];
 
@@ -365,7 +365,7 @@
     R('t16-07', 'BTN', ['As', '3s'], 74607, 'A3s BTN: shove frecuente. Fold equity vs mids ICM-tight.', pushM),
     R('t16-08', 'CO', ['Jh', 'Td'], 74608, 'JTo CO corto: fold frecuente. No tan late como BTN.', push12, 'fancy_play'),
     R('t16-09', 'BTN', ['Ks', 'Qs'], 74609, 'KQs: shove. Ladder también es value shove.', push12),
-    R('t16-10', 'SB', ['Jh', '7s'], 74610, 'J7o SB: fold.', pushM, 'dominated'),
+    R('t16-10', 'SB', ['Jh', '7s'], 74610, 'J7o SB: fold. Mano débil o dominada; fold limpio.', pushM, 'dominated'),
     R('t16-11', 'BTN', ['5c', '4c'], 74611, '54s BTN corto: shove candidato. Conector + late.', push12),
     R('t16-12', 'UTG', ['Kd', '9h'], 74612, 'K9o UTG: fold. Espera un asiento mejor.', push12, 'dominated')
   ];
@@ -377,10 +377,10 @@
     V('t17-04', 'BB_vs_BTN', ['Qs', 'Qh'], 74704, 'QQ vs shove: call. Pay jump no tira AK.', vsPushM),
     R('t17-05', 'CO', ['Ad', '8d'], 74705, 'A8s CO: steal. Más agresión que burbuja extrema, no locura.', midSt),
     R('t17-06', 'CO', ['Jd', '8c'], 74706, 'J8o CO: fold. Post-bubble ≠ cualquier offsuit.', midSt, 'fancy_play'),
-    V('t17-07', 'BB_vs_BTN', ['As', 'Kd'], 74707, 'AKo: call vs shove.', vsPushM),
+    V('t17-07', 'BB_vs_BTN', ['As', 'Kd'], 74707, 'AKo: call vs shove. Equity y precio justifican el call.', vsPushM),
     R('t17-08', 'BTN', ['8d', '6d'], 74708, '86s BTN: steal. Jugabilidad post-ITM.', midSt),
-    V('t17-09', 'BB_vs_BTN', ['Kc', '8d'], 74709, 'K8o vs shove: fold.', vsPushM, 'dominated'),
-    R('t17-10', 'SB', ['Qd', 'Td'], 74710, 'QTs SB: open/steal frecuente.', midSt),
+    V('t17-09', 'BB_vs_BTN', ['Kc', '8d'], 74709, 'K8o vs shove: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
+    R('t17-10', 'SB', ['Qd', 'Td'], 74710, 'QTs SB: open/steal frecuente. Open estándar en esta posición y stack.', midSt),
     R('t17-11', 'BTN', ['As', 'Ts'], 74711, 'ATs corto: shove. ITM no apaga push/fold.', push12),
     V('t17-12', 'BB_vs_BTN', ['Kd', 'Kh'], 74712, 'KK: call. El min-cash no cambia nuts.', vsPushM)
   ];
@@ -390,13 +390,13 @@
     R('t18-02', 'CO', ['9s', '6c'], 74802, '¿Rol mid? 96o fold vs covers.', mid22, 'fancy_play'),
     R('t18-03', 'BTN', ['As', 'Ts'], 74803, '¿Rol short? ATs shove.', push12),
     V('t18-04', 'BB_vs_BTN', ['Td', '9c'], 74804, 'Cover T9o vs open: fold. No dobles fáciles.', vsBig, 'fancy_play'),
-    R('t18-05', 'BTN', ['9c', '2s'], 74805, '92o cualquier rol: fold.', big45, 'dominated'),
-    F3('t18-06', 'BTN_vs_BB', ['Jh', 'Jc'], 74806, 'Mid JJ vs 3-bet cover: fold frecuente.', f3mid, 'fancy_play'),
-    V('t18-07', 'BB_vs_BTN', ['Ad', 'Kd'], 74807, 'AKs cover: 3-bet value.', vsBig),
-    R('t18-08', 'UTG', ['Ac', '9c'], 74808, 'Mid UTG A9s: fold.', mid25, 'dominated'),
-    R('t18-09', 'SB', ['Kh', 'Jh'], 74809, 'Short SB KJs: shove.', pushM),
+    R('t18-05', 'BTN', ['9c', '2s'], 74805, '92o cualquier rol: fold. Mano débil o dominada; fold limpio.', big45, 'dominated'),
+    F3('t18-06', 'BTN_vs_BB', ['Jh', 'Jc'], 74806, 'Mid JJ vs 3-bet cover: fold frecuente. Mano débil o dominada; fold limpio.', f3mid, 'fancy_play'),
+    V('t18-07', 'BB_vs_BTN', ['Ad', 'Kd'], 74807, 'AKs cover: 3-bet value. 3-bet de valor o presión según el spot.', vsBig),
+    R('t18-08', 'UTG', ['Ac', '9c'], 74808, 'Mid UTG A9s: fold. Mano débil o dominada; fold limpio.', mid25, 'dominated'),
+    R('t18-09', 'SB', ['Kh', 'Jh'], 74809, 'Short SB KJs: shove. Zona push/fold: all-in, no open min.', pushM),
     R('t18-10', 'BTN', ['6s', '6c'], 74810, 'Mid 66 BTN: open. Supervivir ≠ parálisis.', mid25),
-    V('t18-11', 'BB_vs_BTN', ['Td', 'Th'], 74811, 'TT cover: 3-bet.', vsBig),
+    V('t18-11', 'BB_vs_BTN', ['Td', 'Th'], 74811, 'TT cover: 3-bet. 3-bet de valor o presión según el spot.', vsBig),
     R('t18-12', 'BTN', ['Td', '6h'], 74812, 'Short T6o: fold. Checklist: rol → job → acción.', push12, 'dominated')
   ];
 
@@ -408,9 +408,9 @@
     V('t19-05', 'BB_vs_BTN', ['Jc', 'Js'], 74905, 'JJ FT: 3-bet value. Premium sigue siendo bote grande.', vsBig),
     R('t19-06', 'BTN', ['Js', '4d'], 74906, 'J4o FT: fold. Cualquier rol.', big45, 'dominated'),
     F3('t19-07', 'BTN_vs_BB', ['9h', '9c'], 74907, 'Mid 99 vs 3-bet chip leader: fold frecuente. ICM FT.', f3mid, 'fancy_play'),
-    R('t19-08', 'BTN', ['8h', '8d'], 74908, 'Mid/FT 88 BTN: open si el spot es limpio.', mid25),
-    R('t19-09', 'SB', ['Kh', 'Jh'], 74909, 'Short FT KJs SB: shove.', pushM),
-    V('t19-10', 'BB_vs_BTN', ['Ah', 'Qd'], 74910, 'AQo FT: 3-bet value.', vsBig),
+    R('t19-08', 'BTN', ['8h', '8d'], 74908, 'Mid/FT 88 BTN: open si el spot es limpio. Open estándar en esta posición y stack.', mid25),
+    R('t19-09', 'SB', ['Kh', 'Jh'], 74909, 'Short FT KJs SB: shove. Zona push/fold: all-in, no open min.', pushM),
+    V('t19-10', 'BB_vs_BTN', ['Ah', 'Qd'], 74910, 'AQo FT: 3-bet value. 3-bet de valor o presión según el spot.', vsBig),
     R('t19-11', 'UTG', ['Ah', '2h'], 74911, 'A2s UTG FT: fold. Covers detrás.', mid25, 'dominated'),
     R('t19-12', 'BTN', ['Jh', 'Jd'], 74912, 'JJ BTN FT: open/presión. Mapa usable, no solver de FT.', big45)
   ];
@@ -419,12 +419,12 @@
     V('t20-01', 'BB_vs_BTN', ['9d', '7h'], 75001, '97o vs shove: fold. Verbaliza: “en fichas dudoso; en dinero me tiro”. Drill chip EV vs $EV.', vsPushM, 'fancy_play'),
     V('t20-02', 'BB_vs_BTN', ['Ts', 'Tc'], 75002, 'TT: call. Aquí coinciden chip EV y $EV — dilo en voz alta.', vsPushM),
     V('t20-03', 'BB_vs_BTN', ['Qh', '9c'], 75003, 'Q9o: fold. +EV chips dudoso / −EV $ típico de burbuja-FT.', vsPushM, 'fancy_play'),
-    V('t20-04', 'BB_vs_BTN', ['Ad', 'Kd'], 75004, 'AKs: call. Coinciden.', vsPushM),
+    V('t20-04', 'BB_vs_BTN', ['Ad', 'Kd'], 75004, 'AKs: call. Coinciden. Equity y precio justifican el call.', vsPushM),
     V('t20-05', 'BB_vs_SB', ['Jd', '8c'], 75005, 'J8o: fold. Ni fichas ni dinero.', vsPushM, 'dominated'),
     V('t20-06', 'BB_vs_BTN', ['Kd', 'Kh'], 75006, 'KK: call. Premium alinea ambos EV.', vsPushM),
     V('t20-07', 'BB_vs_BTN', ['Jh', '9d'], 75007, 'J9o: fold. “En fichas a veces pago; en dinero no.”', vsPushM, 'fancy_play'),
-    V('t20-08', 'BB_vs_BTN', ['As', 'Ah'], 75008, 'AA: call.', vsPushM),
-    V('t20-09', 'BB_vs_SB', ['Td', '8h'], 75009, 'T8o: fold.', vsPushM, 'dominated'),
+    V('t20-08', 'BB_vs_BTN', ['As', 'Ah'], 75008, 'AA: call. Equity y precio justifican el call.', vsPushM),
+    V('t20-09', 'BB_vs_SB', ['Td', '8h'], 75009, 'T8o: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
     V('t20-10', 'BB_vs_BTN', ['7s', '7c'], 75010, '77 vs shove BTN: call frecuente. Par vs wide — suelen coincidir.', vsPushM),
     V('t20-11', 'BB_vs_CO', ['Ks', '7d'], 75011, 'K7o vs shove CO: fold. $EV aprieta vs rangos menos wide.', vsPushM, 'fancy_play'),
     V('t20-12', 'BB_vs_SB', ['As', 'Js'], 75012, 'AJs: call. Ax fuerte — no idolatres solo el miedo ICM.', vsPushM)
@@ -447,16 +447,16 @@
 
   PACKS['T-22'] = [
     R('t22-01', 'BTN', ['Ah', 'Td'], 75201, 'Pro MTT: early ATo BTN open. Paso 1: fase y bb.', early),
-    R('t22-02', 'UTG', ['Qh', '9c'], 75202, 'Early Q9o UTG: fold.', early, 'dominated'),
+    R('t22-02', 'UTG', ['Qh', '9c'], 75202, 'Early Q9o UTG: fold. Mano débil o dominada; fold limpio.', early, 'dominated'),
     R('t22-03', 'BTN', ['Kd', 'Jd'], 75203, 'Mid steal KJs. Paso 2: rol y job.', midSt),
     R('t22-04', 'BTN', ['As', 'Ts'], 75204, 'Push ATs shove. Fase push.', push12),
-    V('t22-05', 'BB_vs_BTN', ['Jh', '7d'], 75205, 'J7o vs shove: fold $EV.', vsPushM, 'fancy_play'),
-    V('t22-06', 'BB_vs_BTN', ['Ks', 'Qs'], 75206, 'KQs vs shove: call.', vsPushM),
+    V('t22-05', 'BB_vs_BTN', ['Jh', '7d'], 75205, 'J7o vs shove: fold $EV. Mano débil o dominada; fold limpio.', vsPushM, 'fancy_play'),
+    V('t22-06', 'BB_vs_BTN', ['Ks', 'Qs'], 75206, 'KQs vs shove: call. Equity y precio justifican el call.', vsPushM),
     R('t22-07', 'BTN', ['Kh', 'Jd'], 75207, 'Bubble/FT big: KJo steal.', big45),
-    R('t22-08', 'CO', ['Qd', '7c'], 75208, 'Mid bubble Q7o: fold.', mid22, 'fancy_play'),
-    F3('t22-09', 'BTN_vs_BB', ['8s', '8c'], 75209, 'Mid 88 vs 3-bet cover: fold frecuente.', f3mid, 'fancy_play'),
-    V('t22-10', 'BB_vs_BTN', ['Qs', 'Qd'], 75210, 'QQ cover: 3-bet.', vsBig),
-    R('t22-11', 'BTN', ['8h', '5c'], 75211, '85o cualquier fase: fold.', push12, 'dominated'),
+    R('t22-08', 'CO', ['Qd', '7c'], 75208, 'Mid bubble Q7o: fold. Mano débil o dominada; fold limpio.', mid22, 'fancy_play'),
+    F3('t22-09', 'BTN_vs_BB', ['8s', '8c'], 75209, 'Mid 88 vs 3-bet cover: fold frecuente. Mano débil o dominada; fold limpio.', f3mid, 'fancy_play'),
+    V('t22-10', 'BB_vs_BTN', ['Qs', 'Qd'], 75210, 'QQ cover: 3-bet. 3-bet de valor o presión según el spot.', vsBig),
+    R('t22-11', 'BTN', ['8h', '5c'], 75211, '85o cualquier fase: fold. Mano débil o dominada; fold limpio.', push12, 'dominated'),
     R('t22-12', 'SB', ['Kh', 'Jh'], 75212, 'Short KJs SB shove. Certificación: fase → rol → acción.', pushM)
   ];
 
@@ -574,9 +574,9 @@
     mxInRange('r28-04', 78004, 'A5s', 'BTN', 'A5s entra en BTN.'),
     mxInRange('r28-05', 78005, '93o', 'BTN', '93o fuera.', 'dominated'),
     mxPaint('r28-06', 78006, 'pairs', 'Marca los pares del RFI BTN.', 'Pares casi todos.', 0, 0.8),
-    V('r28-07', 'BB_vs_BTN', ['Ah', '4h'], 78007, 'A4s vs BTN: 3-bet polar con blocker de as.', cash({ scenario: '3bet' })),
+    V('r28-07', 'BB_vs_BTN', ['Ah', '4h'], 78007, 'A4s vs BTN: 3-bet polar con blocker de as. 3-bet de valor o presión según el spot.', cash({ scenario: '3bet' })),
     V('r28-08', 'BB_vs_BTN', ['Kd', 'Tc'], 78008, 'KTo: fold. Mal blocker y dominada.', cash({ scenario: '3bet' }), 'fancy_play'),
-    V('r28-09', 'BB_vs_BTN', ['Qs', 'Qd'], 78009, 'QQ: 3-bet value.', cash({ scenario: '3bet' })),
+    V('r28-09', 'BB_vs_BTN', ['Qs', 'Qd'], 78009, 'QQ: 3-bet value. 3-bet de valor o presión según el spot.', cash({ scenario: '3bet' })),
     mxLocate('r28-10', 78010, 'T9s', 'Localiza T9s.', 'Suited encima de la diagonal.'),
     mxChoice('r28-11', 78011, 'Un 35 % en una celda significa…', [
       { id: 'mix', label: 'Frecuencia / mezcla' },
@@ -1058,7 +1058,7 @@
 
   PACKS['C-31'] = [
     F3('c31-01', 'BTN_vs_BB', ['Qs', 'Qd'], 77501, 'Examen Pro: QQ vs 3-bet — 4-bet value.', cash({ scenario: 'face3bet' })),
-    F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold.', cash({ scenario: 'face3bet' }), 'dominated'),
+    F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold. Mano débil o dominada; fold limpio.', cash({ scenario: 'face3bet' }), 'dominated'),
     Fl('c31-03', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 77503, 'SRP OOP wet: check. Pot control deep.', { trapTag: 'fancy_play' }),
     Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair. Exploit: value thin up.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
     V('c31-05', 'BB_vs_UTG', ['Ah', '9d'], 77505, 'Range quiz: A9o vs UTG fold.', cash({ scenario: '3bet' }), 'fancy_play'),

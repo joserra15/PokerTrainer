@@ -598,7 +598,7 @@
       xp: 150,
       passThreshold: 0.7,
       goldThreshold: 0.9,
-      decisionEnd: true,
+      decisionEnd: true, exam: true,
       hands: 16,
       concept: 'Repaso del módulo: posición, RFI, fold equity, sizing mental y la SB, con trampas mezcladas. Sin teoría nueva.',
       theory: [
@@ -611,6 +611,10 @@
           title: 'Antes de pulsar',
           body: '1) Identifica la posición. 2) Pregúntate si ese combo se abre ahí. 3) Si no, fold. Si sí, open con tamaño normal. En SB, recuerda que no eres el botón.'
         }
+      ],
+      relatedLessons: [
+        { id: 'R-01', label: 'Ir a R-01 · Leer la matriz' },
+        { id: 'R-02', label: 'Ir a R-02 · Construir RFI BTN' }
       ],
       aiQuestions: [
         '¿Cuáles son mis fugas más típicas al abrir el bote?',
@@ -1050,7 +1054,7 @@
       id: 'C-13',
       title: 'Examen M1 · Preflop',
       route: 'cash', module: 'M1', order: 13, plan: 'study',
-      xp: 160, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 10,
+      xp: 160, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, exam: true, hands: 10,
       concept: 'Repaso del módulo: defensa BB, 3-bet, enfrentar 3-bet, squeeze, iso y BB vs SB limp. Sin teoría nueva.',
       theory: [
         'No hay concepto nuevo. Aplica C-07 a C-12: primero identifica el spot (¿open? ¿3-bet? ¿limp? ¿open+call?), luego decide.',
@@ -1106,11 +1110,11 @@
 
 /*
  * school-data-m2.js — Cash M2 Postflop core (Study). C-14…C-20.
- * Se registra sobre PTSchoolData (Fase F). Menú sigue admin-only.
+ * Se registra sobre PTSchoolData. Escuela pública con auth (SCHOOL_PUBLIC=true).
  *
  * Estilo (C-09+ / M2 y futuras): términos de póker con ancla en español
- * la 1ª vez en la lección. Voz de profesor, no telegrama. Call = «hacer call».
- * Ver docs/ROADMAP_LECCIONES_DIRIGIDAS.md §4.5.
+ * la 1ª vez en la lección. Frases de profesor, no telegramas de chart.
+ * Call = «hacer call». Limp = «limpear». Ver RoadMap §4.5.
  */
 (function (global) {
   'use strict';
@@ -1397,7 +1401,7 @@
       id: 'C-20',
       title: 'Examen M2 · Postflop',
       route: 'cash', module: 'M2', order: 20, plan: 'study',
-      xp: 170, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 8,
+      xp: 170, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, exam: true, hands: 8,
       concept: 'Repaso M2: textura, c-bet IP/OOP, defensa vs c-bet, barrels y river. Sin teoría nueva.',
       theory: [
         'Clasifica el board, tu posición y tu plan. Seco + IP → c-bet pequeño frecuente. Wet + OOP → más checks.',
@@ -1407,6 +1411,10 @@
         title: 'Checklist de tres preguntas',
         body: '1) ¿Board seco o wet? 2) ¿Estoy IP u OOP? 3) ¿Mi plan es value, farol o ceder? Si respondes las tres, la acción suele aparecer sola.'
       }],
+      relatedLessons: [
+        { id: 'R-02', label: 'Ir a R-02 · Construir RFI BTN' },
+        { id: 'R-04', label: 'Ir a R-04 · Blockers' }
+      ],
       aiQuestions: [
         '¿Cuál es mi fuga postflop principal?',
         'Resume c-bet IP en seco en una frase de profesor.'
@@ -1704,7 +1712,7 @@
 
 /*
  * school-data-spin.js — Fase G: Spins S-00…S-21
- * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ * Escuela pública con auth (SCHOOL_PUBLIC=true).
  */
 (function (global) {
   'use strict';
@@ -1911,8 +1919,8 @@
       "order": 0,
       "plan": "free",
       "xp": 40,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Pagas una entrada (buy-in) en dinero real y la sala te reparte fichas de torneo: en mesa nunca juegas «euros», solo fichas. Un Spin & Go es un torneo de tres jugadores (3-max); el premio total se sortea al inicio (2×, 3× o 5× las entradas). Por eso no es cash: sobrevivir y quedar bien posicionado vale más que acumular fichas sin plan.",
@@ -2025,8 +2033,8 @@
       "order": 3,
       "plan": "free",
       "xp": 120,
-      "passThreshold": 0.7,
-      "goldThreshold": 0.9,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 6,
       "concept": "Repaso M0 sin vocabulario nuevo: anatomía del Spin (fichas ≠ euros), steal desde BTN/SB a ~20 bb y defensa desde BB. Aplica el checklist con calma antes de cada clic.",
@@ -2185,8 +2193,8 @@
       "order": 6,
       "plan": "study",
       "xp": 90,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Chip lead (más fichas que los rivales): puedes presionar ciegas y opens flojos, pero no pagues shoves light solo porque «tengo más fichas». Recuerda fichas ≠ euros (ICM).",
@@ -2237,8 +2245,8 @@
       "order": 7,
       "plan": "study",
       "xp": 90,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Short stack (pocas bb): necesitas fichas para llegar al payout, pero no cualquier all-in. Elige double-up (doblar) claros con fold equity o equity decente; evita panic shove.",
@@ -2289,8 +2297,8 @@
       "order": 8,
       "plan": "study",
       "xp": 130,
-      "passThreshold": 0.7,
-      "goldThreshold": 0.9,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 4,
       "concept": "Repaso M1: iso vs limp, 3-bet shove, chip lead y short vs cover. Examen = mezcla de esos spots sin teoría nueva. Más decisiones binarias (shove/fold) que en M0.",
@@ -2384,6 +2392,9 @@
       ],
       "spots": "SPIN_PUSH",
       "exam": false,
+            "relatedLessons": [
+        { "id": "R-02", "label": "Ir a R-02 · Charts RFI" }
+      ],
       "id": "S-09",
       "title": "Push/fold 12–8 bb"
     },
@@ -2393,8 +2404,8 @@
       "order": 10,
       "plan": "study",
       "xp": 130,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Cuando te shovean, el call correcto suele ser más tight que el «chip EV» (valor solo en fichas): el ICM castiga arriesgar tu torneo por un flip. Overfold vs shove suele ser correcto en Spins.",
@@ -2445,8 +2456,8 @@
       "order": 11,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "A veces un call gana fichas en promedio (+EV chips) pero pierde dinero de torneo (−EV $). Aprende a oler esos spots antes de pagar: el pay jump decide.",
@@ -2497,8 +2508,8 @@
       "order": 12,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Payout 5× (premio total cinco veces las entradas) aprieta más que 2×/3×: juegas más tight — el 1.º pesa mucho y perder el 2.º duele más. Misma mano, distinto multiplicador.",
@@ -2549,8 +2560,8 @@
       "order": 13,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Examen ICM Spins: push/fold, call shove, spots +EV chips vs −EV $ y ajuste por payout 2×/3×/5×. Sin teoría nueva — solo aplicar el checklist de M2.",
@@ -2601,8 +2612,8 @@
       "order": 14,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Bubble factor (presión de «burbuja»): mide cuánto duele arriesgar fichas cerca de un salto de pago. En Spin 3-max el heads-up (HU) ya es un pay jump decisivo — no flippees barato el 2.º.",
@@ -2653,8 +2664,8 @@
       "order": 15,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Range vs range: antes de shove o hacer call, piensa en bandas de manos (rangos), no solo «mi carta es bonita». Tu AK se mide contra el rango de shove rival, no contra «creo que tiene QQ».",
@@ -2705,8 +2716,8 @@
       "order": 16,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Explotación: vs nit (foldea mucho) stealeas más; vs maniac (juega muchas manos agresivo) defiendes tighter y value-shoveas más limpio. Ajusta al rival real, no solo al chart ciego.",
@@ -2757,8 +2768,8 @@
       "order": 17,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Certificación Spin Pro: integra anatomía (fichas ≠ €), steal/defensa, iso, push/fold, ICM, payout y explotación. Sin vocabulario nuevo — plan completo en una mesa corta.",
@@ -2810,8 +2821,8 @@
       "order": 18,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Heads Up en Spin: a 2 jugadores el premio es winner-take-all. Deja el ICM 3-max; decide en chip-EV. Activa la fase Heads Up en el entrenador para rivales calibrados a meta HU.",
@@ -2854,8 +2865,8 @@
       "order": 19,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Guerra de ciegas HU: el SB abre mucho más wide; el BB defiende y 3-betea más que en 3-max. Presión constante, no juego de espera.",
@@ -2898,8 +2909,8 @@
       "order": 20,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "HU corto: shove/call charts chip-EV y c-bets simples. Sin overfold ICM; sin panic shove basura.",
@@ -2942,8 +2953,8 @@
       "order": 21,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Examen Heads Up Spin: chip-EV, guerra de ciegas y push/fold. Certifica que ya no aplicas ICM 3-max en la mesa final a 2.",
@@ -2972,6 +2983,7 @@
       "title": "Examen Heads Up Spin"
 
     }
+  
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
   D.registerLessons(lessons);
@@ -2979,7 +2991,7 @@
 
 /*
  * school-data-mtt.js — Fase H: MTT T-00…T-26
- * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ * Escuela pública con auth (SCHOOL_PUBLIC=true).
  */
 (function (global) {
   'use strict';
@@ -3166,7 +3178,7 @@
       vs('thu-06', 'BB_vs_SB', ['3h', '2c'], 52306, { trapTag: 'fancy_play', teachBack: '32o BB HU: fold. Wide no es cualquier dos cartas.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
     ,
       rfi('thu-01b', 'SB', ['Kd', 'Js'], 52307, { teachBack: 'KJo SB HU MTT: open chip-EV.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
-      rfi('thu-01c', 'SB', ['Ts', '9s'], 52308, { teachBack: 'T9s SB HU: open.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
+      rfi('thu-01c', 'SB', ['Ts', '9s'], 52308, { teachBack: 'T9s SB HU: open. Conectores suited ganan valor en heads-up.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
       vs('thu-01d', 'BB_vs_SB', ['Ah', '9c'], 52309, { teachBack: 'A9o BB HU: defensa frecuente.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
       vs('thu-01e', 'BB_vs_SB', ['Qd', 'Qh'], 52310, { teachBack: 'QQ BB HU: 3bet value.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
     ];
@@ -3178,8 +3190,8 @@
       rfi('thu-11', 'SB', ['7h', '6h'], 52405, { teachBack: '76s SB HU ~40 bb: open. Conectores suited en deep HU.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb40', mttPhase: 'hu' }) }),
       vs('thu-12', 'BB_vs_SB', ['8d', '8c'], 52406, { teachBack: '88 BB HU: 3-bet o call value. Pares medios ganan valor sin ICM FT.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
     ,
-      rfi('thu-07b', 'SB', ['Ah', '3s'], 52407, { teachBack: 'A3o SB HU 30 bb: open.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
-      rfi('thu-07c', 'SB', ['Jh', 'Th'], 52408, { teachBack: 'JTs SB HU: open.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      rfi('thu-07b', 'SB', ['Ah', '3s'], 52407, { teachBack: 'A3o SB HU 30 bb: open. Open estándar en esta posición y stack.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb30', mttPhase: 'hu' }) }),
+      rfi('thu-07c', 'SB', ['Jh', 'Th'], 52408, { teachBack: 'JTs SB HU: open. Buena jugabilidad en el botón efectivo.', playConfig: mttCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
       vs('thu-07d', 'BB_vs_SB', ['Kd', 'Ts'], 52409, { teachBack: 'KTo BB HU: call/3bet.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
       vs('thu-07e', 'BB_vs_SB', ['9s', '9c'], 52410, { teachBack: '99 BB HU: 3bet value.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb30', mttPhase: 'hu' }) })
     ];
@@ -3189,10 +3201,10 @@
       vs('thu-15', 'BB_vs_SB', ['Kh', 'Td'], 52503, { teachBack: 'KTo BB vs shove HU: call frecuente chip-EV.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb12', mttPhase: 'hu' }) }),
       vs('thu-16', 'BB_vs_SB', ['Js', 'Jc'], 52504, { teachBack: 'JJ vs shove HU: call/jamming value. No overfold.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) }),
       rfi('thu-17', 'SB', ['Ks', 'Js'], 52505, { teachBack: 'KJs SB ~10 bb HU: shove. Continúa en ladder IA HU tras la lección.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
-      vs('thu-18', 'BB_vs_SB', ['6c', '4d'], 52506, { trapTag: 'fancy_play', teachBack: '64o vs shove HU: fold.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
+      vs('thu-18', 'BB_vs_SB', ['6c', '4d'], 52506, { trapTag: 'fancy_play', teachBack: '64o vs shove HU: fold. Mano dominada o fuera de rango; fold limpio.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
     ,
-      rfi('thu-13b', 'SB', ['Qh', 'Td'], 52507, { teachBack: 'QTo SB 12 bb HU: shove.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
-      rfi('thu-13c', 'SB', ['Ad', '4d'], 52508, { teachBack: 'A4s SB 10 bb HU: shove.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
+      rfi('thu-13b', 'SB', ['Qh', 'Td'], 52507, { teachBack: 'QTo SB 12 bb HU: shove. Zona push/fold: shove, no open min.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      rfi('thu-13c', 'SB', ['Ad', '4d'], 52508, { teachBack: 'A4s SB 10 bb HU: shove. Zona push/fold: shove, no open min.', playConfig: mttCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
       vs('thu-13d', 'BB_vs_SB', ['Ah', '8s'], 52509, { teachBack: 'A8o vs shove HU: call frecuente.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb12', mttPhase: 'hu' }) }),
       vs('thu-13e', 'BB_vs_SB', ['Kc', 'Kh'], 52510, { teachBack: 'KK vs shove HU: call value.', playConfig: mttCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
     ];
@@ -3219,8 +3231,8 @@
       "order": 0,
       "plan": "free",
       "xp": 40,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Un MTT (torneo multi-mesa) se juega por fases: early, mid, short, push y burbuja. El ante (pago extra obligatorio cada mano) y tu stack en bb (ciegas grandes) cambian el plan mucho antes de mirar las cartas.",
@@ -3370,8 +3382,8 @@
       "order": 3,
       "plan": "free",
       "xp": 110,
-      "passThreshold": 0.7,
-      "goldThreshold": 0.9,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 4,
       "concept": "Examen M0: repasas fases del torneo y early con paciencia. Sin teoría nueva — solo checklist de cómo revisar cada decisión antes de clicar.",
@@ -3565,8 +3577,8 @@
       "order": 7,
       "plan": "study",
       "xp": 130,
-      "passThreshold": 0.7,
-      "goldThreshold": 0.9,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 4,
       "concept": "Examen Mid: repasas steal, 3-bet polar y resteal/defense. Sin vocabulario nuevo — checklist de cómo leer el spot mid antes de actuar.",
@@ -3702,6 +3714,9 @@
       ],
       "spots": "MTT_PUSH",
       "exam": false,
+            "relatedLessons": [
+        { "id": "R-02", "label": "Ir a R-02 · Charts push/fold" }
+      ],
       "id": "T-09",
       "title": "Push/fold 12–8 bb"
     },
@@ -3711,8 +3726,8 @@
       "order": 10,
       "plan": "study",
       "xp": 120,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Antes del ICM fino, aprendes a hacer call vs shove mirando chip EV: ¿tienes equity suficiente contra el rango de all-in para que el call gane fichas a largo plazo? Es la base; luego apretamos con dinero real.",
@@ -3760,8 +3775,8 @@
       "order": 11,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Con ICM (el valor en dinero real de tus fichas según el payout), hacer call vs shove es más tight que en chip EV puro: el $EV castiga arriesgar tu stack cerca de premios. Overfold (foldear de más vs chip EV) es a menudo correcto.",
@@ -3809,8 +3824,8 @@
       "order": 12,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Examen Short: repasas zona 20–12, push/fold y calls vs shove (chip EV e ICM básico). Sin teoría nueva — checklist de cómo revisar cada decisión short.",
@@ -3857,8 +3872,8 @@
       "order": 13,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "En burbuja (bubble) cada rol tiene un plan distinto: el big stack presiona, el mid sobrevive y el short busca spots de ladder (subir peldaños de payout). Identificar tu rol vale más que enamorar una mano concreta.",
@@ -3906,8 +3921,8 @@
       "order": 14,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Como big stack en burbuja, abres y shoves más para aplicar presión ICM: haces que los mids se tiren. Presión no significa hacer call light a los shorts — no regalas dobles fáciles sin fold equity.",
@@ -3955,8 +3970,8 @@
       "order": 15,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Mid stack en burbuja: prioridad no chocarte con el big stack. Sobrevives dejando que los shorts se eliminen; evitas spots −$EV aunque sean +chip EV. Pick spots claros, no open spew vs covers.",
@@ -4004,8 +4019,8 @@
       "order": 16,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Short stack en burbuja: necesitas ladder (subir un peldaño de payout) con shoves selectivos y timing. No min-raise suicida ni panic shove UTG con basura — elige spots con fold equity o equity decente.",
@@ -4053,8 +4068,8 @@
       "order": 17,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Tras el ITM (ya cobras algo), los pay jumps (saltos de premio entre puestos) siguen importando: no \"ya estoy pagado, all-in light\". El ICM continúa; cada eliminación puede subir tu prize.",
@@ -4102,8 +4117,8 @@
       "order": 18,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Examen Bubble: repasas roles short/mid/big, presión, supervivencia y ladder. Sin teoría nueva — checklist de cómo revisar cada spot de burbuja.",
@@ -4150,8 +4165,8 @@
       "order": 19,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "En final table (FT) el ICM se intensifica: pay jumps grandes, covers que aplastan y shorts extremos. Los principios de burbuja escalan — no prometemos un solver completo de FT, sí un mapa mental usable.",
@@ -4199,8 +4214,8 @@
       "order": 20,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Entrenas a separar \"gano fichas\" (chip EV) de \"gano dinero de torneo\" ($EV). Si el spot es +EV en chips y −EV en dinero — típico en burbuja/FT — fold es a menudo correcto; no idolatres solo la equity.",
@@ -4248,8 +4263,8 @@
       "order": 21,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "En burbuja/FT asignas rangos de shove y de call según rol y stack, no solo según \"tu mano te gusta\". Range reading: qué shoves este short, qué paga este mid, qué foldea este big — luego encajas tu combo.",
@@ -4297,8 +4312,8 @@
       "order": 22,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Examen Pro MTT: certificación de fases, short/push, burbuja e ICM de FT. Sin teoría nueva — checklist de cómo revisar spots de torneo de punta a punta.",
@@ -4347,8 +4362,8 @@
       "order": 23,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Heads Up MTT: 2 left / 1 paid es winner-take-all. Chip-EV ≈ $EV. No juegues «burbuja» ni FT ICM multiway. Usa fase Heads Up en el entrenador y el ladder Torneos IA huEasy→huPro.",
@@ -4383,8 +4398,8 @@
       "order": 24,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Guerra de ciegas deep–mid HU (25–40 bb): SB open wide, BB defiende y 3-betea más; sin miedo a un ICM fantasma de final table multiway.",
@@ -4419,8 +4434,8 @@
       "order": 25,
       "plan": "coach",
       "xp": 100,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.7,
+      "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
       "concept": "HU short y ladder final: shove/call chip-EV a stacks cortos. Practica spots aquí y cierra el hábito con Torneos IA huEasy→huPro.",
@@ -4455,8 +4470,8 @@
       "order": 26,
       "plan": "coach",
       "xp": 150,
-      "passThreshold": 1,
-      "goldThreshold": 1,
+      "passThreshold": 0.85,
+      "goldThreshold": 0.95,
       "decisionEnd": true,
       "hands": 0,
       "concept": "Examen Heads Up MTT: WTA chip-EV, guerra de ciegas deep–mid y push/fold short. Sin ICM de burbuja cuando solo quedan 2.",
@@ -4485,6 +4500,7 @@
       "title": "Examen Heads Up MTT"
 
     }
+  
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });
   D.registerLessons(lessons);
@@ -6171,7 +6187,7 @@
 
 /*
  * school-data-pro.js — Fase I: Pro Cash C-26…C-31 (Coach)
- * Menú Escuela: admin-only (SCHOOL_PUBLIC=false).
+ * Escuela pública con auth (SCHOOL_PUBLIC=true).
  */
 (function (global) {
   'use strict';
@@ -7236,10 +7252,10 @@
     V('s13-04', 'BB_vs_BTN', ['Td', '6s'], 72304, 'T6o vs shove: fold. Olor a −EV $.', vsPush, 'fancy_play'),
     R('s13-05', 'SB', ['Kh', 'Js'], 72305, 'KJo SB corto: shove. Push/fold limpio.', pf10),
     V('s13-06', 'BB_vs_SB', ['Qh', '9c'], 72306, 'Q9o vs shove: fold. Overfold vs shove en examen ICM.', vsPush, 'fancy_play'),
-    R('s13-07', 'BTN', ['7s', '7c'], 72307, '77 ~10 bb: shove value.', pf10),
-    V('s13-08', 'BB_vs_BTN', ['8d', '6c'], 72308, '86o vs shove: fold.', vsPush, 'dominated'),
+    R('s13-07', 'BTN', ['7s', '7c'], 72307, '77 ~10 bb: shove value. Zona push/fold: all-in, no open min.', pf10),
+    V('s13-08', 'BB_vs_BTN', ['8d', '6c'], 72308, '86o vs shove: fold. Mano débil o dominada; fold limpio.', vsPush, 'dominated'),
     R('s13-09', 'BTN', ['Ts', 'Tc'], 72309, 'TT 12 bb: shove. No open min en examen.', pf12),
-    V('s13-10', 'BB_vs_BTN', ['Kd', 'Kh'], 72310, 'KK vs shove: call.', vsPush),
+    V('s13-10', 'BB_vs_BTN', ['Kd', 'Kh'], 72310, 'KK vs shove: call. Equity y precio justifican el call.', vsPush),
     R('s13-11', 'SB', ['Jd', '7h'], 72311, 'J7o SB corto: fold. No panic shove.', pf10, 'fancy_play'),
     V('s13-12', 'BB_vs_SB', ['As', 'Ah'], 72312, 'AA vs shove: call. Checklist cerrado.', vsPush)
   ];
@@ -7252,9 +7268,9 @@
     R('s14-05', 'SB', ['Kh', 'Js'], 72405, 'KJo SB corto: shove. Presión de pay jump no paraliza broadway usable.', pf10),
     V('s14-06', 'BB_vs_BTN', ['8h', '5d'], 72406, '85o vs shove: fold. Flip mediocre + jump = mala compra.', vsPush, 'fancy_play'),
     R('s14-07', 'BTN', ['Td', 'Tc'], 72407, 'TT: shove value. Par vs rango — no es flip de basura.', pf10),
-    V('s14-08', 'BB_vs_SB', ['Qd', '8c'], 72408, 'Q8o: fold.', vsPush, 'dominated'),
+    V('s14-08', 'BB_vs_SB', ['Qd', '8c'], 72408, 'Q8o: fold. Mano débil o dominada; fold limpio.', vsPush, 'dominated'),
     R('s14-09', 'BTN', ['Ah', 'Jh'], 72409, 'AJs: shove. Bubble mental ≠ never shove premiums.', pf12),
-    V('s14-10', 'BB_vs_BTN', ['Ks', 'Qs'], 72410, 'KQs: call vs shove.', vsPush),
+    V('s14-10', 'BB_vs_BTN', ['Ks', 'Qs'], 72410, 'KQs: call vs shove. Equity y precio justifican el call.', vsPush),
     R('s14-11', 'SB', ['Qh', '6s'], 72411, 'Q6o SB: fold. No compres el 2.º con panic shove.', pf10, 'fancy_play'),
     V('s14-12', 'BB_vs_BTN', ['Qs', 'Qd'], 72412, 'QQ: call. El bubble factor no tira ases.', vsPush)
   ];
@@ -7280,7 +7296,7 @@
     V('s16-03', 'BB_vs_BTN', ['Ad', 'Kd'], 72603, 'Vs maniac que abre/shovea wide: AKs call/3-bet value. Value más limpio, menos farol.', vs20),
     V('s16-04', 'BB_vs_BTN', ['Th', '7c'], 72604, 'Vs maniac con T7o: fold. Él paga y shovea wide — no farolees ni hero-calles basura.', vs20, 'fancy_play'),
     R('s16-05', 'SB', ['Ah', '4h'], 72605, 'Vs nit SB A4s: steal razonable. El nit tira ciegas; Ax suited castiga.', st20),
-    V('s16-06', 'BB_vs_BTN', ['Qd', '7c'], 72606, 'Q7o vs cualquier perfil: fold.', vs20, 'dominated'),
+    V('s16-06', 'BB_vs_BTN', ['Qd', '7c'], 72606, 'Q7o vs cualquier perfil: fold. Mano débil o dominada; fold limpio.', vs20, 'dominated'),
     R('s16-07', 'BTN', ['7h', '7d'], 72607, '77 vs nit: shove/open fuerte. Value — el nit foldea de más.', st20),
     V('s16-08', 'BB_vs_BTN', ['Td', 'Th'], 72608, 'TT vs maniac: 3-bet shove value. Cobra al que juega demasiadas manos.', vs20),
     R('s16-09', 'BTN', ['Jh', '9h'], 72609, 'J9s vs nit: steal OK. Vs maniac serías más cauto; aquí el nit tira.', st20),
@@ -7297,10 +7313,10 @@
     R('s17-05', 'BTN', ['As', 'Ts'], 72705, 'ATs 12 bb: shove. Push/fold limpio.', pf12),
     bb('s17-06', ['Ah', 'Js'], 72706, { teachBack: 'AJo BB vs limp SB: iso. En 3-max aíslas con fuertes, no check eterno.', playConfig: spin({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
     R('s17-07', 'SB', ['Jh', '8d'], 72707, 'J8o SB corto: fold. No panic.', pf10, 'fancy_play'),
-    V('s17-08', 'BB_vs_BTN', ['Jh', 'Jd'], 72708, 'JJ vs steal: 3-bet shove value.', vs20),
+    V('s17-08', 'BB_vs_BTN', ['Jh', 'Jd'], 72708, 'JJ vs steal: 3-bet shove value. 3-bet de valor o presión según el spot.', vs20),
     R('s17-09', 'BTN', ['5c', '4c'], 72709, '54s BTN 20 bb: open steal ~2,5 bb. Mano media del rango.', st20),
-    V('s17-10', 'BB_vs_BTN', ['Kc', '6h'], 72710, 'K6o vs steal: fold.', vs20, 'dominated'),
-    R('s17-11', 'BTN', ['Ts', 'Th'], 72711, 'TT ~10 bb: shove.', pf10),
+    V('s17-10', 'BB_vs_BTN', ['Kc', '6h'], 72710, 'K6o vs steal: fold. Mano débil o dominada; fold limpio.', vs20, 'dominated'),
+    R('s17-11', 'BTN', ['Ts', 'Th'], 72711, 'TT ~10 bb: shove. Zona push/fold: all-in, no open min.', pf10),
     V('s17-12', 'BB_vs_BTN', ['Ts', 'Tc'], 72712, 'TT vs shove/steal: call o 3-bet. Certificación: premium se cobra.', vsPush)
   ];
 
@@ -7337,9 +7353,9 @@
     V('t10-02', 'BB_vs_BTN', ['9h', '7d'], 74002, '97o vs shove: fold. Ni chip EV. “Ver” no es argumento.', vsPushM, 'dominated'),
     V('t10-03', 'BB_vs_SB', ['As', 'Kd'], 74003, 'AKo vs shove: call. Par fuerte — chip EV claro.', vsPushM),
     V('t10-04', 'BB_vs_BTN', ['Td', '6s'], 74004, 'T6o vs shove: fold. Equity insuficiente vs el rango.', vsPushM, 'fancy_play'),
-    V('t10-05', 'BB_vs_BTN', ['Jh', 'Jd'], 74005, 'JJ: call. Chip EV máximo.', vsPushM),
+    V('t10-05', 'BB_vs_BTN', ['Jh', 'Jd'], 74005, 'JJ: call. Chip EV máximo. Equity y precio justifican el call.', vsPushM),
     V('t10-06', 'BB_vs_SB', ['Jd', '8c'], 74006, 'J8o: fold. Dominada.', vsPushM, 'dominated'),
-    V('t10-07', 'BB_vs_BTN', ['Qs', 'Qd'], 74007, 'QQ: call.', vsPushM),
+    V('t10-07', 'BB_vs_BTN', ['Qs', 'Qd'], 74007, 'QQ: call. Equity y precio justifican el call.', vsPushM),
     V('t10-08', 'BB_vs_BTN', ['Qh', '9c'], 74008, 'Q9o vs shove BTN: fold frecuente. Zona gris hacia fold — no “quiero ver”.', vsPushM, 'fancy_play'),
     V('t10-09', 'BB_vs_SB', ['As', 'Js'], 74009, 'AJs vs shove SB: call sólido. Ax fuerte vs rango.', vsPushM),
     V('t10-10', 'BB_vs_BTN', ['8h', '7d'], 74010, '87o: fold. Precio vs all-in no está.', vsPushM, 'dominated'),
@@ -7352,12 +7368,12 @@
     V('t11-02', 'BB_vs_BTN', ['8h', '5d'], 74102, '85o: fold. $EV pide más tightness que chip EV — este ya era fold en fichas.', vsPushM, 'fancy_play'),
     V('t11-03', 'BB_vs_SB', ['Td', 'Th'], 74103, 'TT: call. ICM no tira damas.', vsPushM),
     V('t11-04', 'BB_vs_BTN', ['Qh', '9c'], 74104, 'Q9o vs shove: fold. Overfold vs chip EV: correcto cerca de premios.', vsPushM, 'fancy_play'),
-    V('t11-05', 'BB_vs_BTN', ['Ah', 'Ah'], 74105, 'AA: call.', vsPushM),
-    V('t11-06', 'BB_vs_SB', ['Qh', '9d'], 74106, 'Q9o: fold.', vsPushM, 'dominated'),
-    V('t11-07', 'BB_vs_BTN', ['Jh', 'Jc'], 74107, 'JJ: call.', vsPushM),
+    V('t11-05', 'BB_vs_BTN', ['Ah', 'Ah'], 74105, 'AA: call. Equity y precio justifican el call.', vsPushM),
+    V('t11-06', 'BB_vs_SB', ['Qh', '9d'], 74106, 'Q9o: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
+    V('t11-07', 'BB_vs_BTN', ['Jh', 'Jc'], 74107, 'JJ: call. Equity y precio justifican el call.', vsPushM),
     V('t11-08', 'BB_vs_BTN', ['Jh', '9d'], 74108, 'J9o: fold. $EV castiga el flip mediocre.', vsPushM, 'fancy_play'),
     V('t11-09', 'BB_vs_SB', ['As', 'Js'], 74109, 'AJs: call/continue. Ax fuerte — no panic fold ICM.', vsPushM),
-    V('t11-10', 'BB_vs_BTN', ['8h', '6c'], 74110, '86o: fold.', vsPushM, 'dominated'),
+    V('t11-10', 'BB_vs_BTN', ['8h', '6c'], 74110, '86o: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
     V('t11-11', 'BB_vs_BTN', ['9s', '9c'], 74111, '99 vs shove BTN: call frecuente. Par vs wide — $EV suele aguantar.', vsPushM),
     V('t11-12', 'BB_vs_CO', ['Kc', 'Td'], 74112, 'KTo vs shove CO: fold frecuente. ICM más tight que vs BTN.', vsPushM, 'fancy_play')
   ];
@@ -7365,15 +7381,15 @@
   PACKS['T-12'] = [
     R('t12-01', 'BTN', ['Ts', '9s'], 74201, 'Examen short: T9s BTN ~12 bb shove. ¿20–12 o push? Aquí push/fold.', push12),
     R('t12-02', 'BTN', ['8d', '6c'], 74202, '86o: fold. No open min a 9 bb.', push12, 'dominated'),
-    V('t12-03', 'BB_vs_BTN', ['Jc', 'Js'], 74203, 'JJ vs shove: call chip EV (y suele $EV).', vsPushM),
+    V('t12-03', 'BB_vs_BTN', ['Jc', 'Js'], 74203, 'JJ vs shove: call chip EV (y suele $EV). Equity y precio justifican el call.', vsPushM),
     V('t12-04', 'BB_vs_BTN', ['Qc', '7h'], 74204, 'Q7o vs shove: fold. ICM + equity.', vsPushM, 'fancy_play'),
     R('t12-05', 'CO', ['8h', '8d'], 74205, '88 ~12 bb: shove value. Zona 20–12/push: par medio va all-in.', push12),
-    R('t12-06', 'SB', ['Qd', '7c'], 74206, 'Q7o SB corto: fold.', pushM, 'fancy_play'),
-    V('t12-07', 'BB_vs_BTN', ['Ah', 'Qd'], 74207, 'AQo: call vs shove.', vsPushM),
-    R('t12-08', 'BTN', ['As', 'Ts'], 74208, 'ATs corto: shove.', push12),
-    V('t12-09', 'BB_vs_BTN', ['Js', '9c'], 74209, 'J9o vs shove: fold.', vsPushM, 'dominated'),
-    R('t12-10', 'SB', ['Ks', 'Ts'], 74210, 'KTs SB: shove frecuente.', pushM),
-    V('t12-11', 'BB_vs_SB', ['Qs', 'Qd'], 74211, 'QQ: call.', vsPushM),
+    R('t12-06', 'SB', ['Qd', '7c'], 74206, 'Q7o SB corto: fold. Mano débil o dominada; fold limpio.', pushM, 'fancy_play'),
+    V('t12-07', 'BB_vs_BTN', ['Ah', 'Qd'], 74207, 'AQo: call vs shove. Equity y precio justifican el call.', vsPushM),
+    R('t12-08', 'BTN', ['As', 'Ts'], 74208, 'ATs corto: shove. Zona push/fold: all-in, no open min.', push12),
+    V('t12-09', 'BB_vs_BTN', ['Js', '9c'], 74209, 'J9o vs shove: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
+    R('t12-10', 'SB', ['Ks', 'Ts'], 74210, 'KTs SB: shove frecuente. Zona push/fold: all-in, no open min.', pushM),
+    V('t12-11', 'BB_vs_SB', ['Qs', 'Qd'], 74211, 'QQ: call. Equity y precio justifican el call.', vsPushM),
     R('t12-12', 'BTN', ['Jd', '8h'], 74212, 'J8o 12 bb: shove. Checklist: bb → shove/fold → ejecuta.', push12)
   ];
 
@@ -7418,7 +7434,7 @@
     R('t15-08', 'CO', ['Ah', 'Jh'], 74508, 'AJs CO mid: open. Value — supervivencia no es parálisis.', mid25),
     F3('t15-09', 'CO_vs_BB', ['Ah', 'Td'], 74509, 'ATo CO vs 3-bet cover: fold frecuente. OOP + eliminación.', f3mid, 'fancy_play'),
     R('t15-10', 'BTN', ['Jh', '9h'], 74510, 'J9s BTN mid: open razonable. Jugabilidad en late.', mid25),
-    R('t15-11', 'UTG', ['Ad', '8c'], 74511, 'A8o UTG: fold.', mid25, 'dominated'),
+    R('t15-11', 'UTG', ['Ad', '8c'], 74511, 'A8o UTG: fold. Mano débil o dominada; fold limpio.', mid25, 'dominated'),
     F3('t15-12', 'BTN_vs_BB', ['Ts', 'Tc'], 74512, 'TT vs 3-bet: 4-bet/call value. Mid también stackea premiums.', f3mid)
   ];
 
@@ -7432,7 +7448,7 @@
     R('t16-07', 'BTN', ['As', '3s'], 74607, 'A3s BTN: shove frecuente. Fold equity vs mids ICM-tight.', pushM),
     R('t16-08', 'CO', ['Jh', 'Td'], 74608, 'JTo CO corto: fold frecuente. No tan late como BTN.', push12, 'fancy_play'),
     R('t16-09', 'BTN', ['Ks', 'Qs'], 74609, 'KQs: shove. Ladder también es value shove.', push12),
-    R('t16-10', 'SB', ['Jh', '7s'], 74610, 'J7o SB: fold.', pushM, 'dominated'),
+    R('t16-10', 'SB', ['Jh', '7s'], 74610, 'J7o SB: fold. Mano débil o dominada; fold limpio.', pushM, 'dominated'),
     R('t16-11', 'BTN', ['5c', '4c'], 74611, '54s BTN corto: shove candidato. Conector + late.', push12),
     R('t16-12', 'UTG', ['Kd', '9h'], 74612, 'K9o UTG: fold. Espera un asiento mejor.', push12, 'dominated')
   ];
@@ -7444,10 +7460,10 @@
     V('t17-04', 'BB_vs_BTN', ['Qs', 'Qh'], 74704, 'QQ vs shove: call. Pay jump no tira AK.', vsPushM),
     R('t17-05', 'CO', ['Ad', '8d'], 74705, 'A8s CO: steal. Más agresión que burbuja extrema, no locura.', midSt),
     R('t17-06', 'CO', ['Jd', '8c'], 74706, 'J8o CO: fold. Post-bubble ≠ cualquier offsuit.', midSt, 'fancy_play'),
-    V('t17-07', 'BB_vs_BTN', ['As', 'Kd'], 74707, 'AKo: call vs shove.', vsPushM),
+    V('t17-07', 'BB_vs_BTN', ['As', 'Kd'], 74707, 'AKo: call vs shove. Equity y precio justifican el call.', vsPushM),
     R('t17-08', 'BTN', ['8d', '6d'], 74708, '86s BTN: steal. Jugabilidad post-ITM.', midSt),
-    V('t17-09', 'BB_vs_BTN', ['Kc', '8d'], 74709, 'K8o vs shove: fold.', vsPushM, 'dominated'),
-    R('t17-10', 'SB', ['Qd', 'Td'], 74710, 'QTs SB: open/steal frecuente.', midSt),
+    V('t17-09', 'BB_vs_BTN', ['Kc', '8d'], 74709, 'K8o vs shove: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
+    R('t17-10', 'SB', ['Qd', 'Td'], 74710, 'QTs SB: open/steal frecuente. Open estándar en esta posición y stack.', midSt),
     R('t17-11', 'BTN', ['As', 'Ts'], 74711, 'ATs corto: shove. ITM no apaga push/fold.', push12),
     V('t17-12', 'BB_vs_BTN', ['Kd', 'Kh'], 74712, 'KK: call. El min-cash no cambia nuts.', vsPushM)
   ];
@@ -7457,13 +7473,13 @@
     R('t18-02', 'CO', ['9s', '6c'], 74802, '¿Rol mid? 96o fold vs covers.', mid22, 'fancy_play'),
     R('t18-03', 'BTN', ['As', 'Ts'], 74803, '¿Rol short? ATs shove.', push12),
     V('t18-04', 'BB_vs_BTN', ['Td', '9c'], 74804, 'Cover T9o vs open: fold. No dobles fáciles.', vsBig, 'fancy_play'),
-    R('t18-05', 'BTN', ['9c', '2s'], 74805, '92o cualquier rol: fold.', big45, 'dominated'),
-    F3('t18-06', 'BTN_vs_BB', ['Jh', 'Jc'], 74806, 'Mid JJ vs 3-bet cover: fold frecuente.', f3mid, 'fancy_play'),
-    V('t18-07', 'BB_vs_BTN', ['Ad', 'Kd'], 74807, 'AKs cover: 3-bet value.', vsBig),
-    R('t18-08', 'UTG', ['Ac', '9c'], 74808, 'Mid UTG A9s: fold.', mid25, 'dominated'),
-    R('t18-09', 'SB', ['Kh', 'Jh'], 74809, 'Short SB KJs: shove.', pushM),
+    R('t18-05', 'BTN', ['9c', '2s'], 74805, '92o cualquier rol: fold. Mano débil o dominada; fold limpio.', big45, 'dominated'),
+    F3('t18-06', 'BTN_vs_BB', ['Jh', 'Jc'], 74806, 'Mid JJ vs 3-bet cover: fold frecuente. Mano débil o dominada; fold limpio.', f3mid, 'fancy_play'),
+    V('t18-07', 'BB_vs_BTN', ['Ad', 'Kd'], 74807, 'AKs cover: 3-bet value. 3-bet de valor o presión según el spot.', vsBig),
+    R('t18-08', 'UTG', ['Ac', '9c'], 74808, 'Mid UTG A9s: fold. Mano débil o dominada; fold limpio.', mid25, 'dominated'),
+    R('t18-09', 'SB', ['Kh', 'Jh'], 74809, 'Short SB KJs: shove. Zona push/fold: all-in, no open min.', pushM),
     R('t18-10', 'BTN', ['6s', '6c'], 74810, 'Mid 66 BTN: open. Supervivir ≠ parálisis.', mid25),
-    V('t18-11', 'BB_vs_BTN', ['Td', 'Th'], 74811, 'TT cover: 3-bet.', vsBig),
+    V('t18-11', 'BB_vs_BTN', ['Td', 'Th'], 74811, 'TT cover: 3-bet. 3-bet de valor o presión según el spot.', vsBig),
     R('t18-12', 'BTN', ['Td', '6h'], 74812, 'Short T6o: fold. Checklist: rol → job → acción.', push12, 'dominated')
   ];
 
@@ -7475,9 +7491,9 @@
     V('t19-05', 'BB_vs_BTN', ['Jc', 'Js'], 74905, 'JJ FT: 3-bet value. Premium sigue siendo bote grande.', vsBig),
     R('t19-06', 'BTN', ['Js', '4d'], 74906, 'J4o FT: fold. Cualquier rol.', big45, 'dominated'),
     F3('t19-07', 'BTN_vs_BB', ['9h', '9c'], 74907, 'Mid 99 vs 3-bet chip leader: fold frecuente. ICM FT.', f3mid, 'fancy_play'),
-    R('t19-08', 'BTN', ['8h', '8d'], 74908, 'Mid/FT 88 BTN: open si el spot es limpio.', mid25),
-    R('t19-09', 'SB', ['Kh', 'Jh'], 74909, 'Short FT KJs SB: shove.', pushM),
-    V('t19-10', 'BB_vs_BTN', ['Ah', 'Qd'], 74910, 'AQo FT: 3-bet value.', vsBig),
+    R('t19-08', 'BTN', ['8h', '8d'], 74908, 'Mid/FT 88 BTN: open si el spot es limpio. Open estándar en esta posición y stack.', mid25),
+    R('t19-09', 'SB', ['Kh', 'Jh'], 74909, 'Short FT KJs SB: shove. Zona push/fold: all-in, no open min.', pushM),
+    V('t19-10', 'BB_vs_BTN', ['Ah', 'Qd'], 74910, 'AQo FT: 3-bet value. 3-bet de valor o presión según el spot.', vsBig),
     R('t19-11', 'UTG', ['Ah', '2h'], 74911, 'A2s UTG FT: fold. Covers detrás.', mid25, 'dominated'),
     R('t19-12', 'BTN', ['Jh', 'Jd'], 74912, 'JJ BTN FT: open/presión. Mapa usable, no solver de FT.', big45)
   ];
@@ -7486,12 +7502,12 @@
     V('t20-01', 'BB_vs_BTN', ['9d', '7h'], 75001, '97o vs shove: fold. Verbaliza: “en fichas dudoso; en dinero me tiro”. Drill chip EV vs $EV.', vsPushM, 'fancy_play'),
     V('t20-02', 'BB_vs_BTN', ['Ts', 'Tc'], 75002, 'TT: call. Aquí coinciden chip EV y $EV — dilo en voz alta.', vsPushM),
     V('t20-03', 'BB_vs_BTN', ['Qh', '9c'], 75003, 'Q9o: fold. +EV chips dudoso / −EV $ típico de burbuja-FT.', vsPushM, 'fancy_play'),
-    V('t20-04', 'BB_vs_BTN', ['Ad', 'Kd'], 75004, 'AKs: call. Coinciden.', vsPushM),
+    V('t20-04', 'BB_vs_BTN', ['Ad', 'Kd'], 75004, 'AKs: call. Coinciden. Equity y precio justifican el call.', vsPushM),
     V('t20-05', 'BB_vs_SB', ['Jd', '8c'], 75005, 'J8o: fold. Ni fichas ni dinero.', vsPushM, 'dominated'),
     V('t20-06', 'BB_vs_BTN', ['Kd', 'Kh'], 75006, 'KK: call. Premium alinea ambos EV.', vsPushM),
     V('t20-07', 'BB_vs_BTN', ['Jh', '9d'], 75007, 'J9o: fold. “En fichas a veces pago; en dinero no.”', vsPushM, 'fancy_play'),
-    V('t20-08', 'BB_vs_BTN', ['As', 'Ah'], 75008, 'AA: call.', vsPushM),
-    V('t20-09', 'BB_vs_SB', ['Td', '8h'], 75009, 'T8o: fold.', vsPushM, 'dominated'),
+    V('t20-08', 'BB_vs_BTN', ['As', 'Ah'], 75008, 'AA: call. Equity y precio justifican el call.', vsPushM),
+    V('t20-09', 'BB_vs_SB', ['Td', '8h'], 75009, 'T8o: fold. Mano débil o dominada; fold limpio.', vsPushM, 'dominated'),
     V('t20-10', 'BB_vs_BTN', ['7s', '7c'], 75010, '77 vs shove BTN: call frecuente. Par vs wide — suelen coincidir.', vsPushM),
     V('t20-11', 'BB_vs_CO', ['Ks', '7d'], 75011, 'K7o vs shove CO: fold. $EV aprieta vs rangos menos wide.', vsPushM, 'fancy_play'),
     V('t20-12', 'BB_vs_SB', ['As', 'Js'], 75012, 'AJs: call. Ax fuerte — no idolatres solo el miedo ICM.', vsPushM)
@@ -7514,16 +7530,16 @@
 
   PACKS['T-22'] = [
     R('t22-01', 'BTN', ['Ah', 'Td'], 75201, 'Pro MTT: early ATo BTN open. Paso 1: fase y bb.', early),
-    R('t22-02', 'UTG', ['Qh', '9c'], 75202, 'Early Q9o UTG: fold.', early, 'dominated'),
+    R('t22-02', 'UTG', ['Qh', '9c'], 75202, 'Early Q9o UTG: fold. Mano débil o dominada; fold limpio.', early, 'dominated'),
     R('t22-03', 'BTN', ['Kd', 'Jd'], 75203, 'Mid steal KJs. Paso 2: rol y job.', midSt),
     R('t22-04', 'BTN', ['As', 'Ts'], 75204, 'Push ATs shove. Fase push.', push12),
-    V('t22-05', 'BB_vs_BTN', ['Jh', '7d'], 75205, 'J7o vs shove: fold $EV.', vsPushM, 'fancy_play'),
-    V('t22-06', 'BB_vs_BTN', ['Ks', 'Qs'], 75206, 'KQs vs shove: call.', vsPushM),
+    V('t22-05', 'BB_vs_BTN', ['Jh', '7d'], 75205, 'J7o vs shove: fold $EV. Mano débil o dominada; fold limpio.', vsPushM, 'fancy_play'),
+    V('t22-06', 'BB_vs_BTN', ['Ks', 'Qs'], 75206, 'KQs vs shove: call. Equity y precio justifican el call.', vsPushM),
     R('t22-07', 'BTN', ['Kh', 'Jd'], 75207, 'Bubble/FT big: KJo steal.', big45),
-    R('t22-08', 'CO', ['Qd', '7c'], 75208, 'Mid bubble Q7o: fold.', mid22, 'fancy_play'),
-    F3('t22-09', 'BTN_vs_BB', ['8s', '8c'], 75209, 'Mid 88 vs 3-bet cover: fold frecuente.', f3mid, 'fancy_play'),
-    V('t22-10', 'BB_vs_BTN', ['Qs', 'Qd'], 75210, 'QQ cover: 3-bet.', vsBig),
-    R('t22-11', 'BTN', ['8h', '5c'], 75211, '85o cualquier fase: fold.', push12, 'dominated'),
+    R('t22-08', 'CO', ['Qd', '7c'], 75208, 'Mid bubble Q7o: fold. Mano débil o dominada; fold limpio.', mid22, 'fancy_play'),
+    F3('t22-09', 'BTN_vs_BB', ['8s', '8c'], 75209, 'Mid 88 vs 3-bet cover: fold frecuente. Mano débil o dominada; fold limpio.', f3mid, 'fancy_play'),
+    V('t22-10', 'BB_vs_BTN', ['Qs', 'Qd'], 75210, 'QQ cover: 3-bet. 3-bet de valor o presión según el spot.', vsBig),
+    R('t22-11', 'BTN', ['8h', '5c'], 75211, '85o cualquier fase: fold. Mano débil o dominada; fold limpio.', push12, 'dominated'),
     R('t22-12', 'SB', ['Kh', 'Jh'], 75212, 'Short KJs SB shove. Certificación: fase → rol → acción.', pushM)
   ];
 
@@ -7641,9 +7657,9 @@
     mxInRange('r28-04', 78004, 'A5s', 'BTN', 'A5s entra en BTN.'),
     mxInRange('r28-05', 78005, '93o', 'BTN', '93o fuera.', 'dominated'),
     mxPaint('r28-06', 78006, 'pairs', 'Marca los pares del RFI BTN.', 'Pares casi todos.', 0, 0.8),
-    V('r28-07', 'BB_vs_BTN', ['Ah', '4h'], 78007, 'A4s vs BTN: 3-bet polar con blocker de as.', cash({ scenario: '3bet' })),
+    V('r28-07', 'BB_vs_BTN', ['Ah', '4h'], 78007, 'A4s vs BTN: 3-bet polar con blocker de as. 3-bet de valor o presión según el spot.', cash({ scenario: '3bet' })),
     V('r28-08', 'BB_vs_BTN', ['Kd', 'Tc'], 78008, 'KTo: fold. Mal blocker y dominada.', cash({ scenario: '3bet' }), 'fancy_play'),
-    V('r28-09', 'BB_vs_BTN', ['Qs', 'Qd'], 78009, 'QQ: 3-bet value.', cash({ scenario: '3bet' })),
+    V('r28-09', 'BB_vs_BTN', ['Qs', 'Qd'], 78009, 'QQ: 3-bet value. 3-bet de valor o presión según el spot.', cash({ scenario: '3bet' })),
     mxLocate('r28-10', 78010, 'T9s', 'Localiza T9s.', 'Suited encima de la diagonal.'),
     mxChoice('r28-11', 78011, 'Un 35 % en una celda significa…', [
       { id: 'mix', label: 'Frecuencia / mezcla' },
@@ -8125,7 +8141,7 @@
 
   PACKS['C-31'] = [
     F3('c31-01', 'BTN_vs_BB', ['Qs', 'Qd'], 77501, 'Examen Pro: QQ vs 3-bet — 4-bet value.', cash({ scenario: 'face3bet' })),
-    F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold.', cash({ scenario: 'face3bet' }), 'dominated'),
+    F3('c31-02', 'BTN_vs_BB', ['Tc', '4d'], 77502, 'T4o vs 3-bet: fold. Mano débil o dominada; fold limpio.', cash({ scenario: 'face3bet' }), 'dominated'),
     Fl('c31-03', 'SB', ['Ah', 'Kd'], ['8s', '7s', '6h'], 77503, 'SRP OOP wet: check. Pot control deep.', { trapTag: 'fancy_play' }),
     Fl('c31-04', 'BTN', ['Ad', '2d'], ['As', '8h', '3c'], 77504, 'Vs fish: c-bet value top pair. Exploit: value thin up.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
     V('c31-05', 'BB_vs_UTG', ['Ah', '9d'], 77505, 'Range quiz: A9o vs UTG fold.', cash({ scenario: '3bet' }), 'fancy_play'),
@@ -16146,7 +16162,7 @@
       ],
       examples: [{ title: 'AA en board Axx', body: 'Queda 1 combo de AA.' }],
       aiQuestions: ['¿Combos de AK?', '¿Blockers en monotone?', '¿Paired board?'], spots: [] },
-    { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 21, plan: 'study',
+    { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 20.95, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0, exam: true, timedSeconds: 75,
       concept: 'Examen cronometrado: 75 s por spot. Entrena decisión rápida como en mesa real.',
       theory: [
@@ -16186,7 +16202,7 @@
       ],
       examples: [{ title: 'AKQ monotone', body: 'Opener nut flush adv.' }],
       aiQuestions: ['Nut vs range adv?', '987 nut adv?', 'AA7 paired?'], spots: [] },
-    { id: 'D-04', title: 'SPR · ¿Estás committed?', route: 'cash', module: 'M2', order: 21.1, plan: 'study',
+    { id: 'D-04', title: 'SPR · ¿Estás committed?', route: 'cash', module: 'M2', order: 20.97, plan: 'study',
       xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
       concept: 'SPR (stack-to-pot ratio) = stack efectivo / bote. Bajo SPR → committed con top pair+; alto → pot control.',
       theory: [
@@ -19696,7 +19712,7 @@
    */
   function canPlayLesson(lessonId) {
     if (!schoolMenuVisible()) {
-      return { ok: false, reason: 'admin_only', message: 'La Escuela aún tiene acceso limitado.' };
+      return { ok: false, reason: 'auth', message: 'Inicia sesión para acceder a la Escuela.' };
     }
     var lesson = Data() && Data().getLesson(lessonId);
     if (!lesson) return { ok: false, reason: 'missing', message: 'Lección no encontrada.' };
@@ -19833,9 +19849,10 @@
     var goldTh = lesson.goldThreshold != null ? lesson.goldThreshold : 0.9;
     var total = 0;
     var weight = 0;
+    var proScoring = lesson.plan === 'coach';
     (spotResults || []).forEach(function (r) {
       weight += 1;
-      total += scorePoints(r.class, false);
+      total += scorePoints(r.class, proScoring);
     });
     var score = weight ? total / weight : 1;
     var pct = Math.round(score * 1000) / 10;
@@ -20786,20 +20803,23 @@
       M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
       M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
       M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, F/C/R, pot odds y defensa.' },
+      M3: { title: 'M3 · Postflop avanzado (Study)', lead: 'Range advantage, check-raise, multiway y river.' },
       M4: { title: 'M4 · Pro Cash (Coach)', lead: '4-bet, SRP OOP, explotación y examen Pro.' }
     },
     spin: {
       M0: { title: 'M0 · Intro Spins (Gratis)', lead: 'Lobbies, steal, defensa y examen.' },
       M1: { title: 'M1 · Short stack (Study)', lead: 'Iso, shove y charts.' },
-      M2: { title: 'M2 · ICM / HU (Study–Coach)', lead: 'Payout, pressure y heads-up.' },
-      M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' }
+      M2: { title: 'M2 · ICM / HU (Study→Coach)', lead: 'S-09–S-10 Study; desde S-11 (malos spots ICM) requiere Coach.' },
+      M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' },
+      M4: { title: 'M4 · Heads-up Spin (Coach)', lead: 'Chip-EV HU, guerra de ciegas y examen final.' }
     },
     mtt: {
       M0: { title: 'M0 · Early MTT (Gratis)', lead: 'Fases, paciencia y examen early.' },
       M1: { title: 'M1 · Mid / steal', lead: 'Steal, 3-bet y resteal.' },
       M2: { title: 'M2 · Short stack', lead: 'Push/fold antes de la burbuja.' },
       M3: { title: 'M3 · Antes de burbuja', lead: 'Ajuste de stack y presión.' },
-      M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' }
+      M4: { title: 'M4 · Burbuja / FT (Coach)', lead: 'ICM, roles y mesa final.' },
+      M5: { title: 'M5 · Final table Pro (Coach)', lead: 'Roles FT, ICM extremo y examen Pro.' }
     },
     ranges: {
       M0: { title: 'M0 · Bases de rangos (Gratis)', lead: 'Matriz, RFI BTN y % que conecta.' },
@@ -20847,7 +20867,8 @@
       var active = r.id === routeId ? ' is-active' : '';
       var soon = r.status === 'soon' ? ' is-soon' : '';
       var title = r.status === 'soon' ? (r.teaser || 'Próximamente') : '';
-      return '<button type="button" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
+      return '<button type="button" role="tab" class="school-route-tab' + active + soon + '" data-school-route="' + esc(r.id) + '"' +
+        ' aria-selected="' + (r.id === routeId ? 'true' : 'false') + '"' +
         (r.status !== 'active' ? ' disabled title="' + esc(title) + '"' : '') + '>' +
         esc(r.label) + (r.status === 'soon' ? ' <span class="school-soon">Pronto</span>' : '') +
         '</button>';
@@ -20871,8 +20892,8 @@
             (p.perfect ? '★★★' : (p.gold ? '★★☆' : '★☆☆')) + '</span>';
         }
         var lock = '';
-        if (st === 'locked') lock = '<span class="school-node-lock" aria-hidden="true">Bloqueada</span>';
-        if (st === 'plan') lock = '<span class="school-node-lock school-node-plan" aria-hidden="true">' +
+        if (st === 'locked') lock = '<span class="school-node-lock">Bloqueada</span>';
+        if (st === 'plan') lock = '<span class="school-node-lock school-node-plan">' +
           planLabelFor(l.plan) + '</span>';
         return '<button type="button" class="school-node is-' + st + '" data-school-lesson="' + esc(l.id) + '"' +
           (st === 'locked' ? ' disabled title="Completa la lección anterior."' : '') + '>' +
@@ -21011,8 +21032,11 @@
       related = '<section class="card-box school-section school-related">' +
         '<h3>Relacionado</h3><div class="school-related-links">' +
         lesson.relatedLessons.map(function (rl) {
+          var item = typeof rl === 'string' ? { id: rl, label: rl } : (rl || {});
+          var rid = item.id || '';
+          var label = item.label || rid;
           return '<button type="button" class="btn btn-ghost school-related-btn" data-school-goto-lesson="' +
-            esc(rl.id) + '">' + esc(rl.label || rl.id) + '</button>';
+            esc(rid) + '">' + esc(label) + '</button>';
         }).join('') +
         '</div></section>';
     }
@@ -21054,7 +21078,7 @@
       '<section class="card-box school-section">' +
       '<h3>Concepto</h3><ul class="school-theory">' + theory + '</ul></section>' +
       externalLinksHtml +
-      '<section class="card-box school-section"><h3>Ejemplos</h3>' + examples + '</section>' +
+      (examples ? '<section class="card-box school-section"><h3>Ejemplos</h3>' + examples + '</section>' : '') +
       previewHost +
       related +
       '<section class="card-box school-section">' +
@@ -21270,12 +21294,15 @@
     }
   }
 
-  /** Deep-link desde Leaks / reportes → lección (solo si el menú Escuela es visible). */
+  /** Deep-link desde Leaks / reportes → lección (mismas gates que el hub: plan + lineal). */
   function openLesson(lessonId) {
     if (!schoolMenuVisible() || !lessonId) return false;
-    var data = Data();
-    var lesson = data && data.getLesson(lessonId);
-    if (!lesson) return false;
+    var gate = canPlayLesson(lessonId);
+    if (!gate.ok) {
+      if (gate.upgrade) openUpgrade(gate.reason);
+      return false;
+    }
+    var lesson = gate.lesson;
     try { delete global.__ptPendingSchoolLesson; } catch (e) { /* ignore */ }
     state.route = lesson.route || 'cash';
     state.view = VIEW.lesson;
@@ -21293,8 +21320,12 @@
     var pending = global.__ptPendingSchoolLesson;
     if (!pending) return;
     try { delete global.__ptPendingSchoolLesson; } catch (e) { /* ignore */ }
-    var lesson = Data() && Data().getLesson(pending);
-    if (!lesson) return;
+    var gate = canPlayLesson(pending);
+    if (!gate.ok) {
+      if (gate.upgrade) openUpgrade(gate.reason);
+      return;
+    }
+    var lesson = gate.lesson;
     state.route = lesson.route || 'cash';
     state.view = VIEW.lesson;
     state.lessonId = lesson.id;
@@ -21338,7 +21369,7 @@
     if (!root) return;
     if (!schoolMenuVisible()) {
       root.innerHTML = '<div class="school-page school-gated">' +
-        '<p class="muted-text">La Escuela aún tiene acceso limitado.</p>' +
+        '<p class="muted-text">Inicia sesión para acceder a la Escuela de Póker.</p>' +
         '<p class="muted-text">Mientras tanto puedes entrenar spots o seguir la Guía básica.</p>' +
         '<div class="empty-state-actions">' +
         '<button type="button" class="btn btn-primary btn-sm" data-school-go="play">Entrenar</button> ' +
