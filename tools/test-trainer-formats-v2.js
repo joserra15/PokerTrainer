@@ -429,8 +429,8 @@ const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf
 assert.ok(indexHtml.includes('setup-format-hub'), 'hub tabs UI');
 assert.ok(indexHtml.includes('setup-practice-intent'), 'intent UI');
 assert.ok(indexHtml.includes('id="setup-practice-intent-wrap" hidden'), 'intent UI oculta');
-assert.ok(indexHtml.includes('data-val="bluff_make" hidden'), 'chip hacer faroles oculto');
-assert.ok(indexHtml.includes('data-val="bluff_catch" hidden'), 'chip cazar faroles oculto');
+assert.ok(!indexHtml.includes('data-val="bluff_make"'), 'chips faroles eliminados (hacer)');
+assert.ok(!indexHtml.includes('data-val="bluff_catch"'), 'chips faroles eliminados (cazar)');
 assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 assert.ok(indexHtml.includes('setup-group-mtt-structure'), 'MTT structure UI');

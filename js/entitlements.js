@@ -394,9 +394,11 @@
 
   function canStartTrainerHand(ent) {
     if (isGuestUser()) {
+      var limit = (global.PTGuest && global.PTGuest.HAND_LIMIT) || 5;
       var left = global.PTGuest.remaining ? global.PTGuest.remaining() : 0;
-      if (left <= 0) return { ok: false, reason: 'guest_gate', used: 5, limit: 5 };
-      return { ok: true, used: 0, limit: 5 };
+      var used = Math.max(0, limit - left);
+      if (left <= 0) return { ok: false, reason: 'guest_gate', used: used, limit: limit };
+      return { ok: true, used: used, limit: limit };
     }
     var usingLiveState = (ent == null) || (state != null && ent === state);
     ent = ent || state || localFallback();

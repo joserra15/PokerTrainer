@@ -87,6 +87,8 @@ assert.strictEqual(prefs.rakeMode, 'custom');
 assert.strictEqual(Number(prefs.rakePct), 7);
 
 vm.runInNewContext(hotkeys, sandbox);
+assert.ok(/hand-end-next/.test(hotkeys), 'hotkeys contemplan hand-end-next');
+assert.ok(/hand-end-modal|handEndModalOpen/.test(hotkeys), 'hotkeys con modal fin de mano');
 assert.ok(sandbox.PTHotkeys && typeof sandbox.PTHotkeys.bind === 'function', 'PTHotkeys.bind');
 assert.strictEqual(sandbox.PTHotkeys.hintForAction('fold'), 'F');
 assert.strictEqual(sandbox.PTHotkeys.hintForAction('call'), 'C');

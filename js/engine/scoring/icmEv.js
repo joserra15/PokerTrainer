@@ -27,16 +27,57 @@
       }
     }
     const eq = new Array(n).fill(0);
-    // Lite: Harville 1º/2º; el 3º absorbe el resto del ladder (puestos 3+).
     let payThirdPlus = 0;
     for (let k = 2; k < pays.length; k++) payThirdPlus += pays[k] || 0;
-    for (let i = 0; i < n; i++) {
-      eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
-      if (payThirdPlus > 0) {
-        const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
-        eq[i] += pThird * payThirdPlus;
+
+    if (n <= 3 || payThirdPlus <= 0) {
+      // HU/3-way: p(3º) = 1 − p1 − p2 suma 1 entre jugadores; OK repartir payThirdPlus.
+      for (let i = 0; i < n; i++) {
+        eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
+        if (payThirdPlus > 0) {
+          const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
+          eq[i] += pThird * payThirdPlus;
+        }
+        eq[i] = Math.round(eq[i] * 1000) / 1000;
       }
+      return eq;
+    }
+
+    // n>3: Harville lite para 3º (condicionado a no 1º/2º), luego masa residual
+    // de puestos 4+ repartida por chipEV entre los no-1º (aprox. conservando ∑eq ≈ prize).
+    const pThird = new Array(n).fill(0);
+    for (let first = 0; first < n; first++) {
+      const rem1 = total - Math.max(0, Number(stacks[first]) || 0);
+      if (rem1 <= 0) continue;
+      for (let second = 0; second < n; second++) {
+        if (second === first) continue;
+        const p12 = pFirst[first] * (Math.max(0, Number(stacks[second]) || 0) / rem1);
+        const rem2 = rem1 - Math.max(0, Number(stacks[second]) || 0);
+        if (rem2 <= 0 || !(p12 > 0)) continue;
+        for (let third = 0; third < n; third++) {
+          if (third === first || third === second) continue;
+          pThird[third] += p12 * (Math.max(0, Number(stacks[third]) || 0) / rem2);
+        }
+      }
+    }
+    const pay3 = pays[2] || 0;
+    let payRest = 0;
+    for (let k = 3; k < pays.length; k++) payRest += pays[k] || 0;
+    const chip = stacks.map((s) => Math.max(0, Number(s) || 0) / total);
+    for (let i = 0; i < n; i++) {
+      eq[i] = (pFirst[i] || 0) * (pays[0] || 0)
+        + (pSecond[i] || 0) * (pays[1] || 0)
+        + (pThird[i] || 0) * pay3;
+      // Puestos 4+: peso proporcional a chip share (lite; no Harville completo).
+      if (payRest > 0) eq[i] += (chip[i] || 0) * payRest;
       eq[i] = Math.round(eq[i] * 1000) / 1000;
+    }
+    // Renormalizar suavemente para que ∑eq ≈ ∑pays (errores de redondeo / lite).
+    const eqSum = eq.reduce((s, x) => s + x, 0);
+    const paySum = pays.reduce((s, x) => s + (Number(x) || 0), 0);
+    if (eqSum > 0 && paySum > 0 && Math.abs(eqSum - paySum) > 0.01) {
+      const scale = paySum / eqSum;
+      for (let i = 0; i < n; i++) eq[i] = Math.round(eq[i] * scale * 1000) / 1000;
     }
     return eq;
   }
@@ -370,7 +411,8 @@
       placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
       mttPayoutPreset: cfg.mttPayoutPreset || null,
       mttStructureSituation: cfg.mttStructureSituation || null,
-      icmEnabled: true,
+      // Misma fuente que HUD/rangos: Tax.usesIcm (no forzar true en early/mid sin burbuja).
+      icmEnabled: Taxo ? !!Taxo.usesIcm(cfg) : (hub === 'spin' || hub === 'mtt'),
       icmStacksBB: stacks,
       icmPayouts: payouts,
       icmHeroIdx: 0,

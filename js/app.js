@@ -3022,11 +3022,6 @@
       if (playConfigPrefetchKey(playSessionConfig) !== key) return;
       try {
         let cfg = cfgSnapshot;
-        if (cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
-          cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
-            return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
-          });
-        }
         const next = generateTrainerHand(null, cfg);
         if (gen !== prefetchGen) return;
         if (!next) return;
@@ -3103,7 +3098,8 @@
       const cfgEarly = cfgEarlyPeek;
       const isLegendaryHand = isLegendaryPeek;
       const isSchoolHand = isSchoolPeek;
-      /* Escuela y Legendary no consumen cupo diario del entrenador. */
+      /* Escuela y Legendary no consumen cupo diario del entrenador.
+         El cupo se registra solo tras un deal exitoso (abajo). */
       if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent && Ent.ensureLoaded) {
         const ent = entAlreadyLoaded ? Ent.get() : await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
@@ -3111,22 +3107,6 @@
           invalidatePrefetch();
           if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
           return;
-        }
-        const recFn = Ent.recordTrainerHandAsync || Ent.recordTrainerHand;
-        if (recFn) {
-          const rec = recFn.call(Ent);
-          if (rec && typeof rec.then === 'function') {
-            /* Compat: si aún devolviera Promise, no bloquear el deal. */
-            rec.then(function (r) {
-              if (r && r.ok === false && window.PTBilling) {
-                window.PTBilling.showPaywall(r.error || 'trainer_limit');
-              }
-            }).catch(function () { /* ignore */ });
-          } else if (rec && rec.ok === false) {
-            invalidatePrefetch();
-            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-            return;
-          }
         }
       }
       if (guestOn) {
@@ -3154,11 +3134,6 @@
           cfg = (pref.playConfig) || cfg;
         }
       }
-      if (!usedPrefetch && !force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
-        cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
-          return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
-        });
-      }
       if (!usedPrefetch && !force && repeatErrorsMode) {
         let errs = Store.getErrors();
         const streetFilter = cfg && cfg.practiceStreet;
@@ -3174,6 +3149,28 @@
 
       if (!usedPrefetch) {
         hand = generateTrainerHand(force, cfg);
+      }
+      if (!hand) {
+        invalidatePrefetch();
+        return;
+      }
+      /* Cupo: solo tras deal exitoso. */
+      if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent) {
+        const recFn = Ent.recordTrainerHandAsync || Ent.recordTrainerHand;
+        if (recFn) {
+          const rec = recFn.call(Ent);
+          if (rec && typeof rec.then === 'function') {
+            rec.then(function (r) {
+              if (r && r.ok === false && window.PTBilling) {
+                window.PTBilling.showPaywall(r.error || 'trainer_limit');
+              }
+            }).catch(function () { /* ignore */ });
+          } else if (rec && rec.ok === false) {
+            invalidatePrefetch();
+            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+            return;
+          }
+        }
       }
       pendingForce = null;
       if (window.PTLog && PTLog.event && hand) {
@@ -6345,10 +6342,13 @@
     const net = roundSession(session.net);
     const evLost = roundSession(session.evLossBB);
     const expected = roundSession(net - evLost);
+    const handsPerHour = elapsedMs > 0
+      ? Math.round((session.hands / (elapsedMs / 3600000)) * 10) / 10
+      : null;
     box.innerHTML = `<div class="session-block-popup">
       <div class="session-block-popup-head">
         <h3>¡Bloque completado!</h3>
-        <p class="muted-text">${target} manos · ${mins} min ${secs > 0 ? secs + ' s' : ''}</p>
+        <p class="muted-text">${target} manos · ${mins} min ${secs > 0 ? secs + ' s' : ''}${handsPerHour != null ? ' · ~' + handsPerHour + ' manos/h' : ''}</p>
       </div>
       <div class="stats-content session-block-popup-stats">
         <div class="stat-card"><div class="big">${session.hands}</div><div class="lbl">Manos</div></div>
@@ -6365,6 +6365,7 @@
       </div>
     </div>`;
     modal.classList.remove('hidden');
+    modal.classList.add('hand-end-modal');
     const close = () => closeModal();
     const closeBtn = $('#block-popup-close');
     if (closeBtn) closeBtn.onclick = close;

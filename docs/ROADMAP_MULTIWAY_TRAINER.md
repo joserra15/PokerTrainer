@@ -2,26 +2,33 @@
 
 > **Estado (v2.1.0):** Fases 0–3 **implementadas**. Ver `js/engine/multiway.js`, escenario UI `multiway`, y `tools/test-multiway-trainer.js`.
 >
-> Análisis del estado actual del motor y plan de cambios para: **(A)** aparición realista de multiway en modo Random, y **(B)** opción dedicada de entrenamiento multiway con cartas de villanos coherentes con el tipo de bote y su perfil.
->
-> **Contexto:** Hoy la mesa se reparte a 6/9/3 jugadores; con `allowMultiway` (default on) los callers extra **permanecen** al flop. El escenario **Multiway** fuerza SRP 3/4-way o limp pot con deals por rol.
+> Documento histórico + estado shipped. Las secciones «Hoy / Meta» de §1–2 describen el **gap pre-v2**; el estado actual está en el encabezado y en §Estado shipped abajo.
 
 ---
 
-## 1. Resumen ejecutivo
+## Estado shipped (v2.1+)
 
-| Dimensión | Hoy | Meta |
-|-----------|-----|------|
-| Deal de mesa | Full table (todas las seats) | Sin cambio de base |
-| Preflop multi-call / squeeze | Sí, con callers extra | Mantener + **no descartar** callers vivos |
-| Postflop jugable | Solo `hand.villain` singular | N jugadores vivos (`opponents[]` / seats `inHand`) |
-| Random | Escoge escenario HU-céntrico | Escenario + simulación seat-by-seat → multiway **si las manos lo justifican** |
-| Opción “Multiway” | No existe | Chip de escenario + subtipos de bote |
-| Cartas villanos | Rango del rol primario | Por rol × perfil × tipo de bote |
-| Equity / solver | HU (`equityVsRange`) | N-way MC + flag `multiway` en scoring |
-| UI | Un villano revelado | Acciones y showdown multi-oponente |
+| Dimensión | Estado |
+|-----------|--------|
+| Escenario UI `multiway` | Chip + subtipos SRP 3/4-way / limp pot |
+| `allowMultiway` | On por defecto en `random`/`multiway`; off en escenarios fijos (RFI/3bet…) |
+| Callers vivos al flop | Sí, cuando `allowMultiway` |
+| Equity / scoring N-way | MC multi-oponente + flag `multiway` (confianza −1) |
+| Cartas por rol × perfil | Samplers en `play-config` + perfiles por seat |
 
-**Veredicto:** El gap no es el deal (ya es full table), sino el **modelo de estado HU**, el **colapso forzado en `goFlop`**, y la falta de **política postflop / equity N-way**. Random realista y modo dedicado comparten la misma base de motor; divergen en **cómo se fuerza la entrada al bote**.
+---
+
+## 1. Resumen ejecutivo (histórico pre-v2)
+
+| Dimensión | Antes | Meta (cumplida) |
+|-----------|-------|-----------------|
+| Deal de mesa | Full table | Sin cambio |
+| Preflop multi-call | Callers descartados en goFlop | Callers vivos |
+| Postflop | Solo `hand.villain` | N jugadores vivos |
+| Opción Multiway | No existía | Chip + subtipos |
+| Equity | HU | N-way MC |
+
+**Veredicto histórico:** el gap era el colapso HU en `goFlop` y la falta de política N-way. Eso ya está cubierto en motor + UI.
 
 ---
 
@@ -30,13 +37,13 @@
 ### 2.1 Flujo
 
 ```
-UI setup (escenario / handRange / nivel)
+UI setup (escenario / handRange / nivel / multiway)
   → PTPlayConfig.pickScenario / buildScenarioPool
   → Engine.newHand → dealForPlayConfig → setup*
-  → advancePreflop (puede dejar callers en _callersAtFlop)
-  → goFlop → FOLDEA extras → syncTableToActivePot (HU)
-  → enterStreet / advancePostflop (1 villain)
-  → GTO evaluateSpot + equityVsRange (HU)
+  → advancePreflop (callers extra si allowMultiway)
+  → goFlop → seats vivas (multiway.js)
+  → enterStreet / advancePostflop N-way
+  → GTO evaluateSpot + equity N-way
 ```
 
 ### 2.2 Archivos clave
@@ -44,37 +51,14 @@ UI setup (escenario / handRange / nivel)
 | Capa | Archivo | Rol |
 |------|---------|-----|
 | UI escenarios | `index.html` (`#setup-scenario`), `js/app.js` | Chips; lectura de config |
-| Pool de spots | `js/play-config.js` | `buildScenarioPool`, `getScenarioDeals`, samplers de rangos |
-| Motor | `js/engine.js` | Setup, preflop, `goFlop`, colapso HU, postflop |
-| Perfiles | `js/engine/villainProfiles.js` | Arquetipos por seat + nivel sesión |
-| Preflop AI | `js/engine/villainPreflop.js` | Fold/call/3bet anclado a rango |
-| Tracking | `js/engine/ranges/villainTracking.js` | Un tracker → `hand.villain` |
-| Equity | `js/engine/equity/monteCarlo.js` | Un oponente |
-| Scoring | `js/engine/scoring/scoring.js` | Ya resta confianza si `opts.multiway` |
-| Solver | `js/engine/solver/LocalSolverProvider.js` | Propaga flag `multiway` |
+| Pool de spots | `js/play-config.js` | `buildScenarioPool`, samplers |
+| Motor multiway | `js/engine/multiway.js` | Side pots, seats vivas, equity |
+| Motor | `js/engine.js` | Setup, preflop, postflop |
+| Scoring | `js/engine/scoring/scoring.js` | Flag `multiway` |
 
-### 2.3 Puntos de colapso HU (donde se pierde el multiway)
+### 2.3–2.5 (archivo histórico)
 
-1. **`resolveBlindsAfterHeroOpen`** — si varios callers, elige un `villainPos` y mete el resto en `_callersAtFlop`.
-2. **`goFlop`** — marca fold a todos los de `_callersAtFlop` (salvo si coinciden con el villano activo).
-3. **`syncTableToActivePot` / `collapseOthersToHU` / `resolvePendingAfterHero`** — dejan solo héroe + un villano en `inHand`.
-4. Comentarios explícitos en overlimp / iso: se simplifica a HU vs limper.
-
-### 2.4 Lo que ya ayuda
-
-- Deal completo + perfiles por seat (`assignTableProfiles`).
-- Squeeze con `callerPos` y pesos de caller.
-- Multi-call tras RFI (teatro preflop + dinero en pot).
-- `handRange: random` → cartas puras del mazo (base ideal para frecuencia natural).
-- Scoring ya entiende “multiway aproximado” (penaliza confianza).
-
-### 2.5 Lo que no existe
-
-- Escenario UI `multiway`.
-- Estado `opponents[]` / betting round N-way.
-- Equity vs varios rivales.
-- Rangos de cold-call / overlimp / limp-pot condicionados por perfil para construir el bote.
-- Estrategia postflop multiway (solo heurísticas HU).
+Las listas de «puntos de colapso HU» y «lo que no existe» de versiones anteriores quedaron obsoletas tras Fases 0–3. Conservar solo como referencia de diseño; no usan el código actual.
 
 ---
 

@@ -61,7 +61,7 @@
     cold4bet: {
       formatHub: 'cash',
       gameType: 'cash6',
-      scenario: '4bet',
+      scenario: 'cold4bet',
       practiceStreet: 'preflop',
       handRange: 'borderline',
       heroPos: 'random',
@@ -71,7 +71,7 @@
     sbLimp: {
       formatHub: 'cash',
       gameType: 'cash6',
-      scenario: 'iso',
+      scenario: 'sbLimp',
       practiceStreet: 'preflop',
       handRange: 'borderline',
       heroPos: 'random',

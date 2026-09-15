@@ -2548,18 +2548,24 @@
       { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
     ];
   }
-  // Combinaciones de aislamiento frente a un limper (héroe nunca en BB aquí)
-  const ISO_COMBOS = [
-    { heroPos: 'CO', limperPos: 'UTG' },
-    { heroPos: 'BTN', limperPos: 'HJ' },
-    { heroPos: 'BTN', limperPos: 'CO' },
-    { heroPos: 'SB', limperPos: 'CO' }
-  ];
+  // Combinaciones de aislamiento frente a un limper (héroe nunca en BB aquí).
+  // Preferir PTPlayConfig.ISO_COMBOS cuando exista (misma cobertura que el setup).
+  function isoCombosForEngine() {
+    const PC = global.PTPlayConfig;
+    if (PC && PC.ISO_COMBOS && PC.ISO_COMBOS.length) return PC.ISO_COMBOS;
+    return [
+      { heroPos: 'CO', limperPos: 'UTG' },
+      { heroPos: 'BTN', limperPos: 'HJ' },
+      { heroPos: 'BTN', limperPos: 'CO' },
+      { heroPos: 'SB', limperPos: 'CO' }
+    ];
+  }
   // Rango aproximado con el que un rival limpea (pasivo/débil)
   const LIMP_RANGE = '22-99, A2s-A9s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo-AJo, KJo, QJo, JTo';
 
   function pickScenario(forceKey, playConfig) {
     const PC = global.PTPlayConfig;
+    const rnd = function () { return C.rng.random(); };
     if (forceKey && forceKey.type) {
       const s = Object.assign({}, forceKey);
       delete s.seed;
@@ -2572,19 +2578,21 @@
     }
     // force solo con seed/forceDeal/forceScript: respetar playConfig (hubs v2).
     if (PC && playConfig) {
-      return PC.pickScenario(playConfig, null);
+      return PC.pickScenario(playConfig, null, rnd);
     }
-    const roll = Math.random();
+    const roll = rnd();
     if (roll < 0.32) {
-      return { type: 'RFI', heroPos: RFI_POS[Math.floor(Math.random() * RFI_POS.length)] };
+      return { type: 'RFI', heroPos: RFI_POS[Math.floor(rnd() * RFI_POS.length)] };
     }
     if (roll < 0.66) {
-      return { type: 'vsRFI', key: VS_KEYS[Math.floor(Math.random() * VS_KEYS.length)] };
+      return { type: 'vsRFI', key: VS_KEYS[Math.floor(rnd() * VS_KEYS.length)] };
     }
     if (roll < 0.84) {
-      return Object.assign({ type: 'squeeze' }, squeezeCombosForEngine()[Math.floor(Math.random() * squeezeCombosForEngine().length)]);
+      const sq = squeezeCombosForEngine();
+      return Object.assign({ type: 'squeeze' }, sq[Math.floor(rnd() * sq.length)]);
     }
-    return Object.assign({ type: 'isoLimp' }, ISO_COMBOS[Math.floor(Math.random() * ISO_COMBOS.length)]);
+    const iso = isoCombosForEngine();
+    return Object.assign({ type: 'isoLimp' }, iso[Math.floor(rnd() * iso.length)]);
   }
 
   function scenarioHeroPos(hand) {
@@ -2700,12 +2708,17 @@
 
   // ---------- Crear una mano ----------
   function newHand(force, playConfig) {
-    const scenario = pickScenario(force, playConfig);
     const seed = (force && force.seed != null) ? (force.seed >>> 0) : (Math.floor(Math.random() * 2147483647) >>> 0);
     C.rng.setSeed(seed);
+    // Stack aleatorio y escenario consumen el RNG ya sembrado → seed+sesión reproducibles.
+    let cfg = playConfig || null;
+    if (cfg && global.PTPlayConfig && global.PTPlayConfig.resolveHandConfig) {
+      cfg = global.PTPlayConfig.resolveHandConfig(cfg, function () { return C.rng.random(); });
+    }
+    const scenario = pickScenario(force, cfg);
 
-    const useConfigDeal = playConfig && global.PTPlayConfig;
-    const dealt = useConfigDeal ? dealForPlayConfig(scenario, playConfig) : dealFullTable();
+    const useConfigDeal = cfg && global.PTPlayConfig;
+    const dealt = useConfigDeal ? dealForPlayConfig(scenario, cfg) : dealFullTable();
     const holeCards = dealt.holeCards;
     const board = dealt.board;
 
@@ -2715,30 +2728,30 @@
       const hp = scenario.engineHeroPos
         || (global.PTPlayConfig ? global.PTPlayConfig.enginePos(scenario.heroPos) : scenario.heroPos);
       vPos = 'BB';
-      vRange = rfiDefendRange(hp, { playConfig: playConfig });
+      vRange = rfiDefendRange(hp, { playConfig: cfg });
     } else if (scenario.type === 'squeeze') {
       vPos = scenario.openerPos;
-      vRange = openRangeStr(scenario.openerPos, { playConfig: playConfig });
+      vRange = openRangeStr(scenario.openerPos, { playConfig: cfg });
     } else if (scenario.type === 'isoLimp') {
       vPos = scenario.limperPos;
       vRange = LIMP_RANGE;
     } else if (scenario.type === 'face4bet') {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
-      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr(playConfig) : R.VS_3BET.fourBet;
+      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr(cfg) : R.VS_3BET.fourBet;
     } else if (scenario.type === 'face3bet') {
       const pk = parseFace3betKey(scenario.key);
       vPos = pk.threeBettor;
       const reg = global.GTORangesRegistry;
       const vsKey = pk.threeBettor + '_vs_' + pk.opener;
-      const d = R.VS_RFI[vsKey] || (reg ? reg.getVsRfiRow(pk.threeBettor, pk.opener, playConfig || {}) : null);
+      const d = R.VS_RFI[vsKey] || (reg ? reg.getVsRfiRow(pk.threeBettor, pk.opener, cfg || {}) : null);
       vRange = d ? (d.threeBet + ', ' + d.threeBetMix) : 'QQ+, AKs, AKo';
     } else if (scenario.type === 'bbVsSbLimp') {
       vPos = 'SB';
       vRange = LIMP_RANGE;
     } else if (scenario.type === 'sbLimp') {
       vPos = 'BB';
-      vRange = bbCallRange('SB', { playConfig: playConfig });
+      vRange = bbCallRange('SB', { playConfig: cfg });
     } else if (scenario.type === 'cold4bet') {
       vPos = scenario.threeBettorPos || 'HJ';
       const vsKey = vPos + '_vs_' + (scenario.openerPos || 'UTG');
@@ -2748,15 +2761,15 @@
       vPos = scenario.openerPos || scenario.limperPos || 'CO';
       vRange = scenario.type === 'limpPot'
         ? LIMP_RANGE
-        : openRangeStr(vPos, { playConfig: playConfig });
+        : openRangeStr(vPos, { playConfig: cfg });
     } else {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
-      vRange = openRangeStr(pk.opener, { playConfig: playConfig });
+      vRange = openRangeStr(pk.opener, { playConfig: cfg });
     }
 
-    const stackBB = playConfig && global.PTPlayConfig
-      ? global.PTPlayConfig.stackBB(playConfig)
+    const stackBB = cfg && global.PTPlayConfig
+      ? global.PTPlayConfig.stackBB(cfg)
       : EFF;
 
     const hand = {
@@ -2764,7 +2777,7 @@
       createdAt: new Date().toISOString(),
       seed: seed,
       scenario: scenario,
-      playConfig: playConfig || null,
+      playConfig: cfg || null,
       displayHeroPos: dealt.displayHeroPos || null,
       hero: { cards: [], code: null, pos: null },
       villain: { cards: null, rangeStr: null, pos: null, profileId: null, profileLabel: null, profileShort: null },
@@ -2789,7 +2802,7 @@
     // acciones previas en el orden que les conviene, no en el orden de turno.
     // Escuela / forceDeal / forceScript: saltan a la decisión vs 3bet/4bet.
     // Entrenador libre: héroe actúa el open/3-bet; el reparto fuerza el spot.
-    const skipHeroPreAction = !!(playConfig && playConfig.schoolMode)
+    const skipHeroPreAction = !!(cfg && cfg.schoolMode)
       || !!(force && (force.forceDeal || force.forceScript));
     hand._lineSuspended = true;
     if (scenario.type === 'RFI') setupRFI(hand);
@@ -2952,12 +2965,25 @@
     if (!cfg) return;
     const ante = Number(cfg.anteBB) || 0;
     if (ante <= 0) return;
-    const seats = global.PTPlayConfig && global.PTPlayConfig.isSpin && global.PTPlayConfig.isSpin(cfg)
-      ? 3
-      : (global.PTPlayConfig && global.PTPlayConfig.is9Max && global.PTPlayConfig.is9Max(cfg) ? 9 : 6);
-    // Antes típicos: todos pagan; en HU efectivo usamos 2.
-    const payers = Math.min(seats, hand.table && hand.table.length ? hand.table.length : seats);
-    const add = round2(ante * Math.max(2, Math.min(payers, 3)));
+    const PC = global.PTPlayConfig;
+    const Tax = global.PTFormatTaxonomy;
+    const isHu = (PC && PC.isHuPhase && PC.isHuPhase(cfg))
+      || (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(cfg));
+    let seats;
+    if (isHu) {
+      seats = 2;
+    } else if (PC && PC.tablePositions) {
+      seats = PC.tablePositions(cfg).length || 6;
+    } else if (PC && PC.isSpin && PC.isSpin(cfg)) {
+      seats = 3;
+    } else if (PC && PC.is9Max && PC.is9Max(cfg)) {
+      seats = 9;
+    } else {
+      seats = 6;
+    }
+    // Antes típicos: todos pagan; en HU efectivo usamos 2; tope lite de 3 pagadores.
+    const payers = isHu ? 2 : Math.max(2, Math.min(seats, 3));
+    const add = round2(ante * payers);
     hand.potBB = round2((hand.potBB || 0) + add);
     hand.anteBB = ante;
     hand.antePotBB = add;
@@ -5319,7 +5345,7 @@
     return hand;
   }
 
-  /** Consejo en vivo: evalúa opciones sin aplicar la acción. */
+  /** Consejo en vivo: evalúa opciones sin aplicar la acción (mismo camino que act + ICM lite). */
   function previewAdvice(hand) {
     const node = hand && hand.current;
     if (!node || !global.GTO || !global.GTO.evaluateSpot) return null;
@@ -5328,6 +5354,7 @@
     const availableActions = options.map((o) => o.id);
     const Classifier = global.GTOClassifier;
     const EvMath = global.GTOEvMath;
+    const Icm = global.GTOIcmEv;
 
     const stratResult = GTO.evaluateSpot(buildSpotInput(hand, node, availableActions[0]));
     const strategy = stratResult.strategy;
@@ -5338,7 +5365,7 @@
       : { best: availableActions[0] };
     const bestId = cls.best;
 
-    function evForAction(actionId) {
+    function chipEvForAction(actionId) {
       const input = buildSpotInput(hand, node, actionId);
       const ctx = EvMath.buildActionContext(
         Object.assign({}, input, { chosenAction: actionId }),
@@ -5348,20 +5375,32 @@
     }
 
     let maxEv = -Infinity;
+    const chipById = {};
     availableActions.forEach((a) => {
-      const ev = evForAction(a);
+      const ev = chipEvForAction(a);
+      chipById[a] = ev;
       if (ev > maxEv) maxEv = ev;
     });
     const bestEV = EvMath.round2(maxEv);
+    const sampleInput = buildSpotInput(hand, node, bestId);
+    const applyIcm = !!(Icm && Icm.shouldApply && Icm.shouldApply(sampleInput));
 
-    const optionEVs = options.map((o) => ({
-      id: o.id,
-      label: o.label,
-      ev: evForAction(o.id),
-      freq: strategy[o.id] || 0
-    }));
+    const optionEVs = options.map((o) => {
+      let ev = chipById[o.id];
+      if (applyIcm && bestEV - ev > 0.001) {
+        const loss = bestEV - ev;
+        const adj = Icm.adjustEvLoss(loss, Object.assign({}, sampleInput, { chosenAction: o.id }));
+        ev = EvMath.round2(bestEV - adj);
+      }
+      return {
+        id: o.id,
+        label: o.label,
+        ev: ev,
+        freq: strategy[o.id] || 0
+      };
+    });
 
-    const recActionEV = evForAction(bestId);
+    const recActionEV = (optionEVs.find((o) => o.id === bestId) || {}).ev;
     const recEval = GTO.evaluateSpot(buildSpotInput(hand, node, bestId));
     const recInput = buildSpotInput(hand, node, bestId);
     const recCtx = EvMath.buildActionContext(
@@ -5391,7 +5430,9 @@
       options: optionEVs,
       drivers: stratResult.topDrivers || stratResult.drivers || [],
       conceptTags: stratResult.conceptTags || [],
-      bubbleFactor: stratResult.bubbleFactor != null ? stratResult.bubbleFactor : null
+      bubbleFactor: stratResult.bubbleFactor != null ? stratResult.bubbleFactor : null,
+      icmLite: applyIcm,
+      scoreMode: (hand.playConfig && hand.playConfig.scoreMode) || 'gto'
     };
   }
 

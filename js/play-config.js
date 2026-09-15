@@ -79,7 +79,8 @@
   const STACK_DEPTH_BB = {
     bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
     bb15: 15, bb12: 12, bb11: 11, bb10: 10,
-    standard: 100, short: 40, deep: 150
+    /* Aliases alineados con normalize() cash (short→bb50, deep→bb200). */
+    standard: 100, short: 50, deep: 200
   };
 
   /** Resuelve claves bbN (p. ej. bb11) además de las entradas fijas del mapa. */
@@ -158,9 +159,8 @@
     /** Umbral de EV perdido (bb) para avisar en modo serious */
     seriousEvThreshold: 0.5,
     /**
-     * Ocultar la línea de acción previa en mesa.
-     * Solo aplica (y el control de setup se activa) con calle de práctica
-     * flop / turn / river. Por defecto desactivada: la línea se muestra.
+     * Ocultar la línea de acción previa en mesa (todas las calles).
+     * El control de setup se muestra siempre; por defecto la línea es visible.
      */
     hideActionLine: false,
     tableTheme: 'emerald',
@@ -172,8 +172,8 @@
     rakeMode: 'none',
     rakePct: 5,
     rakeCapBB: 3,
-    /** Permitir botes multiway (default on en random/cash) */
-    allowMultiway: true,
+    /** Permitir botes multiway. Default off en escenarios fijos; on en random/multiway. */
+    allowMultiway: false,
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
     multiwayPotType: 'any',
     /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
@@ -521,8 +521,13 @@
       c.rakePct = STANDARD_RAKE.pct;
       c.rakeCapBB = STANDARD_RAKE.capBB;
     }
-    if (c.allowMultiway == null) c.allowMultiway = true;
-    c.allowMultiway = !!c.allowMultiway;
+    const multiwayExplicit = Object.prototype.hasOwnProperty.call(raw, 'allowMultiway');
+    if (!multiwayExplicit) {
+      // Escenarios fijos (RFI/3bet…) se quedan HU; random/multiway sí permiten callers extra.
+      c.allowMultiway = (c.scenario === 'random' || c.scenario === 'multiway');
+    } else {
+      c.allowMultiway = !!c.allowMultiway;
+    }
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
@@ -1240,7 +1245,7 @@
     return 'RFI';
   }
 
-  function pickScenario(config, forceKey) {
+  function pickScenario(config, forceKey, rndFn) {
     if (forceKey && forceKey.type) return forceKey;
     const cfg = normalize(config);
     let pool = buildScenarioPool(cfg);
@@ -1248,7 +1253,8 @@
       pool = pool.filter((s) => matchHeroPos(s, cfg.heroPos, cfg));
     }
     if (!pool.length) pool = buildScenarioPool(cfg);
-    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const rnd = typeof rndFn === 'function' ? rndFn : Math.random;
+    const picked = pool[Math.floor(rnd() * pool.length)];
     return applyHeroPosFilter(Object.assign({}, picked), cfg.heroPos, cfg);
   }
 

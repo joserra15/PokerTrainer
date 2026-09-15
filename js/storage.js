@@ -1440,11 +1440,23 @@
     return !!(cfg.schoolMode || cfg.school);
   }
 
+  function isLegendaryHand(hand) {
+    if (!hand) return false;
+    if (hand.legendary || (hand.result && hand.result.legendary)) return true;
+    var cfg = hand.playConfig || {};
+    return !!(cfg.legendaryMode || cfg.legendary);
+  }
+
+  /** Manos de estudio dirigido: no contaminan stats/cupo/onboarding del entrenador. */
+  function isNonTrainerHand(hand) {
+    return isSchoolHand(hand) || isLegendaryHand(hand);
+  }
+
   function isSchoolError(err) {
     if (!err) return false;
     var cfg = err.playConfig || {};
-    if (cfg.schoolMode || cfg.school) return true;
-    if (err.school) return true;
+    if (cfg.schoolMode || cfg.school || cfg.legendaryMode || cfg.legendary) return true;
+    if (err.school || err.legendary) return true;
     return false;
   }
 
@@ -1454,14 +1466,17 @@
       hand.result.totalEvLoss = global.GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
     }
     const rec = serializeHand(hand);
+    const nonTrainer = isNonTrainerHand(hand);
     const hist = getHistory();
-    hist.unshift(rec);
-    if (hist.length > MAX_HISTORY) hist.length = MAX_HISTORY;
-    write(scopedDataKey('history'), hist);
+    /* Escuela / Legendary: no entran en histórico del entrenador. */
+    if (!nonTrainer) {
+      hist.unshift(rec);
+      if (hist.length > MAX_HISTORY) hist.length = MAX_HISTORY;
+      write(scopedDataKey('history'), hist);
+    }
 
-    const schoolHand = isSchoolHand(hand);
     const errs = getErrors().filter(function (e) { return !isSchoolError(e); });
-    if (!schoolHand) hand.decisions.forEach((d, idx) => {
+    if (!nonTrainer) hand.decisions.forEach((d, idx) => {
       if (d.class === 'error' || d.class === 'imprecisa') {
         const sc = hand.scenario || {};
         const cfg = hand.playConfig || {};
@@ -1515,9 +1530,9 @@
 
     const st = getStats();
     if (!st.byStreet) st.byStreet = defaultStats().byStreet;
-    /* Escuela no contamina acierto/EV/leaks de stats (ni consume cupo de entitlements). */
-    st.handsPlayed += 1;
-    if (!schoolHand) {
+    /* Escuela / Legendary no contaminan handsPlayed ni acierto/EV/leaks. */
+    if (!nonTrainer) {
+      st.handsPlayed += 1;
       st.totalEvLoss += hand.result.totalEvLoss || 0;
       st.totalNet += hand.result.heroNet || 0;
       hand.decisions.forEach((d) => {
@@ -1532,8 +1547,8 @@
       st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
       st.totalNet = Math.round(st.totalNet * 100) / 100;
       if (global.PTStatsAggregate) global.PTStatsAggregate.applyTrainerHand(st, rec);
+      writeStats(st);
     }
-    writeStats(st);
     notifySync(['history', 'errors', 'stats']);
 
     return rec;
@@ -2463,6 +2478,10 @@
   function recomputeStatsFromHistory(history) {
     const st = defaultStats();
     (history || []).forEach(function (h) {
+      if (isNonTrainerHand(h) || isSchoolError(h)) return;
+      const cfg = h.playConfig || {};
+      if (cfg.schoolMode || cfg.school || cfg.legendaryMode || cfg.legendary) return;
+      if (h.school || h.legendary) return;
       st.handsPlayed += 1;
       st.totalEvLoss += h.totalEvLoss || 0;
       st.totalNet += h.heroNet || 0;
@@ -3219,6 +3238,7 @@
   global.Store = {
     setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, appendErrors, persistStats: writeStats,
+    isSchoolHand, isLegendaryHand, isNonTrainerHand,
     getSchoolProgress, saveSchoolProgress,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,

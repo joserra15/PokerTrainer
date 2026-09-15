@@ -74,12 +74,13 @@
       '<section class="help-section">' +
       "<h3>Configurar sesión</h3>" +
       "<ul>" +
-      "<li><strong>Tipo de mesa</strong> — Cash 6-max, Cash 9-max o MTT (rangos/stacks orientativos; no es un solver de torneo completo).</li>" +
+      "<li><strong>Tipo de mesa</strong> — Cash 6-max, Cash 9-max (posiciones mapeadas al núcleo 6-max), Spin 3-max o MTT (estudio por fase + ICM lite; no es un solver de torneo completo).</li>" +
       "<li><strong>Presets</strong> — atajos de fábrica (Cash / Spin grind / MTT) o guarda los tuyos con nombre y bórralos con ×.</li>" +
-      "<li><strong>Stack, escenario, posición, rivales, calle y rango</strong> — definen el pool de spots.</li>" +
-      "<li><strong>Duración</strong> — Continua o bloque de 25 / 50 / 100 manos con resumen al final.</li>" +
+      "<li><strong>Stack, escenario, posición, rivales, calle y rango</strong> — definen el pool de spots. Escenario Multiway fuerza botes 3/4-way o limp pot.</li>" +
+      "<li><strong>Duración</strong> — Continua o bloque de 10 / 25 / 50 / 100 manos con resumen al final.</li>" +
       "<li><strong>Avisador en vivo</strong> — consejo previo, o solo toast si el EV perdido ≥ umbral («Solo error grave»).</li>" +
       "<li><strong>Tema de mesa</strong> — tapete Esmeralda / Medianoche / Burdeos.</li>" +
+      "<li><strong>Nomenclatura</strong> — Entrenador = mesa de práctica; ForgeCoach = chat IA; plan Coach = suscripción.</li>" +
       "</ul>" +
       "</section>" +
 
