@@ -5585,7 +5585,7 @@ window.PT_NASH_PUSH_JSON = {
   const STACK_BB = {
     bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
     bb15: 15, bb12: 12, bb11: 11, bb10: 10,
-    standard: 100, short: 40, deep: 150
+    standard: 100, short: 50, deep: 200
   };
   const GAME_LABELS = {
     cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
@@ -5594,7 +5594,7 @@ window.PT_NASH_PUSH_JSON = {
   const STACK_LABELS = {
     bb200: '200bb', bb100: '100bb', bb50: '50bb', bb40: '40bb', bb25: '25bb',
     bb20: '20bb', bb15: '15bb', bb10: '10bb',
-    standard: '100bb', short: '40bb', deep: '150bb'
+    standard: '100bb', short: '50bb', deep: '200bb'
   };
 
   function rangeStackCategory(stackDepth, stackBB) {
@@ -5602,6 +5602,30 @@ window.PT_NASH_PUSH_JSON = {
     if (bb <= 55 || stackDepth === 'short' || stackDepth === 'bb25' || stackDepth === 'bb50') return 'short';
     if (bb >= 120 || stackDepth === 'deep' || stackDepth === 'bb200') return 'deep';
     return 'standard';
+  }
+
+  /**
+   * Fuente única de ICM lite: explícito true/false gana; si no, Tax.usesIcm.
+   * Evita que `!!undefined` apague el grading en spins/MTT del entrenador.
+   */
+  function resolveIcmEnabled(c, formatHub, gameType) {
+    if (c && c.icmEnabled === true) return true;
+    if (c && c.icmEnabled === false) return false;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.usesIcm) {
+      return !!Tax.usesIcm({
+        formatHub: formatHub || c.formatHub || Tax.hubFromGameType(gameType || (c && c.gameType)),
+        gameType: gameType || (c && c.gameType),
+        mttPhase: (c && (c.resolvedPhase || c.mttPhase)) || null,
+        playersLeft: c && c.playersLeft,
+        placesPaid: c && c.placesPaid,
+        playersSeated: c && c.playersSeated,
+        tableMax: c && c.tableMax,
+        seatsPerTable: c && c.seatsPerTable
+      });
+    }
+    const hub = formatHub || (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash'));
+    return hub === 'spin' || hub === 'mtt';
   }
 
   function normalize(ctx) {
@@ -5646,7 +5670,7 @@ window.PT_NASH_PUSH_JSON = {
       villainLevel: c.villainLevel || 'pro',
       scenario: c.scenario || null,
       practiceIntent: c.practiceIntent || 'mixed',
-      icmEnabled: !!c.icmEnabled,
+      icmEnabled: resolveIcmEnabled(c, formatHub, gameType),
       playersLeft: c.playersLeft != null ? Number(c.playersLeft) : null,
       placesPaid: c.placesPaid != null ? Number(c.placesPaid) : null,
       entries: c.entries != null ? Number(c.entries) : null,
@@ -12232,16 +12256,57 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
     const eq = new Array(n).fill(0);
-    // Lite: Harville 1º/2º; el 3º absorbe el resto del ladder (puestos 3+).
     let payThirdPlus = 0;
     for (let k = 2; k < pays.length; k++) payThirdPlus += pays[k] || 0;
-    for (let i = 0; i < n; i++) {
-      eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
-      if (payThirdPlus > 0) {
-        const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
-        eq[i] += pThird * payThirdPlus;
+
+    if (n <= 3 || payThirdPlus <= 0) {
+      // HU/3-way: p(3º) = 1 − p1 − p2 suma 1 entre jugadores; OK repartir payThirdPlus.
+      for (let i = 0; i < n; i++) {
+        eq[i] = (pFirst[i] || 0) * (pays[0] || 0) + (pSecond[i] || 0) * (pays[1] || 0);
+        if (payThirdPlus > 0) {
+          const pThird = Math.max(0, 1 - (pFirst[i] || 0) - (pSecond[i] || 0));
+          eq[i] += pThird * payThirdPlus;
+        }
+        eq[i] = Math.round(eq[i] * 1000) / 1000;
       }
+      return eq;
+    }
+
+    // n>3: Harville lite para 3º (condicionado a no 1º/2º), luego masa residual
+    // de puestos 4+ repartida por chipEV entre los no-1º (aprox. conservando ∑eq ≈ prize).
+    const pThird = new Array(n).fill(0);
+    for (let first = 0; first < n; first++) {
+      const rem1 = total - Math.max(0, Number(stacks[first]) || 0);
+      if (rem1 <= 0) continue;
+      for (let second = 0; second < n; second++) {
+        if (second === first) continue;
+        const p12 = pFirst[first] * (Math.max(0, Number(stacks[second]) || 0) / rem1);
+        const rem2 = rem1 - Math.max(0, Number(stacks[second]) || 0);
+        if (rem2 <= 0 || !(p12 > 0)) continue;
+        for (let third = 0; third < n; third++) {
+          if (third === first || third === second) continue;
+          pThird[third] += p12 * (Math.max(0, Number(stacks[third]) || 0) / rem2);
+        }
+      }
+    }
+    const pay3 = pays[2] || 0;
+    let payRest = 0;
+    for (let k = 3; k < pays.length; k++) payRest += pays[k] || 0;
+    const chip = stacks.map((s) => Math.max(0, Number(s) || 0) / total);
+    for (let i = 0; i < n; i++) {
+      eq[i] = (pFirst[i] || 0) * (pays[0] || 0)
+        + (pSecond[i] || 0) * (pays[1] || 0)
+        + (pThird[i] || 0) * pay3;
+      // Puestos 4+: peso proporcional a chip share (lite; no Harville completo).
+      if (payRest > 0) eq[i] += (chip[i] || 0) * payRest;
       eq[i] = Math.round(eq[i] * 1000) / 1000;
+    }
+    // Renormalizar suavemente para que ∑eq ≈ ∑pays (errores de redondeo / lite).
+    const eqSum = eq.reduce((s, x) => s + x, 0);
+    const paySum = pays.reduce((s, x) => s + (Number(x) || 0), 0);
+    if (eqSum > 0 && paySum > 0 && Math.abs(eqSum - paySum) > 0.01) {
+      const scale = paySum / eqSum;
+      for (let i = 0; i < n; i++) eq[i] = Math.round(eq[i] * scale * 1000) / 1000;
     }
     return eq;
   }
@@ -12575,7 +12640,8 @@ window.PT_NASH_PUSH_JSON = {
       placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
       mttPayoutPreset: cfg.mttPayoutPreset || null,
       mttStructureSituation: cfg.mttStructureSituation || null,
-      icmEnabled: true,
+      // Misma fuente que HUD/rangos: Tax.usesIcm (no forzar true en early/mid sin burbuja).
+      icmEnabled: Taxo ? !!Taxo.usesIcm(cfg) : (hub === 'spin' || hub === 'mtt'),
       icmStacksBB: stacks,
       icmPayouts: payouts,
       icmHeroIdx: 0,
@@ -18186,7 +18252,8 @@ window.PT_NASH_PUSH_JSON = {
   const STACK_DEPTH_BB = {
     bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
     bb15: 15, bb12: 12, bb11: 11, bb10: 10,
-    standard: 100, short: 40, deep: 150
+    /* Aliases alineados con normalize() cash (short→bb50, deep→bb200). */
+    standard: 100, short: 50, deep: 200
   };
 
   /** Resuelve claves bbN (p. ej. bb11) además de las entradas fijas del mapa. */
@@ -18265,9 +18332,8 @@ window.PT_NASH_PUSH_JSON = {
     /** Umbral de EV perdido (bb) para avisar en modo serious */
     seriousEvThreshold: 0.5,
     /**
-     * Ocultar la línea de acción previa en mesa.
-     * Solo aplica (y el control de setup se activa) con calle de práctica
-     * flop / turn / river. Por defecto desactivada: la línea se muestra.
+     * Ocultar la línea de acción previa en mesa (todas las calles).
+     * El control de setup se muestra siempre; por defecto la línea es visible.
      */
     hideActionLine: false,
     tableTheme: 'emerald',
@@ -18279,8 +18345,8 @@ window.PT_NASH_PUSH_JSON = {
     rakeMode: 'none',
     rakePct: 5,
     rakeCapBB: 3,
-    /** Permitir botes multiway (default on en random/cash) */
-    allowMultiway: true,
+    /** Permitir botes multiway. Default off en escenarios fijos; on en random/multiway. */
+    allowMultiway: false,
     /** any | srp3way | srp4way | limpPot — solo si scenario=multiway */
     multiwayPotType: 'any',
     /** 'quick' = salta a la decisión del héroe; 'complete' = muestra UTG→BB */
@@ -18628,8 +18694,13 @@ window.PT_NASH_PUSH_JSON = {
       c.rakePct = STANDARD_RAKE.pct;
       c.rakeCapBB = STANDARD_RAKE.capBB;
     }
-    if (c.allowMultiway == null) c.allowMultiway = true;
-    c.allowMultiway = !!c.allowMultiway;
+    const multiwayExplicit = Object.prototype.hasOwnProperty.call(raw, 'allowMultiway');
+    if (!multiwayExplicit) {
+      // Escenarios fijos (RFI/3bet…) se quedan HU; random/multiway sí permiten callers extra.
+      c.allowMultiway = (c.scenario === 'random' || c.scenario === 'multiway');
+    } else {
+      c.allowMultiway = !!c.allowMultiway;
+    }
     if (c.multiwayPotType !== 'srp3way' && c.multiwayPotType !== 'srp4way' && c.multiwayPotType !== 'limpPot') {
       c.multiwayPotType = 'any';
     }
@@ -19347,7 +19418,7 @@ window.PT_NASH_PUSH_JSON = {
     return 'RFI';
   }
 
-  function pickScenario(config, forceKey) {
+  function pickScenario(config, forceKey, rndFn) {
     if (forceKey && forceKey.type) return forceKey;
     const cfg = normalize(config);
     let pool = buildScenarioPool(cfg);
@@ -19355,7 +19426,8 @@ window.PT_NASH_PUSH_JSON = {
       pool = pool.filter((s) => matchHeroPos(s, cfg.heroPos, cfg));
     }
     if (!pool.length) pool = buildScenarioPool(cfg);
-    const picked = pool[Math.floor(Math.random() * pool.length)];
+    const rnd = typeof rndFn === 'function' ? rndFn : Math.random;
+    const picked = pool[Math.floor(rnd() * pool.length)];
     return applyHeroPosFilter(Object.assign({}, picked), cfg.heroPos, cfg);
   }
 
@@ -22641,18 +22713,24 @@ window.PT_NASH_PUSH_JSON = {
       { heroPos: 'BTN', openerPos: 'HJ', callerPos: 'CO' }
     ];
   }
-  // Combinaciones de aislamiento frente a un limper (héroe nunca en BB aquí)
-  const ISO_COMBOS = [
-    { heroPos: 'CO', limperPos: 'UTG' },
-    { heroPos: 'BTN', limperPos: 'HJ' },
-    { heroPos: 'BTN', limperPos: 'CO' },
-    { heroPos: 'SB', limperPos: 'CO' }
-  ];
+  // Combinaciones de aislamiento frente a un limper (héroe nunca en BB aquí).
+  // Preferir PTPlayConfig.ISO_COMBOS cuando exista (misma cobertura que el setup).
+  function isoCombosForEngine() {
+    const PC = global.PTPlayConfig;
+    if (PC && PC.ISO_COMBOS && PC.ISO_COMBOS.length) return PC.ISO_COMBOS;
+    return [
+      { heroPos: 'CO', limperPos: 'UTG' },
+      { heroPos: 'BTN', limperPos: 'HJ' },
+      { heroPos: 'BTN', limperPos: 'CO' },
+      { heroPos: 'SB', limperPos: 'CO' }
+    ];
+  }
   // Rango aproximado con el que un rival limpea (pasivo/débil)
   const LIMP_RANGE = '22-99, A2s-A9s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ATo-AJo, KJo, QJo, JTo';
 
   function pickScenario(forceKey, playConfig) {
     const PC = global.PTPlayConfig;
+    const rnd = function () { return C.rng.random(); };
     if (forceKey && forceKey.type) {
       const s = Object.assign({}, forceKey);
       delete s.seed;
@@ -22665,19 +22743,21 @@ window.PT_NASH_PUSH_JSON = {
     }
     // force solo con seed/forceDeal/forceScript: respetar playConfig (hubs v2).
     if (PC && playConfig) {
-      return PC.pickScenario(playConfig, null);
+      return PC.pickScenario(playConfig, null, rnd);
     }
-    const roll = Math.random();
+    const roll = rnd();
     if (roll < 0.32) {
-      return { type: 'RFI', heroPos: RFI_POS[Math.floor(Math.random() * RFI_POS.length)] };
+      return { type: 'RFI', heroPos: RFI_POS[Math.floor(rnd() * RFI_POS.length)] };
     }
     if (roll < 0.66) {
-      return { type: 'vsRFI', key: VS_KEYS[Math.floor(Math.random() * VS_KEYS.length)] };
+      return { type: 'vsRFI', key: VS_KEYS[Math.floor(rnd() * VS_KEYS.length)] };
     }
     if (roll < 0.84) {
-      return Object.assign({ type: 'squeeze' }, squeezeCombosForEngine()[Math.floor(Math.random() * squeezeCombosForEngine().length)]);
+      const sq = squeezeCombosForEngine();
+      return Object.assign({ type: 'squeeze' }, sq[Math.floor(rnd() * sq.length)]);
     }
-    return Object.assign({ type: 'isoLimp' }, ISO_COMBOS[Math.floor(Math.random() * ISO_COMBOS.length)]);
+    const iso = isoCombosForEngine();
+    return Object.assign({ type: 'isoLimp' }, iso[Math.floor(rnd() * iso.length)]);
   }
 
   function scenarioHeroPos(hand) {
@@ -22793,12 +22873,17 @@ window.PT_NASH_PUSH_JSON = {
 
   // ---------- Crear una mano ----------
   function newHand(force, playConfig) {
-    const scenario = pickScenario(force, playConfig);
     const seed = (force && force.seed != null) ? (force.seed >>> 0) : (Math.floor(Math.random() * 2147483647) >>> 0);
     C.rng.setSeed(seed);
+    // Stack aleatorio y escenario consumen el RNG ya sembrado → seed+sesión reproducibles.
+    let cfg = playConfig || null;
+    if (cfg && global.PTPlayConfig && global.PTPlayConfig.resolveHandConfig) {
+      cfg = global.PTPlayConfig.resolveHandConfig(cfg, function () { return C.rng.random(); });
+    }
+    const scenario = pickScenario(force, cfg);
 
-    const useConfigDeal = playConfig && global.PTPlayConfig;
-    const dealt = useConfigDeal ? dealForPlayConfig(scenario, playConfig) : dealFullTable();
+    const useConfigDeal = cfg && global.PTPlayConfig;
+    const dealt = useConfigDeal ? dealForPlayConfig(scenario, cfg) : dealFullTable();
     const holeCards = dealt.holeCards;
     const board = dealt.board;
 
@@ -22808,30 +22893,30 @@ window.PT_NASH_PUSH_JSON = {
       const hp = scenario.engineHeroPos
         || (global.PTPlayConfig ? global.PTPlayConfig.enginePos(scenario.heroPos) : scenario.heroPos);
       vPos = 'BB';
-      vRange = rfiDefendRange(hp, { playConfig: playConfig });
+      vRange = rfiDefendRange(hp, { playConfig: cfg });
     } else if (scenario.type === 'squeeze') {
       vPos = scenario.openerPos;
-      vRange = openRangeStr(scenario.openerPos, { playConfig: playConfig });
+      vRange = openRangeStr(scenario.openerPos, { playConfig: cfg });
     } else if (scenario.type === 'isoLimp') {
       vPos = scenario.limperPos;
       vRange = LIMP_RANGE;
     } else if (scenario.type === 'face4bet') {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
-      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr(playConfig) : R.VS_3BET.fourBet;
+      vRange = global.PTPlayConfig ? global.PTPlayConfig.face4betVillainRangeStr(cfg) : R.VS_3BET.fourBet;
     } else if (scenario.type === 'face3bet') {
       const pk = parseFace3betKey(scenario.key);
       vPos = pk.threeBettor;
       const reg = global.GTORangesRegistry;
       const vsKey = pk.threeBettor + '_vs_' + pk.opener;
-      const d = R.VS_RFI[vsKey] || (reg ? reg.getVsRfiRow(pk.threeBettor, pk.opener, playConfig || {}) : null);
+      const d = R.VS_RFI[vsKey] || (reg ? reg.getVsRfiRow(pk.threeBettor, pk.opener, cfg || {}) : null);
       vRange = d ? (d.threeBet + ', ' + d.threeBetMix) : 'QQ+, AKs, AKo';
     } else if (scenario.type === 'bbVsSbLimp') {
       vPos = 'SB';
       vRange = LIMP_RANGE;
     } else if (scenario.type === 'sbLimp') {
       vPos = 'BB';
-      vRange = bbCallRange('SB', { playConfig: playConfig });
+      vRange = bbCallRange('SB', { playConfig: cfg });
     } else if (scenario.type === 'cold4bet') {
       vPos = scenario.threeBettorPos || 'HJ';
       const vsKey = vPos + '_vs_' + (scenario.openerPos || 'UTG');
@@ -22841,15 +22926,15 @@ window.PT_NASH_PUSH_JSON = {
       vPos = scenario.openerPos || scenario.limperPos || 'CO';
       vRange = scenario.type === 'limpPot'
         ? LIMP_RANGE
-        : openRangeStr(vPos, { playConfig: playConfig });
+        : openRangeStr(vPos, { playConfig: cfg });
     } else {
       const pk = parseVsKey(scenario.key);
       vPos = pk.opener;
-      vRange = openRangeStr(pk.opener, { playConfig: playConfig });
+      vRange = openRangeStr(pk.opener, { playConfig: cfg });
     }
 
-    const stackBB = playConfig && global.PTPlayConfig
-      ? global.PTPlayConfig.stackBB(playConfig)
+    const stackBB = cfg && global.PTPlayConfig
+      ? global.PTPlayConfig.stackBB(cfg)
       : EFF;
 
     const hand = {
@@ -22857,7 +22942,7 @@ window.PT_NASH_PUSH_JSON = {
       createdAt: new Date().toISOString(),
       seed: seed,
       scenario: scenario,
-      playConfig: playConfig || null,
+      playConfig: cfg || null,
       displayHeroPos: dealt.displayHeroPos || null,
       hero: { cards: [], code: null, pos: null },
       villain: { cards: null, rangeStr: null, pos: null, profileId: null, profileLabel: null, profileShort: null },
@@ -22882,7 +22967,7 @@ window.PT_NASH_PUSH_JSON = {
     // acciones previas en el orden que les conviene, no en el orden de turno.
     // Escuela / forceDeal / forceScript: saltan a la decisión vs 3bet/4bet.
     // Entrenador libre: héroe actúa el open/3-bet; el reparto fuerza el spot.
-    const skipHeroPreAction = !!(playConfig && playConfig.schoolMode)
+    const skipHeroPreAction = !!(cfg && cfg.schoolMode)
       || !!(force && (force.forceDeal || force.forceScript));
     hand._lineSuspended = true;
     if (scenario.type === 'RFI') setupRFI(hand);
@@ -23045,12 +23130,25 @@ window.PT_NASH_PUSH_JSON = {
     if (!cfg) return;
     const ante = Number(cfg.anteBB) || 0;
     if (ante <= 0) return;
-    const seats = global.PTPlayConfig && global.PTPlayConfig.isSpin && global.PTPlayConfig.isSpin(cfg)
-      ? 3
-      : (global.PTPlayConfig && global.PTPlayConfig.is9Max && global.PTPlayConfig.is9Max(cfg) ? 9 : 6);
-    // Antes típicos: todos pagan; en HU efectivo usamos 2.
-    const payers = Math.min(seats, hand.table && hand.table.length ? hand.table.length : seats);
-    const add = round2(ante * Math.max(2, Math.min(payers, 3)));
+    const PC = global.PTPlayConfig;
+    const Tax = global.PTFormatTaxonomy;
+    const isHu = (PC && PC.isHuPhase && PC.isHuPhase(cfg))
+      || (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(cfg));
+    let seats;
+    if (isHu) {
+      seats = 2;
+    } else if (PC && PC.tablePositions) {
+      seats = PC.tablePositions(cfg).length || 6;
+    } else if (PC && PC.isSpin && PC.isSpin(cfg)) {
+      seats = 3;
+    } else if (PC && PC.is9Max && PC.is9Max(cfg)) {
+      seats = 9;
+    } else {
+      seats = 6;
+    }
+    // Antes típicos: todos pagan; en HU efectivo usamos 2; tope lite de 3 pagadores.
+    const payers = isHu ? 2 : Math.max(2, Math.min(seats, 3));
+    const add = round2(ante * payers);
     hand.potBB = round2((hand.potBB || 0) + add);
     hand.anteBB = ante;
     hand.antePotBB = add;
@@ -25412,7 +25510,7 @@ window.PT_NASH_PUSH_JSON = {
     return hand;
   }
 
-  /** Consejo en vivo: evalúa opciones sin aplicar la acción. */
+  /** Consejo en vivo: evalúa opciones sin aplicar la acción (mismo camino que act + ICM lite). */
   function previewAdvice(hand) {
     const node = hand && hand.current;
     if (!node || !global.GTO || !global.GTO.evaluateSpot) return null;
@@ -25421,6 +25519,7 @@ window.PT_NASH_PUSH_JSON = {
     const availableActions = options.map((o) => o.id);
     const Classifier = global.GTOClassifier;
     const EvMath = global.GTOEvMath;
+    const Icm = global.GTOIcmEv;
 
     const stratResult = GTO.evaluateSpot(buildSpotInput(hand, node, availableActions[0]));
     const strategy = stratResult.strategy;
@@ -25431,7 +25530,7 @@ window.PT_NASH_PUSH_JSON = {
       : { best: availableActions[0] };
     const bestId = cls.best;
 
-    function evForAction(actionId) {
+    function chipEvForAction(actionId) {
       const input = buildSpotInput(hand, node, actionId);
       const ctx = EvMath.buildActionContext(
         Object.assign({}, input, { chosenAction: actionId }),
@@ -25441,20 +25540,32 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     let maxEv = -Infinity;
+    const chipById = {};
     availableActions.forEach((a) => {
-      const ev = evForAction(a);
+      const ev = chipEvForAction(a);
+      chipById[a] = ev;
       if (ev > maxEv) maxEv = ev;
     });
     const bestEV = EvMath.round2(maxEv);
+    const sampleInput = buildSpotInput(hand, node, bestId);
+    const applyIcm = !!(Icm && Icm.shouldApply && Icm.shouldApply(sampleInput));
 
-    const optionEVs = options.map((o) => ({
-      id: o.id,
-      label: o.label,
-      ev: evForAction(o.id),
-      freq: strategy[o.id] || 0
-    }));
+    const optionEVs = options.map((o) => {
+      let ev = chipById[o.id];
+      if (applyIcm && bestEV - ev > 0.001) {
+        const loss = bestEV - ev;
+        const adj = Icm.adjustEvLoss(loss, Object.assign({}, sampleInput, { chosenAction: o.id }));
+        ev = EvMath.round2(bestEV - adj);
+      }
+      return {
+        id: o.id,
+        label: o.label,
+        ev: ev,
+        freq: strategy[o.id] || 0
+      };
+    });
 
-    const recActionEV = evForAction(bestId);
+    const recActionEV = (optionEVs.find((o) => o.id === bestId) || {}).ev;
     const recEval = GTO.evaluateSpot(buildSpotInput(hand, node, bestId));
     const recInput = buildSpotInput(hand, node, bestId);
     const recCtx = EvMath.buildActionContext(
@@ -25484,7 +25595,9 @@ window.PT_NASH_PUSH_JSON = {
       options: optionEVs,
       drivers: stratResult.topDrivers || stratResult.drivers || [],
       conceptTags: stratResult.conceptTags || [],
-      bubbleFactor: stratResult.bubbleFactor != null ? stratResult.bubbleFactor : null
+      bubbleFactor: stratResult.bubbleFactor != null ? stratResult.bubbleFactor : null,
+      icmLite: applyIcm,
+      scoreMode: (hand.playConfig && hand.playConfig.scoreMode) || 'gto'
     };
   }
 
@@ -27903,7 +28016,7 @@ window.PT_NASH_PUSH_JSON = {
     cold4bet: {
       formatHub: 'cash',
       gameType: 'cash6',
-      scenario: '4bet',
+      scenario: 'cold4bet',
       practiceStreet: 'preflop',
       handRange: 'borderline',
       heroPos: 'random',
@@ -27913,7 +28026,7 @@ window.PT_NASH_PUSH_JSON = {
     sbLimp: {
       formatHub: 'cash',
       gameType: 'cash6',
-      scenario: 'iso',
+      scenario: 'sbLimp',
       practiceStreet: 'preflop',
       handRange: 'borderline',
       heroPos: 'random',
@@ -29441,11 +29554,23 @@ window.PT_NASH_PUSH_JSON = {
     return !!(cfg.schoolMode || cfg.school);
   }
 
+  function isLegendaryHand(hand) {
+    if (!hand) return false;
+    if (hand.legendary || (hand.result && hand.result.legendary)) return true;
+    var cfg = hand.playConfig || {};
+    return !!(cfg.legendaryMode || cfg.legendary);
+  }
+
+  /** Manos de estudio dirigido: no contaminan stats/cupo/onboarding del entrenador. */
+  function isNonTrainerHand(hand) {
+    return isSchoolHand(hand) || isLegendaryHand(hand);
+  }
+
   function isSchoolError(err) {
     if (!err) return false;
     var cfg = err.playConfig || {};
-    if (cfg.schoolMode || cfg.school) return true;
-    if (err.school) return true;
+    if (cfg.schoolMode || cfg.school || cfg.legendaryMode || cfg.legendary) return true;
+    if (err.school || err.legendary) return true;
     return false;
   }
 
@@ -29455,14 +29580,17 @@ window.PT_NASH_PUSH_JSON = {
       hand.result.totalEvLoss = global.GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
     }
     const rec = serializeHand(hand);
+    const nonTrainer = isNonTrainerHand(hand);
     const hist = getHistory();
-    hist.unshift(rec);
-    if (hist.length > MAX_HISTORY) hist.length = MAX_HISTORY;
-    write(scopedDataKey('history'), hist);
+    /* Escuela / Legendary: no entran en histórico del entrenador. */
+    if (!nonTrainer) {
+      hist.unshift(rec);
+      if (hist.length > MAX_HISTORY) hist.length = MAX_HISTORY;
+      write(scopedDataKey('history'), hist);
+    }
 
-    const schoolHand = isSchoolHand(hand);
     const errs = getErrors().filter(function (e) { return !isSchoolError(e); });
-    if (!schoolHand) hand.decisions.forEach((d, idx) => {
+    if (!nonTrainer) hand.decisions.forEach((d, idx) => {
       if (d.class === 'error' || d.class === 'imprecisa') {
         const sc = hand.scenario || {};
         const cfg = hand.playConfig || {};
@@ -29516,9 +29644,9 @@ window.PT_NASH_PUSH_JSON = {
 
     const st = getStats();
     if (!st.byStreet) st.byStreet = defaultStats().byStreet;
-    /* Escuela no contamina acierto/EV/leaks de stats (ni consume cupo de entitlements). */
-    st.handsPlayed += 1;
-    if (!schoolHand) {
+    /* Escuela / Legendary no contaminan handsPlayed ni acierto/EV/leaks. */
+    if (!nonTrainer) {
+      st.handsPlayed += 1;
       st.totalEvLoss += hand.result.totalEvLoss || 0;
       st.totalNet += hand.result.heroNet || 0;
       hand.decisions.forEach((d) => {
@@ -29533,8 +29661,8 @@ window.PT_NASH_PUSH_JSON = {
       st.totalEvLoss = Math.round(st.totalEvLoss * 100) / 100;
       st.totalNet = Math.round(st.totalNet * 100) / 100;
       if (global.PTStatsAggregate) global.PTStatsAggregate.applyTrainerHand(st, rec);
+      writeStats(st);
     }
-    writeStats(st);
     notifySync(['history', 'errors', 'stats']);
 
     return rec;
@@ -30464,6 +30592,10 @@ window.PT_NASH_PUSH_JSON = {
   function recomputeStatsFromHistory(history) {
     const st = defaultStats();
     (history || []).forEach(function (h) {
+      if (isNonTrainerHand(h) || isSchoolError(h)) return;
+      const cfg = h.playConfig || {};
+      if (cfg.schoolMode || cfg.school || cfg.legendaryMode || cfg.legendary) return;
+      if (h.school || h.legendary) return;
       st.handsPlayed += 1;
       st.totalEvLoss += h.totalEvLoss || 0;
       st.totalNet += h.heroNet || 0;
@@ -31220,6 +31352,7 @@ window.PT_NASH_PUSH_JSON = {
   global.Store = {
     setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, appendErrors, persistStats: writeStats,
+    isSchoolHand, isLegendaryHand, isNonTrainerHand,
     getSchoolProgress, saveSchoolProgress,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
@@ -34384,7 +34517,8 @@ window.PT_NASH_PUSH_JSON = {
 
 /**
  * Hotkeys del trainer + repaso de sesión (SN-52).
- * F fold · C call · K/Espacio check/call · R raise/bet · 1–3 tamaños · N nueva · →/Enter siguiente · H/? ayuda
+ * F fold · C call · K/Espacio check/call · R raise/bet · 1–3 tamaños · N nueva · H/? ayuda
+ * Con modal de fin de mano: N/Enter → siguiente · R → repetir
  */
 (function (g) {
   "use strict";
@@ -34399,6 +34533,11 @@ window.PT_NASH_PUSH_JSON = {
     return !!el.closest("input, textarea, select, [contenteditable='true']");
   }
 
+  function handEndModalOpen() {
+    const m = document.getElementById("modal");
+    return !!(m && !m.classList.contains("hidden") && m.classList.contains("hand-end-modal"));
+  }
+
   function anyModalOpen() {
     return !!document.querySelector(
       ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #session-config-modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
@@ -34406,7 +34545,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function trainerVisible() {
-    const play = document.getElementById("view-play") || document.getElementById("tab-play");
+    const play = document.getElementById("tab-play");
     if (!play || play.hidden || play.classList.contains("hidden")) return false;
     if (play.classList.contains("tab-panel") && !play.classList.contains("active")) return false;
     const setup = document.getElementById("play-setup");
@@ -34456,6 +34595,21 @@ window.PT_NASH_PUSH_JSON = {
     }
   }
 
+  function handleHandEndModalKey(e) {
+    if (!handEndModalOpen()) return false;
+    const k = e.key;
+    const lower = k.length === 1 ? k.toLowerCase() : k;
+    if (lower === "n" || k === "Enter") {
+      e.preventDefault();
+      return clickFirst("#hand-end-next");
+    }
+    if (lower === "r") {
+      e.preventDefault();
+      return clickFirst("#hand-end-replay") || clickFirst("#hand-end-repeat");
+    }
+    return false;
+  }
+
   function handleTrainerKey(e) {
     if (!trainerVisible()) return false;
     const k = e.key;
@@ -34490,17 +34644,16 @@ window.PT_NASH_PUSH_JSON = {
     if (lower === "n") {
       e.preventDefault();
       return (
+        clickFirst("#hand-end-next") ||
         clickFirst("#next-after") ||
-        clickFirst("#new-hand") ||
-        clickFirst("#btn-new") ||
-        clickFirst("#btn-next-hand")
+        clickFirst("#new-hand")
       );
     }
     return false;
   }
 
   function sessionStudyVisible() {
-    const sessions = document.getElementById("view-sessions") || document.getElementById("tab-sessions");
+    const sessions = document.getElementById("tab-sessions");
     if (!sessions) return false;
     if (sessions.classList.contains("tab-panel") && !sessions.classList.contains("active")) return false;
     if (sessions.hidden || sessions.classList.contains("hidden")) return false;
@@ -34590,6 +34743,8 @@ window.PT_NASH_PUSH_JSON = {
     if (e.defaultPrevented) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTypingTarget(e.target)) return;
+    /* Fin de mano: N/Enter/R antes del bloqueo genérico de modales. */
+    if (handleHandEndModalKey(e)) return;
     if (anyModalOpen()) {
       if (e.key === "Escape") {
         const scm = document.getElementById("session-config-modal");
@@ -34709,12 +34864,13 @@ window.PT_NASH_PUSH_JSON = {
       '<section class="help-section">' +
       "<h3>Configurar sesión</h3>" +
       "<ul>" +
-      "<li><strong>Tipo de mesa</strong> — Cash 6-max, Cash 9-max o MTT (rangos/stacks orientativos; no es un solver de torneo completo).</li>" +
+      "<li><strong>Tipo de mesa</strong> — Cash 6-max, Cash 9-max (posiciones mapeadas al núcleo 6-max), Spin 3-max o MTT (estudio por fase + ICM lite; no es un solver de torneo completo).</li>" +
       "<li><strong>Presets</strong> — atajos de fábrica (Cash / Spin grind / MTT) o guarda los tuyos con nombre y bórralos con ×.</li>" +
-      "<li><strong>Stack, escenario, posición, rivales, calle y rango</strong> — definen el pool de spots.</li>" +
-      "<li><strong>Duración</strong> — Continua o bloque de 25 / 50 / 100 manos con resumen al final.</li>" +
+      "<li><strong>Stack, escenario, posición, rivales, calle y rango</strong> — definen el pool de spots. Escenario Multiway fuerza botes 3/4-way o limp pot.</li>" +
+      "<li><strong>Duración</strong> — Continua o bloque de 10 / 25 / 50 / 100 manos con resumen al final.</li>" +
       "<li><strong>Avisador en vivo</strong> — consejo previo, o solo toast si el EV perdido ≥ umbral («Solo error grave»).</li>" +
       "<li><strong>Tema de mesa</strong> — tapete Esmeralda / Medianoche / Burdeos.</li>" +
+      "<li><strong>Nomenclatura</strong> — Entrenador = mesa de práctica; ForgeCoach = chat IA; plan Coach = suscripción.</li>" +
       "</ul>" +
       "</section>" +
 
@@ -36196,9 +36352,11 @@ window.PT_NASH_PUSH_JSON = {
 
   function canStartTrainerHand(ent) {
     if (isGuestUser()) {
+      var limit = (global.PTGuest && global.PTGuest.HAND_LIMIT) || 5;
       var left = global.PTGuest.remaining ? global.PTGuest.remaining() : 0;
-      if (left <= 0) return { ok: false, reason: 'guest_gate', used: 5, limit: 5 };
-      return { ok: true, used: 0, limit: 5 };
+      var used = Math.max(0, limit - left);
+      if (left <= 0) return { ok: false, reason: 'guest_gate', used: used, limit: limit };
+      return { ok: true, used: used, limit: limit };
     }
     var usingLiveState = (ent == null) || (state != null && ent === state);
     ent = ent || state || localFallback();
@@ -39986,7 +40144,11 @@ window.PT_NASH_PUSH_JSON = {
     if (!decisions || !decisions.length) {
       return '<div class="card-box hand-end-decisions"><p class="muted">Sin decisiones del héroe en esta mano.</p></div>';
     }
-    var html = '<div class="card-box hand-end-decisions"><h3>Evaluación GTO de la mano</h3>';
+    var html = '<div class="card-box hand-end-decisions"><h3>' +
+      (decisions.some(function (x) { return x && (x.exploitApplied || x.scoreMode === 'exploit'); })
+        ? 'Evaluación de la mano (explotativa)'
+        : 'Evaluación GTO de la mano') +
+      '</h3>';
     decisions.forEach(function (d) {
       var cls = d.class || 'unscored';
       var label = d.label || d.chosen || d.action || '';
@@ -43323,11 +43485,6 @@ window.PT_NASH_PUSH_JSON = {
       if (playConfigPrefetchKey(playSessionConfig) !== key) return;
       try {
         let cfg = cfgSnapshot;
-        if (cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
-          cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
-            return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
-          });
-        }
         const next = generateTrainerHand(null, cfg);
         if (gen !== prefetchGen) return;
         if (!next) return;
@@ -43404,7 +43561,8 @@ window.PT_NASH_PUSH_JSON = {
       const cfgEarly = cfgEarlyPeek;
       const isLegendaryHand = isLegendaryPeek;
       const isSchoolHand = isSchoolPeek;
-      /* Escuela y Legendary no consumen cupo diario del entrenador. */
+      /* Escuela y Legendary no consumen cupo diario del entrenador.
+         El cupo se registra solo tras un deal exitoso (abajo). */
       if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent && Ent.ensureLoaded) {
         const ent = entAlreadyLoaded ? Ent.get() : await Ent.ensureLoaded();
         const check = Ent.canStartTrainerHand(ent);
@@ -43412,22 +43570,6 @@ window.PT_NASH_PUSH_JSON = {
           invalidatePrefetch();
           if (window.PTBilling) window.PTBilling.showPaywall(check.reason);
           return;
-        }
-        const recFn = Ent.recordTrainerHandAsync || Ent.recordTrainerHand;
-        if (recFn) {
-          const rec = recFn.call(Ent);
-          if (rec && typeof rec.then === 'function') {
-            /* Compat: si aún devolviera Promise, no bloquear el deal. */
-            rec.then(function (r) {
-              if (r && r.ok === false && window.PTBilling) {
-                window.PTBilling.showPaywall(r.error || 'trainer_limit');
-              }
-            }).catch(function () { /* ignore */ });
-          } else if (rec && rec.ok === false) {
-            invalidatePrefetch();
-            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
-            return;
-          }
         }
       }
       if (guestOn) {
@@ -43455,11 +43597,6 @@ window.PT_NASH_PUSH_JSON = {
           cfg = (pref.playConfig) || cfg;
         }
       }
-      if (!usedPrefetch && !force && cfg && window.PTPlayConfig && PTPlayConfig.resolveHandConfig) {
-        cfg = PTPlayConfig.resolveHandConfig(cfg, function () {
-          return (window.Cards && Cards.rng && Cards.rng.random) ? Cards.rng.random() : Math.random();
-        });
-      }
       if (!usedPrefetch && !force && repeatErrorsMode) {
         let errs = Store.getErrors();
         const streetFilter = cfg && cfg.practiceStreet;
@@ -43475,6 +43612,28 @@ window.PT_NASH_PUSH_JSON = {
 
       if (!usedPrefetch) {
         hand = generateTrainerHand(force, cfg);
+      }
+      if (!hand) {
+        invalidatePrefetch();
+        return;
+      }
+      /* Cupo: solo tras deal exitoso. */
+      if (!guestOn && !isLegendaryHand && !isSchoolHand && Ent) {
+        const recFn = Ent.recordTrainerHandAsync || Ent.recordTrainerHand;
+        if (recFn) {
+          const rec = recFn.call(Ent);
+          if (rec && typeof rec.then === 'function') {
+            rec.then(function (r) {
+              if (r && r.ok === false && window.PTBilling) {
+                window.PTBilling.showPaywall(r.error || 'trainer_limit');
+              }
+            }).catch(function () { /* ignore */ });
+          } else if (rec && rec.ok === false) {
+            invalidatePrefetch();
+            if (window.PTBilling) window.PTBilling.showPaywall(rec.error || 'trainer_limit');
+            return;
+          }
+        }
       }
       pendingForce = null;
       if (window.PTLog && PTLog.event && hand) {
@@ -46646,10 +46805,13 @@ window.PT_NASH_PUSH_JSON = {
     const net = roundSession(session.net);
     const evLost = roundSession(session.evLossBB);
     const expected = roundSession(net - evLost);
+    const handsPerHour = elapsedMs > 0
+      ? Math.round((session.hands / (elapsedMs / 3600000)) * 10) / 10
+      : null;
     box.innerHTML = `<div class="session-block-popup">
       <div class="session-block-popup-head">
         <h3>¡Bloque completado!</h3>
-        <p class="muted-text">${target} manos · ${mins} min ${secs > 0 ? secs + ' s' : ''}</p>
+        <p class="muted-text">${target} manos · ${mins} min ${secs > 0 ? secs + ' s' : ''}${handsPerHour != null ? ' · ~' + handsPerHour + ' manos/h' : ''}</p>
       </div>
       <div class="stats-content session-block-popup-stats">
         <div class="stat-card"><div class="big">${session.hands}</div><div class="lbl">Manos</div></div>
@@ -46666,6 +46828,7 @@ window.PT_NASH_PUSH_JSON = {
       </div>
     </div>`;
     modal.classList.remove('hidden');
+    modal.classList.add('hand-end-modal');
     const close = () => closeModal();
     const closeBtn = $('#block-popup-close');
     if (closeBtn) closeBtn.onclick = close;

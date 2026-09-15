@@ -5,7 +5,7 @@
 > **Referencia de mercado:** Snowie ~30 $/mes o ~200 $/año · trial 10 días · un solo plan todo incluido.
 >
 > **Versión producto base:** v1.39.0 (julio 2026).  
-> **Actualización agosto 2026 (v1.60.x):** Live Advisor (SN-10–12), PWA (SN-50) y sesión demo (SN-04) están **hechos**. Pendientes clave: trial UX (SN-01–03), modo sesión (SN-14), GG import (SN-20), what-if (SN-40), comparativa landing (SN-54). Ver estudio completo en [`ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`](./ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md).
+> **Actualización (auditoría entrenador):** Live Advisor (SN-10–13), PWA (SN-50), sesión demo (SN-04) y resumen de bloque con manos/h (SN-14/16 parcial) están **hechos**. Pendientes: filtros de spot en bloque (SN-15), favorites→retrain (SN-44), hotkeys amplios + rake polish (SN-52/53). Ver [`ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md`](./ESTUDIO_PRODUCTO_Y_MERCADO_AGOSTO_2026.md).
 
 ---
 
@@ -68,13 +68,13 @@ Prioridad: **P0** antes de marketing de pago · **P1** retención · **P2** nice
 
 | ID | Tarea | P | Esf. | Criterio de aceptación |
 |----|-------|---|------|------------------------|
-| SN-10 | Toggle **“Consejo en vivo”** en setup de entrenamiento | P0 | S | ON/OFF persistente en perfil local |
-| SN-11 | Panel advisor: acción recomendada + EV de 2–3 acciones legales | P0 | L | Visible **antes** de confirmar acción si toggle ON |
-| SN-12 | Tras elegir: comparativa **tu EV vs óptimo** (como Snowie) | P0 | M | Misma UX que veredicto actual pero con delta EV explícito |
-| SN-13 | Modo **“Solo aviso si error grave”** (umbral EV configurable) | P1 | M | Ajuste en cuenta; default −0.5 bb |
-| SN-14 | **Modo sesión**: jugar 25/50/100 manos seguidas sin volver al menú | P1 | L | Resumen al final: acierto, EV perdido, tiempo |
-| SN-15 | Filtros de spot en sesión (RFI, vs open, calle…) — extiende P-04 | P1 | M | Elegir tipo de spot antes del bloque de manos |
-| SN-16 | Contador **manos/hora** en stats de entrenador | P2 | S | Métrica en dashboard progreso |
+| SN-10 | Toggle **“Consejo en vivo”** en setup de entrenamiento | P0 | S | **Hecho** |
+| SN-11 | Panel advisor: acción recomendada + EV de 2–3 acciones legales | P0 | L | **Hecho** |
+| SN-12 | Tras elegir: comparativa **tu EV vs óptimo** (como Snowie) | P0 | M | **Hecho** |
+| SN-13 | Modo **“Solo aviso si error grave”** (umbral EV configurable) | P1 | M | **Hecho** (`advisorMode` / `seriousEvThreshold`) |
+| SN-14 | **Modo sesión**: jugar 25/50/100 manos seguidas sin volver al menú | P1 | L | **Hecho** (`openSessionBlockPopup`: acierto, EV, tiempo, manos/h) |
+| SN-15 | Filtros de spot en sesión (RFI, vs open, calle…) — extiende P-04 | P1 | M | Parcial vía chips de escenario; no session-block–first |
+| SN-16 | Contador **manos/hora** en stats de entrenador | P2 | S | Parcial (popup de bloque + HUD) |
 
 **Estado:** Feedback post-decisión existe · advisor pre-acción y modo sesión **no existen**.
 

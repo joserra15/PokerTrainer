@@ -1,6 +1,7 @@
 /**
  * Hotkeys del trainer + repaso de sesión (SN-52).
- * F fold · C call · K/Espacio check/call · R raise/bet · 1–3 tamaños · N nueva · →/Enter siguiente · H/? ayuda
+ * F fold · C call · K/Espacio check/call · R raise/bet · 1–3 tamaños · N nueva · H/? ayuda
+ * Con modal de fin de mano: N/Enter → siguiente · R → repetir
  */
 (function (g) {
   "use strict";
@@ -15,6 +16,11 @@
     return !!el.closest("input, textarea, select, [contenteditable='true']");
   }
 
+  function handEndModalOpen() {
+    const m = document.getElementById("modal");
+    return !!(m && !m.classList.contains("hidden") && m.classList.contains("hand-end-modal"));
+  }
+
   function anyModalOpen() {
     return !!document.querySelector(
       ".modal:not(.hidden)[role='dialog'], .modal:not(.hidden)#help-modal, #help-modal:not(.hidden), #paywall-modal:not(.hidden), #card-picker-modal:not(.hidden), #range-matrix-modal:not(.hidden), #range-cell-modal:not(.hidden), #modal:not(.hidden), #session-config-modal:not(.hidden), #age-gate-modal:not(.hidden), #contact-pending-modal:not(.hidden)"
@@ -22,7 +28,7 @@
   }
 
   function trainerVisible() {
-    const play = document.getElementById("view-play") || document.getElementById("tab-play");
+    const play = document.getElementById("tab-play");
     if (!play || play.hidden || play.classList.contains("hidden")) return false;
     if (play.classList.contains("tab-panel") && !play.classList.contains("active")) return false;
     const setup = document.getElementById("play-setup");
@@ -72,6 +78,21 @@
     }
   }
 
+  function handleHandEndModalKey(e) {
+    if (!handEndModalOpen()) return false;
+    const k = e.key;
+    const lower = k.length === 1 ? k.toLowerCase() : k;
+    if (lower === "n" || k === "Enter") {
+      e.preventDefault();
+      return clickFirst("#hand-end-next");
+    }
+    if (lower === "r") {
+      e.preventDefault();
+      return clickFirst("#hand-end-replay") || clickFirst("#hand-end-repeat");
+    }
+    return false;
+  }
+
   function handleTrainerKey(e) {
     if (!trainerVisible()) return false;
     const k = e.key;
@@ -106,17 +127,16 @@
     if (lower === "n") {
       e.preventDefault();
       return (
+        clickFirst("#hand-end-next") ||
         clickFirst("#next-after") ||
-        clickFirst("#new-hand") ||
-        clickFirst("#btn-new") ||
-        clickFirst("#btn-next-hand")
+        clickFirst("#new-hand")
       );
     }
     return false;
   }
 
   function sessionStudyVisible() {
-    const sessions = document.getElementById("view-sessions") || document.getElementById("tab-sessions");
+    const sessions = document.getElementById("tab-sessions");
     if (!sessions) return false;
     if (sessions.classList.contains("tab-panel") && !sessions.classList.contains("active")) return false;
     if (sessions.hidden || sessions.classList.contains("hidden")) return false;
@@ -206,6 +226,8 @@
     if (e.defaultPrevented) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (isTypingTarget(e.target)) return;
+    /* Fin de mano: N/Enter/R antes del bloqueo genérico de modales. */
+    if (handleHandEndModalKey(e)) return;
     if (anyModalOpen()) {
       if (e.key === "Escape") {
         const scm = document.getElementById("session-config-modal");

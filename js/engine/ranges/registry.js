@@ -17,7 +17,7 @@
   const STACK_BB = {
     bb200: 200, bb100: 100, bb50: 50, bb45: 45, bb40: 40, bb25: 25, bb22: 22, bb20: 20,
     bb15: 15, bb12: 12, bb11: 11, bb10: 10,
-    standard: 100, short: 40, deep: 150
+    standard: 100, short: 50, deep: 200
   };
   const GAME_LABELS = {
     cash6: 'Cash 6-max', cash9: 'Cash 9-max', mtt: 'MTT',
@@ -26,7 +26,7 @@
   const STACK_LABELS = {
     bb200: '200bb', bb100: '100bb', bb50: '50bb', bb40: '40bb', bb25: '25bb',
     bb20: '20bb', bb15: '15bb', bb10: '10bb',
-    standard: '100bb', short: '40bb', deep: '150bb'
+    standard: '100bb', short: '50bb', deep: '200bb'
   };
 
   function rangeStackCategory(stackDepth, stackBB) {
@@ -34,6 +34,30 @@
     if (bb <= 55 || stackDepth === 'short' || stackDepth === 'bb25' || stackDepth === 'bb50') return 'short';
     if (bb >= 120 || stackDepth === 'deep' || stackDepth === 'bb200') return 'deep';
     return 'standard';
+  }
+
+  /**
+   * Fuente única de ICM lite: explícito true/false gana; si no, Tax.usesIcm.
+   * Evita que `!!undefined` apague el grading en spins/MTT del entrenador.
+   */
+  function resolveIcmEnabled(c, formatHub, gameType) {
+    if (c && c.icmEnabled === true) return true;
+    if (c && c.icmEnabled === false) return false;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.usesIcm) {
+      return !!Tax.usesIcm({
+        formatHub: formatHub || c.formatHub || Tax.hubFromGameType(gameType || (c && c.gameType)),
+        gameType: gameType || (c && c.gameType),
+        mttPhase: (c && (c.resolvedPhase || c.mttPhase)) || null,
+        playersLeft: c && c.playersLeft,
+        placesPaid: c && c.placesPaid,
+        playersSeated: c && c.playersSeated,
+        tableMax: c && c.tableMax,
+        seatsPerTable: c && c.seatsPerTable
+      });
+    }
+    const hub = formatHub || (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash'));
+    return hub === 'spin' || hub === 'mtt';
   }
 
   function normalize(ctx) {
@@ -78,7 +102,7 @@
       villainLevel: c.villainLevel || 'pro',
       scenario: c.scenario || null,
       practiceIntent: c.practiceIntent || 'mixed',
-      icmEnabled: !!c.icmEnabled,
+      icmEnabled: resolveIcmEnabled(c, formatHub, gameType),
       playersLeft: c.playersLeft != null ? Number(c.playersLeft) : null,
       placesPaid: c.placesPaid != null ? Number(c.placesPaid) : null,
       entries: c.entries != null ? Number(c.entries) : null,

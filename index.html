@@ -311,7 +311,7 @@
             <article class="landing-how-step">
               <span class="landing-how-num">3</span>
               <h3 data-i18n="how.s3.title">Regístrate</h3>
-              <p data-i18n="how.s3.body">Si quieres entrenar más manos, revisar tus errores, hacer las lecciones de la Escuela de Póker, analizar manos y sesiones, y tener el entrenador IA 24/7 para preguntar cualquier duda… regístrate.</p>
+              <p data-i18n="how.s3.body">Si quieres entrenar más manos, revisar tus errores, hacer las lecciones de la Escuela de Póker, analizar manos y sesiones, y preguntar dudas a ForgeCoach… regístrate.</p>
             </article>
           </div>
         </section>
@@ -329,7 +329,7 @@
             </article>
             <article class="landing-feature">
               <h3 data-i18n="feat.ai.title">ForgeCoach</h3>
-              <p data-i18n="feat.ai.body">Consultas sobre manos y sesiones en planes Study y Coach (ver planes).</p>
+              <p data-i18n="feat.ai.body">Consultas sobre manos y sesiones. Gratis incluye 3 de prueba al mes; Study 40 y Coach 150.</p>
             </article>
             <article class="landing-feature">
               <h3 data-i18n="feat.stats.title">Estadísticas y errores</h3>
@@ -478,7 +478,7 @@
         <button type="button" class="brand-home-link" id="brand-home" title="Volver al inicio" aria-label="Inicio">
           <img src="icons/logo-header.png" class="app-logo" alt="PokerForgeAI" width="42" height="42" />
           <span class="brand-text">
-            <h1>PokerForgeAI <small>Tu entrenador IA de póker</small></h1>
+            <h1>PokerForgeAI <small>Entrenador GTO + ForgeCoach</small></h1>
           </span>
         </button>
       </div>
@@ -741,6 +741,7 @@
             <button type="button" class="setup-chip" data-val="spin3" data-hub="spin" hidden>Spin 3-max</button>
             <button type="button" class="setup-chip" data-val="mtt" data-hub="mtt" hidden>MTT</button>
           </div>
+          <p class="muted-text setup-hint">Cash 9-max usa posiciones de mesa mapeadas al núcleo de charts 6-max (no es un solver 9-max independiente).</p>
         </div>
 
         <div class="setup-group" id="setup-group-preset">
@@ -862,14 +863,12 @@
           <p class="muted-text setup-hint">Las cartas de cada villano se muestrean según su rol (open/cold-call/limp) y perfil.</p>
         </div>
 
-        <div class="setup-group" id="setup-practice-intent-wrap" hidden>
+        <div class="setup-group" id="setup-practice-intent-wrap" hidden aria-hidden="true">
+          <!-- Faroles (hacer/cazar) desactivados en UI; practiceIntent forzado a mixed. -->
           <span class="setup-label">Enfoque (faroles)</span>
           <div class="setup-chips" id="setup-practice-intent">
             <button type="button" class="setup-chip active" data-val="mixed">Value y mixed</button>
-            <button type="button" class="setup-chip" data-val="bluff_make" hidden>Hacer faroles</button>
-            <button type="button" class="setup-chip" data-val="bluff_catch" hidden>Cazar faroles</button>
           </div>
-          <p class="muted-text setup-hint">El entrenador prioriza spots con buena fold equity/blockers (hacer) o líneas polarizadas (cazar). En Spins/MTT los faroles se penalizan con ICM.</p>
         </div>
 
         <div class="setup-group" id="setup-group-hero-pos">
@@ -1628,7 +1627,7 @@
         </div>
         <div id="admin-user-detail" class="admin-user-detail card-box hidden" aria-live="polite"></div>
         <p class="muted-text admin-foot-note">
-          Planes: Gratis · Study (pro) · Coach (premium). Límite IA mensual: Gratis 0 · Study 40 · Coach 150/mes. Análisis de manos guardadas: Gratis 5 · Study 20 · Coach 100. Los bonos se suman al cupo cuando agotas las incluidas.
+          Planes: Gratis · Study (pro) · Coach (premium). Límite ForgeCoach mensual: Gratis 3 de prueba · Study 40 · Coach 150/mes. Análisis de manos guardadas: Gratis 5 · Study 20 · Coach 100. Los bonos se suman al cupo cuando agotas las incluidas.
           Pulsa una fila de usuario para ver detalle (transacciones de bono, consultas IA y mensajes).
           Usuario <strong>demo</strong>: cambia su plan aquí y entra en Modo demo para probar límites.
           Caducidad automática diaria (00:05 UTC) vía pg_cron.

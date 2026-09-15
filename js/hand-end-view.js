@@ -115,7 +115,11 @@
     if (!decisions || !decisions.length) {
       return '<div class="card-box hand-end-decisions"><p class="muted">Sin decisiones del héroe en esta mano.</p></div>';
     }
-    var html = '<div class="card-box hand-end-decisions"><h3>Evaluación GTO de la mano</h3>';
+    var html = '<div class="card-box hand-end-decisions"><h3>' +
+      (decisions.some(function (x) { return x && (x.exploitApplied || x.scoreMode === 'exploit'); })
+        ? 'Evaluación de la mano (explotativa)'
+        : 'Evaluación GTO de la mano') +
+      '</h3>';
     decisions.forEach(function (d) {
       var cls = d.class || 'unscored';
       var label = d.label || d.chosen || d.action || '';
