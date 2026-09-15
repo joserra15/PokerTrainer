@@ -31,7 +31,7 @@
 
   /** id lección → spot sizing-key (se inserta en posición 6) */
   var SIZING_BY_LESSON = {
-    'R-07': LQ('r07-sz01', 'BB', ['Tc', '8d'], ['Ah', '7c', '3d', '2s', 'Kd'], 88007, {
+    'R-07': LQ('r07-sz01', 'BB', ['6h', '6d'], ['Ah', '7c', '3d', '2s', 'Kd'], 88007, {
       villainPos: 'BTN', facingBet: true, trapTag: 'fancy_play',
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -53,7 +53,7 @@
         ]
       }
     }),
-    'R-08': LQ('r08-sz01', 'BB', ['Jh', '9d'], ['Kd', 'Tc', '4h', '7s', '2c'], 88008, {
+    'R-08': LQ('r08-sz01', 'BB', ['Kc', '9h'], ['Kd', 'Tc', '4h', '7s', '2c'], 88008, {
       villainPos: 'CO', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },
@@ -75,7 +75,7 @@
         ]
       }
     }),
-    'R-09': LQ('r09-sz01', 'BB', ['5h','4h'], ['Kd','Ts','8c','3d','8h'], 88009, {
+    'R-09': LQ('r09-sz01', 'BB', ['Kc', '2h'], ['Kd','Ts','8c','3d','8h'], 88009, {
       villainPos: 'BTN', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -97,7 +97,7 @@
         ]
       }
     }),
-    'R-10': LQ('r10-sz01', 'BB', ['Qc', '7h'], ['Js', 'Jc', '5d', '9h', '3c'], 88010, {
+    'R-10': LQ('r10-sz01', 'BB', ['5h', 'Kh'], ['Js', 'Jc', '5d', '9h', '3c'], 88010, {
       villainPos: 'BTN', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -229,7 +229,7 @@
         ]
       }
     }),
-    'R-16': LQ('r16-sz01', 'BB', ['Qh', 'Jd'], ['Kd', 'Kc', '7h', '2d', '4c'], 88016, {
+    'R-16': LQ('r16-sz01', 'BB', ['7d', 'Ad'], ['Kd', 'Kc', '7h', '2d', '4c'], 88016, {
       villainPos: 'BTN', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -251,7 +251,7 @@
         ]
       }
     }),
-    'R-17': LQ('r17-sz01', 'BB', ['Jc', '4c'], ['Ac', 'Tc', '6d', '2h', '8s'], 88017, {
+    'R-17': LQ('r17-sz01', 'BB', ['Th', '7h'], ['Ac', 'Tc', '6d', '2h', '8s'], 88017, {
       villainPos: 'CO', facingBet: true, trapTag: 'fancy_play',
       lineStory: [
         { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },
@@ -295,7 +295,7 @@
         ]
       }
     }),
-    'R-19': LQ('r19-sz01', 'BB', ['Jc', 'Td'], ['7s', '7c', '4h', 'As', '2c'], 88019, {
+    'R-19': LQ('r19-sz01', 'BB', ['4d', '6h'], ['7s', '7c', '4h', 'As', '2c'], 88019, {
       villainPos: 'BTN', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -317,7 +317,7 @@
         ]
       }
     }),
-    'R-20': LQ('r20-sz01', 'BB', ['Td', '9d'], ['8d', '6c', '2h', '5s', '3c'], 88020, {
+    'R-20': LQ('r20-sz01', 'BB', ['6h', '7d'], ['8d', '6c', '2h', '5s', '3c'], 88020, {
       villainPos: 'CO', facingBet: true,
       lineStory: [
         { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },
@@ -361,7 +361,7 @@
         ]
       }
     }),
-    'R-22': LQ('r22-sz01', 'BB', ['Qh', '5d'], ['As', '8d', '3c', '2h', '7s'], 88022, {
+    'R-22': LQ('r22-sz01', 'BB', ['8c', '6h'], ['As', '8d', '3c', '2h', '7s'], 88022, {
       villainPos: 'BTN', facingBet: true, trapTag: 'fancy_play',
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -405,7 +405,7 @@
         ]
       }
     }),
-    'R-24': LQ('r24-sz01', 'BB', ['Kc', '3c'], ['Qh', 'Td', '5d', '8c', '2s'], 88024, {
+    'R-24': LQ('r24-sz01', 'BB', ['Th', '6h'], ['Qh', 'Td', '5d', '8c', '2s'], 88024, {
       villainPos: 'CO', facingBet: true, trapTag: 'fancy_play',
       lineStory: [
         { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },
@@ -427,7 +427,7 @@
         ]
       }
     }),
-    'R-25': LQ('r25-sz01', 'BB', ['Ah', '8h'], ['Kd', '7c', '2d', '9s', '4h'], 88025, {
+    'R-25': LQ('r25-sz01', 'BB', ['Kc', '3h'], ['Kd', '7c', '2d', '9s', '4h'], 88025, {
       villainPos: 'BTN', facingBet: true, trapTag: 'fancy_play',
       lineStory: [
         { street: 'Preflop', text: 'BTN open 2,5 bb → BB call' },
@@ -471,7 +471,7 @@
         ]
       }
     }),
-    'R-27': LQ('r27-sz01', 'BB', ['Td', '6d'], ['Ac', '9c', '4h', '2s', '8d'], 88027, {
+    'R-27': LQ('r27-sz01', 'BB', ['9d', '6h'], ['Ac', '9c', '4h', '2s', '8d'], 88027, {
       villainPos: 'CO', facingBet: true, trapTag: 'fancy_play',
       lineStory: [
         { street: 'Preflop', text: 'CO open 2,5 bb → BB call' },

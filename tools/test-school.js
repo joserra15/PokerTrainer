@@ -1472,6 +1472,121 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
 })();
 
 /* R-05 y M2–M4 (R-07…R-27): manos completas (river) + quiz «¿qué crees que tiene?». */
+/** Hero cards must justify the actions in lineStory (call XR, call turn, calldown). */
+function assertHeroLineCoherence(spotId, heroPos, heroCards, board, lineStory) {
+  const RANK = { A: 14, K: 13, Q: 12, J: 11, T: 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5, '4': 4, '3': 3, '2': 2 };
+  const SUITS = ['h', 'd', 'c', 's'];
+  function parse(c) { return { r: RANK[c[0]], s: c[1] }; }
+  function hasStraight(ranks) {
+    const set = new Set(ranks);
+    if (set.has(14)) set.add(1);
+    for (let top = 14; top >= 5; top--) {
+      let ok = true;
+      for (let k = 0; k < 5; k++) if (!set.has(top - k)) { ok = false; break; }
+      if (ok) return true;
+    }
+    return false;
+  }
+  function analyze(hero, streetBoard) {
+    const h = hero.map(parse);
+    const b = streetBoard.map(parse);
+    const all = h.concat(b);
+    const byR = {};
+    const byS = {};
+    all.forEach(function (c) {
+      byR[c.r] = (byR[c.r] || 0) + 1;
+      byS[c.s] = (byS[c.s] || 0) + 1;
+    });
+    const boardRanks = b.map(function (c) { return c.r; });
+    const heroRanks = h.map(function (c) { return c.r; });
+    const pairedHero = heroRanks[0] === heroRanks[1];
+    let made = 'air';
+    const madeFlush = Object.keys(byS).some(function (s) {
+      return byS[s] >= 5 && h.some(function (c) { return c.s === s; });
+    });
+    const madeStr = hasStraight(all.map(function (c) { return c.r; }));
+    const boardPaired = boardRanks.some(function (r) {
+      return boardRanks.filter(function (x) { return x === r; }).length >= 2;
+    });
+    if (Object.keys(byR).some(function (r) { return byR[r] >= 4; })) made = 'quads';
+    else if (Object.keys(byR).some(function (r) { return byR[r] >= 3; }) &&
+      Object.keys(byR).filter(function (r) { return byR[r] >= 2; }).length >= 2) made = 'full';
+    else if (madeFlush) made = 'flush';
+    else if (madeStr) made = 'straight';
+    else if (pairedHero) {
+      const br = boardRanks.filter(function (r) { return r === heroRanks[0]; }).length;
+      if (br >= 1) made = 'set';
+      else if (boardPaired) made = 'two_pair';
+      else if (boardRanks.every(function (r) { return r < heroRanks[0]; })) made = 'overpair';
+      else made = 'underpair';
+    } else {
+      const hits = heroRanks.filter(function (r) { return boardRanks.indexOf(r) >= 0; });
+      if (hits.length === 2) made = 'two_pair';
+      else if (hits.length === 1) {
+        const hit = hits[0];
+        if (boardPaired && boardRanks.filter(function (r) { return r === hit; }).length === 1) made = 'two_pair';
+        else {
+          const uniq = boardRanks.filter(function (r, i, a) { return a.indexOf(r) === i; })
+            .sort(function (a, b) { return b - a; });
+          const idx = uniq.indexOf(hit);
+          made = idx === 0 ? 'top_pair' : idx === 1 ? 'second_pair' : 'bottom_pair';
+        }
+      } else if (heroRanks.indexOf(14) >= 0) made = 'ace_high';
+    }
+    let fd = false;
+    let bdfd = false;
+    let sd = false;
+    SUITS.forEach(function (s) {
+      const n = all.filter(function (c) { return c.s === s; }).length;
+      const hn = h.filter(function (c) { return c.s === s; }).length;
+      if (hn >= 1 && n === 4) fd = true;
+      if (b.length === 3 && hn === 2 && n === 3) bdfd = true;
+    });
+    if (made !== 'straight' && made !== 'flush' && made !== 'full' && made !== 'quads') {
+      const base = all.map(function (c) { return c.r; });
+      let complete = 0;
+      for (let r = 2; r <= 14; r++) if (hasStraight(base.concat([r]))) complete++;
+      if (complete >= 1) sd = true;
+    }
+    const topBoard = Math.max.apply(null, boardRanks);
+    const overs = heroRanks.filter(function (r) { return r > topBoard; }).length;
+    const strong = /^(quads|full|flush|straight|set|trips|two_pair|overpair|top_pair)$/.test(made);
+    const medium = /^(second_pair|bottom_pair|underpair)$/.test(made);
+    const draw = fd || sd;
+    const playableFlop = strong || medium || draw || bdfd ||
+      (made === 'ace_high' && overs >= 1) || overs >= 2;
+    return { made: made, strong: strong, medium: medium, draw: draw, playableFlop: playableFlop };
+  }
+
+  const acts = {};
+  (lineStory || []).forEach(function (row) {
+    const t = row.text || '';
+    acts[row.street] = {
+      called: new RegExp(heroPos + '\\s+call').test(t),
+      facedRaise: /raise|check-raise/.test(t) && new RegExp(heroPos + '\\s+call').test(t)
+    };
+  });
+  const f = analyze(heroCards, board.slice(0, 3));
+  const t = analyze(heroCards, board.slice(0, 4));
+  const r = analyze(heroCards, board);
+  if (acts.Flop && acts.Flop.facedRaise) {
+    assert.ok(f.strong || f.medium || f.draw,
+      spotId + ' hero no justifica call al raise flop (' + f.made + ')');
+  }
+  if (acts.Flop && acts.Flop.called && !acts.Flop.facedRaise) {
+    assert.ok(f.playableFlop,
+      spotId + ' hero basura en call flop (' + f.made + ')');
+  }
+  if (acts.Turn && acts.Turn.called) {
+    assert.ok(t.strong || t.medium || t.draw,
+      spotId + ' hero aire en call turn (' + t.made + ')');
+  }
+  if (acts.Flop && acts.Flop.called && acts.Turn && acts.Turn.called) {
+    assert.ok(r.strong || r.medium || r.made === 'ace_high',
+      spotId + ' hero aire tras call-call (' + r.made + ')');
+  }
+}
+
 (function assertRangesLineQuiz() {
   const lineIds = ['R-05'].concat(
     ['R-07', 'R-08', 'R-09', 'R-10', 'R-11', 'R-22', 'R-23',
@@ -1501,7 +1616,8 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
       const correct = quiz.options.filter(function (o) { return o.correct; });
       assert.strictEqual(correct.length, 1, spot.id + ' exactamente 1 correcta');
       assert.ok(quiz.answerCards && quiz.answerCards.length === 2, spot.id + ' answerCards');
-      const dead = [].concat(spot.forceDeal.heroCards || [], board, quiz.answerCards);
+      const heroCards = (spot.forceDeal && spot.forceDeal.heroCards) || [];
+      const dead = [].concat(heroCards, board, quiz.answerCards);
       const seen = Object.create(null);
       dead.forEach(function (c) {
         assert.ok(!seen[c], spot.id + ' carta duplicada ' + c);
@@ -1509,6 +1625,10 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
       });
       quiz.options.forEach(function (o) {
         assert.ok(o.cards && o.cards.length === 2, spot.id + ' option cards');
+        o.cards.forEach(function (c) {
+          assert.ok(heroCards.indexOf(c) < 0,
+            spot.id + ' option ' + o.label + ' choca con hero: ' + c);
+        });
         if (!o.correct) {
           assert.ok(o.eliminated && o.eliminated.length > 10, spot.id + ' eliminated text');
           assert.ok(/flop|turn|river|c-bet|barrel|donk|check-check|raise|pot-control|% pot|overbet|33%|66%|125%|sizing|2,5 bb|3×/i.test(o.eliminated),
@@ -1517,6 +1637,8 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
             spot.id + ' ' + o.label + ' no debe ser descarte trivial de open');
         }
       });
+      // Hero hole cards must be playable for the authored lineStory (no call-call with air, etc.).
+      assertHeroLineCoherence(spot.id, spot.heroPos, heroCards, board, spot.lineStory || []);
       // Línea: quien apuesta river debe ser el villano (facingBet).
       // R-05: "BB check → BTN bet"; R-07+: "BTN bet" / "CO overbet".
       const vill = spot.villainPos || (spot.forceDeal && spot.forceDeal.villainPos) || '';
