@@ -1318,6 +1318,8 @@ console.log('OK dist-tournaments-bundle');
   /* Móvil: styles.css pone .seats { pointer-events:none }; torneo debe reactivar asientos. */
   assert.ok(/\.trn-play-like\s+\.seats\s+\.seat\s*\{[^}]*pointer-events:\s*auto/s.test(cssSrc),
     'css re-enables pointer-events on tournament seats');
+  assert.ok(cssSrc.includes('.table-felt:not(.table-9max) .seat-cards .card'),
+    'tournament villain cards enlarged except 9-max');
   assert.ok(uiSrc.includes('data-player') && uiSrc.includes('roleModalPlayerId'),
     'clicking villain opens role modal');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');

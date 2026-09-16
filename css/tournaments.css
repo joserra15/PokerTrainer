@@ -1235,26 +1235,28 @@
 }
 
 /* Villain hole cards: a bit larger than trainer default (26×36).
-   Skip .table-9max — seats are cramped and styles.css already shrinks to 21×29. */
-.trn-play-like:not(.table-9max) .seat-cards .card {
+   Target .table-felt size classes (table-9max lives on the felt, not .trn-play-like). */
+.trn-play-like .table-felt:not(.table-9max) .seat-cards .card {
   width: 30px;
   height: 42px;
 }
-.trn-play-like:not(.table-9max) .seat-cards.showdown .card {
+.trn-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
   width: 36px;
   height: 50px;
   font-size: 16px;
 }
 
 @media (max-width: 680px) {
-  .trn-play-like:not(.table-9max) .seat-cards .card {
-    width: 26px;
-    height: 36px;
-  }
-  .trn-play-like:not(.table-9max) .seat-cards.showdown .card {
+  /* Móvil: el default del entrenador (20×28) se veía demasiado pequeño en HU.
+     9-max sigue excluido vía :not(.table-9max). */
+  .trn-play-like .table-felt:not(.table-9max) .seat-cards .card {
     width: 30px;
     height: 42px;
-    font-size: 13px;
+  }
+  .trn-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
+    width: 34px;
+    height: 47px;
+    font-size: 14px;
   }
 }
 
