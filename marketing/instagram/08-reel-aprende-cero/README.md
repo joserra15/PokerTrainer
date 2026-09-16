@@ -15,6 +15,7 @@ node tools/instagram-reel-aprende-cero-assets.js
 ## Publicar en 10 min
 1. CapCut → nuevo proyecto 9:16
 2. Importa `assets/hook-01` … `endcard-06` en orden
+   (`beat-04-ritmo` = a tu ritmo / móvil / entrenador IA)
 3. Opcional: mete debajo b-roll de `../04-broll/` (escuela / reto / feedback)
 4. Subtítulos ES + música IG
 5. Caption de `GUION.md` · CTA = DM **APRENDER**

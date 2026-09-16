@@ -161,16 +161,14 @@ const FRAMES = [
     `),
   },
   {
-    file: 'beat-04-practica.jpg',
+    file: 'beat-04-ritmo.jpg',
     html: shell(`
       <div class="brand-top"><div class="spade">♠</div><div class="brand-name">POKERFORGEAI</div></div>
-      <div class="headline">Así se aprende</div>
-      <div class="steps">
-        <div class="step"><div class="step-n">1</div><div class="step-t">Juegas el spot</div></div>
-        <div class="step"><div class="step-n">2</div><div class="step-t">Te corrigen al momento</div></div>
-        <div class="step"><div class="step-n">3</div><div class="step-t"><span class="ok">Mejoras sin perder dinero</span></div></div>
-      </div>
-      <div class="footer">Escuela + entrenador</div>
+      <div class="eyebrow">Aprende</div>
+      <div class="headline sm">A tu ritmo<br>Desde el móvil<br><span class="gold">Día o noche</span></div>
+      <div class="rule"></div>
+      <div class="sub">Con tu <span class="blue">entrenador IA</span></div>
+      <div class="footer">Cuando quieras · Donde quieras</div>
     `),
   },
   {
@@ -192,7 +190,7 @@ const FRAMES = [
       <div class="brand-name" style="margin-bottom:28px">POKERFORGEAI</div>
       <div class="headline">Desde cero.<br>Sin riesgo.<br><span class="gold">DM: APRENDER</span></div>
       <div class="rule"></div>
-      <div class="sub">Tu entrenador de póker en español</div>
+      <div class="sub">Tu entrenador IA de póker en español</div>
       <div class="pill" style="margin-top:36px">1 mes gratis · pregunta por privado</div>
       <div class="footer">pokerforgeai.com · +18</div>
     `),
