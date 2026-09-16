@@ -205,18 +205,21 @@
   }
 
   /**
-   * Carta para la mesa: rango y palo en dos líneas. A igual ancho de carta
-   * cada glifo dispone de más alto que en `cardToHTML`, que mete "10♦" en una
-   * sola línea y obliga a encoger la fuente.
+   * Carta para la mesa. En mazo normal: rango + palo en dos líneas.
+   * En mazo colored: índice esquina + watermark de palo + rango grande
+   * (el CSS muestra/oculta según `data-card-style`).
    */
   function cardFaceHTML(code) {
     const suit = code[1];
     const red = suit === 'h' || suit === 'd';
     const rank = code[0] === 'T' ? '10' : code[0];
     const sc = suitClass(suit);
+    const sym = SUIT_SYMBOL[suit] || '';
     return `<span class="card card-face ${red ? 'red' : 'black'}${sc ? ' ' + sc : ''}">`
+      + `<span class="card-idx" aria-hidden="true"><span class="card-idx-suit">${sym}</span>${rank}</span>`
+      + `<span class="card-wm" aria-hidden="true">${sym}</span>`
       + `<span class="card-rank">${rank}</span>`
-      + `<span class="card-suit">${SUIT_SYMBOL[suit]}</span>`
+      + `<span class="card-suit">${sym}</span>`
       + '</span>';
   }
 

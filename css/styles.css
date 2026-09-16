@@ -3235,37 +3235,41 @@ body.age-gate-open {
 .card-face {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
   line-height: 1; padding: 2px 0;
+  position: relative;
 }
 .card-face .card-rank { font-size: 1em; letter-spacing: -.03em; }
 .card-face .card-suit { font-size: .8em; line-height: 1; margin-top: .06em; }
+/* Índice y watermark solo en mazo colored */
+.card-face .card-idx,
+.card-face .card-wm { display: none; }
 
-/* Mazo de cuatro colores: fondos por palo + marco claro fino para
-   separar la carta del felt cuando el color es similar (trébol/emerald…). */
+/* Mazo de cuatro colores: fondo por palo, índice esquina, watermark y
+   rango grande. Marco claro fino para no fundirse con felt similar. */
 [data-card-style="colored"] .card.suit-h,
 [data-card-style="colored"] .action-line-card.suit-h,
 [data-card-style="colored"] .school-ra-card.suit-h {
-  background: #d2261c;
+  background: #c94a52;
   border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
 [data-card-style="colored"] .card.suit-d,
 [data-card-style="colored"] .action-line-card.suit-d,
 [data-card-style="colored"] .school-ra-card.suit-d {
-  background: #1e6fd9;
+  background: #2f6fd6;
   border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
 [data-card-style="colored"] .card.suit-c,
 [data-card-style="colored"] .action-line-card.suit-c,
 [data-card-style="colored"] .school-ra-card.suit-c {
-  background: #1a9b4a;
+  background: #2a8f4e;
   border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
 [data-card-style="colored"] .card.suit-s,
 [data-card-style="colored"] .action-line-card.suit-s,
 [data-card-style="colored"] .school-ra-card.suit-s {
-  background: #1a1d21;
+  background: #3a4149;
   border-color: rgba(255, 250, 245, .92);
   color: #fff;
 }
@@ -3274,6 +3278,59 @@ body.age-gate-open {
 [data-card-style="colored"] .card.suit-c,
 [data-card-style="colored"] .card.suit-s {
   box-shadow: 0 0 0 0.5px rgba(0, 0, 0, .35), 0 3px 8px rgba(0, 0, 0, .55);
+}
+[data-card-style="colored"] .card.card-face.suit-h,
+[data-card-style="colored"] .card.card-face.suit-d,
+[data-card-style="colored"] .card.card-face.suit-c,
+[data-card-style="colored"] .card.card-face.suit-s {
+  display: inline-block;
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+}
+[data-card-style="colored"] .card.card-face .card-suit { display: none; }
+[data-card-style="colored"] .card.card-face .card-idx {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  position: absolute;
+  top: 4px; left: 5px;
+  z-index: 2;
+  font-size: .42em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+[data-card-style="colored"] .card.card-face .card-idx-suit { font-size: .95em; }
+[data-card-style="colored"] .card.card-face .card-wm {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  font-size: 1.9em;
+  line-height: 1;
+  transform: translateY(8%);
+  pointer-events: none;
+  opacity: .32;
+}
+[data-card-style="colored"] .card.card-face.suit-h .card-wm { color: #e8a0a5; }
+[data-card-style="colored"] .card.card-face.suit-d .card-wm { color: #8bb4f0; }
+[data-card-style="colored"] .card.card-face.suit-c .card-wm { color: #7dcea0; }
+[data-card-style="colored"] .card.card-face.suit-s .card-wm { color: #9aa3ad; }
+[data-card-style="colored"] .card.card-face .card-rank {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 1;
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 800;
+  letter-spacing: -.04em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .22);
 }
 [data-card-style="colored"] .card.suit-h,
 [data-card-style="colored"] .card.suit-d,
