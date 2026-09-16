@@ -111,6 +111,12 @@ assert.ok(topPair > 0.55, 'top pair AK should be strong, got ' + topPair);
 
 const overpair = Made.relativeStrength01(['Qh', 'Qd'], ['Jc', '7d', '2c'], 'flop');
 assert.ok(overpair > 0.55, 'QQ overpair strong, got ' + overpair);
+
+/* Underpair + AA board / K-high board-only no son value */
+const under99 = Made.relativeStrength01(['9d', '9h'], ['7s', '4s', '3c', 'As', 'Ac'], 'river');
+assert.ok(under99 < 0.42, '99 on AA board is bluffcatcher, got ' + under99);
+const kHigh = Made.relativeStrength01(['Ks', '3d'], ['Jh', '2c', 'Th', 'Ad', '2d'], 'river');
+assert.ok(kHigh < 0.28, 'K-high on paired board is air, got ' + kHigh);
 console.log('OK relative strength: board-play', qjBoard.toFixed(2), 'top pair', topPair.toFixed(2));
 
 /* ---- 4. Soft mixes preflop ---- */
