@@ -48,40 +48,40 @@ body {
   background-size: 48px 48px, 64px 64px, 56px 56px;
 }
 .frame {
-  position: absolute; inset: 36px;
+  position: absolute; inset: 28px;
   border: 1.5px solid #f5c45155;
   border-radius: 28px;
   background: #1c2530cc;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 48px 40px 40px;
+  padding: 100px 28px 72px;
   text-align: center;
 }
 .brand-top {
-  position: absolute; top: 56px; left: 0; right: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  position: absolute; top: 40px; left: 0; right: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
 }
 .spade {
-  width: 48px; height: 48px; border-radius: 50%;
+  width: 40px; height: 40px; border-radius: 50%;
   border: 2px solid #f5c451;
   display: grid; place-items: center;
-  font-size: 24px; color: #f5c451; background: #0f1419;
+  font-size: 20px; color: #f5c451; background: #0f1419;
 }
 .brand-name {
   font-size: 13px; letter-spacing: 0.28em; color: #f5c451; font-weight: 700;
 }
 .eyebrow {
-  font-size: 15px; letter-spacing: 0.22em; text-transform: uppercase;
-  color: #9aa7b5; margin-bottom: 22px; font-weight: 600;
+  font-size: 20px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: #9aa7b5; margin-bottom: 18px; font-weight: 700;
 }
 .headline {
-  font-size: 52px; font-weight: 800; line-height: 1.12;
-  max-width: 560px;
+  font-size: 70px; font-weight: 800; line-height: 1.05;
+  max-width: 640px;
 }
-.headline.lg { font-size: 58px; }
-.headline.sm { font-size: 40px; }
+.headline.lg { font-size: 88px; }
+.headline.sm { font-size: 58px; }
 .sub {
-  margin-top: 28px; font-size: 22px; line-height: 1.35; color: #9aa7b5;
-  max-width: 520px;
+  margin-top: 24px; font-size: 30px; line-height: 1.28; color: #c5ced8;
+  max-width: 580px; font-weight: 700;
 }
 .gold { color: #f5c451; }
 .blue { color: #2f81f7; }
@@ -98,28 +98,28 @@ body {
 .pill {
   margin-top: 28px;
   display: inline-flex; align-items: center; gap: 10px;
-  padding: 14px 22px; border-radius: 999px;
-  background: #2f81f722; border: 1.5px solid #2f81f7;
-  color: #f0f3f6; font-size: 20px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 20px 30px; border-radius: 999px;
+  background: #2f81f722; border: 2px solid #2f81f7;
+  color: #f0f3f6; font-size: 30px; font-weight: 800; letter-spacing: 0.04em;
 }
 .steps {
-  margin-top: 36px; display: flex; flex-direction: column; gap: 16px; width: 100%;
-  max-width: 480px;
+  margin-top: 28px; display: flex; flex-direction: column; gap: 16px; width: 100%;
+  max-width: 580px;
 }
 .step {
   display: flex; align-items: center; gap: 16px;
   background: #0f1419aa; border: 1px solid #2a3644;
-  border-radius: 16px; padding: 16px 18px; text-align: left;
+  border-radius: 16px; padding: 20px 22px; text-align: left;
 }
 .step-n {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: #2f81f7; color: #fff; font-weight: 800;
+  width: 48px; height: 48px; border-radius: 50%;
+  background: #2f81f7; color: #fff; font-weight: 800; font-size: 22px;
   display: grid; place-items: center; flex-shrink: 0;
 }
-.step-t { font-size: 22px; font-weight: 700; }
+.step-t { font-size: 28px; font-weight: 800; }
 .footer {
-  position: absolute; bottom: 52px; left: 0; right: 0;
-  font-size: 13px; letter-spacing: 0.12em; color: #6b7785; text-align: center;
+  position: absolute; bottom: 40px; left: 0; right: 0;
+  font-size: 15px; letter-spacing: 0.12em; color: #6b7785; text-align: center;
 }
 </style></head><body>
 <div class="bg"></div><div class="suits"></div>
@@ -143,7 +143,7 @@ const FRAMES = [
     file: 'hook-02-nunca-aprender.jpg',
     html: shell(`
       <div class="brand-top"><div class="spade">♠</div><div class="brand-name">POKERFORGEAI</div></div>
-      <div class="headline">…pero nunca te has parado a <span class="gold">aprender</span>.</div>
+      <div class="headline">…pero nunca<br>te has parado<br>a <span class="gold">aprender</span>.</div>
       <div class="rule"></div>
       <div class="sub">Ver partidas ≠ saber jugar.</div>
       <div class="footer">+18 · Juega responsablemente</div>
@@ -154,7 +154,7 @@ const FRAMES = [
     html: shell(`
       <div class="brand-top"><div class="spade">♠</div><div class="brand-name">POKERFORGEAI</div></div>
       <div class="eyebrow">Desde cero</div>
-      <div class="headline sm">Sin arriesgar<br><span class="gold">dinero</span></div>
+      <div class="headline">Sin arriesgar<br><span class="gold">dinero</span></div>
       <div class="rule"></div>
       <div class="sub">Entrenas manos reales.<br>Cero bankroll en juego.</div>
       <div class="footer">Práctica segura · Cash · Spins · Torneos</div>
@@ -164,7 +164,7 @@ const FRAMES = [
     file: 'beat-04-practica.jpg',
     html: shell(`
       <div class="brand-top"><div class="spade">♠</div><div class="brand-name">POKERFORGEAI</div></div>
-      <div class="headline sm">Así se aprende</div>
+      <div class="headline">Así se aprende</div>
       <div class="steps">
         <div class="step"><div class="step-n">1</div><div class="step-t">Juegas el spot</div></div>
         <div class="step"><div class="step-n">2</div><div class="step-t">Te corrigen al momento</div></div>
@@ -177,12 +177,12 @@ const FRAMES = [
     file: 'cta-05-mes-gratis.jpg',
     html: shell(`
       <div class="brand-top"><div class="spade">♠</div><div class="brand-name">POKERFORGEAI</div></div>
-      <div class="eyebrow">Oferta de prueba</div>
+      <div class="eyebrow">Regalo</div>
       <div class="headline lg"><span class="gold">1 MES</span><br>GRATIS</div>
       <div class="rule"></div>
       <div class="sub">Escribe por privado la palabra</div>
       <div class="pill"><span class="blue">DM</span> · APRENDER</div>
-      <div class="footer">Plazas de prueba · Respuesta por privado</div>
+      <div class="footer">Respuesta por privado</div>
     `),
   },
   {
@@ -190,7 +190,7 @@ const FRAMES = [
     html: shell(`
       <div class="spade" style="margin-bottom:14px">♠</div>
       <div class="brand-name" style="margin-bottom:28px">POKERFORGEAI</div>
-      <div class="headline sm">Desde cero.<br>Sin riesgo.<br><span class="gold">DM: APRENDER</span></div>
+      <div class="headline">Desde cero.<br>Sin riesgo.<br><span class="gold">DM: APRENDER</span></div>
       <div class="rule"></div>
       <div class="sub">Tu entrenador de póker en español</div>
       <div class="pill" style="margin-top:36px">1 mes gratis · pregunta por privado</div>

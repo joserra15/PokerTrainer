@@ -1,4 +1,4 @@
-# Reel de prueba — Aprende póker desde cero (DM = 1 mes gratis)
+# Reel — Aprende póker desde cero (DM = 1 mes gratis)
 
 **Objetivo:** captar gente a la que le gusta el póker pero nunca se ha parado a aprender en serio.  
 **Promesa:** aprender desde cero **sin arriesgar dinero**.  

@@ -1,4 +1,4 @@
-# Lote 8 — Reel prueba: aprender desde cero (DM = 1 mes)
+# Lote 8 — Reel: aprender desde cero (DM = 1 mes)
 
 Captación cold: gente a la que le gusta el póker pero no se ha parado a estudiar.
 
