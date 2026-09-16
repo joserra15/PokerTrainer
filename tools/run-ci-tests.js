@@ -55,6 +55,7 @@ const STEPS = [
   ['Test MTT Heads Up entrenador', ['node', 'tools/test-mtt-heads-up-trainer.js']],
   ['Test villain HU fase/taxonomy', ['node', 'tools/test-villain-hu.js']],
   ['Test HU Pro sin call-down sticky', ['node', 'tools/test-hu-pro-calldown-leaks.js']],
+  ['Test HU Pro sin spew Q2o/XR aire', ['node', 'tools/test-hu-pro-preflop-leaks.js']],
   ['Test river nut flush', ['node', 'tools/test-river-board-ace-nut-flush.js']],
   ['Test river flush raise equity', ['node', 'tools/test-river-flush-raise-equity.js']],
   ['Test river monotone', ['node', 'tools/test-river-monotone-bet-range.js']],

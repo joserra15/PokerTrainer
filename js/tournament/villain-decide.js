@@ -175,6 +175,85 @@
     ));
   }
 
+  /**
+   * Fuerza preflop 0..1. Preferir GTOHandStrength (penaliza gaps offsuit);
+   * fallback a holeStrength01 (carta alta).
+   */
+  function preflopStrength01(hole, code) {
+    var HS = global.GTOHandStrength;
+    var c = code || handCode(hole);
+    if (HS && typeof HS.handStrength01 === 'function' && c) {
+      try {
+        var s = HS.handStrength01(c);
+        if (s != null && isFinite(Number(s))) {
+          return Math.max(0.05, Math.min(0.95, Number(s)));
+        }
+      } catch (eHs) { /* fallback */ }
+    }
+    return holeStrength01(hole);
+  }
+
+  function holeGapFromCode(code) {
+    if (!code || code.length < 2) return 99;
+    if (code.length === 2) return 0;
+    var ranks = '23456789TJQKA';
+    var a = ranks.indexOf(code.charAt(0));
+    var b = ranks.indexOf(code.charAt(1));
+    if (a < 0 || b < 0) return 99;
+    return Math.abs(a - b);
+  }
+
+  /**
+   * Candidatas a 3bet polar en ensanche HU: pareja, Ax, suited gap≤4, o conectadas gap≤2.
+   * Basura offsuit (Q2o, K3o, J4o) queda fuera.
+   */
+  function canHuWiden3bet(code, aiLevel) {
+    if (!code) return false;
+    if (code.length === 2) return true;
+    var suited = code.charAt(2) === 's';
+    var hi = code.charAt(0);
+    var gap = holeGapFromCode(code);
+    if (hi === 'A') return true;
+    if (suited && gap <= 4) return true;
+    if (gap <= 2) return true;
+    if (aiLevel === 'elite' || aiLevel === 'exploit_pro') return false;
+    return suited || gap <= 3;
+  }
+
+  function huOpenThreshold(role, aiLevel) {
+    var thr = 0.36;
+    if (role === 'tag') thr = 0.34;
+    else if (role === 'lag' || role === 'maniac') thr = 0.30;
+    else if (role === 'pro') thr = 0.32;
+    else if (role === 'nit') thr = 0.42;
+    else if (role === 'fish') thr = 0.30;
+    if (aiLevel === 'exploit_pro') thr += 0.14;
+    else if (aiLevel === 'elite') thr += 0.10;
+    else if (aiLevel === 'strong') thr += 0.06;
+    else if (aiLevel === 'solid') thr += 0.02;
+    return thr;
+  }
+
+  function huDefendThreshold(role, aiLevel) {
+    var thr = 0.36;
+    if (role === 'tag') thr = 0.34;
+    else if (role === 'pro' || role === 'lag' || role === 'maniac') thr = 0.32;
+    else if (role === 'nit') thr = 0.44;
+    else if (role === 'fish') thr = 0.32;
+    if (aiLevel === 'exploit_pro') thr += 0.10;
+    else if (aiLevel === 'elite') thr += 0.08;
+    else if (aiLevel === 'strong') thr += 0.04;
+    return thr;
+  }
+
+  function hasRealDraw(madeInfo) {
+    return !!(madeInfo && (madeInfo.hasDraw || madeInfo.flushDraw || madeInfo.oesd || madeInfo.gutshot));
+  }
+
+  function isStrictHuAi(aiLevel) {
+    return aiLevel === 'elite' || aiLevel === 'exploit_pro';
+  }
+
   function highHoleRank01(hole) {
     var ranks = '23456789TJQKA';
     var a = Math.max(0, ranks.indexOf(cardCode(hole[0]).charAt(0)));
@@ -604,9 +683,10 @@
     var raises = raiseCount(hand);
     var hu = isHeadsUp(hand);
     ctx.isHeadsUp = hu;
-    var holeStr = holeStrength01(seat.cards);
+    var holeStr = preflopStrength01(seat.cards, code);
     var stackBB = ctx.stackBB;
     var pushPhase = isPushPhaseCtx(ctx);
+    var aiLvl = profile.aiLevel || aiLevelOf(hand);
 
     /* ---------- Sin opener: open / shove / steal ---------- */
     if (!hand.openerId) {
@@ -660,14 +740,15 @@
         open = holeStr > 0.58;
       }
 
-      /* HU: abrir más ancho desde BTN/SB si no está en chart. */
+      /* HU: abrir más ancho desde BTN/SB si no está en chart (umbrales por aiLevel). */
       if (!open && hu && (seat.pos === 'BTN' || seat.pos === 'SB')) {
-        var huOpenThr = 0.36;
-        if (role === 'tag') huOpenThr = 0.28;
-        else if (role === 'lag' || role === 'pro' || role === 'maniac') huOpenThr = 0.24;
-        else if (role === 'nit') huOpenThr = 0.36;
-        else if (role === 'fish') huOpenThr = 0.26;
-        if (holeStr > huOpenThr) open = true;
+        var huOpenThr = huOpenThreshold(role, aiLvl);
+        if (holeStr > huOpenThr) {
+          open = true;
+        } else if (canHuWiden3bet(code, aiLvl) && holeStr > huOpenThr - 0.10) {
+          /* Suited/conectadas justo bajo el umbral (p.ej. 76s), no basura offsuit. */
+          open = true;
+        }
       }
 
       if (open) {
@@ -727,16 +808,29 @@
       else if (s0 > 0.55) action = 'call';
     }
 
-    /* HU: defender BB más ancho si el chart dice fold. */
+    /* HU: defender BB/SB más ancho si el chart dice fold (sin 3bet trash). */
     if (hu && (action === 'fold' || !action) && (seat.pos === 'BB' || seat.pos === 'SB')) {
-      var defThr = 0.36;
-      if (role === 'tag') defThr = 0.32;
-      else if (role === 'pro' || role === 'lag' || role === 'maniac') defThr = 0.28;
-      else if (role === 'nit') defThr = 0.44;
-      else if (role === 'fish') defThr = 0.32;
+      var defThr = huDefendThreshold(role, aiLvl);
+      var can3 = canHuWiden3bet(code, aiLvl);
       if (holeStr > defThr) {
-        action = holeStr > defThr + 0.14 ? '3bet' : 'call';
+        if (isStrictHuAi(aiLvl)) {
+          /* elite/exploit_pro: no 3bet por umbral; call solo polarizable. */
+          if (can3) action = 'call';
+        } else if (can3 && holeStr > defThr + 0.14) {
+          action = '3bet';
+        } else if (can3 || holeStr > defThr + 0.06) {
+          action = 'call';
+        }
+      } else if (can3 && holeStr > defThr - 0.08) {
+        /* Suited/conectadas justo bajo umbral: call, nunca 3bet. */
+        action = 'call';
       }
+    }
+
+    /* Strict HU: basura offsuit nunca 3betea (ni por leak de chart). */
+    if (hu && isStrictHuAi(aiLvl) && action === '3bet'
+      && !canHuWiden3bet(code, aiLvl) && holeStr < 0.62) {
+      action = 'fold';
     }
 
     if (action === '3bet' || action === 'raise' || action === '4bet') {
@@ -1024,6 +1118,15 @@
           act, strength, spotCtx.potOdds, tc, pot, hand.street || 'flop', role, Math.random(), discExtra
         );
       }
+      /* elite/exploit_pro: no raise flop/turn con aire sin draw real. */
+      if (act === 'raise' && isStrictHuAi(spotCtx.aiLevel)) {
+        var stRaise = hand.street || 'flop';
+        var airNoDraw = (band === 'air' || strength < 0.35 || !!(madeInfo && madeInfo.boardOnlyShowdown))
+          && !hasRealDraw(madeInfo) && strength < 0.55;
+        if ((stRaise === 'flop' || stRaise === 'turn') && airNoDraw) {
+          act = strength > (spotCtx.potOdds || 0) + 0.05 ? 'call' : 'fold';
+        }
+      }
       if (act === 'raise') {
         var raiseAmt;
         if (VS && VS.raiseSizeBB) {
@@ -1207,6 +1310,8 @@
       /* Check-raise follow-through. */
       if (seat._lineIntent === 'checkRaise') {
         var xrBoost = false;
+        var faceAi = profile.aiLevel || aiLevelOf(hand);
+        var xrBand = strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge');
         if (LP && typeof LP.adjustFacing === 'function') {
           try {
             var freqs = { fold: 0.45, call: 0.35, raise: 0.2 };
@@ -1219,7 +1324,7 @@
               strength: strength,
               formatHub: ctx.formatHub,
               stackBB: ctx.stackBB,
-              band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
+              band: xrBand
             });
             var rXr = Math.random();
             if (rXr < (adj.raise || 0)) face = 'raise';
@@ -1230,10 +1335,18 @@
         }
         if (!xrBoost) {
           var drawish = (street === 'flop' || street === 'turn')
-            && strength >= 0.38 && strength <= 0.52;
+            && strength >= 0.38 && strength <= 0.52
+            && (!isStrictHuAi(faceAi) || hasRealDraw(madeInfo));
           if (strength > 0.55 || drawish) {
             if (Math.random() < (strength > 0.55 ? 0.62 : 0.42)) face = 'raise';
           }
+        }
+        /* Strict HU: no XR follow-through con aire sin draw. */
+        if (isStrictHuAi(faceAi) && face === 'raise'
+          && (street === 'flop' || street === 'turn')
+          && (xrBand === 'air' || strength < 0.35 || !!(madeInfo && madeInfo.boardOnlyShowdown))
+          && !hasRealDraw(madeInfo) && strength < 0.55) {
+          face = strength > potOdds + callEdgeForRole(role) ? 'call' : 'fold';
         }
         seat._lineIntent = null;
       }
@@ -1243,7 +1356,10 @@
         && strength >= 0.38 && strength <= 0.52
         && (role === 'tag' || role === 'pro' || role === 'lag')
         && face === 'call' && Math.random() < 0.28) {
-        face = 'raise';
+        var semiAi = profile.aiLevel || aiLevelOf(hand);
+        if (!isStrictHuAi(semiAi) || hasRealDraw(madeInfo)) {
+          face = 'raise';
+        }
       }
 
       /* Hero multi-street aggression → fold disciplinado (equity/pot odds), no 55% fijo. */
@@ -1352,7 +1468,8 @@
       if (role === 'nit') force *= 0.75;
       if ((street === 'flop' || street === 'turn')
         && strength >= 0.38 && strength <= 0.52
-        && (role === 'tag' || role === 'pro' || role === 'lag')) {
+        && (role === 'tag' || role === 'pro' || role === 'lag')
+        && (!isStrictHuAi(profile.aiLevel || aiLevelOf(hand)) || hasRealDraw(madeInfo))) {
         force = Math.min(0.82, force + 0.22);
       }
       if (heroLine.passive && (role === 'pro' || role === 'tag') && strength > 0.28) {
