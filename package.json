@@ -24,6 +24,7 @@
     "test:mtt-hu": "node tools/test-mtt-heads-up-trainer.js",
     "test:river-nut-flush": "node tools/test-river-board-ace-nut-flush.js",
     "test:villain-hu": "node tools/test-villain-hu.js",
+    "test:hu-pro-calldown": "node tools/test-hu-pro-calldown-leaks.js",
     "test:villain-nuts": "node tools/test-villain-never-fold-nuts.js",
     "test:villain-pro-lines": "node tools/test-villain-pro-lines.js",
     "test:pro-decision": "node tools/test-pro-decision-engine.js",

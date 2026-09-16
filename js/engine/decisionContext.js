@@ -27,10 +27,19 @@
 
   function bandFromMade(info, strength) {
     var s = strength != null ? strength : 0.5;
+    if (info && info.boardOnlyShowdown) return 'air';
+    if (info && info.underpairBoardTwoPair) {
+      return s >= 0.38 ? 'bluffcatch' : 'air';
+    }
     if (info && info.ev && info.ev.category >= 4) return 'nuts';
     if (info) {
-      if (info.tier === 'strong') return s > 0.82 ? 'nuts' : 'value';
-      if (info.tier === 'medium') return 'merge';
+      // No promover a value si la fuerza relativa es de bluff-catcher/aire.
+      if (info.tier === 'strong') {
+        if (s < 0.40) return 'air';
+        if (s < 0.52) return 'bluffcatch';
+        return s > 0.82 ? 'nuts' : 'value';
+      }
+      if (info.tier === 'medium') return s < 0.32 ? 'air' : 'merge';
       if (info.tier === 'weak') return 'bluffcatch';
       return 'air';
     }

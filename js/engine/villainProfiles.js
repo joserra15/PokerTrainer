@@ -562,6 +562,9 @@
       if (id === 'pro') {
         po.overbetWeight = Math.min(1.45, (Number(po.overbetWeight) || 1.2) * 1.1);
         po.riverPolarMult = Math.min(1.4, (Number(po.riverPolarMult) || 1.25) * 1.08);
+        /* HU Pro: más agresión, pero no calling-station en rivers. */
+        po.callMult = Math.min(1.05, Math.max(0.85, (Number(po.callMult) || 1) * 0.92));
+        po.foldMult = Math.min(1.15, Math.max(0.7, (Number(po.foldMult) || 1) * 1.05));
       }
     }
 
