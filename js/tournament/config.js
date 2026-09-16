@@ -21,10 +21,10 @@
     { level: 10, sb: 500, bb: 1000, ante: 100 }
   ];
 
-  /** Mesas HU: 6 manos/nivel. Cortas/medias (≤6): 8. Largas (9-max): 15. */
+  /** Mesas HU: 12 manos/nivel. Cortas/medias (≤6): 8. Largas (9-max): 15. */
   function handsPerLevelForSeats(seats) {
     var n = Number(seats) || 6;
-    if (n <= 2) return 6;
+    if (n <= 2) return 12;
     return n >= 9 ? 15 : 8;
   }
 
@@ -399,7 +399,7 @@
     var placesPaidDefault = (kind === 'spin' || kind === 'hu') ? 1 : Math.max(1, Math.floor(entries / 5));
     var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
     if ((kind === 'spin' || kind === 'hu') && entries <= 2) placesPaid = 1;
-    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15; HU a 6. */
+    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15; HU a 12. */
     var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
       ? normalizeSchedule(raw.blindSchedule, seats)
       : defaultScheduleForSeats(seats);
