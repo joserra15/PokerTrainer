@@ -9665,20 +9665,16 @@ function reducedMotion() {
       global.PTTournaments.communityPlanBypass();
     var planHint = planBypass
       ? '<p class="trn-lobby-plan-hint">Comunidad · todos los torneos desbloqueados para miembros.</p>'
-      : '<p class="trn-lobby-plan-hint">' +
-        '<span class="trn-badge trn-badge-plan-free">Gratis</span> Spin/HU fácil · ' +
-        '<span class="trn-badge trn-badge-plan-study">Study</span> fáciles, medios y HU difícil · ' +
-        '<span class="trn-badge trn-badge-plan-coach">Coach</span> difíciles y pro' +
-        '</p>';
+      : '';
 
     return '<div class="trn-hub trn-lobby">' +
       '<header class="trn-lobby-hero">' +
       '<div class="trn-lobby-hero-bg" aria-hidden="true"></div>' +
       '<div class="trn-lobby-hero-copy">' +
-      '<p class="trn-lobby-eyebrow">Lobby · rivales bot (no ForgeCoach)</p>' +
+      '<p class="trn-lobby-eyebrow">Lobby</p>' +
       '<h2>TORNEOS</h2>' +
       '<p class="trn-lobby-tagline">Elige un evento, entra a la mesa y caza arquetipos para XP. Al terminar puedes pedir un informe a ForgeCoach.</p>' +
-      '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia (solo para premios y ROI).</p>' +
+      '<p class="trn-lobby-free">Torneos gratuitos · la entrada en Koins es ficticia.</p>' +
       planHint +
       '<div class="trn-wallet-chip">Koins: <strong>' + esc(String(displayKoins())) + '</strong></div>' +
       aliasChipHtml() +
