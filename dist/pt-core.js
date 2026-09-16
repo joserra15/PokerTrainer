@@ -7450,8 +7450,53 @@ window.PT_NASH_PUSH_JSON = {
     return { oesd: oesd, gutshot: gutshot };
   }
 
+  /** Valor de la pareja del board (0 si no hay pareja en el board). */
+  function boardPairValue(board) {
+    if (!board || board.length < 2 || !C) return 0;
+    const counts = {};
+    for (let i = 0; i < board.length; i++) {
+      const v = C.RANK_VALUE[String(board[i])[0]] || 0;
+      counts[v] = (counts[v] || 0) + 1;
+    }
+    let best = 0;
+    Object.keys(counts).forEach(function (k) {
+      if (counts[k] >= 2) best = Math.max(best, Number(k));
+    });
+    return best;
+  }
+
+  /** Pocket underpair que forma "dos pares" solo con la pareja del board (p.ej. 99 en AxAyy). */
+  function isUnderpairBoardTwoPair(holeCards, board, fullEv, boardEv) {
+    if (!holeCards || holeCards.length < 2 || !board || board.length < 3) return false;
+    const holePair = String(holeCards[0])[0] === String(holeCards[1])[0];
+    if (!holePair) return false;
+    const holeVal = C.RANK_VALUE[String(holeCards[0])[0]] || 0;
+    const bp = boardPairValue(board);
+    if (!bp || holeVal >= bp) return false;
+    const cat = fullEv && fullEv.category != null ? Number(fullEv.category) : -1;
+    const bcat = boardEv && boardEv.category != null ? Number(boardEv.category) : -1;
+    // Dos pares hechos con underpair + pareja del board, o underpair crudo bajo pareja alta del board.
+    if (cat === 2 && bcat === 1) return true;
+    if (cat === 1 && bcat === 1 && (fullEv.rank[1] || 0) === holeVal && holeVal < bp) return true;
+    return false;
+  }
+
+  /** Solo kicker / jugando el board (misma categoría que el board, sin mejorar el primario). */
+  function isBoardOnlyShowdown(holeCards, board, fullEv, boardEv) {
+    if (!fullEv || !boardEv || fullEv.category == null || boardEv.category == null) return false;
+    const cat = Number(fullEv.category);
+    const bcat = Number(boardEv.category);
+    if (cat !== bcat) return false;
+    const fullPri = (fullEv.rank && fullEv.rank[1]) || 0;
+    const boardPri = (boardEv.rank && boardEv.rank[1]) || 0;
+    if (fullPri !== boardPri) return false;
+    // Sin mejora primaria real (kicker-only / board pair).
+    return cat <= 3;
+  }
+
   function classifyMadeHand(holeCards, board) {
     const ev = C.evaluate(holeCards.concat(board));
+    const boardOnly = board && board.length >= 3 ? C.evaluate(board.slice()) : null;
     const boardVals = board.map((c) => C.RANK_VALUE[c[0]]).sort((a, b) => b - a);
     const holeVals = holeCards.map((c) => C.RANK_VALUE[c[0]]);
     const topBoard = boardVals[0] || 0;
@@ -7465,9 +7510,17 @@ window.PT_NASH_PUSH_JSON = {
       else if (suitCount[s] === 4) flushDraw = true;
     }
     const straightStuff = straightDraws(holeCards.concat(board));
+    const underpairTp = isUnderpairBoardTwoPair(holeCards, board, ev, boardOnly);
+    const boardOnlySd = isBoardOnlyShowdown(holeCards, board, ev, boardOnly);
 
     let tier;
-    if (ev.category >= 3) tier = 'strong';
+    if (boardOnlySd && ev.category <= 1) {
+      // Pareja del board / high-card kicker: aire o bluff-catcher flojo, no "medium".
+      tier = (flushDraw || straightStuff.oesd) ? 'weak' : 'air';
+    } else if (underpairTp) {
+      // 99 en AA-board: dos pares técnicos pero equity de bluff-catcher.
+      tier = 'weak';
+    } else if (ev.category >= 3) tier = 'strong';
     else if (ev.category === 2) tier = 'strong';
     else if (ev.category === 1) {
       const pairVal = ev.rank[1];
@@ -7486,6 +7539,8 @@ window.PT_NASH_PUSH_JSON = {
       oesd: straightStuff.oesd,
       gutshot: straightStuff.gutshot,
       hasDraw: flushDraw || straightStuff.oesd || straightStuff.gutshot,
+      underpairBoardTwoPair: underpairTp,
+      boardOnlyShowdown: boardOnlySd,
       isNutFlush: flush && (function () {
         const Eq = global.GTOEquity;
         if (!Eq || !Eq.heroNonNutFlushContext) return flush;
@@ -7544,9 +7599,25 @@ window.PT_NASH_PUSH_JSON = {
         (full.rank[2] || 0) > (boardOnly.rank[2] || 0))
     );
     const kickerOnly = sameCat && !primaryImproved && cat <= 3;
+    const underpairTp = isUnderpairBoardTwoPair(holeCards, board, full, boardOnly);
+    const boardFlushHeavy = (function () {
+      const suits = {};
+      board.forEach(function (c) {
+        const s = String(c)[1];
+        suits[s] = (suits[s] || 0) + 1;
+      });
+      return Object.keys(suits).some(function (s) { return suits[s] >= 3; });
+    })();
 
     let score;
-    if (cat > bcat) {
+    if (underpairTp) {
+      // Underpair + pareja del board: bluff-catcher, no value (99 en AA / KK board).
+      const holeVal = C.RANK_VALUE[String(holeCards[0])[0]] || 0;
+      score = 0.30 + (holeVal / 14) * 0.08;
+      if (boardFlushHeavy) score -= 0.04;
+      if (street === 'river') score -= 0.02;
+      score = Math.max(0.22, Math.min(0.40, score));
+    } else if (cat > bcat) {
       score = 0.34 + (cat / 8) * 0.58;
       if (cat === 1) {
         const pairVal = full.rank[1] || 0;
@@ -7561,9 +7632,11 @@ window.PT_NASH_PUSH_JSON = {
         score = Math.max(0.62, score);
       }
     } else if (kickerOnly) {
-      if (cat <= 0) score = 0.10 + (highHole / 14) * 0.18;
-      else if (cat === 1) score = 0.14 + (highHole / 14) * 0.16;
-      else score = 0.16 + (highHole / 14) * 0.14;
+      // Jugando el board / solo kicker: aire claro (K-high en board paired).
+      if (cat <= 0) score = 0.08 + (highHole / 14) * 0.14;
+      else if (cat === 1) score = 0.10 + (highHole / 14) * 0.12;
+      else score = 0.12 + (highHole / 14) * 0.10;
+      if (street === 'river') score = Math.min(score, 0.26);
     } else if (sameCat && primaryImproved) {
       score = 0.42 + (cat / 8) * 0.45 + (highHole / 14) * 0.08;
     } else {
@@ -7585,6 +7658,9 @@ window.PT_NASH_PUSH_JSON = {
     classifyMadeHand: classifyMadeHand,
     straightDraws: straightDraws,
     kickerStrength: kickerStrength,
+    boardPairValue: boardPairValue,
+    isUnderpairBoardTwoPair: isUnderpairBoardTwoPair,
+    isBoardOnlyShowdown: isBoardOnlyShowdown,
     relativeStrength01: relativeStrength01,
     rankCmp: rankCmp
   };
@@ -14649,6 +14725,9 @@ window.PT_NASH_PUSH_JSON = {
       if (id === 'pro') {
         po.overbetWeight = Math.min(1.45, (Number(po.overbetWeight) || 1.2) * 1.1);
         po.riverPolarMult = Math.min(1.4, (Number(po.riverPolarMult) || 1.25) * 1.08);
+        /* HU Pro: más agresión, pero no calling-station en rivers. */
+        po.callMult = Math.min(1.05, Math.max(0.85, (Number(po.callMult) || 1) * 0.92));
+        po.foldMult = Math.min(1.15, Math.max(0.7, (Number(po.foldMult) || 1) * 1.05));
       }
     }
 
@@ -15458,22 +15537,30 @@ window.PT_NASH_PUSH_JSON = {
     if (edge >= 0.08) foldP = 0.1;
     else if (edge >= 0.02) foldP = 0.2;
     else if (edge >= -0.05) foldP = 0.32;
-    else if (edge >= -0.12) foldP = 0.42;
-    else foldP = 0.52;
+    else if (edge >= -0.12) foldP = 0.45;
+    else foldP = 0.58;
 
-    if (ctx.hasDraw || ctx.band === 'bluffcatch' || ctx.band === 'merge') foldP *= 0.78;
+    var street = ctx.street || null;
+    var hasLiveDraw = !!(ctx.hasDraw && street !== 'river');
+    if (hasLiveDraw || ctx.band === 'bluffcatch' || ctx.band === 'merge') foldP *= 0.82;
     if (ctx.hasBlocker) foldP *= 0.9;
-    if (ctx.band === 'air' && !ctx.hasDraw) foldP = Math.max(foldP, 0.48);
+    if ((ctx.band === 'air' || strength < 0.30) && !hasLiveDraw) foldP = Math.max(foldP, 0.62);
+    if (ctx.underpairBoardTwoPair) foldP = Math.max(foldP, 0.55);
+    if (ctx.boardOnlyShowdown) foldP = Math.max(foldP, 0.72);
 
     var streets = (ctx.heroLine && ctx.heroLine.multiStreetAgg) || 0;
-    if (streets >= 3) foldP *= 1.08;
-    else if (streets >= 2) foldP *= 1.02;
+    if (streets >= 3) foldP *= 1.22;
+    else if (streets >= 2) foldP *= 1.1;
 
     var m = multipliers(ctx);
-    foldP /= Math.max(0.75, m.defend || 1);
-    foldP /= aiDefendScale(ctx.aiLevel);
+    // Ante multi-barrel, no bajar fold por "defend" explotativo (evita estación).
+    if (streets < 2) {
+      foldP /= Math.max(0.75, m.defend || 1);
+    }
+    foldP /= Math.max(0.92, aiDefendScale(ctx.aiLevel) * 0.9);
 
-    return clamp(foldP, 0.06, 0.58);
+    var cap = (ctx.band === 'air' || ctx.boardOnlyShowdown || streets >= 3) ? 0.82 : 0.68;
+    return clamp(foldP, 0.08, cap);
   }
 
   /**
@@ -15485,7 +15572,13 @@ window.PT_NASH_PUSH_JSON = {
     var heroLine = ctx.heroLine || {};
     if (!heroLine.aggressive) return freqs || {};
     var strength = ctx.strength != null ? Number(ctx.strength) : 0.5;
-    if (strength >= 0.45) return freqs || {};
+    var weakShowdown = !!(ctx.underpairBoardTwoPair || ctx.boardOnlyShowdown
+      || ctx.band === 'air' || ctx.band === 'bluffcatch');
+    // Hands value reales (≥0.55) no se tocan; underpair/air sí aunque strength esté inflado.
+    if (strength >= 0.55 && !weakShowdown) return freqs || {};
+    if (strength >= 0.45 && !weakShowdown && ((heroLine.multiStreetAgg || 0) < 2)) {
+      return freqs || {};
+    }
 
     var out = Object.assign({}, freqs || {});
     var foldP = foldProbUnderPressure(ctx);
@@ -15502,8 +15595,8 @@ window.PT_NASH_PUSH_JSON = {
     // Mezcla hacia un target de fold disciplinado (no 55% fijo).
     var targetFold = foldP;
     var curFoldShare = fold / sum;
-    // Si ya foldeamos más que el target, bajamos fold; si menos, subimos con tope.
-    var newFold = clamp(curFoldShare * 0.45 + targetFold * 0.55, 0.05, 0.58);
+    var foldCap = (ctx.band === 'air' || ctx.boardOnlyShowdown) ? 0.88 : 0.75;
+    var newFold = clamp(curFoldShare * 0.35 + targetFold * 0.65, 0.08, foldCap);
     var remain = Math.max(0, 1 - newFold);
     var cont = call + raise;
     if (cont <= 0) {
@@ -15513,9 +15606,10 @@ window.PT_NASH_PUSH_JSON = {
     } else {
       // Bajo presión con equity decente: preservar algo de raise (bluffcatch raise / XR).
       var raiseShare = raise / cont;
-      if (strength >= potOddsEdge(ctx) && raiseShare < 0.12) raiseShare = 0.12;
+      if (strength >= potOddsEdge(ctx) && raiseShare < 0.12 && !weakShowdown) raiseShare = 0.12;
+      if (weakShowdown) raiseShare = Math.min(raiseShare, 0.08);
       out.fold = newFold;
-      out.raise = remain * clamp(raiseShare, 0.05, 0.35);
+      out.raise = remain * clamp(raiseShare, 0.02, 0.28);
       out.call = remain - out.raise;
     }
     return out;
@@ -15536,12 +15630,18 @@ window.PT_NASH_PUSH_JSON = {
     if (!heroLine.aggressive) return null;
     if (face === 'raise') return null;
     var strength = ctx.strength != null ? Number(ctx.strength) : 0.5;
-    if (strength >= 0.45) return null;
     var r = rnd != null ? rnd : Math.random();
+    if (strength >= 0.45 && !ctx.underpairBoardTwoPair && !ctx.boardOnlyShowdown) return null;
+    if (ctx.boardOnlyShowdown || ctx.band === 'air') {
+      var airFold = Math.max(foldProbUnderPressure(ctx), 0.7);
+      if (r < airFold) return 'fold';
+      return 'fold';
+    }
     var foldP = foldProbUnderPressure(ctx);
     if (r < foldP) return 'fold';
     // Si no foldeamos y tenemos buen precio, forzar call en lugar de quedarnos en fold previo.
-    if (face === 'fold' && strength >= (ctx.potOdds != null ? ctx.potOdds : 0.33) - 0.04) {
+    if (face === 'fold' && strength >= (ctx.potOdds != null ? ctx.potOdds : 0.33) + 0.02
+      && !ctx.underpairBoardTwoPair) {
       return 'call';
     }
     return null;

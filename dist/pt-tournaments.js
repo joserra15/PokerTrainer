@@ -2317,7 +2317,8 @@
       foldPush *= 0.55;
       if (ctx.stackBB <= 20 && strength > 0.28) foldPush -= 0.08;
     }
-    /* HU: menos fold bias en TAG/Pro/LAG/maniac (chip-EV, no bubble MTT). */
+    /* HU: menos fold bias en TAG/Pro/LAG/maniac (chip-EV, no bubble MTT).
+     * No reabrir calls con aire / underpair débil (leak de estación). */
     if (ctx.isHeadsUp && profile) {
       var pid = profile.id;
       if (pid === 'tag' || pid === 'pro' || pid === 'lag' || pid === 'maniac') {
@@ -2325,7 +2326,9 @@
       }
     }
     if (face === 'call' && foldPush > 0.05 && r < foldPush * 0.55) return 'fold';
-    if (face === 'fold' && foldPush < -0.02 && strength > potOdds) return 'call';
+    if (face === 'fold' && foldPush < -0.02 && strength > Math.max(potOdds, 0.38) && strength >= 0.40) {
+      return 'call';
+    }
     if (face === 'raise' && (m.jamBias > 1.25 || ctx.stackBB <= 14) && strength > 0.55) {
       return 'raise';
     }
@@ -2339,7 +2342,8 @@
         band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
       });
       var em = Ex.multipliers(exCtx) || {};
-      if (face === 'fold' && (em.barrel > 1.15 || em.bluff > 1.12) && strength > potOdds - 0.02 && r < 0.28) {
+      if (face === 'fold' && (em.barrel > 1.15 || em.bluff > 1.12)
+        && strength > Math.max(potOdds + 0.06, 0.42) && r < 0.22) {
         return 'call';
       }
       if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22) {
@@ -2704,29 +2708,48 @@
    * Reglas de fold postflop (sustituyen el anti-overfold tóxico).
    * Retorna 'fold' forzoso, 'ok' si puede seguir, o ajusta call barato.
    */
-  function applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd) {
+  function applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd, extra) {
     var betFrac = pot > 0 ? tc / pot : 1;
     rnd = rnd != null ? rnd : Math.random();
+    extra = extra || {};
+    var band = extra.band || null;
+    var multiStreet = (extra.heroLine && extra.heroLine.multiStreetAgg) || 0;
+    var scaryBoard = !!extra.scaryBoard;
+    var underpairTp = !!extra.underpairBoardTwoPair;
+    var boardOnly = !!extra.boardOnlyShowdown;
 
-    /* River air: fold vs ≥25% pot; potOdds minúsculo (<0.08) puede seguir. */
-    if (street === 'river' && strength < 0.28) {
+    /* River air / board-only: fold vs ≥25% pot (K-high en board paired). */
+    if (street === 'river' && (strength < 0.30 || boardOnly || band === 'air')) {
       if ((betFrac >= 0.25 || potOdds >= 0.20) && potOdds >= 0.08) return 'fold';
     }
     /* Bluffcatcher barato en river (potOdds tiny). */
-    if (street === 'river' && potOdds < 0.08 && strength > 0.35 && face === 'fold') {
+    if (street === 'river' && potOdds < 0.08 && strength > 0.35 && face === 'fold'
+      && !boardOnly && band !== 'air') {
       return 'call';
     }
 
     /* Board-only / kicker-only en turn/river vs ≥33% pot. */
-    if ((street === 'turn' || street === 'river') && strength < 0.32) {
+    if ((street === 'turn' || street === 'river') && (strength < 0.32 || boardOnly)) {
       if (betFrac >= 0.33 || potOdds >= 0.248) return 'fold';
+    }
+
+    /* Underpair + pareja del board vs multi-barrel / board peligroso (AA + color). */
+    if (underpairTp && (street === 'turn' || street === 'river')) {
+      if (scaryBoard && multiStreet >= 2 && betFrac >= 0.28) return 'fold';
+      if (street === 'river' && multiStreet >= 3 && betFrac >= 0.25) return 'fold';
+      if (street === 'river' && betFrac >= 0.45 && strength < 0.42) return 'fold';
     }
 
     /* Calls baratos solo con edge según rol. */
     if (face === 'call' || face === 'fold') {
       var edge = callEdgeForRole(role);
+      if (underpairTp) edge += 0.06;
+      if (scaryBoard && multiStreet >= 2) edge += 0.04;
       if (strength > potOdds + edge) {
-        if (face === 'fold' && potOdds < 0.28 && rnd < 0.55) return 'call';
+        if (face === 'fold' && potOdds < 0.28 && rnd < 0.55
+          && !boardOnly && band !== 'air' && !(underpairTp && scaryBoard)) {
+          return 'call';
+        }
         return face === 'fold' ? face : 'call';
       }
       if (face === 'call' && strength <= potOdds + edge) {
@@ -2735,6 +2758,25 @@
       }
     }
     return face;
+  }
+
+  /** Board con As alto + flush possible o muy wet tras barrels. */
+  function isScaryCalldownBoard(board) {
+    board = toCodes(board || []);
+    if (board.length < 4) return false;
+    var ranks = {};
+    var suits = {};
+    var hasAce = false;
+    board.forEach(function (c) {
+      var r = c.charAt(0);
+      var s = c.charAt(1);
+      ranks[r] = (ranks[r] || 0) + 1;
+      suits[s] = (suits[s] || 0) + 1;
+      if (r === 'A') hasAce = true;
+    });
+    var flushHeavy = Object.keys(suits).some(function (s) { return suits[s] >= 3; });
+    var pairedAce = (ranks.A || 0) >= 2;
+    return (hasAce && flushHeavy) || pairedAce || flushHeavy;
   }
 
   function ensureLinePlan(seat, spotCtx) {
@@ -2812,6 +2854,9 @@
     spotCtx.aiLevel = profile.aiLevel || aiLevelOf(hand);
     spotCtx.strength = strength;
     spotCtx.band = band;
+    spotCtx.underpairBoardTwoPair = !!(madeInfo && madeInfo.underpairBoardTwoPair);
+    spotCtx.boardOnlyShowdown = !!(madeInfo && madeInfo.boardOnlyShowdown);
+    spotCtx.street = hand.street || 'flop';
 
     var eq = strength;
     try {
@@ -2882,6 +2927,23 @@
       if (act === 'call' && (hand.street === 'flop') && !inPos && strength >= 0.35 && strength <= 0.55) {
         patchLinePlan(seat, hand.street, { intent: 'float', action: 'call' });
         if (seat._linePlan) seat._linePlan.floatOop = true;
+      }
+      /* Disciplina Pro: no call-down sticky con aire / underpair en boards peligrosos. */
+      if (act === 'call' || act === 'fold') {
+        var discExtra = {
+          band: band,
+          heroLine: heroLine,
+          scaryBoard: isScaryCalldownBoard(hand.board),
+          underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
+          boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
+        };
+        act = applyPostflopFoldDiscipline(
+          act, strength, spotCtx.potOdds, tc, pot, hand.street || 'flop', role, rnd, discExtra
+        );
+        act = applyFormatAdjustToFacing(act, strength, spotCtx.potOdds, ctx, profile, Math.random());
+        act = applyPostflopFoldDiscipline(
+          act, strength, spotCtx.potOdds, tc, pot, hand.street || 'flop', role, Math.random(), discExtra
+        );
       }
       if (act === 'raise') {
         var raiseAmt;
@@ -3118,7 +3180,10 @@
           heroProfile: ctx.heroProfile || null,
           heroSessionStats: ctx.heroSessionStats || null,
           proStyle: profile.proStyle || null,
-          formatHub: ctx.formatHub
+          formatHub: ctx.formatHub,
+          street: street,
+          underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
+          boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
         };
         if (ExPress && typeof ExPress.maybeFoldUnderPressure === 'function') {
           var ov = ExPress.maybeFoldUnderPressure(face, pressCtx, Math.random());
@@ -3128,9 +3193,21 @@
         }
       }
 
-      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd);
+      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd, {
+        band: strength < 0.28 ? 'air' : (strength < 0.42 ? 'bluffcatch' : 'merge'),
+        heroLine: heroLine,
+        scaryBoard: isScaryCalldownBoard(hand.board),
+        underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
+        boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
+      });
       face = applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd);
-      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, Math.random());
+      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, Math.random(), {
+        band: strength < 0.28 ? 'air' : (strength < 0.42 ? 'bluffcatch' : 'merge'),
+        heroLine: heroLine,
+        scaryBoard: isScaryCalldownBoard(hand.board),
+        underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
+        boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
+      });
 
       if (face === 'fold' && isNeverFoldNuts(seat.cards, hand.board)) face = 'call';
 
