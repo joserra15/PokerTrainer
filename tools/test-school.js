@@ -238,7 +238,7 @@ const lessons = Data.lessonsForRoute('cash');
 assert.strictEqual(lessons.length, 49, 'Cash M0+M1+M2+M3+Pro+Exploit = 49 lecciones');
 assert.strictEqual(Data.lessonsForRoute('spin').length, 23, 'Spins 23');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 28, 'MTT 28');
-assert.strictEqual(Data.lessonsForRoute('ranges').length, 36, 'Rangos 36');
+assert.strictEqual(Data.lessonsForRoute('ranges').length, 35, 'Rangos 35');
 assert.strictEqual(Data.m0Lessons().length, 9, 'M0 9');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
 assert.strictEqual(Data.m2Lessons().length, 14, 'M2 14');
@@ -419,7 +419,7 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   }
   var mttBlob = assertRouteVoice('mtt', 24);
   assert.ok(/ante|ICM|steal|push|burbuja|bb/.test(mttBlob), 'MTT vocabulario torneo');
-  var rangesBlob = assertRouteVoice('ranges', 36);
+  var rangesBlob = assertRouteVoice('ranges', 35);
   assert.ok(/matriz|rango|frecuencia|blocker|menú Rangos/.test(rangesBlob), 'Rangos vocabulario');
   var proBlob = assertRouteVoice('cash', 44); // includes M0-M4 + lectura rivales
   assert.ok(/4-bet|farol|fish|reg|nit|maniac|TAG|LAG/.test(proBlob), 'Pro cash vocabulario');
@@ -663,7 +663,7 @@ assert.ok(/Push|fold/i.test(Data.getLesson('N-01').title), 'N-01 Nash spin');
 assert.ok(/ICM/i.test(Data.getLesson('I-01').title), 'I-01 ICM');
 assert.ok(/Nut Advantage/i.test(Data.getLesson('R-34').title), 'R-34 nut adv');
 assert.ok(/SPR/i.test(Data.getLesson('D-04').title), 'D-04 SPR');
-assert.ok(Data.getLesson('Q-02').spots.every(function (s) { return s.kind === 'comboQuiz'; }), 'Q-02 comboQuiz');
+assert.ok(!Data.getLesson('Q-02'), 'Q-02 combos quiz retirado (demasiado complejo)');
 (function () {
   Data.getLesson('Q-01').spots.forEach(function (spot) {
     var opts = (spot.quiz && spot.quiz.options) || [];

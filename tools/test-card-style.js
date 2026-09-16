@@ -65,8 +65,10 @@ const kc = Cards.cardToHTML('Kc');
 const js = Cards.cardFaceHTML('Js');
 assert.ok(/suit-h/.test(ah) && /red/.test(ah), 'Ah suit-h red: ' + ah);
 assert.ok(/suit-d/.test(td) && /card-face/.test(td), 'Td suit-d face: ' + td);
+assert.ok(/card-idx/.test(td) && /card-wm/.test(td) && /card-rank/.test(td), 'Td layout índice+wm+rango');
 assert.ok(/suit-c/.test(kc) && /black/.test(kc), 'Kc suit-c black: ' + kc);
 assert.ok(/suit-s/.test(js), 'Js suit-s: ' + js);
+assert.ok(/♠/.test(js) && /card-idx/.test(js), 'Js índice con aspe');
 assert.strictEqual(Cards.suitClass('h'), 'suit-h');
 
 localStore.pt_card_style_v1 = 'colored';
@@ -93,6 +95,8 @@ assert.ok(
 );
 assert.ok(/repeating-linear-gradient\(/.test(css) && /\.card-back/.test(css), 'reverso trama rombos');
 assert.ok(/mask:\s*var\(--pt-spade\)\s+center\s*\/\s*32%/.test(css), 'aspe reverso más pequeño');
+assert.ok(/\.card-wm/.test(css) && /card-idx/.test(css), 'CSS watermark e índice colored');
+assert.ok(/#3a4149/.test(css), 'picas gris carbón');
 
 const appSrc = fs.readFileSync(path.join(__dirname, '..', 'js/app.js'), 'utf8');
 assert.ok(/cardStyle:/.test(appSrc) && /applyActiveCardStyle/.test(appSrc), 'cableado entrenador');

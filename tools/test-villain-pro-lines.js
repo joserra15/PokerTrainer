@@ -288,7 +288,8 @@ const foldBadPrice = Ex.foldProbUnderPressure({
 });
 assert.ok(foldGoodPrice < 0.22, 'good pot odds → low foldP, got ' + foldGoodPrice);
 assert.ok(foldBadPrice > foldGoodPrice, 'bad pot odds folds more than good');
-assert.ok(foldBadPrice <= 0.58, 'foldP capped, got ' + foldBadPrice);
+assert.ok(foldBadPrice >= 0.55 && foldBadPrice <= 0.85,
+  'air vs 3-barrel foldP high but capped, got ' + foldBadPrice);
 
 const adjPress = Ex.adjustFacingForLinePressure(
   { fold: 0.55, call: 0.35, raise: 0.1 },

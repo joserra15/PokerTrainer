@@ -230,10 +230,44 @@
     };
   }
 
+  /** Rango polar de valor en board emparejado (fulls con las parejas del board). */
+  function pairedBoardPolarValueRange(board) {
+    const counts = {};
+    (board || []).forEach(function (c) {
+      const r = String(c)[0];
+      counts[r] = (counts[r] || 0) + 1;
+    });
+    const pairs = [];
+    const singles = [];
+    Object.keys(counts).forEach(function (r) {
+      if (counts[r] >= 2) pairs.push(r);
+      else if (counts[r] === 1) singles.push(r);
+    });
+    if (!pairs.length) {
+      if (D && D.RANGE_FACING_RIVER_3BET_SHOVE) return D.RANGE_FACING_RIVER_3BET_SHOVE;
+      return 'TT+, JJ+, QQ+, KK, AA';
+    }
+    // Fulls: cualquier carta de las parejas del board + pocket del unpaired (p.ej. JJ en TT44J).
+    const parts = ['AA', 'KK', 'QQ', 'JJ'];
+    pairs.forEach(function (pr) {
+      parts.push(pr + pr);
+      '23456789TJQKA'.split('').forEach(function (k) {
+        if (k === pr) return;
+        parts.push(pr + k + 's');
+        parts.push(pr + k + 'o');
+      });
+    });
+    singles.forEach(function (sr) {
+      parts.push(sr + sr);
+    });
+    return parts.join(', ');
+  }
+
   /** Rango villano underbluffed para 3-bet shove river en microlímites. */
   function microstakesRiverShoveRange(board, pairInfo) {
     if (pairInfo && pairInfo.paired) {
-      return 'TT, 22, 33, T2s, T3s, T2o, T3o, 23s, 23o, TT';
+      // Valor polar real (fulls). El stub TT/22/T2s inflaba equity de kickers board-only.
+      return pairedBoardPolarValueRange(board);
     }
     if (D && D.RANGE_FACING_RIVER_3BET_SHOVE) return D.RANGE_FACING_RIVER_3BET_SHOVE;
     return 'TT+, 22, 33, 44, 55, 66, 77, 88, 99, JJ, QQ, KK, AA';
@@ -362,6 +396,7 @@
     zeroFoldIfNeverFoldHand: zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
+    pairedBoardPolarValueRange,
     isRiverShoveNode,
     computeRiverShoveFrequencies,
     facingNodeCacheKey,
