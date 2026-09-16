@@ -13,6 +13,7 @@ Plan de promoción integral: plantillas, spots, carruseles, b-roll de la app y g
 | [`05-semana-1/`](05-semana-1/) | Paquete publicación semana 1 + captions |
 | [`06-calendario/`](06-calendario/) | Calendario detallado semanas 2–8 |
 | [`07-sprint-founder-oct/`](07-sprint-founder-oct/) | **Sprint 22 sep–5 oct**: Torneos IA · Reto IA Pro · FOUNDER 1 oct |
+| [`08-reel-aprende-cero/`](08-reel-aprende-cero/) | **Reel**: cold audience · desde cero · DM = 1 mes gratis |
 
 ## Orden de uso
 1. Configura bio + UTM (`05-semana-1/GUIONES_Y_CAPTIONS.md`)
