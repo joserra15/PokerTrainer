@@ -19,10 +19,11 @@ https://www.pokerforgeai.com/?utm_source=instagram&utm_medium=reel&utm_campaign=
 | Identidad | “Te gusta el póker…” → se ven reflejados |
 | Friction | “…pero nunca te has parado a aprender” → culpa suave, no ataque |
 | Riesgo cero | Entrenar sin dinero real |
+| Flexibilidad | A tu ritmo, móvil, cualquier hora · entrenador IA |
 | CTA privado | DM = menos fricción que “link en bio” + sensación de exclusividad |
 
 No hables de GTO, EV ni rangos en este reel. Eso asusta al cold audience.  
-Habla de **decisiones**, **errores** y **práctica segura**.
+Habla de **decisiones**, **errores**, **práctica segura** y **comodidad**.
 
 ---
 
@@ -37,20 +38,21 @@ Voz (opcional): “Te gusta el póker…”
 Texto: “…pero nunca te has parado a aprender.”
 Beat: zoom suave / Ken Burns
 
-[5–9s] beat-03-mesa.jpg + b-roll clip-01 o clip-05-escuela.webm
-Texto: “No hace falta arriesgar dinero para empezar.”
-Voz: “Puedes entrenar manos reales… sin apostar un euro.”
+[5–9s] beat-03-sin-riesgo.jpg + b-roll clip-01 o clip-05-escuela.webm
+Texto: “Sin arriesgar dinero”
+Voz: “Puedes empezar desde cero… sin apostar un euro.”
 
-[9–13s] beat-04-feedback.jpg + clip-02-gto-popup.webm (sin decir “GTO”)
-Texto: “Practicas. Te dicen si lo hiciste bien. Listo.”
-Voz: “Juegas el spot, te corrigen al momento, y listo.”
+[9–14s] beat-04-ritmo.jpg (+ b-roll móvil / escuela)
+Texto: “A tu ritmo · Desde el móvil · Día o noche”
+Sub: “Con tu entrenador IA”
+Voz: “Puedes aprender a tu ritmo, desde el móvil, a cualquier hora del día o de la noche, con tu entrenador IA.”
 
-[13–17s] cta-05-dm.jpg
+[14–18s] cta-05-mes-gratis.jpg
 Texto grande: “1 MES GRATIS”
 Subtexto: “Escribe por privado: APRENDER”
 Voz: “Si quieres empezar desde cero, escríbeme APRENDER por privado. Te regalo un mes.”
 
-[17–20s] endcard-06.jpg
+[18–21s] endcard-06.jpg
 Brand PokerForgeAI · “Desde cero · Sin riesgo · DM: APRENDER”
 ```
 
@@ -61,9 +63,12 @@ Brand PokerForgeAI · “Desde cero · Sin riesgo · DM: APRENDER”
 | 0–2.5 | Te gusta el póker… | Blanco, grande, centrado |
 | 2.5–5 | …pero nunca te has parado a aprender | Blanco + “aprender” en oro `#f5c451` |
 | 5–9 | Sin arriesgar dinero | Oro |
-| 9–13 | Practica → corrige → mejora | Blanco |
-| 13–17 | 1 MES GRATIS · DM: APRENDER | Oro + azul `#2f81f7` |
-| 17–20 | PokerForgeAI | Brand |
+| 9–14 | A tu ritmo · Desde el móvil · Día o noche · Entrenador IA | Blanco + “entrenador IA” en azul `#2f81f7` |
+| 14–18 | 1 MES GRATIS · DM: APRENDER | Oro + azul |
+| 18–21 | PokerForgeAI | Brand |
+
+**Frase canónica (voz / caption):**  
+*Puedes aprender a tu ritmo, desde el móvil, a cualquier hora del día o de la noche, con tu entrenador IA.*
 
 ---
 
@@ -73,8 +78,8 @@ Brand PokerForgeAI · “Desde cero · Sin riesgo · DM: APRENDER”
 Te gusta el póker…
 pero nunca te has parado a aprender de verdad.
 
-Puedes empezar desde cero sin arriesgar dinero:
-practicas manos, te corrigen al momento, y vas mejorando.
+Puedes empezar desde cero sin arriesgar dinero.
+Y puedes aprender a tu ritmo, desde el móvil, a cualquier hora del día o de la noche, con tu entrenador IA.
 
 🎁 1 mes gratis si escribes por privado la palabra APRENDER.
 
@@ -88,7 +93,8 @@ practicas manos, te corrigen al momento, y vas mejorando.
 ```
 Te gusta. No estudias. Pierdes por eso.
 
-Aprende desde cero sin arriesgar dinero.
+Aprende a tu ritmo, desde el móvil, día o noche — con tu entrenador IA.
+Sin arriesgar dinero.
 DM “APRENDER” → 1 mes gratis.
 
 #poker #pokerespañol #pokerforgeai
@@ -104,6 +110,7 @@ Cuando escriban **APRENDER** (o similar):
 ¡Hecho 🙌
 
 Te regalo 1 mes para aprender desde cero sin arriesgar dinero.
+Puedes avanzar a tu ritmo, desde el móvil, a cualquier hora del día o de la noche, con tu entrenador IA.
 
 1) Entra aquí: https://www.pokerforgeai.com/?utm_source=instagram&utm_medium=dm&utm_campaign=aprende_cero_dm
 2) Crea cuenta (Google)
@@ -127,14 +134,14 @@ Pásame el email con el que entraste y te activo el mes hoy.
 | `assets/hook-01-te-gusta.jpg` | Cover 0–2.5s |
 | `assets/hook-02-nunca-aprender.jpg` | 2.5–5s |
 | `assets/beat-03-sin-riesgo.jpg` | 5–9s (o overlay sobre b-roll) |
-| `assets/beat-04-practica.jpg` | 9–13s |
+| `assets/beat-04-ritmo.jpg` | 9–14s · a tu ritmo / móvil / IA |
 | `assets/cta-05-mes-gratis.jpg` | CTA DM |
 | `assets/endcard-06.jpg` | Cierre 2–3s |
 
 B-roll recomendado (ya en el repo):
 - `../04-broll/clip-05-escuela.webm` o still `05-escuela.jpg`
 - `../04-broll/clip-01-reto-5manos.webm`
-- `../04-broll/clip-02-gto-popup.webm` (no digas “GTO” en voz)
+- Still móvil / app si lo tienes (refuerza “desde el móvil”)
 
 ---
 
