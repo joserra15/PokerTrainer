@@ -3287,6 +3287,7 @@ body.age-gate-open {
   border-radius: 10px;
   padding: 0;
   overflow: hidden;
+  container-type: size;
 }
 [data-card-style="colored"] .card.card-face .card-suit { display: none; }
 [data-card-style="colored"] .card.card-face .card-idx {
@@ -3297,6 +3298,7 @@ body.age-gate-open {
   top: 4px; left: 5px;
   z-index: 2;
   font-size: .42em;
+  font-size: max(9px, 14cqh);
   font-weight: 700;
   line-height: 1;
   letter-spacing: -.02em;
@@ -3309,11 +3311,13 @@ body.age-gate-open {
   position: absolute;
   inset: 0;
   z-index: 0;
-  font-size: 1.9em;
+  font-size: 2.55em;
+  font-size: 72cqh;
   line-height: 1;
-  transform: translateY(8%);
+  transform: scale(1.45);
+  transform-origin: center center;
   pointer-events: none;
-  opacity: .32;
+  opacity: .3;
 }
 [data-card-style="colored"] .card.card-face.suit-h .card-wm { color: #e8a0a5; }
 [data-card-style="colored"] .card.card-face.suit-d .card-wm { color: #8bb4f0; }
@@ -3326,7 +3330,8 @@ body.age-gate-open {
   place-items: center;
   z-index: 1;
   margin: 0;
-  font-size: 1.2em;
+  font-size: .95em;
+  font-size: 30cqh;
   font-weight: 800;
   letter-spacing: -.04em;
   color: #fff;
