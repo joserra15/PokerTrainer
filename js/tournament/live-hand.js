@@ -1116,6 +1116,34 @@
       hand.mttStructureSituation = mttStructureSituation;
       hand.tournamentConfig = cfg;
       hand.aiLevel = cfg.aiLevel || 'elite';
+      /* Reloj de ciegas: villanos necesitan saber cuánto queda y el BB siguiente. */
+      var handIndex = Number(state.handIndex) || 0;
+      hand.handIndex = handIndex;
+      hand.blindLevel = state.blindLevel != null ? state.blindLevel : null;
+      var Blinds = global.PTTournamentBlinds;
+      var sched = cfg.blindSchedule;
+      if (Blinds && sched) {
+        try {
+          if (typeof Blinds.handsIntoLevel === 'function') {
+            hand.handsIntoLevel = Blinds.handsIntoLevel(sched, handIndex);
+          }
+          if (typeof Blinds.handsUntilNext === 'function') {
+            hand.handsUntilNextLevel = Blinds.handsUntilNext(sched, handIndex);
+          }
+          if (typeof Blinds.nextLevel === 'function') {
+            var nxt = Blinds.nextLevel(sched, handIndex);
+            if (nxt) {
+              hand.nextBB = Number(nxt.bb) || null;
+              hand.nextSB = Number(nxt.sb) || null;
+              hand.nextAnte = Number(nxt.ante) || 0;
+            }
+          }
+          if (typeof Blinds.currentLevel === 'function' && hand.blindLevel == null) {
+            var curLv = Blinds.currentLevel(sched, handIndex);
+            if (curLv) hand.blindLevel = curLv.level;
+          }
+        } catch (eBl) { /* */ }
+      }
       var heroStatsPayload = null;
       try {
         var stStats = state.stats || {};
@@ -1149,6 +1177,13 @@
         entries: hand.entries,
         buyIn: hand.buyIn,
         aiLevel: hand.aiLevel,
+        handIndex: hand.handIndex,
+        blindLevel: hand.blindLevel,
+        handsIntoLevel: hand.handsIntoLevel,
+        handsUntilNextLevel: hand.handsUntilNextLevel,
+        nextBB: hand.nextBB,
+        nextSB: hand.nextSB,
+        nextAnte: hand.nextAnte,
         heroStats: heroStatsPayload,
         heroSessionStats: heroStatsPayload
       };

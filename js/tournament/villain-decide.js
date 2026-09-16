@@ -402,6 +402,24 @@
       heroSessionStats: heroStats,
       proStyle: (seat && seat.proStyle) || null
     };
+    /* Reloj de ciegas → proyección de stack tras la subida. */
+    var untilN = hand.handsUntilNextLevel != null ? Number(hand.handsUntilNextLevel)
+      : (st.handsUntilNextLevel != null ? Number(st.handsUntilNextLevel) : null);
+    var nextBB = hand.nextBB != null ? Number(hand.nextBB)
+      : (st.nextBB != null ? Number(st.nextBB) : null);
+    var curBB = bb;
+    ctx.handsUntilNextLevel = untilN;
+    ctx.nextBB = nextBB;
+    ctx.handIndex = hand.handIndex != null ? hand.handIndex : st.handIndex;
+    ctx.blindLevel = hand.blindLevel != null ? hand.blindLevel : st.blindLevel;
+    if (nextBB != null && nextBB > 0 && seat) {
+      ctx.stackAtNextBB = Math.round(((Number(seat.stack) || 0) / nextBB) * 100) / 100;
+    } else {
+      ctx.stackAtNextBB = null;
+    }
+    var bp = blindPressureFlags(ctx, curBB);
+    ctx.blindPressure = bp.pressure;
+    ctx.blindPressureStrong = bp.strong;
     ctx.isHeadsUp = !!(isHeadsUp(hand) || ctx.playersSeated === 2 || ctx.kind === 'hu'
       || (ctx.playersLeft === 2 && ctx.placesPaid <= 1));
     /* HU WTA: no forzar fase bubble ni ICM overfold. */
@@ -468,7 +486,7 @@
     if (face === 'fold' && foldPush < -0.02 && strength > Math.max(potOdds, 0.38) && strength >= 0.40) {
       return 'call';
     }
-    if (face === 'raise' && (m.jamBias > 1.25 || ctx.stackBB <= 14) && strength > 0.55) {
+    if (face === 'raise' && (m.jamBias > 1.25 || ctx.stackBB <= 14 || ctx.blindPressureStrong) && strength > 0.55) {
       return 'raise';
     }
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
@@ -590,6 +608,7 @@
   }
 
   function isPushPhaseCtx(ctx) {
+    if (ctx && ctx.blindPressureStrong) return true;
     var PF = global.GTOPushFold;
     if (PF && typeof PF.isPushPhase === 'function') {
       try {
@@ -603,6 +622,32 @@
       } catch (e) { /* */ }
     }
     return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 12;
+  }
+
+  /**
+   * Presión de ciegas: la próxima subida deja el stack crítico.
+   * pressure = moverse pronto; strong = tratar ya como zona push/jam.
+   */
+  function blindPressureFlags(ctx, curBB) {
+    var until = ctx && ctx.handsUntilNextLevel != null ? Number(ctx.handsUntilNextLevel) : null;
+    var nextBB = ctx && ctx.nextBB != null ? Number(ctx.nextBB) : null;
+    var stackNow = ctx && ctx.stackBB != null ? Number(ctx.stackBB) : null;
+    var stackNext = ctx && ctx.stackAtNextBB != null ? Number(ctx.stackAtNextBB) : null;
+    if (until == null || nextBB == null || !(nextBB > 0) || stackNow == null) {
+      return { pressure: false, strong: false };
+    }
+    if (curBB != null && nextBB <= curBB * 1.05) {
+      return { pressure: false, strong: false };
+    }
+    if (stackNext == null && stackNow != null && nextBB > 0) {
+      stackNext = stackNow * (curBB > 0 ? curBB / nextBB : 1);
+    }
+    if (stackNext == null) return { pressure: false, strong: false };
+    var nearUp = until <= 3;
+    var strong = nearUp && until <= 2 && stackNext <= 10 && stackNow <= 22;
+    var pressure = nearUp && stackNext <= 14 && stackNow <= 28
+      && (stackNext <= 12 || (stackNow - stackNext) >= 2.5);
+    return { pressure: !!(pressure || strong), strong: !!strong };
   }
 
   function isLateStealPos(pos) {
@@ -687,25 +732,50 @@
     var stackBB = ctx.stackBB;
     var pushPhase = isPushPhaseCtx(ctx);
     var aiLvl = profile.aiLevel || aiLevelOf(hand);
+    var blindPress = !!ctx.blindPressure;
+    var blindStrong = !!ctx.blindPressureStrong;
+    var effShoveBB = stackBB;
+    if (blindPress && ctx.stackAtNextBB != null && isFinite(Number(ctx.stackAtNextBB))) {
+      /* Usar el stack proyectado (más corto) para charts de shove. */
+      effShoveBB = Math.min(stackBB, Math.max(6, Number(ctx.stackAtNextBB)));
+    }
 
     /* ---------- Sin opener: open / shove / steal ---------- */
     if (!hand.openerId) {
       if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
 
-      /* Push/fold corto o fase push. */
-      if ((stackBB <= 12 || pushPhase) && PF && typeof PF.shouldOpenShove === 'function' && code) {
+      /* Push/fold corto, fase push, o ciegas a punto de comer el stack. */
+      var inPushZone = stackBB <= 12 || pushPhase || blindStrong
+        || (blindPress && stackBB <= 18 && isLateStealPos(seat.pos));
+      if (inPushZone && PF && typeof PF.shouldOpenShove === 'function' && code) {
         try {
-          if (PF.shouldOpenShove(code, seat.pos, stackBB, { rangeContext: ctx, formatHub: ctx.formatHub })) {
+          var shoveCtx = Object.assign({}, ctx, {
+            stackBB: effShoveBB,
+            blindPressure: blindPress,
+            blindPressureStrong: blindStrong
+          });
+          if (PF.shouldOpenShove(code, seat.pos, effShoveBB, {
+            rangeContext: shoveCtx,
+            formatHub: ctx.formatHub,
+            anteBB: ctx.anteBB,
+            blindPressure: blindPress,
+            blindPressureStrong: blindStrong,
+            icmEnabled: ctx.icmEnabled,
+            effectivePhase: ctx.effectivePhase,
+            mttPhase: ctx.mttPhase
+          })) {
             return { id: 'raise', amount: allInTo(seat) };
           }
         } catch (eShove) { /* */ }
-        if (stackBB <= 12 || pushPhase) {
+        if (stackBB <= 12 || pushPhase || blindStrong) {
           return tc > 0 ? { id: 'fold' } : { id: 'check' };
         }
       }
 
-      /* Steal folded-to late, 12–25 bb. */
-      if (isLateStealPos(seat.pos) && stackBB > 12 && stackBB <= 25
+      /* Steal folded-to late: 12–25 bb, o hasta ~28 bb si suben ciegas pronto. */
+      var stealHi = blindPress ? 28 : 25;
+      var stealLo = blindPress ? 10 : 12;
+      if (isLateStealPos(seat.pos) && stackBB > stealLo && stackBB <= stealHi
         && PF && typeof PF.stealOpenStrategy === 'function' && code) {
         try {
           var steal = PF.stealOpenStrategy({
@@ -713,11 +783,19 @@
             position: seat.pos,
             heroPos: seat.pos,
             rangeContext: ctx,
-            effStack: stackBB,
+            effStack: effShoveBB,
             stackBB: stackBB,
-            formatHub: ctx.formatHub
+            formatHub: ctx.formatHub,
+            blindPressure: blindPress,
+            blindPressureStrong: blindStrong
           });
           var stealAct = sampleStealAction(steal, Math.random());
+          /* Bajo presión fuerte: preferir jam a open min. */
+          if (blindStrong && stealAct === 'raise' && Math.random() < 0.55) {
+            stealAct = 'allin';
+          } else if (blindPress && !blindStrong && stealAct === 'raise' && Math.random() < 0.28) {
+            stealAct = 'allin';
+          }
           if (stealAct === 'allin') {
             return { id: 'raise', amount: allInTo(seat) };
           }
@@ -751,7 +829,16 @@
         }
       }
 
+      /* Antes de ciegas: open un poco más ancho en late (no basura). */
+      if (!open && blindPress && isLateStealPos(seat.pos) && holeStr > 0.42
+        && canHuWiden3bet(code, aiLvl || 'elite')) {
+        open = true;
+      }
+
       if (open) {
+        if (blindStrong && stackBB <= 20) {
+          return { id: 'raise', amount: allInTo(seat) };
+        }
         return {
           id: 'raise',
           amount: Math.min(
@@ -1520,6 +1607,8 @@
     profileForSeat: profileForSeat,
     strength01: strength01,
     handCode: handCode,
-    mapRoleId: mapRoleId
+    mapRoleId: mapRoleId,
+    blindPressureFlags: blindPressureFlags,
+    rangeCtx: rangeCtx
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

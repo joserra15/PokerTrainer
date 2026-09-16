@@ -91,12 +91,19 @@
     return openers[openerPos] || openers.BTN || openers.SB || null;
   }
 
-  /** Ante/ICM: ensancha shove del short y aprieta calls del mid/cover. */
+  /** Ante/ICM/ciegas: ensancha shove del short y aprieta calls del mid/cover. */
   function pressureAdjust(freq, input, kind) {
     let f = Number(freq) || 0;
     const ante = Number(input && input.anteBB) || 0;
     const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
+    const rc = (input && input.rangeContext) || input || {};
+    const blindPress = !!(input && (input.blindPressure || input.blindPressureStrong))
+      || !!(rc.blindPressure || rc.blindPressureStrong);
+    const blindStrong = !!(input && input.blindPressureStrong) || !!rc.blindPressureStrong;
     if (kind === 'shove' && ante > 0) f = Math.min(1, f + Math.min(0.08, ante * 0.25));
+    if (kind === 'shove' && blindPress) {
+      f = Math.min(1, f + (blindStrong ? 0.10 : 0.06));
+    }
     if (kind === 'call' && icm) {
       // Bubble / FT: pagar un shove con la vida del torneo es mucho más caro en $EV.
       const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
