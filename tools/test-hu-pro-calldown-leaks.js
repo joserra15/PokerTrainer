@@ -35,6 +35,15 @@ assert.ok(madeK3.tier === 'air' || madeK3.tier === 'weak', 'K3 tier air/weak, go
 assert.ok(strK3 < 0.28, 'K3 strength air, got ' + strK3);
 assert.strictEqual(DC.bandFromMade(madeK3, strK3), 'air', 'K3 band air');
 
+/* Q8 en TT44J: doble pareja del board + kicker — aire vs all-in */
+const BOARD_DOUBLE = ['Td', 'Th', '4c', '4s', 'Jc'];
+const madeQ8 = Made.classifyMadeHand(['Qc', '8c'], BOARD_DOUBLE);
+const strQ8 = Made.relativeStrength01(['Qc', '8c'], BOARD_DOUBLE, 'river');
+assert.strictEqual(madeQ8.boardOnlyShowdown, true, 'Q8 board-only on double pair');
+assert.strictEqual(madeQ8.tier, 'air', 'Q8 tier air, got ' + madeQ8.tier);
+assert.ok(strQ8 < 0.28, 'Q8 strength air, got ' + strQ8);
+assert.strictEqual(DC.bandFromMade(madeQ8, strQ8), 'air', 'Q8 band air not value');
+
 /* Overpair / top pair siguen fuertes */
 const overpair = Made.relativeStrength01(['Qh', 'Qd'], ['Jc', '7d', '2c'], 'flop');
 assert.ok(overpair > 0.55, 'QQ overpair still strong ' + overpair);
@@ -112,6 +121,20 @@ const rK3 = countActs(mkHu(BOARD_AIR, 'river', ['Ks', '3d'], {
 assert.ok(rK3.folds >= 85,
   'HU Pro K3 aire river debe foldear ≥85%, got folds=' + rK3.folds + ' calls=' + rK3.calls);
 console.log('OK K3 river folds', rK3.folds + '/' + n);
+
+/* All-in river con Q-high en board doble pareja (caso WETBOARD) */
+const rQ8 = countActs(mkHu(BOARD_DOUBLE, 'river', ['Qc', '8c'], {
+  pot: 1400,
+  currentBet: 800,
+  log: [
+    { street: 'flop', id: 'h1', action: 'bet', amount: 200 },
+    { street: 'turn', id: 'h1', action: 'bet', amount: 400 },
+    { street: 'river', id: 'h1', action: 'bet', amount: 800 }
+  ]
+}), n);
+assert.ok(rQ8.folds >= 92,
+  'HU Pro Q8 board-only vs river all-in debe foldear ≥92%, got folds=' + rQ8.folds + ' calls=' + rQ8.calls);
+console.log('OK Q8 all-in folds', rQ8.folds + '/' + n);
 
 /* Top pair sigue pagando a menudo */
 const rTp = countActs(mkHu(['Ac', '7d', '2c', '9s', '3h'], 'river', ['Ah', 'Kd'], {

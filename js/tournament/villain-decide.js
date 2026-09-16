@@ -778,9 +778,17 @@
     var underpairTp = !!extra.underpairBoardTwoPair;
     var boardOnly = !!extra.boardOnlyShowdown;
 
-    /* River air / board-only: fold vs ≥25% pot (K-high en board paired). */
+    /* River air / board-only: fold vs ≥25% pot (K-high / Q-high jugando el board). */
     if (street === 'river' && (strength < 0.30 || boardOnly || band === 'air')) {
       if ((betFrac >= 0.25 || potOdds >= 0.20) && potOdds >= 0.08) return 'fold';
+    }
+    /* All-in / overbet river sin mejora real: nunca hero-call con board-only. */
+    if (street === 'river' && boardOnly && (betFrac >= 0.55 || potOdds >= 0.40)) {
+      return 'fold';
+    }
+    if (street === 'river' && (band === 'air' || strength < 0.28)
+      && (betFrac >= 0.70 || potOdds >= 0.45)) {
+      return 'fold';
     }
     /* Bluffcatcher barato en river (potOdds tiny). */
     if (street === 'river' && potOdds < 0.08 && strength > 0.35 && face === 'fold'
@@ -949,9 +957,20 @@
             facingBet: tcBB > 0,
             betBB: tcBB,
             potBeforeBB: potBeforeBB,
-            villainLastAction: ctx.villainLastAction || (tcBB > 0 ? 'bet' : null)
+            villainLastAction: ctx.villainLastAction || (tcBB > 0 ? 'bet' : null),
+            riverShove: streetEq === 'river' && potBeforeBB > 0 && (tcBB / potBeforeBB) >= 0.55,
+            shoveNode: streetEq === 'river' && potBeforeBB > 0 && (tcBB / potBeforeBB) >= 0.70
           }
         );
+        /* Board-only / aire: no confiar en rangos stub que inflan equity de kickers. */
+        if (madeInfo && madeInfo.boardOnlyShowdown && streetEq === 'river' && tcBB > 0) {
+          var br = potBeforeBB > 0 ? tcBB / potBeforeBB : 1;
+          var eqCap = br >= 0.55 ? 0.10 : (br >= 0.35 ? 0.14 : 0.20);
+          if (isFinite(Number(eq))) eq = Math.min(Number(eq), eqCap);
+        } else if (band === 'air' && streetEq === 'river' && tcBB > 0 && potBeforeBB > 0
+          && (tcBB / potBeforeBB) >= 0.55 && isFinite(Number(eq))) {
+          eq = Math.min(Number(eq), 0.12);
+        }
       }
     } catch (eEq) { eq = strength; }
 

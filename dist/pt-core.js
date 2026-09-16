@@ -7512,11 +7512,14 @@ window.PT_NASH_PUSH_JSON = {
     const straightStuff = straightDraws(holeCards.concat(board));
     const underpairTp = isUnderpairBoardTwoPair(holeCards, board, ev, boardOnly);
     const boardOnlySd = isBoardOnlyShowdown(holeCards, board, ev, boardOnly);
+    const riverComplete = board && board.length >= 5;
+    const liveDraw = !riverComplete && (flushDraw || straightStuff.oesd);
 
     let tier;
-    if (boardOnlySd && ev.category <= 1) {
-      // Pareja del board / high-card kicker: aire o bluff-catcher flojo, no "medium".
-      tier = (flushDraw || straightStuff.oesd) ? 'weak' : 'air';
+    if (boardOnlySd) {
+      // Jugando el board (pareja o doble pareja del board + kicker): aire, no value.
+      // En river no hay draws vivos que suban el tier.
+      tier = liveDraw ? 'weak' : 'air';
     } else if (underpairTp) {
       // 99 en AA-board: dos pares técnicos pero equity de bluff-catcher.
       tier = 'weak';
@@ -7528,7 +7531,7 @@ window.PT_NASH_PUSH_JSON = {
       else if (pairVal >= topBoard) tier = kickerStrength(holeCards, pairVal) ? 'strong' : 'medium';
       else tier = 'medium';
     } else {
-      tier = (flushDraw || straightStuff.oesd) ? 'weak' : 'air';
+      tier = liveDraw ? 'weak' : 'air';
     }
 
     return {
@@ -7538,7 +7541,7 @@ window.PT_NASH_PUSH_JSON = {
       flushDraw: flushDraw,
       oesd: straightStuff.oesd,
       gutshot: straightStuff.gutshot,
-      hasDraw: flushDraw || straightStuff.oesd || straightStuff.gutshot,
+      hasDraw: !riverComplete && (flushDraw || straightStuff.oesd || straightStuff.gutshot),
       underpairBoardTwoPair: underpairTp,
       boardOnlyShowdown: boardOnlySd,
       isNutFlush: flush && (function () {
@@ -9794,10 +9797,44 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  /** Rango polar de valor en board emparejado (fulls con las parejas del board). */
+  function pairedBoardPolarValueRange(board) {
+    const counts = {};
+    (board || []).forEach(function (c) {
+      const r = String(c)[0];
+      counts[r] = (counts[r] || 0) + 1;
+    });
+    const pairs = [];
+    const singles = [];
+    Object.keys(counts).forEach(function (r) {
+      if (counts[r] >= 2) pairs.push(r);
+      else if (counts[r] === 1) singles.push(r);
+    });
+    if (!pairs.length) {
+      if (D && D.RANGE_FACING_RIVER_3BET_SHOVE) return D.RANGE_FACING_RIVER_3BET_SHOVE;
+      return 'TT+, JJ+, QQ+, KK, AA';
+    }
+    // Fulls: cualquier carta de las parejas del board + pocket del unpaired (p.ej. JJ en TT44J).
+    const parts = ['AA', 'KK', 'QQ', 'JJ'];
+    pairs.forEach(function (pr) {
+      parts.push(pr + pr);
+      '23456789TJQKA'.split('').forEach(function (k) {
+        if (k === pr) return;
+        parts.push(pr + k + 's');
+        parts.push(pr + k + 'o');
+      });
+    });
+    singles.forEach(function (sr) {
+      parts.push(sr + sr);
+    });
+    return parts.join(', ');
+  }
+
   /** Rango villano underbluffed para 3-bet shove river en microlímites. */
   function microstakesRiverShoveRange(board, pairInfo) {
     if (pairInfo && pairInfo.paired) {
-      return 'TT, 22, 33, T2s, T3s, T2o, T3o, 23s, 23o, TT';
+      // Valor polar real (fulls). El stub TT/22/T2s inflaba equity de kickers board-only.
+      return pairedBoardPolarValueRange(board);
     }
     if (D && D.RANGE_FACING_RIVER_3BET_SHOVE) return D.RANGE_FACING_RIVER_3BET_SHOVE;
     return 'TT+, 22, 33, 44, 55, 66, 77, 88, 99, JJ, QQ, KK, AA';
@@ -9926,6 +9963,7 @@ window.PT_NASH_PUSH_JSON = {
     zeroFoldIfNeverFoldHand: zeroFoldIfAbsoluteNuts,
     pairedBoardFlushDevaluation,
     microstakesRiverShoveRange,
+    pairedBoardPolarValueRange,
     isRiverShoveNode,
     computeRiverShoveFrequencies,
     facingNodeCacheKey,
@@ -16268,10 +16306,19 @@ window.PT_NASH_PUSH_JSON = {
 
   function bandFromMade(info, strength) {
     var s = strength != null ? strength : 0.5;
+    if (info && info.boardOnlyShowdown) return 'air';
+    if (info && info.underpairBoardTwoPair) {
+      return s >= 0.38 ? 'bluffcatch' : 'air';
+    }
     if (info && info.ev && info.ev.category >= 4) return 'nuts';
     if (info) {
-      if (info.tier === 'strong') return s > 0.82 ? 'nuts' : 'value';
-      if (info.tier === 'medium') return 'merge';
+      // No promover a value si la fuerza relativa es de bluff-catcher/aire.
+      if (info.tier === 'strong') {
+        if (s < 0.40) return 'air';
+        if (s < 0.52) return 'bluffcatch';
+        return s > 0.82 ? 'nuts' : 'value';
+      }
+      if (info.tier === 'medium') return s < 0.32 ? 'air' : 'merge';
       if (info.tier === 'weak') return 'bluffcatch';
       return 'air';
     }

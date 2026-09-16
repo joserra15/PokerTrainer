@@ -91,11 +91,14 @@
     const straightStuff = straightDraws(holeCards.concat(board));
     const underpairTp = isUnderpairBoardTwoPair(holeCards, board, ev, boardOnly);
     const boardOnlySd = isBoardOnlyShowdown(holeCards, board, ev, boardOnly);
+    const riverComplete = board && board.length >= 5;
+    const liveDraw = !riverComplete && (flushDraw || straightStuff.oesd);
 
     let tier;
-    if (boardOnlySd && ev.category <= 1) {
-      // Pareja del board / high-card kicker: aire o bluff-catcher flojo, no "medium".
-      tier = (flushDraw || straightStuff.oesd) ? 'weak' : 'air';
+    if (boardOnlySd) {
+      // Jugando el board (pareja o doble pareja del board + kicker): aire, no value.
+      // En river no hay draws vivos que suban el tier.
+      tier = liveDraw ? 'weak' : 'air';
     } else if (underpairTp) {
       // 99 en AA-board: dos pares técnicos pero equity de bluff-catcher.
       tier = 'weak';
@@ -107,7 +110,7 @@
       else if (pairVal >= topBoard) tier = kickerStrength(holeCards, pairVal) ? 'strong' : 'medium';
       else tier = 'medium';
     } else {
-      tier = (flushDraw || straightStuff.oesd) ? 'weak' : 'air';
+      tier = liveDraw ? 'weak' : 'air';
     }
 
     return {
@@ -117,7 +120,7 @@
       flushDraw: flushDraw,
       oesd: straightStuff.oesd,
       gutshot: straightStuff.gutshot,
-      hasDraw: flushDraw || straightStuff.oesd || straightStuff.gutshot,
+      hasDraw: !riverComplete && (flushDraw || straightStuff.oesd || straightStuff.gutshot),
       underpairBoardTwoPair: underpairTp,
       boardOnlyShowdown: boardOnlySd,
       isNutFlush: flush && (function () {
