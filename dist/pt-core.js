@@ -1229,12 +1229,29 @@
       buyIn: r.buyIn != null && r.buyIn !== '' ? Number(r.buyIn) : null,
       mttStructureSituation: r.mttStructureSituation || null,
       spinPayout: r.spinPayout || null,
-      heroPos: r.heroPos || null
+      heroPos: r.heroPos || null,
+      kind: r.kind || r.tournamentKind || null,
+      tournamentKind: r.tournamentKind || r.kind || null
     };
     if (out.playersLeft != null && !isFinite(out.playersLeft)) out.playersLeft = null;
     if (out.placesPaid != null && !isFinite(out.placesPaid)) out.placesPaid = null;
     if (out.entries != null && !isFinite(out.entries)) out.entries = null;
     if (out.buyIn != null && !isFinite(out.buyIn)) out.buyIn = null;
+
+    // HU WTA (2 jugadores, ≤1 pago): chip EV — forzar fase hu (no short/push por stack).
+    if (hub !== 'cash' && T && T.isHeadsUpWta && T.isHeadsUpWta(out)) {
+      out.mttPhase = 'hu';
+      out.resolvedPhase = 'hu';
+      out.mttStructureSituation = out.mttStructureSituation || 'hu';
+    } else if (hub !== 'cash' && (phase === 'hu' || out.mttStructureSituation === 'hu'
+      || out.kind === 'hu' || out.tournamentKind === 'hu'
+      || (playersSeated === 2 && (out.placesPaid == null || out.placesPaid <= 1)
+        && (out.playersLeft == null || out.playersLeft === 2)))) {
+      out.mttPhase = 'hu';
+      out.resolvedPhase = 'hu';
+      out.mttStructureSituation = out.mttStructureSituation || 'hu';
+    }
+
     out.formatKey = r.formatKey || formatKeyFromContext(out);
     return out;
   }
@@ -1289,7 +1306,9 @@
       buyIn: hand.buyIn,
       mttStructureSituation: hand.mttStructureSituation,
       spinPayout: hand.spinPayout || (hand.multiplier != null ? null : null),
-      formatKey: hand.formatKey
+      formatKey: hand.formatKey,
+      kind: hand.kind || hand.tournamentKind || null,
+      tournamentKind: hand.tournamentKind || hand.kind || null
     });
   }
 
@@ -1339,11 +1358,11 @@
 
     return normalize({
       formatHub: hub,
-      gameKind: kind === 'sng' ? 'sng' : (kind === 'spin' ? 'spin' : 'mtt'),
+      gameKind: kind === 'sng' ? 'sng' : (kind === 'spin' ? 'spin' : (kind === 'hu' ? 'mtt' : 'mtt')),
       tournamentType: cfg.tournamentType || st.tournamentType || 'unknown',
       tableMax: seatsPerTable,
       playersSeated: playersSeated,
-      mttPhase: hand.mttPhase || 'auto',
+      mttPhase: hand.mttPhase || (kind === 'hu' ? 'hu' : 'auto'),
       anteBB: anteBB,
       heroStackBB: hand.stackDepthBB,
       heroPos: hand.heroPos,
@@ -1352,8 +1371,9 @@
       placesPaid: cfg.placesPaid,
       entries: cfg.entries,
       buyIn: cfg.buyInEur != null ? cfg.buyInEur : cfg.buyIn,
-      mttStructureSituation: null,
-      formatKey: hand.formatKey
+      mttStructureSituation: kind === 'hu' ? 'hu' : null,
+      kind: kind,
+      tournamentKind: kind
     });
   }
 
@@ -1448,6 +1468,8 @@
     hand.mttStructureSituation = c.mttStructureSituation;
     hand.tournamentContext = c;
     hand.shortHanded = !!(c.tableMax && c.playersSeated && c.playersSeated < c.tableMax - 1);
+    if (c.kind) hand.kind = c.kind;
+    if (c.tournamentKind) hand.tournamentKind = c.tournamentKind;
     return hand;
   }
 
@@ -2490,6 +2512,51 @@ window.PT_VS_3BET_JSON = {
     SB: { raise: '66+, A8s+, KTs+, Q9s+, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
   };
 
+  /**
+   * Heads Up WTA chip-EV opens (SB = botón efectivo; BTN alias en Torneos IA).
+   * Banda mid/deep ~25–40bb: ~75%+ open; short ~15bb algo más tight; push usa Nash.
+   */
+  const OPEN_RAISE_HU = {
+    SB: {
+      raise: '22+, A2s+, K2s+, Q5s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A2o+, K7o+, Q9o+, J9o+, T9o, 98o',
+      mix: 'Q2s-Q4s, J2s-J5s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, 43s, K2o-K6o, Q5o-Q8o, J6o-J8o, T7o-T8o, 97o, 87o, 76o'
+    },
+    BTN: {
+      raise: '22+, A2s+, K2s+, Q5s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A2o+, K7o+, Q9o+, J9o+, T9o, 98o',
+      mix: 'Q2s-Q4s, J2s-J5s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, 43s, K2o-K6o, Q5o-Q8o, J6o-J8o, T7o-T8o, 97o, 87o, 76o'
+    },
+    BB: { raise: '', mix: '' }
+  };
+
+  /** HU ~12–20bb: open/jam-friendly; sigue más wide que MTT short. */
+  const OPEN_RAISE_HU_SHORT = {
+    SB: {
+      raise: '22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 97s+, 86s+, 76s, 65s, A2o+, K8o+, Q9o+, J9o+, T9o',
+      mix: 'K2s-K3s, Q4s-Q6s, J5s-J6s, T5s-T6s, 95s-96s, 85s, 74s-75s, 64s, 54s, K5o-K7o, Q7o-Q8o, J7o-J8o, T8o, 98o, 87o'
+    },
+    BTN: {
+      raise: '22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 97s+, 86s+, 76s, 65s, A2o+, K8o+, Q9o+, J9o+, T9o',
+      mix: 'K2s-K3s, Q4s-Q6s, J5s-J6s, T5s-T6s, 95s-96s, 85s, 74s-75s, 64s, 54s, K5o-K7o, Q7o-Q8o, J7o-J8o, T8o, 98o, 87o'
+    },
+    BB: { raise: '', mix: '' }
+  };
+
+  /** BB vs SB/BTN en HU: defensa ~60–75%+; 3-bet value + polar. */
+  const VS_RFI_HU = {
+    BB_vs_SB: {
+      threeBet: '77+, A9s+, A5s-A2s, KTs+, QJs, ATo+, KQo',
+      threeBetMix: '66-55, A8s-A6s, K9s, QTs, JTs, T9s, 98s, A9o, KJo, QJo',
+      call: '22-44, K2s+, Q4s+, J5s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, 43s, A2o+, K5o+, Q8o+, J8o+, T8o+, 98o, 87o',
+      callMix: 'Q2s-Q3s, J2s-J4s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, K2o-K4o, Q5o-Q7o, J6o-J7o, T7o, 97o, 76o'
+    },
+    BB_vs_BTN: {
+      threeBet: '77+, A9s+, A5s-A2s, KTs+, QJs, ATo+, KQo',
+      threeBetMix: '66-55, A8s-A6s, K9s, QTs, JTs, T9s, 98s, A9o, KJo, QJo',
+      call: '22-44, K2s+, Q4s+, J5s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, 43s, A2o+, K5o+, Q8o+, J8o+, T8o+, 98o, 87o',
+      callMix: 'Q2s-Q3s, J2s-J4s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, K2o-K4o, Q5o-Q7o, J6o-J7o, T7o, 97o, 76o'
+    }
+  };
+
   /** Cash 9-max: progresión más tight en EP. */
   const OPEN_RAISE_9MAX = {
     UTG: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, A5s-A4s, KJs, QJs' },
@@ -2649,6 +2716,9 @@ window.PT_VS_3BET_JSON = {
     OPEN_RAISE_MTT,
     OPEN_RAISE_MTT_SHORT,
     OPEN_RAISE_9MAX,
+    OPEN_RAISE_HU,
+    OPEN_RAISE_HU_SHORT,
+    VS_RFI_HU,
     POS_9,
     vsRfiPairKey: function (hero, villain) { return hero + '_vs_' + villain; },
     getVsRfi9Max: function () { ensureVsRfiTables(); return VS_RFI_9MAX; },
@@ -5304,7 +5374,11 @@ window.PT_NASH_PUSH_JSON = {
   function pressureAdjust(freq, input, kind) {
     let f = Number(freq) || 0;
     const ante = Number(input && input.anteBB) || 0;
-    const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
+    const Tax = global.PTFormatTaxonomy;
+    const huWta = !!(Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(input || {}));
+    const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
+    const icm = !huWta && phase !== 'hu'
+      && !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
     const rc = (input && input.rangeContext) || input || {};
     const blindPress = !!(input && (input.blindPressure || input.blindPressureStrong))
       || !!(rc.blindPressure || rc.blindPressureStrong);
@@ -5315,7 +5389,6 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (kind === 'call' && icm) {
       // Bubble / FT: pagar un shove con la vida del torneo es mucho más caro en $EV.
-      const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
       let cut = 0.06;
       if (phase === 'bubble' || phase === 'final') cut = 0.22;
       else if (phase === 'short' || phase === 'push') cut = 0.12;
@@ -5619,6 +5692,7 @@ window.PT_NASH_PUSH_JSON = {
     isPushPhase: isPushPhase,
     isStealPhase: isStealPhase,
     isFacingShove: isFacingShove,
+    pressureAdjust: pressureAdjust,
     ALWAYS_SHOVE: ALWAYS_SHOVE
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -5664,25 +5738,40 @@ window.PT_NASH_PUSH_JSON = {
   /**
    * Fuente única de ICM lite: explícito true/false gana; si no, Tax.usesIcm.
    * Evita que `!!undefined` apague el grading en spins/MTT del entrenador.
+   * HU WTA siempre off (chip EV ≈ $EV).
    */
   function resolveIcmEnabled(c, formatHub, gameType) {
+    const Tax = global.PTFormatTaxonomy;
+    const probe = {
+      formatHub: formatHub || (c && c.formatHub) || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(gameType || (c && c.gameType)) : null),
+      gameType: gameType || (c && c.gameType),
+      kind: c && (c.kind || c.tournamentKind),
+      tournamentKind: c && (c.tournamentKind || c.kind),
+      mttPhase: (c && (c.resolvedPhase || c.mttPhase || c.effectivePhase)) || null,
+      mttStructureSituation: c && c.mttStructureSituation,
+      playersLeft: c && c.playersLeft,
+      placesPaid: c && c.placesPaid,
+      playersSeated: c && c.playersSeated,
+      tableMax: c && c.tableMax,
+      seatsPerTable: c && c.seatsPerTable
+    };
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(probe)) return false;
     if (c && c.icmEnabled === true) return true;
     if (c && c.icmEnabled === false) return false;
-    const Tax = global.PTFormatTaxonomy;
     if (Tax && Tax.usesIcm) {
-      return !!Tax.usesIcm({
-        formatHub: formatHub || c.formatHub || Tax.hubFromGameType(gameType || (c && c.gameType)),
-        gameType: gameType || (c && c.gameType),
-        mttPhase: (c && (c.resolvedPhase || c.mttPhase)) || null,
-        playersLeft: c && c.playersLeft,
-        placesPaid: c && c.placesPaid,
-        playersSeated: c && c.playersSeated,
-        tableMax: c && c.tableMax,
-        seatsPerTable: c && c.seatsPerTable
-      });
+      return !!Tax.usesIcm(probe);
     }
     const hub = formatHub || (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash'));
     return hub === 'spin' || hub === 'mtt';
+  }
+
+  function isHuContext(c) {
+    if (!c) return false;
+    if (c.effectivePhase === 'hu' || c.mttPhase === 'hu' || c.resolvedPhase === 'hu') return true;
+    if (c.mttStructureSituation === 'hu') return true;
+    if (c.kind === 'hu' || c.tournamentKind === 'hu') return true;
+    const Tax = global.PTFormatTaxonomy;
+    return !!(Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(c));
   }
 
   function normalize(ctx) {
@@ -5711,6 +5800,24 @@ window.PT_NASH_PUSH_JSON = {
     if (formatHub === 'cash') {
       effectivePhase = null;
     }
+    const kind = c.kind || c.tournamentKind || null;
+    const huProbe = {
+      kind: kind,
+      tournamentKind: kind,
+      mttPhase: effectivePhase || c.mttPhase,
+      resolvedPhase: effectivePhase,
+      effectivePhase: effectivePhase,
+      mttStructureSituation: c.mttStructureSituation || null,
+      playersLeft: c.playersLeft,
+      placesPaid: c.placesPaid,
+      playersSeated: c.playersSeated,
+      tableMax: c.tableMax,
+      seatsPerTable: c.seatsPerTable,
+      formatHub: formatHub
+    };
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(huProbe) && formatHub !== 'cash') {
+      effectivePhase = 'hu';
+    }
     return {
       gameType: gameType,
       formatHub: formatHub,
@@ -5720,6 +5827,9 @@ window.PT_NASH_PUSH_JSON = {
       isMtt: isMtt,
       isSpin: isSpin,
       isTournament: isTournament,
+      isHu: effectivePhase === 'hu' || !!(kind === 'hu'),
+      kind: kind,
+      tournamentKind: kind,
       stackBB: stackBB,
       mttPhase: c.mttPhase || null,
       resolvedPhase: c.resolvedPhase || null,
@@ -5727,12 +5837,14 @@ window.PT_NASH_PUSH_JSON = {
       villainLevel: c.villainLevel || 'pro',
       scenario: c.scenario || null,
       practiceIntent: c.practiceIntent || 'mixed',
-      icmEnabled: resolveIcmEnabled(c, formatHub, gameType),
+      icmEnabled: resolveIcmEnabled(Object.assign({}, c, huProbe), formatHub, gameType),
       playersLeft: c.playersLeft != null ? Number(c.playersLeft) : null,
       placesPaid: c.placesPaid != null ? Number(c.placesPaid) : null,
+      playersSeated: c.playersSeated != null ? Number(c.playersSeated) : null,
+      tableMax: c.tableMax != null ? Number(c.tableMax) : null,
       entries: c.entries != null ? Number(c.entries) : null,
       buyIn: c.buyIn != null ? Number(c.buyIn) : null,
-      mttStructureSituation: c.mttStructureSituation || null
+      mttStructureSituation: c.mttStructureSituation || (effectivePhase === 'hu' ? 'hu' : null)
     };
   }
 
@@ -5912,6 +6024,18 @@ window.PT_NASH_PUSH_JSON = {
     const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const ext = global.GTORangesExtended;
 
+    // Heads Up WTA: charts chip-EV (no MTT early/short multiway).
+    if (isHuContext(c) && V().OPEN_RAISE_HU) {
+      if (stackBB != null && stackBB <= 16 && (ext && ext.OPEN_RAISE_MTT_PUSH)) {
+        // Push band: Nash/push tables via strategy; open chart short HU como fallback.
+        return V().OPEN_RAISE_HU_SHORT || V().OPEN_RAISE_HU;
+      }
+      if (stackBB != null && stackBB <= 20 && V().OPEN_RAISE_HU_SHORT) {
+        return V().OPEN_RAISE_HU_SHORT;
+      }
+      return V().OPEN_RAISE_HU;
+    }
+
     // P3a: Spin — capa exacta por stack (25/20/15/10)
     if (c.isSpin && layers && layers.spinOpen) {
       const key = spinStackLayerKey(stackBB);
@@ -5924,6 +6048,7 @@ window.PT_NASH_PUSH_JSON = {
     if (c.isMtt && layers && layers.mttOpen) {
       let phaseKey = phase;
       if (phase === 'bubble') phaseKey = 'short';
+      if (phase === 'hu') phaseKey = 'short';
       if (phaseKey === 'push' || (stackBB != null && stackBB <= 16)) {
         if (layers.mttOpen.push) return layers.mttOpen.push;
         if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
@@ -5974,8 +6099,17 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function getOpenRaiseRow(pos, ctx) {
+    const c = normalize(ctx);
     const table = getOpenRaiseTable(ctx);
-    return table[pos] || table[toEnginePos(pos)] || null;
+    let row = table[pos] || table[toEnginePos(pos)] || null;
+    // Torneos HU usan BTN como SB; alias si la capa no trae BTN.
+    if (!row && isHuContext(c) && (pos === 'BTN' || toEnginePos(pos) === 'BTN')) {
+      row = table.SB || null;
+    }
+    if (!row && isHuContext(c) && pos === 'SB') {
+      row = table.BTN || null;
+    }
+    return row;
   }
 
   function openRangeStr(pos, ctx) {
@@ -5988,6 +6122,9 @@ window.PT_NASH_PUSH_JSON = {
     const layers = V() && V().PHASE_LAYERS;
     const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const phase = c.effectivePhase || 'early';
+    if (isHuContext(c) && V() && V().VS_RFI_HU) {
+      return V().VS_RFI_HU;
+    }
     if (c.isSpin && layers && layers.spinVsRfi) {
       const key = spinStackLayerKey(stackBB);
       if (key && layers.spinVsRfi[key] && Object.keys(layers.spinVsRfi[key]).length) {
@@ -5997,6 +6134,7 @@ window.PT_NASH_PUSH_JSON = {
     if (c.isMtt && layers && layers.mttVsRfi) {
       let phaseKey = phase;
       if (phase === 'push') phaseKey = 'short';
+      if (phase === 'hu') phaseKey = 'short';
       if (layers.mttVsRfi[phaseKey] && Object.keys(layers.mttVsRfi[phaseKey]).length) {
         return layers.mttVsRfi[phaseKey];
       }
@@ -6028,6 +6166,8 @@ window.PT_NASH_PUSH_JSON = {
   function applyPhaseToVsRfi(row, c) {
     if (!row || !c || !c.isTournament) return row;
     let phase = c.effectivePhase || 'early';
+    // HU WTA: no apretar defensa (chip EV).
+    if (isHuContext(c) || phase === 'hu') return row;
     // ICM de estructura en explorador: tratar como burbuja si hay presión near-money.
     if (c.icmEnabled && c.isMtt) {
       const Tax = global.PTFormatTaxonomy;
@@ -6387,15 +6527,25 @@ window.PT_NASH_PUSH_JSON = {
       mttStructureSituation: hand && hand.mttStructureSituation ? hand.mttStructureSituation : null,
       tournamentType: hand && hand.tournamentType ? hand.tournamentType : null,
       tableMax: tableMax,
-      playersSeated: hand && hand.playersSeated != null ? hand.playersSeated : nSeats
+      playersSeated: hand && hand.playersSeated != null ? hand.playersSeated : nSeats,
+      kind: hand && (hand.kind || hand.tournamentKind) || null,
+      tournamentKind: hand && (hand.tournamentKind || hand.kind) || null
     };
     const Tax = global.PTFormatTaxonomy;
-    if (Tax && Tax.usesIcm) {
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) {
+      ctx.mttPhase = 'hu';
+      ctx.mttStructureSituation = ctx.mttStructureSituation || 'hu';
+      ctx.icmEnabled = false;
+    } else if (Tax && Tax.usesIcm) {
       ctx.icmEnabled = Tax.usesIcm({
         formatHub: Tax.hubFromGameType(gameType),
         mttPhase: ctx.mttPhase,
         playersLeft: ctx.playersLeft,
-        placesPaid: ctx.placesPaid
+        placesPaid: ctx.placesPaid,
+        playersSeated: ctx.playersSeated,
+        tableMax: ctx.tableMax,
+        kind: ctx.kind,
+        mttStructureSituation: ctx.mttStructureSituation
       });
     }
     return normalize(ctx);
@@ -6404,19 +6554,27 @@ window.PT_NASH_PUSH_JSON = {
   function attachToInput(input, ctx) {
     const c = normalize(ctx);
     input.gameType = c.gameType;
+    input.formatHub = c.formatHub;
     input.stackDepthLabel = c.stackDepth;
     input.stackDepth = c.stackBB;
-    input.mttPhase = c.mttPhase;
+    input.mttPhase = c.effectivePhase === 'hu' ? 'hu' : c.mttPhase;
     input.resolvedPhase = c.effectivePhase;
+    input.effectivePhase = c.effectivePhase;
     input.icmEnabled = !!c.icmEnabled;
+    if (c.kind) {
+      input.kind = c.kind;
+      input.tournamentKind = c.kind;
+    }
     if (c.playersLeft != null) input.playersLeft = c.playersLeft;
     if (c.placesPaid != null) input.placesPaid = c.placesPaid;
     if (c.entries != null) input.entries = c.entries;
     if (c.buyIn != null) input.buyIn = c.buyIn;
     if (c.mttStructureSituation) input.mttStructureSituation = c.mttStructureSituation;
     if (ctx && ctx.tournamentType) input.tournamentType = ctx.tournamentType;
-    if (ctx && ctx.playersSeated != null) input.playersSeated = ctx.playersSeated;
-    if (ctx && ctx.tableMax != null) input.tableMax = ctx.tableMax;
+    if (c.playersSeated != null) input.playersSeated = c.playersSeated;
+    else if (ctx && ctx.playersSeated != null) input.playersSeated = ctx.playersSeated;
+    if (c.tableMax != null) input.tableMax = c.tableMax;
+    else if (ctx && ctx.tableMax != null) input.tableMax = ctx.tableMax;
     input.rangeContext = c;
     return input;
   }
@@ -11748,7 +11906,16 @@ window.PT_NASH_PUSH_JSON = {
         formatHub: input.formatHub,
         stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth),
         stackBB: input.stackDepth || input.effStack,
-        mttPhase: input.mttPhase
+        mttPhase: input.mttPhase || input.resolvedPhase || input.effectivePhase,
+        resolvedPhase: input.resolvedPhase || input.effectivePhase || input.mttPhase,
+        kind: input.kind || input.tournamentKind,
+        tournamentKind: input.tournamentKind || input.kind,
+        mttStructureSituation: input.mttStructureSituation,
+        playersLeft: input.playersLeft,
+        placesPaid: input.placesPaid,
+        playersSeated: input.playersSeated,
+        tableMax: input.tableMax,
+        icmEnabled: input.icmEnabled
       }) : null);
 
       const hub = (input.formatHub)
@@ -12713,6 +12880,8 @@ window.PT_NASH_PUSH_JSON = {
 
   function shouldApply(input) {
     const Taxo = Tax();
+    // HU WTA: chip EV ≈ $EV — nunca ICM/bubble, aunque el caller fuerce icmEnabled.
+    if (Taxo && Taxo.isHeadsUpWta && Taxo.isHeadsUpWta(input)) return false;
     if (input && input.icmEnabled === false) return false;
     if (input && input.icmEnabled === true) return true;
     if (!Taxo || !Taxo.usesIcm) {
@@ -13896,6 +14065,8 @@ window.PT_NASH_PUSH_JSON = {
       const ctx = DC.buildBase({
         formatHub: enriched.formatHub,
         gameType: enriched.gameType,
+        kind: enriched.kind || enriched.tournamentKind,
+        tournamentKind: enriched.tournamentKind || enriched.kind,
         street: enriched.street,
         potBB: enriched.potBB,
         stackBB: enriched.heroStackBB != null ? enriched.heroStackBB : enriched.effStack,
@@ -13911,6 +14082,8 @@ window.PT_NASH_PUSH_JSON = {
         tournamentType: enriched.tournamentType,
         playersLeft: enriched.playersLeft,
         placesPaid: enriched.placesPaid,
+        playersSeated: enriched.playersSeated,
+        tableMax: enriched.tableMax,
         icmStacksBB: enriched.icmStacksBB,
         icmPayouts: enriched.icmPayouts,
         multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,
@@ -16416,9 +16589,13 @@ window.PT_NASH_PUSH_JSON = {
   function bubbleFactorFromCtx(ctx) {
     ctx = ctx || {};
     var Icm = global.GTOIcmEv;
+    var Tax = global.PTFormatTaxonomy;
+    // HU WTA: sin bubble factor (tampoco suelo Spin ≥1.2).
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 1;
     var hub = hubOf(ctx);
     var phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase || '';
     var situ = ctx.mttStructureSituation || '';
+    if (phase === 'hu' || situ === 'hu') return 1;
     var phaseFloor = 1;
     if (hub === 'spin') phaseFloor = phase === 'push' ? 1.45 : 1.2;
     else if (phase === 'bubble' || situ === 'bubble') phaseFloor = 1.55;
@@ -16475,6 +16652,8 @@ window.PT_NASH_PUSH_JSON = {
    */
   function applyIcmToFreqs(freqs, ctx, kind) {
     var out = Object.assign({}, freqs || {});
+    var Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx || {})) return normalize(out);
     var bf = bubbleFactorFromCtx(ctx);
     if (bf <= 1.05) return normalize(out);
     var over = clamp((bf - 1) / 1.8, 0, 1);

@@ -176,6 +176,8 @@
       const ctx = DC.buildBase({
         formatHub: enriched.formatHub,
         gameType: enriched.gameType,
+        kind: enriched.kind || enriched.tournamentKind,
+        tournamentKind: enriched.tournamentKind || enriched.kind,
         street: enriched.street,
         potBB: enriched.potBB,
         stackBB: enriched.heroStackBB != null ? enriched.heroStackBB : enriched.effStack,
@@ -191,6 +193,8 @@
         tournamentType: enriched.tournamentType,
         playersLeft: enriched.playersLeft,
         placesPaid: enriched.placesPaid,
+        playersSeated: enriched.playersSeated,
+        tableMax: enriched.tableMax,
         icmStacksBB: enriched.icmStacksBB,
         icmPayouts: enriched.icmPayouts,
         multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,

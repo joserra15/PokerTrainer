@@ -254,6 +254,8 @@
 
   function shouldApply(input) {
     const Taxo = Tax();
+    // HU WTA: chip EV ≈ $EV — nunca ICM/bubble, aunque el caller fuerce icmEnabled.
+    if (Taxo && Taxo.isHeadsUpWta && Taxo.isHeadsUpWta(input)) return false;
     if (input && input.icmEnabled === false) return false;
     if (input && input.icmEnabled === true) return true;
     if (!Taxo || !Taxo.usesIcm) {

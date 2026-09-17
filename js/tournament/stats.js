@@ -87,7 +87,8 @@
     decs.forEach(function (d) {
       if (!d || d.unscored) return;
       st.decisions = (Number(st.decisions) || 0) + 1;
-      if (d.class === 'green' || d.class === 'good' || d.ok) {
+      var cls = d.class != null ? String(d.class).toLowerCase() : '';
+      if (cls === 'optima' || cls === 'aceptable' || cls === 'green' || cls === 'good' || d.ok) {
         st.goodDecisions = (Number(st.goodDecisions) || 0) + 1;
       }
       st.evLoss = Math.round(((Number(st.evLoss) || 0) + (Number(d.evLoss) || 0)) * 100) / 100;
@@ -134,6 +135,21 @@
     var roleScore = Guess && Guess.score ? Guess.score(state) : { accuracy: 0, correct: 0, total: 0 };
     var roleAccuracy = roleScore.accuracy;
 
+    var styleIdeal = null;
+    try {
+      var Imp = global.Importer;
+      if (Imp && Imp.styleIdealForFormat) {
+        var isHu = cfg.kind === 'hu'
+          || (Number(cfg.placesPaid) <= 1 && Number(cfg.entries || cfg.seatsPerTable) === 2);
+        var formatKey = cfg.kind === 'spin' ? 'spin' : (isHu ? 'mtt' : (cfg.kind === 'sng' ? 'mtt' : 'mtt'));
+        var phase = isHu ? 'hu' : null;
+        styleIdeal = Imp.styleIdealForFormat(formatKey, {
+          gameKind: cfg.kind === 'spin' ? 'spin' : 'mtt',
+          mttPhase: phase
+        });
+      }
+    } catch (eIdeal) { styleIdeal = null; }
+
     return {
       place: place,
       prizeEur: prizeEur,
@@ -153,7 +169,10 @@
       evLoss: st.evLoss || 0,
       roleAccuracy: roleAccuracy,
       roleCorrect: roleScore.correct || 0,
-      roleTotal: roleScore.total || 0
+      roleTotal: roleScore.total || 0,
+      styleIdeal: styleIdeal,
+      isHeadsUp: !!(cfg.kind === 'hu'
+        || (Number(cfg.placesPaid) <= 1 && Number(cfg.entries || cfg.seatsPerTable) === 2))
     };
   }
 

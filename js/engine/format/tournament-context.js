@@ -263,12 +263,29 @@
       buyIn: r.buyIn != null && r.buyIn !== '' ? Number(r.buyIn) : null,
       mttStructureSituation: r.mttStructureSituation || null,
       spinPayout: r.spinPayout || null,
-      heroPos: r.heroPos || null
+      heroPos: r.heroPos || null,
+      kind: r.kind || r.tournamentKind || null,
+      tournamentKind: r.tournamentKind || r.kind || null
     };
     if (out.playersLeft != null && !isFinite(out.playersLeft)) out.playersLeft = null;
     if (out.placesPaid != null && !isFinite(out.placesPaid)) out.placesPaid = null;
     if (out.entries != null && !isFinite(out.entries)) out.entries = null;
     if (out.buyIn != null && !isFinite(out.buyIn)) out.buyIn = null;
+
+    // HU WTA (2 jugadores, ≤1 pago): chip EV — forzar fase hu (no short/push por stack).
+    if (hub !== 'cash' && T && T.isHeadsUpWta && T.isHeadsUpWta(out)) {
+      out.mttPhase = 'hu';
+      out.resolvedPhase = 'hu';
+      out.mttStructureSituation = out.mttStructureSituation || 'hu';
+    } else if (hub !== 'cash' && (phase === 'hu' || out.mttStructureSituation === 'hu'
+      || out.kind === 'hu' || out.tournamentKind === 'hu'
+      || (playersSeated === 2 && (out.placesPaid == null || out.placesPaid <= 1)
+        && (out.playersLeft == null || out.playersLeft === 2)))) {
+      out.mttPhase = 'hu';
+      out.resolvedPhase = 'hu';
+      out.mttStructureSituation = out.mttStructureSituation || 'hu';
+    }
+
     out.formatKey = r.formatKey || formatKeyFromContext(out);
     return out;
   }
@@ -323,7 +340,9 @@
       buyIn: hand.buyIn,
       mttStructureSituation: hand.mttStructureSituation,
       spinPayout: hand.spinPayout || (hand.multiplier != null ? null : null),
-      formatKey: hand.formatKey
+      formatKey: hand.formatKey,
+      kind: hand.kind || hand.tournamentKind || null,
+      tournamentKind: hand.tournamentKind || hand.kind || null
     });
   }
 
@@ -373,11 +392,11 @@
 
     return normalize({
       formatHub: hub,
-      gameKind: kind === 'sng' ? 'sng' : (kind === 'spin' ? 'spin' : 'mtt'),
+      gameKind: kind === 'sng' ? 'sng' : (kind === 'spin' ? 'spin' : (kind === 'hu' ? 'mtt' : 'mtt')),
       tournamentType: cfg.tournamentType || st.tournamentType || 'unknown',
       tableMax: seatsPerTable,
       playersSeated: playersSeated,
-      mttPhase: hand.mttPhase || 'auto',
+      mttPhase: hand.mttPhase || (kind === 'hu' ? 'hu' : 'auto'),
       anteBB: anteBB,
       heroStackBB: hand.stackDepthBB,
       heroPos: hand.heroPos,
@@ -386,8 +405,9 @@
       placesPaid: cfg.placesPaid,
       entries: cfg.entries,
       buyIn: cfg.buyInEur != null ? cfg.buyInEur : cfg.buyIn,
-      mttStructureSituation: null,
-      formatKey: hand.formatKey
+      mttStructureSituation: kind === 'hu' ? 'hu' : null,
+      kind: kind,
+      tournamentKind: kind
     });
   }
 
@@ -482,6 +502,8 @@
     hand.mttStructureSituation = c.mttStructureSituation;
     hand.tournamentContext = c;
     hand.shortHanded = !!(c.tableMax && c.playersSeated && c.playersSeated < c.tableMax - 1);
+    if (c.kind) hand.kind = c.kind;
+    if (c.tournamentKind) hand.tournamentKind = c.tournamentKind;
     return hand;
   }
 

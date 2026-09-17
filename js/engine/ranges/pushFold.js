@@ -95,7 +95,11 @@
   function pressureAdjust(freq, input, kind) {
     let f = Number(freq) || 0;
     const ante = Number(input && input.anteBB) || 0;
-    const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
+    const Tax = global.PTFormatTaxonomy;
+    const huWta = !!(Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(input || {}));
+    const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
+    const icm = !huWta && phase !== 'hu'
+      && !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
     const rc = (input && input.rangeContext) || input || {};
     const blindPress = !!(input && (input.blindPressure || input.blindPressureStrong))
       || !!(rc.blindPressure || rc.blindPressureStrong);
@@ -106,7 +110,6 @@
     }
     if (kind === 'call' && icm) {
       // Bubble / FT: pagar un shove con la vida del torneo es mucho más caro en $EV.
-      const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';
       let cut = 0.06;
       if (phase === 'bubble' || phase === 'final') cut = 0.22;
       else if (phase === 'short' || phase === 'push') cut = 0.12;
@@ -410,6 +413,7 @@
     isPushPhase: isPushPhase,
     isStealPhase: isStealPhase,
     isFacingShove: isFacingShove,
+    pressureAdjust: pressureAdjust,
     ALWAYS_SHOVE: ALWAYS_SHOVE
   };
 })(typeof window !== 'undefined' ? window : globalThis);

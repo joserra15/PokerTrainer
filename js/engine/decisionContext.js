@@ -80,9 +80,13 @@
   function bubbleFactorFromCtx(ctx) {
     ctx = ctx || {};
     var Icm = global.GTOIcmEv;
+    var Tax = global.PTFormatTaxonomy;
+    // HU WTA: sin bubble factor (tampoco suelo Spin ≥1.2).
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 1;
     var hub = hubOf(ctx);
     var phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase || '';
     var situ = ctx.mttStructureSituation || '';
+    if (phase === 'hu' || situ === 'hu') return 1;
     var phaseFloor = 1;
     if (hub === 'spin') phaseFloor = phase === 'push' ? 1.45 : 1.2;
     else if (phase === 'bubble' || situ === 'bubble') phaseFloor = 1.55;
@@ -139,6 +143,8 @@
    */
   function applyIcmToFreqs(freqs, ctx, kind) {
     var out = Object.assign({}, freqs || {});
+    var Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx || {})) return normalize(out);
     var bf = bubbleFactorFromCtx(ctx);
     if (bf <= 1.05) return normalize(out);
     var over = clamp((bf - 1) / 1.8, 0, 1);

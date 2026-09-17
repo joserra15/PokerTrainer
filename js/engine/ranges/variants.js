@@ -34,6 +34,51 @@
     SB: { raise: '66+, A8s+, KTs+, Q9s+, JTs, T9s, ATo+, KJo+', mix: '55, A5s-A7s, 98s, K9s, QTo' }
   };
 
+  /**
+   * Heads Up WTA chip-EV opens (SB = botón efectivo; BTN alias en Torneos IA).
+   * Banda mid/deep ~25–40bb: ~75%+ open; short ~15bb algo más tight; push usa Nash.
+   */
+  const OPEN_RAISE_HU = {
+    SB: {
+      raise: '22+, A2s+, K2s+, Q5s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A2o+, K7o+, Q9o+, J9o+, T9o, 98o',
+      mix: 'Q2s-Q4s, J2s-J5s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, 43s, K2o-K6o, Q5o-Q8o, J6o-J8o, T7o-T8o, 97o, 87o, 76o'
+    },
+    BTN: {
+      raise: '22+, A2s+, K2s+, Q5s+, J6s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, A2o+, K7o+, Q9o+, J9o+, T9o, 98o',
+      mix: 'Q2s-Q4s, J2s-J5s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, 43s, K2o-K6o, Q5o-Q8o, J6o-J8o, T7o-T8o, 97o, 87o, 76o'
+    },
+    BB: { raise: '', mix: '' }
+  };
+
+  /** HU ~12–20bb: open/jam-friendly; sigue más wide que MTT short. */
+  const OPEN_RAISE_HU_SHORT = {
+    SB: {
+      raise: '22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 97s+, 86s+, 76s, 65s, A2o+, K8o+, Q9o+, J9o+, T9o',
+      mix: 'K2s-K3s, Q4s-Q6s, J5s-J6s, T5s-T6s, 95s-96s, 85s, 74s-75s, 64s, 54s, K5o-K7o, Q7o-Q8o, J7o-J8o, T8o, 98o, 87o'
+    },
+    BTN: {
+      raise: '22+, A2s+, K4s+, Q7s+, J7s+, T7s+, 97s+, 86s+, 76s, 65s, A2o+, K8o+, Q9o+, J9o+, T9o',
+      mix: 'K2s-K3s, Q4s-Q6s, J5s-J6s, T5s-T6s, 95s-96s, 85s, 74s-75s, 64s, 54s, K5o-K7o, Q7o-Q8o, J7o-J8o, T8o, 98o, 87o'
+    },
+    BB: { raise: '', mix: '' }
+  };
+
+  /** BB vs SB/BTN en HU: defensa ~60–75%+; 3-bet value + polar. */
+  const VS_RFI_HU = {
+    BB_vs_SB: {
+      threeBet: '77+, A9s+, A5s-A2s, KTs+, QJs, ATo+, KQo',
+      threeBetMix: '66-55, A8s-A6s, K9s, QTs, JTs, T9s, 98s, A9o, KJo, QJo',
+      call: '22-44, K2s+, Q4s+, J5s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, 43s, A2o+, K5o+, Q8o+, J8o+, T8o+, 98o, 87o',
+      callMix: 'Q2s-Q3s, J2s-J4s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, K2o-K4o, Q5o-Q7o, J6o-J7o, T7o, 97o, 76o'
+    },
+    BB_vs_BTN: {
+      threeBet: '77+, A9s+, A5s-A2s, KTs+, QJs, ATo+, KQo',
+      threeBetMix: '66-55, A8s-A6s, K9s, QTs, JTs, T9s, 98s, A9o, KJo, QJo',
+      call: '22-44, K2s+, Q4s+, J5s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, 43s, A2o+, K5o+, Q8o+, J8o+, T8o+, 98o, 87o',
+      callMix: 'Q2s-Q3s, J2s-J4s, T2s-T5s, 94s-95s, 84s, 73s-74s, 63s, 53s, K2o-K4o, Q5o-Q7o, J6o-J7o, T7o, 97o, 76o'
+    }
+  };
+
   /** Cash 9-max: progresión más tight en EP. */
   const OPEN_RAISE_9MAX = {
     UTG: { raise: '88+, ATs+, KQs, AJo+, KQo', mix: '77, A5s-A4s, KJs, QJs' },
@@ -193,6 +238,9 @@
     OPEN_RAISE_MTT,
     OPEN_RAISE_MTT_SHORT,
     OPEN_RAISE_9MAX,
+    OPEN_RAISE_HU,
+    OPEN_RAISE_HU_SHORT,
+    VS_RFI_HU,
     POS_9,
     vsRfiPairKey: function (hero, villain) { return hero + '_vs_' + villain; },
     getVsRfi9Max: function () { ensureVsRfiTables(); return VS_RFI_9MAX; },

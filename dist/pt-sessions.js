@@ -618,10 +618,25 @@
     return eq.map((e, i) => Math.round(((chip[i] || 0) * prize - e) * 1000) / 1000);
   }
 
+  function isHuWtaHand(hand) {
+    if (!hand) return false;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(hand)) return true;
+    if (hand.mttPhase === 'hu' || hand.mttStructureSituation === 'hu') return true;
+    if (hand.kind === 'hu' || hand.tournamentKind === 'hu') return true;
+    const tags = hand.tags || [];
+    if (tags.indexOf('HU') >= 0 || tags.indexOf('hu') >= 0) return true;
+    const paid = Number(hand.placesPaid);
+    const left = Number(hand.playersLeft != null ? hand.playersLeft : hand.playersSeated);
+    return paid <= 1 && left === 2;
+  }
+
   function annotateHand(hand, decisions) {
     if (!hand || !decisions || !decisions.length) return;
     const kind = hand.gameKind || 'cash';
-    if (kind !== 'spin' && kind !== 'mtt' && kind !== 'sng') return;
+    if (kind !== 'spin' && kind !== 'mtt' && kind !== 'sng' && kind !== 'hu') return;
+    // HU WTA: chip EV ≈ $EV — no anotar presión de burbuja/ICM.
+    if (isHuWtaHand(hand)) return;
     const seats = hand.seats || [];
     if (seats.length < 2 || seats.length > 4) return;
     const bb = hand.bb || 1;
@@ -673,6 +688,7 @@
     icmEquities: icmEquities,
     icmPressure: icmPressure,
     annotateHand: annotateHand,
+    isHuWtaHand: isHuWtaHand,
     SPIN_PAYOUTS_2X: SPIN_PAYOUTS_2X
   };
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -3207,6 +3223,36 @@
         || (hand.gameKind === 'spin' || hand.formatKey === 'spin3' ? 'spin3'
           : (hand.isTournament || hand.source === 'tournamentAi' ? 'mtt' : null)),
       mttPhase: d.mttPhase || (d.input && d.input.mttPhase) || hand.mttPhase || null,
+      kind: d.kind || (d.input && d.input.kind) || hand.kind || hand.tournamentKind || null,
+      tournamentKind: d.tournamentKind || (d.input && d.input.tournamentKind)
+        || hand.tournamentKind || hand.kind || null,
+      mttStructureSituation: d.mttStructureSituation || (d.input && d.input.mttStructureSituation)
+        || hand.mttStructureSituation || null,
+      playersLeft: d.playersLeft != null ? d.playersLeft
+        : ((d.input && d.input.playersLeft != null) ? d.input.playersLeft
+          : (hand.playersLeft != null ? hand.playersLeft : null)),
+      placesPaid: d.placesPaid != null ? d.placesPaid
+        : ((d.input && d.input.placesPaid != null) ? d.input.placesPaid
+          : (hand.placesPaid != null ? hand.placesPaid : null)),
+      playersSeated: hand.playersSeated != null ? hand.playersSeated : null,
+      tableMax: hand.tableMax != null ? hand.tableMax : null,
+      icmEnabled: (function () {
+        const Tax = global.PTFormatTaxonomy;
+        const probe = {
+          kind: d.kind || hand.kind || hand.tournamentKind,
+          mttPhase: d.mttPhase || hand.mttPhase,
+          mttStructureSituation: hand.mttStructureSituation,
+          playersLeft: hand.playersLeft,
+          placesPaid: hand.placesPaid,
+          playersSeated: hand.playersSeated,
+          tableMax: hand.tableMax,
+          formatHub: hand.formatHub
+        };
+        if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(probe)) return false;
+        if (d.icmEnabled != null) return !!d.icmEnabled;
+        if (d.input && d.input.icmEnabled != null) return !!d.input.icmEnabled;
+        return undefined;
+      })(),
       pushFold: !!(d.pushFold || (d.input && d.input.pushFold)),
       preflopMode: d.preflopMode || (d.input && d.input.preflopMode) || null
     };
@@ -4534,6 +4580,17 @@
           stealMin: Math.max(ideal.stealMin || 45, 55), stealMax: Math.max(ideal.stealMax || 70, 80)
         });
       }
+      if (phase === 'hu') {
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 48, vpipMax: 72, pfrMin: 38, pfrMax: 62,
+          stealMin: 58, stealMax: 88,
+          foldToStealMin: 22, foldToStealMax: 42,
+          threeBetMin: 10, threeBetMax: 18,
+          limpMin: 0, limpMax: 3,
+          cbetFlopMin: 45, cbetFlopMax: 78,
+          wtsdMin: 26, wtsdMax: 40
+        });
+      }
     } else if (hub === 'mtt') {
       if (phase === 'early') {
         ideal = cloneIdeal(ideal, {
@@ -4558,7 +4615,20 @@
             limpMin: 0, limpMax: 3
           });
         }
-      } else if (phase === 'short' || phase === 'push' || phase === 'hu') {
+      } else if (phase === 'hu') {
+        // Heads Up WTA: guerra de ciegas chip-EV (no agrupar con short/push MTT).
+        ideal = cloneIdeal(ideal, {
+          vpipMin: 45, vpipMax: 70, pfrMin: 35, pfrMax: 60,
+          stealMin: 55, stealMax: 85,
+          foldToStealMin: 25, foldToStealMax: 45,
+          threeBetMin: 10, threeBetMax: 18,
+          fourBetMin: 2, fourBetMax: 8,
+          limpMin: 0, limpMax: 4,
+          cbetFlopMin: 45, cbetFlopMax: 75,
+          wtsdMin: 28, wtsdMax: 42,
+          gapMin: 2, gapMax: 12
+        });
+      } else if (phase === 'short' || phase === 'push') {
         ideal = cloneIdeal(ideal, {
           vpipMin: 22, vpipMax: 38, pfrMin: 18, pfrMax: 34,
           stealMin: 35, stealMax: 55,

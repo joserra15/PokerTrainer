@@ -547,7 +547,16 @@
         formatHub: input.formatHub,
         stackDepth: input.stackDepthLabel || global.GTORangesRegistry.stackLabelFromBB(input.stackDepth),
         stackBB: input.stackDepth || input.effStack,
-        mttPhase: input.mttPhase
+        mttPhase: input.mttPhase || input.resolvedPhase || input.effectivePhase,
+        resolvedPhase: input.resolvedPhase || input.effectivePhase || input.mttPhase,
+        kind: input.kind || input.tournamentKind,
+        tournamentKind: input.tournamentKind || input.kind,
+        mttStructureSituation: input.mttStructureSituation,
+        playersLeft: input.playersLeft,
+        placesPaid: input.placesPaid,
+        playersSeated: input.playersSeated,
+        tableMax: input.tableMax,
+        icmEnabled: input.icmEnabled
       }) : null);
 
       const hub = (input.formatHub)

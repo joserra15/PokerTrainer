@@ -112,11 +112,28 @@
       stackBB: stackBB,
       mttPhase: (hand && hand.mttPhase) || (hand && hand.state && hand.state.mttPhase) || 'auto'
     };
-    if (hand && hand.state) {
-      if (hand.state.playersLeft != null) cfg.playersLeft = hand.state.playersLeft;
-      if (hand.state.placesPaid != null) cfg.placesPaid = hand.state.placesPaid;
-      if (hand.state.mttStructureSituation) cfg.mttStructureSituation = hand.state.mttStructureSituation;
+    if (hand) {
+      if (hand.playersLeft != null) cfg.playersLeft = hand.playersLeft;
+      else if (hand.state && hand.state.playersLeft != null) cfg.playersLeft = hand.state.playersLeft;
+      if (hand.placesPaid != null) cfg.placesPaid = hand.placesPaid;
+      else if (hand.state && hand.state.placesPaid != null) cfg.placesPaid = hand.state.placesPaid;
+      if (hand.mttStructureSituation) cfg.mttStructureSituation = hand.mttStructureSituation;
+      else if (hand.state && hand.state.mttStructureSituation) {
+        cfg.mttStructureSituation = hand.state.mttStructureSituation;
+      }
+      var kind = hand.kind || hand.tournamentKind
+        || (hand.tournamentConfig && hand.tournamentConfig.kind)
+        || (hand.config && hand.config.kind);
+      if (kind) {
+        cfg.kind = kind;
+        cfg.tournamentKind = kind;
+      }
+      if (hand.playersSeated != null) cfg.playersSeated = hand.playersSeated;
+      else if (hand.seats) cfg.playersSeated = hand.seats.length;
     }
+    // HU WTA explícito: no degradar a phaseFromStackBB (short/push).
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(cfg)) return 'hu';
+    if (cfg.mttPhase === 'hu' || cfg.mttStructureSituation === 'hu') return 'hu';
     if (Tax && typeof Tax.resolvePhase === 'function') {
       try { return Tax.resolvePhase(cfg); } catch (e) { /* */ }
     }
@@ -379,6 +396,38 @@
     var initiative = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp'
       ? 'isolator'
       : resolveInitiative(hand, heroSeat, firstIn);
+
+    var cfg = (hand && hand.tournamentConfig) || (hand && hand.config) || {};
+    var kind = hand.kind || hand.tournamentKind || cfg.kind || null;
+    var playersLeft = hand.playersLeft != null ? hand.playersLeft
+      : (hand.state && hand.state.playersLeft != null ? hand.state.playersLeft : null);
+    var placesPaid = hand.placesPaid != null ? hand.placesPaid
+      : (hand.state && hand.state.placesPaid != null ? hand.state.placesPaid
+        : (cfg.placesPaid != null ? cfg.placesPaid : null));
+    var seatedN = hand.playersSeated != null ? hand.playersSeated
+      : ((hand.seats && hand.seats.length) || null);
+    var situ = hand.mttStructureSituation
+      || (hand.state && hand.state.mttStructureSituation)
+      || null;
+    var Tax = global.PTFormatTaxonomy;
+    var huProbe = {
+      kind: kind,
+      tournamentKind: kind,
+      mttPhase: phase,
+      resolvedPhase: phase,
+      effectivePhase: phase,
+      mttStructureSituation: situ,
+      playersLeft: playersLeft,
+      placesPaid: placesPaid,
+      playersSeated: seatedN,
+      tableMax: hand.tableMax != null ? hand.tableMax : seatedN,
+      formatHub: hub
+    };
+    var huWta = !!(Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(huProbe));
+    if (huWta && phase !== 'hu') {
+      phase = 'hu';
+    }
+
     var input = {
       spotKind: spotKind,
       street: street,
@@ -400,22 +449,30 @@
       inPosition: street === 'preflop' ? false : undefined,
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
+      kind: kind,
+      tournamentKind: kind,
       mttPhase: phase,
       resolvedPhase: phase,
       effectivePhase: phase,
+      mttStructureSituation: situ || (huWta ? 'hu' : null),
+      playersLeft: playersLeft,
+      placesPaid: placesPaid,
+      playersSeated: seatedN,
+      tableMax: hand.tableMax != null ? hand.tableMax : seatedN,
       pushFold: !!(pushPhase || facingShove),
       facingAllIn: !!facingShove,
       preflopMode: (pushPhase || facingShove) ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
       scenario: (pushPhase || facingShove) ? 'push' : undefined,
       anteBB: anteBB,
-      icmEnabled: true,
+      /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
+      icmEnabled: huWta ? false : true,
       villainType: villainType(hand, heroSeat),
       scoreMode: 'gto',
       multiway: aliveCount >= 3,
       aliveCount: aliveCount,
       phaseNote: facingShove
         ? ('Call vs shove · fase «' + phase + '» · ' + stackBB + ' bb')
-        : ('Fase ' + (hub === 'spin' ? 'Spin' : 'MTT') + ' «' + phase + '» · ' + stackBB + ' bb')
+        : ('Fase ' + (huWta ? 'HU' : (hub === 'spin' ? 'Spin' : 'MTT')) + ' «' + phase + '» · ' + stackBB + ' bb')
     };
     if (!incompleteAllIn && action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;

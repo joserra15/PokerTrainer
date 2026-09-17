@@ -57,10 +57,25 @@
     return eq.map((e, i) => Math.round(((chip[i] || 0) * prize - e) * 1000) / 1000);
   }
 
+  function isHuWtaHand(hand) {
+    if (!hand) return false;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(hand)) return true;
+    if (hand.mttPhase === 'hu' || hand.mttStructureSituation === 'hu') return true;
+    if (hand.kind === 'hu' || hand.tournamentKind === 'hu') return true;
+    const tags = hand.tags || [];
+    if (tags.indexOf('HU') >= 0 || tags.indexOf('hu') >= 0) return true;
+    const paid = Number(hand.placesPaid);
+    const left = Number(hand.playersLeft != null ? hand.playersLeft : hand.playersSeated);
+    return paid <= 1 && left === 2;
+  }
+
   function annotateHand(hand, decisions) {
     if (!hand || !decisions || !decisions.length) return;
     const kind = hand.gameKind || 'cash';
-    if (kind !== 'spin' && kind !== 'mtt' && kind !== 'sng') return;
+    if (kind !== 'spin' && kind !== 'mtt' && kind !== 'sng' && kind !== 'hu') return;
+    // HU WTA: chip EV ≈ $EV — no anotar presión de burbuja/ICM.
+    if (isHuWtaHand(hand)) return;
     const seats = hand.seats || [];
     if (seats.length < 2 || seats.length > 4) return;
     const bb = hand.bb || 1;
@@ -112,6 +127,7 @@
     icmEquities: icmEquities,
     icmPressure: icmPressure,
     annotateHand: annotateHand,
+    isHuWtaHand: isHuWtaHand,
     SPIN_PAYOUTS_2X: SPIN_PAYOUTS_2X
   };
 })(typeof window !== 'undefined' ? window : globalThis);

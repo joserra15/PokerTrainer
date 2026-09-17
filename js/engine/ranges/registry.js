@@ -39,25 +39,40 @@
   /**
    * Fuente única de ICM lite: explícito true/false gana; si no, Tax.usesIcm.
    * Evita que `!!undefined` apague el grading en spins/MTT del entrenador.
+   * HU WTA siempre off (chip EV ≈ $EV).
    */
   function resolveIcmEnabled(c, formatHub, gameType) {
+    const Tax = global.PTFormatTaxonomy;
+    const probe = {
+      formatHub: formatHub || (c && c.formatHub) || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(gameType || (c && c.gameType)) : null),
+      gameType: gameType || (c && c.gameType),
+      kind: c && (c.kind || c.tournamentKind),
+      tournamentKind: c && (c.tournamentKind || c.kind),
+      mttPhase: (c && (c.resolvedPhase || c.mttPhase || c.effectivePhase)) || null,
+      mttStructureSituation: c && c.mttStructureSituation,
+      playersLeft: c && c.playersLeft,
+      placesPaid: c && c.placesPaid,
+      playersSeated: c && c.playersSeated,
+      tableMax: c && c.tableMax,
+      seatsPerTable: c && c.seatsPerTable
+    };
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(probe)) return false;
     if (c && c.icmEnabled === true) return true;
     if (c && c.icmEnabled === false) return false;
-    const Tax = global.PTFormatTaxonomy;
     if (Tax && Tax.usesIcm) {
-      return !!Tax.usesIcm({
-        formatHub: formatHub || c.formatHub || Tax.hubFromGameType(gameType || (c && c.gameType)),
-        gameType: gameType || (c && c.gameType),
-        mttPhase: (c && (c.resolvedPhase || c.mttPhase)) || null,
-        playersLeft: c && c.playersLeft,
-        placesPaid: c && c.placesPaid,
-        playersSeated: c && c.playersSeated,
-        tableMax: c && c.tableMax,
-        seatsPerTable: c && c.seatsPerTable
-      });
+      return !!Tax.usesIcm(probe);
     }
     const hub = formatHub || (gameType === 'spin3' ? 'spin' : (gameType === 'mtt' ? 'mtt' : 'cash'));
     return hub === 'spin' || hub === 'mtt';
+  }
+
+  function isHuContext(c) {
+    if (!c) return false;
+    if (c.effectivePhase === 'hu' || c.mttPhase === 'hu' || c.resolvedPhase === 'hu') return true;
+    if (c.mttStructureSituation === 'hu') return true;
+    if (c.kind === 'hu' || c.tournamentKind === 'hu') return true;
+    const Tax = global.PTFormatTaxonomy;
+    return !!(Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(c));
   }
 
   function normalize(ctx) {
@@ -86,6 +101,24 @@
     if (formatHub === 'cash') {
       effectivePhase = null;
     }
+    const kind = c.kind || c.tournamentKind || null;
+    const huProbe = {
+      kind: kind,
+      tournamentKind: kind,
+      mttPhase: effectivePhase || c.mttPhase,
+      resolvedPhase: effectivePhase,
+      effectivePhase: effectivePhase,
+      mttStructureSituation: c.mttStructureSituation || null,
+      playersLeft: c.playersLeft,
+      placesPaid: c.placesPaid,
+      playersSeated: c.playersSeated,
+      tableMax: c.tableMax,
+      seatsPerTable: c.seatsPerTable,
+      formatHub: formatHub
+    };
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(huProbe) && formatHub !== 'cash') {
+      effectivePhase = 'hu';
+    }
     return {
       gameType: gameType,
       formatHub: formatHub,
@@ -95,6 +128,9 @@
       isMtt: isMtt,
       isSpin: isSpin,
       isTournament: isTournament,
+      isHu: effectivePhase === 'hu' || !!(kind === 'hu'),
+      kind: kind,
+      tournamentKind: kind,
       stackBB: stackBB,
       mttPhase: c.mttPhase || null,
       resolvedPhase: c.resolvedPhase || null,
@@ -102,12 +138,14 @@
       villainLevel: c.villainLevel || 'pro',
       scenario: c.scenario || null,
       practiceIntent: c.practiceIntent || 'mixed',
-      icmEnabled: resolveIcmEnabled(c, formatHub, gameType),
+      icmEnabled: resolveIcmEnabled(Object.assign({}, c, huProbe), formatHub, gameType),
       playersLeft: c.playersLeft != null ? Number(c.playersLeft) : null,
       placesPaid: c.placesPaid != null ? Number(c.placesPaid) : null,
+      playersSeated: c.playersSeated != null ? Number(c.playersSeated) : null,
+      tableMax: c.tableMax != null ? Number(c.tableMax) : null,
       entries: c.entries != null ? Number(c.entries) : null,
       buyIn: c.buyIn != null ? Number(c.buyIn) : null,
-      mttStructureSituation: c.mttStructureSituation || null
+      mttStructureSituation: c.mttStructureSituation || (effectivePhase === 'hu' ? 'hu' : null)
     };
   }
 
@@ -287,6 +325,18 @@
     const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const ext = global.GTORangesExtended;
 
+    // Heads Up WTA: charts chip-EV (no MTT early/short multiway).
+    if (isHuContext(c) && V().OPEN_RAISE_HU) {
+      if (stackBB != null && stackBB <= 16 && (ext && ext.OPEN_RAISE_MTT_PUSH)) {
+        // Push band: Nash/push tables via strategy; open chart short HU como fallback.
+        return V().OPEN_RAISE_HU_SHORT || V().OPEN_RAISE_HU;
+      }
+      if (stackBB != null && stackBB <= 20 && V().OPEN_RAISE_HU_SHORT) {
+        return V().OPEN_RAISE_HU_SHORT;
+      }
+      return V().OPEN_RAISE_HU;
+    }
+
     // P3a: Spin — capa exacta por stack (25/20/15/10)
     if (c.isSpin && layers && layers.spinOpen) {
       const key = spinStackLayerKey(stackBB);
@@ -299,6 +349,7 @@
     if (c.isMtt && layers && layers.mttOpen) {
       let phaseKey = phase;
       if (phase === 'bubble') phaseKey = 'short';
+      if (phase === 'hu') phaseKey = 'short';
       if (phaseKey === 'push' || (stackBB != null && stackBB <= 16)) {
         if (layers.mttOpen.push) return layers.mttOpen.push;
         if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
@@ -349,8 +400,17 @@
   }
 
   function getOpenRaiseRow(pos, ctx) {
+    const c = normalize(ctx);
     const table = getOpenRaiseTable(ctx);
-    return table[pos] || table[toEnginePos(pos)] || null;
+    let row = table[pos] || table[toEnginePos(pos)] || null;
+    // Torneos HU usan BTN como SB; alias si la capa no trae BTN.
+    if (!row && isHuContext(c) && (pos === 'BTN' || toEnginePos(pos) === 'BTN')) {
+      row = table.SB || null;
+    }
+    if (!row && isHuContext(c) && pos === 'SB') {
+      row = table.BTN || null;
+    }
+    return row;
   }
 
   function openRangeStr(pos, ctx) {
@@ -363,6 +423,9 @@
     const layers = V() && V().PHASE_LAYERS;
     const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const phase = c.effectivePhase || 'early';
+    if (isHuContext(c) && V() && V().VS_RFI_HU) {
+      return V().VS_RFI_HU;
+    }
     if (c.isSpin && layers && layers.spinVsRfi) {
       const key = spinStackLayerKey(stackBB);
       if (key && layers.spinVsRfi[key] && Object.keys(layers.spinVsRfi[key]).length) {
@@ -372,6 +435,7 @@
     if (c.isMtt && layers && layers.mttVsRfi) {
       let phaseKey = phase;
       if (phase === 'push') phaseKey = 'short';
+      if (phase === 'hu') phaseKey = 'short';
       if (layers.mttVsRfi[phaseKey] && Object.keys(layers.mttVsRfi[phaseKey]).length) {
         return layers.mttVsRfi[phaseKey];
       }
@@ -403,6 +467,8 @@
   function applyPhaseToVsRfi(row, c) {
     if (!row || !c || !c.isTournament) return row;
     let phase = c.effectivePhase || 'early';
+    // HU WTA: no apretar defensa (chip EV).
+    if (isHuContext(c) || phase === 'hu') return row;
     // ICM de estructura en explorador: tratar como burbuja si hay presión near-money.
     if (c.icmEnabled && c.isMtt) {
       const Tax = global.PTFormatTaxonomy;
@@ -762,15 +828,25 @@
       mttStructureSituation: hand && hand.mttStructureSituation ? hand.mttStructureSituation : null,
       tournamentType: hand && hand.tournamentType ? hand.tournamentType : null,
       tableMax: tableMax,
-      playersSeated: hand && hand.playersSeated != null ? hand.playersSeated : nSeats
+      playersSeated: hand && hand.playersSeated != null ? hand.playersSeated : nSeats,
+      kind: hand && (hand.kind || hand.tournamentKind) || null,
+      tournamentKind: hand && (hand.tournamentKind || hand.kind) || null
     };
     const Tax = global.PTFormatTaxonomy;
-    if (Tax && Tax.usesIcm) {
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) {
+      ctx.mttPhase = 'hu';
+      ctx.mttStructureSituation = ctx.mttStructureSituation || 'hu';
+      ctx.icmEnabled = false;
+    } else if (Tax && Tax.usesIcm) {
       ctx.icmEnabled = Tax.usesIcm({
         formatHub: Tax.hubFromGameType(gameType),
         mttPhase: ctx.mttPhase,
         playersLeft: ctx.playersLeft,
-        placesPaid: ctx.placesPaid
+        placesPaid: ctx.placesPaid,
+        playersSeated: ctx.playersSeated,
+        tableMax: ctx.tableMax,
+        kind: ctx.kind,
+        mttStructureSituation: ctx.mttStructureSituation
       });
     }
     return normalize(ctx);
@@ -779,19 +855,27 @@
   function attachToInput(input, ctx) {
     const c = normalize(ctx);
     input.gameType = c.gameType;
+    input.formatHub = c.formatHub;
     input.stackDepthLabel = c.stackDepth;
     input.stackDepth = c.stackBB;
-    input.mttPhase = c.mttPhase;
+    input.mttPhase = c.effectivePhase === 'hu' ? 'hu' : c.mttPhase;
     input.resolvedPhase = c.effectivePhase;
+    input.effectivePhase = c.effectivePhase;
     input.icmEnabled = !!c.icmEnabled;
+    if (c.kind) {
+      input.kind = c.kind;
+      input.tournamentKind = c.kind;
+    }
     if (c.playersLeft != null) input.playersLeft = c.playersLeft;
     if (c.placesPaid != null) input.placesPaid = c.placesPaid;
     if (c.entries != null) input.entries = c.entries;
     if (c.buyIn != null) input.buyIn = c.buyIn;
     if (c.mttStructureSituation) input.mttStructureSituation = c.mttStructureSituation;
     if (ctx && ctx.tournamentType) input.tournamentType = ctx.tournamentType;
-    if (ctx && ctx.playersSeated != null) input.playersSeated = ctx.playersSeated;
-    if (ctx && ctx.tableMax != null) input.tableMax = ctx.tableMax;
+    if (c.playersSeated != null) input.playersSeated = c.playersSeated;
+    else if (ctx && ctx.playersSeated != null) input.playersSeated = ctx.playersSeated;
+    if (c.tableMax != null) input.tableMax = c.tableMax;
+    else if (ctx && ctx.tableMax != null) input.tableMax = ctx.tableMax;
     input.rangeContext = c;
     return input;
   }

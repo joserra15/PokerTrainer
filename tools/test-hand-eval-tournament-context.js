@@ -181,8 +181,9 @@ function openRaiseFreq(hand) {
   assert(hu.playersSeated === 2, 'HU seats meta=2');
   assert(hu.seats && hu.seats.length === 2, 'HU raw seats=2 (no inventa 6)');
   assert(hu.tournamentType === 'pko', 'HU tournamentType pko');
-  assert(hu.mttPhase === 'short' || hu.mttPhase === 'push' || hu.mttPhase === 'mid',
-    'HU fase shortish: ' + hu.mttPhase);
+  // 2-max WTA: chip-EV → fase hu (no short/push por stack solo).
+  assert(hu.mttPhase === 'hu',
+    'HU fase hu (chip-EV WTA): ' + hu.mttPhase);
   const ctxHu = RR.inferFromHand(hu);
   assert(ctxHu && ctxHu.isTournament, 'HU: isTournament');
   assert(ctxHu.formatHub === 'mtt' || ctxHu.isMtt, 'HU: hub mtt');
@@ -190,8 +191,9 @@ function openRaiseFreq(hand) {
     'HU: effStack ≤ hero 18: ' + hu.effStackBB);
   assert(hu.stackDepthBB != null && hu.stackDepthBB <= 18.1,
     'HU: stackDepthBB ≤ 18: ' + hu.stackDepthBB);
-  assert(ctxHu.effectivePhase === 'short' || ctxHu.effectivePhase === 'push' || ctxHu.stackBB <= 32,
-    'HU: fase/stack corto en registry: phase=' + ctxHu.effectivePhase + ' stackBB=' + ctxHu.stackBB);
+  assert(ctxHu.effectivePhase === 'hu' || ctxHu.isHu,
+    'HU: fase hu en registry: phase=' + ctxHu.effectivePhase + ' stackBB=' + ctxHu.stackBB);
+  assert(ctxHu.icmEnabled === false, 'HU: ICM off en registry');
   // Replay evaluateSpot desde decisión guardada
   const d0 = hu.decisions[0];
   assert(!!Importer.reEvaluateDecision || true, 'reEvaluate opcional');
