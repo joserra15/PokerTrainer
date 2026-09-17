@@ -62,6 +62,17 @@ function createSandbox() {
       }
       return a;
     },
+    shuffleSecure: function (arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    },
+    secureRandomInt: function (max) {
+      return Math.floor(Math.random() * max);
+    },
     evaluate: function () { return { rank: 4000 }; },
     compare: function () { return 0; },
     handCode: null

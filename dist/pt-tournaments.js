@@ -2342,6 +2342,24 @@
       heroSessionStats: heroStats,
       proStyle: (seat && seat.proStyle) || null
     };
+    /* Reloj de ciegas → proyección de stack tras la subida. */
+    var untilN = hand.handsUntilNextLevel != null ? Number(hand.handsUntilNextLevel)
+      : (st.handsUntilNextLevel != null ? Number(st.handsUntilNextLevel) : null);
+    var nextBB = hand.nextBB != null ? Number(hand.nextBB)
+      : (st.nextBB != null ? Number(st.nextBB) : null);
+    var curBB = bb;
+    ctx.handsUntilNextLevel = untilN;
+    ctx.nextBB = nextBB;
+    ctx.handIndex = hand.handIndex != null ? hand.handIndex : st.handIndex;
+    ctx.blindLevel = hand.blindLevel != null ? hand.blindLevel : st.blindLevel;
+    if (nextBB != null && nextBB > 0 && seat) {
+      ctx.stackAtNextBB = Math.round(((Number(seat.stack) || 0) / nextBB) * 100) / 100;
+    } else {
+      ctx.stackAtNextBB = null;
+    }
+    var bp = blindPressureFlags(ctx, curBB);
+    ctx.blindPressure = bp.pressure;
+    ctx.blindPressureStrong = bp.strong;
     ctx.isHeadsUp = !!(isHeadsUp(hand) || ctx.playersSeated === 2 || ctx.kind === 'hu'
       || (ctx.playersLeft === 2 && ctx.placesPaid <= 1));
     /* HU WTA: no forzar fase bubble ni ICM overfold. */
@@ -2408,7 +2426,7 @@
     if (face === 'fold' && foldPush < -0.02 && strength > Math.max(potOdds, 0.38) && strength >= 0.40) {
       return 'call';
     }
-    if (face === 'raise' && (m.jamBias > 1.25 || ctx.stackBB <= 14) && strength > 0.55) {
+    if (face === 'raise' && (m.jamBias > 1.25 || ctx.stackBB <= 14 || ctx.blindPressureStrong) && strength > 0.55) {
       return 'raise';
     }
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
@@ -2530,6 +2548,7 @@
   }
 
   function isPushPhaseCtx(ctx) {
+    if (ctx && ctx.blindPressureStrong) return true;
     var PF = global.GTOPushFold;
     if (PF && typeof PF.isPushPhase === 'function') {
       try {
@@ -2543,6 +2562,32 @@
       } catch (e) { /* */ }
     }
     return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 12;
+  }
+
+  /**
+   * Presión de ciegas: la próxima subida deja el stack crítico.
+   * pressure = moverse pronto; strong = tratar ya como zona push/jam.
+   */
+  function blindPressureFlags(ctx, curBB) {
+    var until = ctx && ctx.handsUntilNextLevel != null ? Number(ctx.handsUntilNextLevel) : null;
+    var nextBB = ctx && ctx.nextBB != null ? Number(ctx.nextBB) : null;
+    var stackNow = ctx && ctx.stackBB != null ? Number(ctx.stackBB) : null;
+    var stackNext = ctx && ctx.stackAtNextBB != null ? Number(ctx.stackAtNextBB) : null;
+    if (until == null || nextBB == null || !(nextBB > 0) || stackNow == null) {
+      return { pressure: false, strong: false };
+    }
+    if (curBB != null && nextBB <= curBB * 1.05) {
+      return { pressure: false, strong: false };
+    }
+    if (stackNext == null && stackNow != null && nextBB > 0) {
+      stackNext = stackNow * (curBB > 0 ? curBB / nextBB : 1);
+    }
+    if (stackNext == null) return { pressure: false, strong: false };
+    var nearUp = until <= 3;
+    var strong = nearUp && until <= 2 && stackNext <= 10 && stackNow <= 22;
+    var pressure = nearUp && stackNext <= 14 && stackNow <= 28
+      && (stackNext <= 12 || (stackNow - stackNext) >= 2.5);
+    return { pressure: !!(pressure || strong), strong: !!strong };
   }
 
   function isLateStealPos(pos) {
@@ -2627,25 +2672,50 @@
     var stackBB = ctx.stackBB;
     var pushPhase = isPushPhaseCtx(ctx);
     var aiLvl = profile.aiLevel || aiLevelOf(hand);
+    var blindPress = !!ctx.blindPressure;
+    var blindStrong = !!ctx.blindPressureStrong;
+    var effShoveBB = stackBB;
+    if (blindPress && ctx.stackAtNextBB != null && isFinite(Number(ctx.stackAtNextBB))) {
+      /* Usar el stack proyectado (más corto) para charts de shove. */
+      effShoveBB = Math.min(stackBB, Math.max(6, Number(ctx.stackAtNextBB)));
+    }
 
     /* ---------- Sin opener: open / shove / steal ---------- */
     if (!hand.openerId) {
       if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
 
-      /* Push/fold corto o fase push. */
-      if ((stackBB <= 12 || pushPhase) && PF && typeof PF.shouldOpenShove === 'function' && code) {
+      /* Push/fold corto, fase push, o ciegas a punto de comer el stack. */
+      var inPushZone = stackBB <= 12 || pushPhase || blindStrong
+        || (blindPress && stackBB <= 18 && isLateStealPos(seat.pos));
+      if (inPushZone && PF && typeof PF.shouldOpenShove === 'function' && code) {
         try {
-          if (PF.shouldOpenShove(code, seat.pos, stackBB, { rangeContext: ctx, formatHub: ctx.formatHub })) {
+          var shoveCtx = Object.assign({}, ctx, {
+            stackBB: effShoveBB,
+            blindPressure: blindPress,
+            blindPressureStrong: blindStrong
+          });
+          if (PF.shouldOpenShove(code, seat.pos, effShoveBB, {
+            rangeContext: shoveCtx,
+            formatHub: ctx.formatHub,
+            anteBB: ctx.anteBB,
+            blindPressure: blindPress,
+            blindPressureStrong: blindStrong,
+            icmEnabled: ctx.icmEnabled,
+            effectivePhase: ctx.effectivePhase,
+            mttPhase: ctx.mttPhase
+          })) {
             return { id: 'raise', amount: allInTo(seat) };
           }
         } catch (eShove) { /* */ }
-        if (stackBB <= 12 || pushPhase) {
+        if (stackBB <= 12 || pushPhase || blindStrong) {
           return tc > 0 ? { id: 'fold' } : { id: 'check' };
         }
       }
 
-      /* Steal folded-to late, 12–25 bb. */
-      if (isLateStealPos(seat.pos) && stackBB > 12 && stackBB <= 25
+      /* Steal folded-to late: 12–25 bb, o hasta ~28 bb si suben ciegas pronto. */
+      var stealHi = blindPress ? 28 : 25;
+      var stealLo = blindPress ? 10 : 12;
+      if (isLateStealPos(seat.pos) && stackBB > stealLo && stackBB <= stealHi
         && PF && typeof PF.stealOpenStrategy === 'function' && code) {
         try {
           var steal = PF.stealOpenStrategy({
@@ -2653,11 +2723,19 @@
             position: seat.pos,
             heroPos: seat.pos,
             rangeContext: ctx,
-            effStack: stackBB,
+            effStack: effShoveBB,
             stackBB: stackBB,
-            formatHub: ctx.formatHub
+            formatHub: ctx.formatHub,
+            blindPressure: blindPress,
+            blindPressureStrong: blindStrong
           });
           var stealAct = sampleStealAction(steal, Math.random());
+          /* Bajo presión fuerte: preferir jam a open min. */
+          if (blindStrong && stealAct === 'raise' && Math.random() < 0.55) {
+            stealAct = 'allin';
+          } else if (blindPress && !blindStrong && stealAct === 'raise' && Math.random() < 0.28) {
+            stealAct = 'allin';
+          }
           if (stealAct === 'allin') {
             return { id: 'raise', amount: allInTo(seat) };
           }
@@ -2691,7 +2769,16 @@
         }
       }
 
+      /* Antes de ciegas: open un poco más ancho en late (no basura). */
+      if (!open && blindPress && isLateStealPos(seat.pos) && holeStr > 0.42
+        && canHuWiden3bet(code, aiLvl || 'elite')) {
+        open = true;
+      }
+
       if (open) {
+        if (blindStrong && stackBB <= 20) {
+          return { id: 'raise', amount: allInTo(seat) };
+        }
         return {
           id: 'raise',
           amount: Math.min(
@@ -3460,7 +3547,9 @@
     profileForSeat: profileForSeat,
     strength01: strength01,
     handCode: handCode,
-    mapRoleId: mapRoleId
+    mapRoleId: mapRoleId,
+    blindPressureFlags: blindPressureFlags,
+    rangeCtx: rangeCtx
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -3514,6 +3603,41 @@
     ));
   }
 
+  var CARD_CODE_RE = /^[2-9TJQKA][cdhs]$/;
+  var FULL_DECK_LOOKUP = null;
+
+  function fullDeckLookup() {
+    if (FULL_DECK_LOOKUP) return FULL_DECK_LOOKUP;
+    var R = '23456789TJQKA';
+    var S = 'cdhs';
+    var map = {};
+    for (var ri = 0; ri < R.length; ri++) {
+      for (var si = 0; si < S.length; si++) map[R[ri] + S[si]] = true;
+    }
+    FULL_DECK_LOOKUP = map;
+    return map;
+  }
+
+  function randomInt(maxExclusive) {
+    var C = global.Cards;
+    if (C && typeof C.secureRandomInt === 'function') {
+      try { return C.secureRandomInt(maxExclusive); } catch (e) { /* ignore */ }
+    }
+    return Math.floor(Math.random() * maxExclusive);
+  }
+
+  function isValidDeck(deck) {
+    if (!deck || deck.length !== 52) return false;
+    var seen = {};
+    var lookup = fullDeckLookup();
+    for (var i = 0; i < 52; i++) {
+      var c = cardCode(deck[i]);
+      if (!c || !CARD_CODE_RE.test(c) || !lookup[c] || seen[c]) return false;
+      seen[c] = true;
+    }
+    return true;
+  }
+
   function localDeck() {
     var R = '23456789TJQKA';
     var S = 'cdhs';
@@ -3522,7 +3646,7 @@
       for (var si = 0; si < S.length; si++) raw.push(R[ri] + S[si]);
     }
     for (var x = raw.length - 1; x > 0; x--) {
-      var y = Math.floor(Math.random() * (x + 1));
+      var y = randomInt(x + 1);
       var t = raw[x]; raw[x] = raw[y]; raw[y] = t;
     }
     return raw;
@@ -3530,40 +3654,70 @@
 
   /**
    * Baraja de 52 cartas distintas, barajada de nuevo en cada mano.
-   * Se re-siembra el RNG con semilla del entrenador para que dos manos de torneo
-   * no compartan secuencia (el entrenador siembra la suya en cada mano, así que
-   * esto no altera sus repartos reproducibles).
+   * Usa shuffleSecure (crypto por paso Fisher–Yates) sin tocar Cards.rng del entrenador.
    */
   function freshDeck() {
     var C = global.Cards;
-    if (C && C.rng && typeof C.rng.setSeed === 'function') {
-      try { C.rng.setSeed((Math.floor(Math.random() * 4294967295) >>> 0) || 1); } catch (e) { /* ignore */ }
-    }
     var deck = null;
-    if (C && typeof C.shuffledDeckExcluding === 'function') {
-      try { deck = C.shuffledDeckExcluding([]); } catch (e2) { deck = null; }
+    var attempt;
+    for (attempt = 0; attempt < 5; attempt++) {
+      if (C && typeof C.shuffleSecure === 'function' && typeof C.fullDeck === 'function') {
+        try { deck = C.shuffleSecure(C.fullDeck()); } catch (e) { deck = null; }
+      } else if (C && C.shuffle && C.fullDeck) {
+        try { deck = C.shuffle(C.fullDeck().slice()); } catch (e2) { deck = null; }
+      } else {
+        deck = localDeck();
+      }
+      if (isValidDeck(deck)) return deck;
+      deck = null;
     }
-    if ((!deck || deck.length !== 52) && C && C.shuffle && (C.fullDeck || C.freshDeck)) {
-      try {
-        var base = C.fullDeck ? C.fullDeck() : C.freshDeck();
-        deck = C.shuffle(base.slice ? base.slice() : base);
-      } catch (e3) { deck = null; }
-    }
-    if (!deck || deck.length !== 52) deck = localDeck();
+    deck = localDeck();
+    if (!isValidDeck(deck)) throw new Error('PTTournamentLiveHand: invalid deck after retries');
     return deck;
+  }
+
+  function dealtCardsUnique(holes, board) {
+    var seen = {};
+    var i;
+    var j;
+    var c;
+    for (i = 0; i < holes.length; i++) {
+      for (j = 0; j < (holes[i] || []).length; j++) {
+        c = cardCode(holes[i][j]);
+        if (!c || seen[c]) return false;
+        seen[c] = true;
+      }
+    }
+    for (i = 0; i < (board || []).length; i++) {
+      c = cardCode(board[i]);
+      if (!c || seen[c]) return false;
+      seen[c] = true;
+    }
+    return true;
   }
 
   /** Reparto real: dos rondas de una carta por asiento y luego el board. */
   function dealCards(n) {
-    var deck = freshDeck();
-    var holes = [];
-    var i;
-    for (i = 0; i < n; i++) holes.push([]);
-    var next = 0;
-    for (var round = 0; round < 2; round++) {
-      for (i = 0; i < n; i++) holes[i].push(deck[next++]);
+    var attempt;
+    for (attempt = 0; attempt < 5; attempt++) {
+      var deck = freshDeck();
+      var holes = [];
+      var i;
+      for (i = 0; i < n; i++) holes.push([]);
+      var next = 0;
+      for (var round = 0; round < 2; round++) {
+        for (i = 0; i < n; i++) holes[i].push(deck[next++]);
+      }
+      if (next + 5 > 52) continue;
+      var board = deck.slice(next, next + 5);
+      if (board.length !== 5) continue;
+      for (i = 0; i < n; i++) {
+        if (!holes[i][0] || !holes[i][1]) break;
+      }
+      if (i < n) continue;
+      if (dealtCardsUnique(holes, board)) return { holes: holes, board: board };
     }
-    return { holes: holes, board: deck.slice(next, next + 5) };
+    throw new Error('PTTournamentLiveHand: dealCards failed after retries');
   }
 
   /** Todas las cartas repartidas (manos + board): sirve para validar el mazo. */
@@ -4582,6 +4736,34 @@
       hand.mttStructureSituation = mttStructureSituation;
       hand.tournamentConfig = cfg;
       hand.aiLevel = cfg.aiLevel || 'elite';
+      /* Reloj de ciegas: villanos necesitan saber cuánto queda y el BB siguiente. */
+      var handIndex = Number(state.handIndex) || 0;
+      hand.handIndex = handIndex;
+      hand.blindLevel = state.blindLevel != null ? state.blindLevel : null;
+      var Blinds = global.PTTournamentBlinds;
+      var sched = cfg.blindSchedule;
+      if (Blinds && sched) {
+        try {
+          if (typeof Blinds.handsIntoLevel === 'function') {
+            hand.handsIntoLevel = Blinds.handsIntoLevel(sched, handIndex);
+          }
+          if (typeof Blinds.handsUntilNext === 'function') {
+            hand.handsUntilNextLevel = Blinds.handsUntilNext(sched, handIndex);
+          }
+          if (typeof Blinds.nextLevel === 'function') {
+            var nxt = Blinds.nextLevel(sched, handIndex);
+            if (nxt) {
+              hand.nextBB = Number(nxt.bb) || null;
+              hand.nextSB = Number(nxt.sb) || null;
+              hand.nextAnte = Number(nxt.ante) || 0;
+            }
+          }
+          if (typeof Blinds.currentLevel === 'function' && hand.blindLevel == null) {
+            var curLv = Blinds.currentLevel(sched, handIndex);
+            if (curLv) hand.blindLevel = curLv.level;
+          }
+        } catch (eBl) { /* */ }
+      }
       var heroStatsPayload = null;
       try {
         var stStats = state.stats || {};
@@ -4615,6 +4797,13 @@
         entries: hand.entries,
         buyIn: hand.buyIn,
         aiLevel: hand.aiLevel,
+        handIndex: hand.handIndex,
+        blindLevel: hand.blindLevel,
+        handsIntoLevel: hand.handsIntoLevel,
+        handsUntilNextLevel: hand.handsUntilNextLevel,
+        nextBB: hand.nextBB,
+        nextSB: hand.nextSB,
+        nextAnte: hand.nextAnte,
         heroStats: heroStatsPayload,
         heroSessionStats: heroStatsPayload
       };

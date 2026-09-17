@@ -48,6 +48,41 @@
     ));
   }
 
+  var CARD_CODE_RE = /^[2-9TJQKA][cdhs]$/;
+  var FULL_DECK_LOOKUP = null;
+
+  function fullDeckLookup() {
+    if (FULL_DECK_LOOKUP) return FULL_DECK_LOOKUP;
+    var R = '23456789TJQKA';
+    var S = 'cdhs';
+    var map = {};
+    for (var ri = 0; ri < R.length; ri++) {
+      for (var si = 0; si < S.length; si++) map[R[ri] + S[si]] = true;
+    }
+    FULL_DECK_LOOKUP = map;
+    return map;
+  }
+
+  function randomInt(maxExclusive) {
+    var C = global.Cards;
+    if (C && typeof C.secureRandomInt === 'function') {
+      try { return C.secureRandomInt(maxExclusive); } catch (e) { /* ignore */ }
+    }
+    return Math.floor(Math.random() * maxExclusive);
+  }
+
+  function isValidDeck(deck) {
+    if (!deck || deck.length !== 52) return false;
+    var seen = {};
+    var lookup = fullDeckLookup();
+    for (var i = 0; i < 52; i++) {
+      var c = cardCode(deck[i]);
+      if (!c || !CARD_CODE_RE.test(c) || !lookup[c] || seen[c]) return false;
+      seen[c] = true;
+    }
+    return true;
+  }
+
   function localDeck() {
     var R = '23456789TJQKA';
     var S = 'cdhs';
@@ -56,7 +91,7 @@
       for (var si = 0; si < S.length; si++) raw.push(R[ri] + S[si]);
     }
     for (var x = raw.length - 1; x > 0; x--) {
-      var y = Math.floor(Math.random() * (x + 1));
+      var y = randomInt(x + 1);
       var t = raw[x]; raw[x] = raw[y]; raw[y] = t;
     }
     return raw;
@@ -64,40 +99,70 @@
 
   /**
    * Baraja de 52 cartas distintas, barajada de nuevo en cada mano.
-   * Se re-siembra el RNG con semilla del entrenador para que dos manos de torneo
-   * no compartan secuencia (el entrenador siembra la suya en cada mano, así que
-   * esto no altera sus repartos reproducibles).
+   * Usa shuffleSecure (crypto por paso Fisher–Yates) sin tocar Cards.rng del entrenador.
    */
   function freshDeck() {
     var C = global.Cards;
-    if (C && C.rng && typeof C.rng.setSeed === 'function') {
-      try { C.rng.setSeed((Math.floor(Math.random() * 4294967295) >>> 0) || 1); } catch (e) { /* ignore */ }
-    }
     var deck = null;
-    if (C && typeof C.shuffledDeckExcluding === 'function') {
-      try { deck = C.shuffledDeckExcluding([]); } catch (e2) { deck = null; }
+    var attempt;
+    for (attempt = 0; attempt < 5; attempt++) {
+      if (C && typeof C.shuffleSecure === 'function' && typeof C.fullDeck === 'function') {
+        try { deck = C.shuffleSecure(C.fullDeck()); } catch (e) { deck = null; }
+      } else if (C && C.shuffle && C.fullDeck) {
+        try { deck = C.shuffle(C.fullDeck().slice()); } catch (e2) { deck = null; }
+      } else {
+        deck = localDeck();
+      }
+      if (isValidDeck(deck)) return deck;
+      deck = null;
     }
-    if ((!deck || deck.length !== 52) && C && C.shuffle && (C.fullDeck || C.freshDeck)) {
-      try {
-        var base = C.fullDeck ? C.fullDeck() : C.freshDeck();
-        deck = C.shuffle(base.slice ? base.slice() : base);
-      } catch (e3) { deck = null; }
-    }
-    if (!deck || deck.length !== 52) deck = localDeck();
+    deck = localDeck();
+    if (!isValidDeck(deck)) throw new Error('PTTournamentLiveHand: invalid deck after retries');
     return deck;
+  }
+
+  function dealtCardsUnique(holes, board) {
+    var seen = {};
+    var i;
+    var j;
+    var c;
+    for (i = 0; i < holes.length; i++) {
+      for (j = 0; j < (holes[i] || []).length; j++) {
+        c = cardCode(holes[i][j]);
+        if (!c || seen[c]) return false;
+        seen[c] = true;
+      }
+    }
+    for (i = 0; i < (board || []).length; i++) {
+      c = cardCode(board[i]);
+      if (!c || seen[c]) return false;
+      seen[c] = true;
+    }
+    return true;
   }
 
   /** Reparto real: dos rondas de una carta por asiento y luego el board. */
   function dealCards(n) {
-    var deck = freshDeck();
-    var holes = [];
-    var i;
-    for (i = 0; i < n; i++) holes.push([]);
-    var next = 0;
-    for (var round = 0; round < 2; round++) {
-      for (i = 0; i < n; i++) holes[i].push(deck[next++]);
+    var attempt;
+    for (attempt = 0; attempt < 5; attempt++) {
+      var deck = freshDeck();
+      var holes = [];
+      var i;
+      for (i = 0; i < n; i++) holes.push([]);
+      var next = 0;
+      for (var round = 0; round < 2; round++) {
+        for (i = 0; i < n; i++) holes[i].push(deck[next++]);
+      }
+      if (next + 5 > 52) continue;
+      var board = deck.slice(next, next + 5);
+      if (board.length !== 5) continue;
+      for (i = 0; i < n; i++) {
+        if (!holes[i][0] || !holes[i][1]) break;
+      }
+      if (i < n) continue;
+      if (dealtCardsUnique(holes, board)) return { holes: holes, board: board };
     }
-    return { holes: holes, board: deck.slice(next, next + 5) };
+    throw new Error('PTTournamentLiveHand: dealCards failed after retries');
   }
 
   /** Todas las cartas repartidas (manos + board): sirve para validar el mazo. */

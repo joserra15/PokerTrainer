@@ -61,6 +61,53 @@
     return arr;
   }
 
+  function cryptoSource() {
+    if (typeof global !== 'undefined' && global.crypto && global.crypto.getRandomValues) return global.crypto;
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) return window.crypto;
+    return null;
+  }
+
+  /** [0, 1) con crypto.getRandomValues; fallback Math.random. */
+  function secureRandom() {
+    const cryptoObj = cryptoSource();
+    if (cryptoObj) {
+      const buf = new Uint32Array(1);
+      cryptoObj.getRandomValues(buf);
+      return buf[0] / 4294967296;
+    }
+    return Math.random();
+  }
+
+  /** Entero uniforme en [0, maxExclusive) sin sesgo de módulo (rejection sampling). */
+  function secureRandomInt(maxExclusive) {
+    if (!(maxExclusive > 0)) return 0;
+    if (maxExclusive === 1) return 0;
+    const cryptoObj = cryptoSource();
+    const maxUint32 = 0x100000000;
+    const limit = maxUint32 - (maxUint32 % maxExclusive);
+    let x;
+    do {
+      if (cryptoObj) {
+        const buf = new Uint32Array(1);
+        cryptoObj.getRandomValues(buf);
+        x = buf[0];
+      } else {
+        x = Math.floor(Math.random() * maxUint32);
+      }
+    } while (x >= limit);
+    return x % maxExclusive;
+  }
+
+  /** Fisher–Yates con entropía criptográfica por paso (torneos / repartos no reproducibles). */
+  function shuffleSecure(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = secureRandomInt(i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   /** Crea una baraja barajada excluyendo las cartas dadas (códigos). */
   function shuffledDeckExcluding(excluded, rnd) {
     const ex = new Set(excluded || []);
@@ -259,8 +306,8 @@
 
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
-    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
-    suitClass, evaluate, compare, rng
+    makeCard, fullDeck, shuffle, shuffleSecure, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
+    suitClass, evaluate, compare, rng, secureRandom, secureRandomInt
   };
 
   global.PTCardStyle = {

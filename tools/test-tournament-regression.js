@@ -58,6 +58,17 @@ function createSandbox() {
       }
       return a;
     },
+    shuffleSecure: function (arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    },
+    secureRandomInt: function (max) {
+      return Math.floor(Math.random() * max);
+    },
     evaluate: function () {
       return { rank: 1000 + Math.floor(Math.random() * 6000) };
     },
