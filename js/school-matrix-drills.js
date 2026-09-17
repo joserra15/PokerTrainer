@@ -477,17 +477,31 @@
     return (spot && spot.heroPos) || q.position || '';
   }
 
+  function decisionKindLabel(quiz) {
+    var q = quiz || {};
+    if (q.facingBet === false) return 'Check / Bet';
+    var opts = q.options || [];
+    if (opts.length && opts.every(function (o) {
+      var id = String(o.id || '');
+      return id === 'check' || id === 'bet' || id.indexOf('bet_') === 0;
+    })) {
+      return 'Check / Bet';
+    }
+    return 'Fold / Call / Raise';
+  }
+
   function mountDecision(host, spot, ctx) {
     var quiz = spot.quiz || {};
+    var kindLabel = decisionKindLabel(quiz);
     var body =
       (quiz.line ? '<p class="school-ra-line"><strong>Línea:</strong> ' + esc(quiz.line) + '</p>' : '') +
       formatLineStoryHtml(quiz.lineStory) +
       formatBoardHtml(quiz.board || []) +
       formatHeroCardsHtml(quiz.heroCards, heroPosForSpot(spot, quiz));
     mountMcqDrill(host, spot, ctx, {
-      kindLabel: 'Fold / Call / Raise',
+      kindLabel: kindLabel,
       title: '¿Qué haces?',
-      defaultPrompt: '¿Fold, call o raise?',
+      defaultPrompt: kindLabel === 'Check / Bet' ? '¿Check o bet?' : '¿Fold, call o raise?',
       bodyHtml: body,
       mountShare: function (root) {
         if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountDecisionShare) return;
@@ -501,6 +515,8 @@
           heroPos: spot.heroPos || '',
           heroCards: (quiz.heroCards || []).slice(),
           villainPos: quiz.villainPos || 'BB',
+          facingBet: quiz.facingBet !== false,
+          kindLabel: kindLabel,
           options: (quiz.options || []).map(function (o) { return { id: o.id, label: o.label }; })
         });
       }
@@ -925,6 +941,7 @@
     mountDrill: mountDrill,
     mountRangeAdv: mountRangeAdv,
     mountDecision: mountDecision,
+    decisionKindLabel: decisionKindLabel,
     mountVillainType: mountVillainType,
     mountOdds: mountOdds,
     mountBlocker: mountBlocker,

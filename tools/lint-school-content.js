@@ -211,6 +211,37 @@ if (t05 && t06 && t05 === t06) {
   errors.push('T-05 and T-06 share identical spot packs (alias regression)');
 }
 
+// Decision quizzes: Check/Bet when not facing a bet; no premature check-check; correctId in options
+lessons.forEach(function (lesson) {
+  (lesson.spots || []).forEach(function (spot) {
+    if (spot.kind !== 'decisionQuiz') return;
+    var q = spot.quiz || {};
+    var sid = (lesson.id || '?') + '/' + (spot.id || '?');
+    var ids = (q.options || []).map(function (o) { return o.id; });
+    if (ids.indexOf(q.correctId) < 0) {
+      errors.push(sid + ' correctId «' + q.correctId + '» not in options');
+    }
+    if (q.facingBet === false) {
+      if (ids.indexOf('call') >= 0 || ids.indexOf('fold') >= 0) {
+        errors.push(sid + ' facingBet=false must use Check/Bet (no Fold/Call)');
+      }
+      if (ids.indexOf('check') < 0 || ids.indexOf('bet') < 0) {
+        errors.push(sid + ' facingBet=false missing check/bet options');
+      }
+    }
+    if (/check-check/.test(q.line || '')) {
+      errors.push(sid + ' summary line anticipates check-check before hero acts');
+    }
+    (q.lineStory || []).forEach(function (row) {
+      if (/preflop/i.test(row.street || '')) return;
+      var t = row.text || '';
+      if (/^(BTN|CO|HJ|UTG)\s+check\s*·\s*BB\s+(bet|check)/i.test(t)) {
+        errors.push(sid + ' ' + row.street + ' IP acts before OOP: ' + t);
+      }
+    });
+  });
+});
+
 // X-01 must not be a pure clone of D-01
 var x01 = D.getLesson('X-01');
 var d01 = D.getLesson('D-01');
