@@ -62,6 +62,53 @@
     return arr;
   }
 
+  function cryptoSource() {
+    if (typeof global !== 'undefined' && global.crypto && global.crypto.getRandomValues) return global.crypto;
+    if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) return window.crypto;
+    return null;
+  }
+
+  /** [0, 1) con crypto.getRandomValues; fallback Math.random. */
+  function secureRandom() {
+    const cryptoObj = cryptoSource();
+    if (cryptoObj) {
+      const buf = new Uint32Array(1);
+      cryptoObj.getRandomValues(buf);
+      return buf[0] / 4294967296;
+    }
+    return Math.random();
+  }
+
+  /** Entero uniforme en [0, maxExclusive) sin sesgo de módulo (rejection sampling). */
+  function secureRandomInt(maxExclusive) {
+    if (!(maxExclusive > 0)) return 0;
+    if (maxExclusive === 1) return 0;
+    const cryptoObj = cryptoSource();
+    const maxUint32 = 0x100000000;
+    const limit = maxUint32 - (maxUint32 % maxExclusive);
+    let x;
+    do {
+      if (cryptoObj) {
+        const buf = new Uint32Array(1);
+        cryptoObj.getRandomValues(buf);
+        x = buf[0];
+      } else {
+        x = Math.floor(Math.random() * maxUint32);
+      }
+    } while (x >= limit);
+    return x % maxExclusive;
+  }
+
+  /** Fisher–Yates con entropía criptográfica por paso (torneos / repartos no reproducibles). */
+  function shuffleSecure(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = secureRandomInt(i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   /** Crea una baraja barajada excluyendo las cartas dadas (códigos). */
   function shuffledDeckExcluding(excluded, rnd) {
     const ex = new Set(excluded || []);
@@ -260,8 +307,8 @@
 
   global.Cards = {
     RANKS, SUITS, RANK_VALUE, SUIT_SYMBOL, HAND_CATEGORIES,
-    makeCard, fullDeck, shuffle, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
-    suitClass, evaluate, compare, rng
+    makeCard, fullDeck, shuffle, shuffleSecure, shuffledDeckExcluding, cardToHTML, cardFaceHTML, cardBackHTML,
+    suitClass, evaluate, compare, rng, secureRandom, secureRandomInt
   };
 
   global.PTCardStyle = {
@@ -5253,12 +5300,19 @@ window.PT_NASH_PUSH_JSON = {
     return openers[openerPos] || openers.BTN || openers.SB || null;
   }
 
-  /** Ante/ICM: ensancha shove del short y aprieta calls del mid/cover. */
+  /** Ante/ICM/ciegas: ensancha shove del short y aprieta calls del mid/cover. */
   function pressureAdjust(freq, input, kind) {
     let f = Number(freq) || 0;
     const ante = Number(input && input.anteBB) || 0;
     const icm = !!(input && (input.icmEnabled || input.formatHub === 'spin' || input.formatHub === 'mtt'));
+    const rc = (input && input.rangeContext) || input || {};
+    const blindPress = !!(input && (input.blindPressure || input.blindPressureStrong))
+      || !!(rc.blindPressure || rc.blindPressureStrong);
+    const blindStrong = !!(input && input.blindPressureStrong) || !!rc.blindPressureStrong;
     if (kind === 'shove' && ante > 0) f = Math.min(1, f + Math.min(0.08, ante * 0.25));
+    if (kind === 'shove' && blindPress) {
+      f = Math.min(1, f + (blindStrong ? 0.10 : 0.06));
+    }
     if (kind === 'call' && icm) {
       // Bubble / FT: pagar un shove con la vida del torneo es mucho más caro en $EV.
       const phase = (input && (input.effectivePhase || input.resolvedPhase || input.mttPhase)) || '';

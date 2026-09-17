@@ -153,6 +153,7 @@ const STEPS = [
   ['Test manos legendarias (catálogo)', ['node', 'tools/test-legendary.js']],
   ['Test manos legendarias (resultado)', ['node', 'tools/test-legendary-result.js']],
   ['Test manos legendarias (playthrough)', ['node', 'tools/test-legendary-playthrough.js']],
+  ['Test torneos reparto aleatorio', ['node', 'tools/test-tournament-deal-randomness.js']],
   ['Test torneos IA (smoke)', ['node', 'tools/test-tournament.js']],
   ['Test torneos IA dificultad/ciegas/GTO mixes', ['node', 'tools/test-tournament-ai-difficulty.js']],
   ['Test torneos presión próxima ciega', ['node', 'tools/test-tournament-blind-pressure.js']],
