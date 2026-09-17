@@ -262,7 +262,7 @@
       spots: [
         flop('c19-01', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d', '3h', '5s'], 29001, {
           street: 'river',
-          teachBack: 'TPTK en river seco: value bet frecuente. Peores manos (Ax peor, Kx, pares bajos) aún pagan.'
+          teachBack: 'TPTK (top pair top kicker = pareja alta con el mejor kicker) en river seco: value bet frecuente. Peores manos (Ax peor, Kx, pares bajos) aún pagan.'
         }),
         flop('c19-02', 'BTN', ['Kh', 'Kd'], ['As', '7c', '2d', '3h', '5s'], 29002, {
           street: 'river',
@@ -327,7 +327,7 @@
         }),
         flop('c20-05', 'BTN', ['Ah', 'Kd'], ['As', '7c', '2d', '3h', '5s'], 30005, {
           street: 'river',
-          teachBack: 'TPTK: value bet de river. No undervaluees.'
+          teachBack: 'TPTK (top pair top kicker): value bet de river. No undervaluees.'
         }),
         flop('c20-06', 'BTN', ['Jd', '3h'], ['As', 'Kd', 'Qc'], 30006, {
           trapTag: 'dominated',

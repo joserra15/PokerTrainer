@@ -177,7 +177,7 @@
         answerCards: ['9s', '9d'],
         teachBack: '99 boat: turn 75%, river block 33%. A9s y JJ no usan block river tras turn pot.',
         options: [
-          { id: 'a', cards: ['As', '9c'], label: 'A9s', correct: false,
+          { id: 'a', cards: ['As', '9c'], label: 'A9o', correct: false,
             eliminated: 'Trips nueve: turn 66% value, river 66%+ — no block 33% tras haber apostado 75% turn.' },
           { id: 'b', cards: ['Jh', 'Jd'], label: 'JJ', correct: false,
             eliminated: 'Overpair: turn 66% o check — no encadena 75% turn + block 33% en board emparejado.' },
@@ -203,7 +203,7 @@
             eliminated: 'Overpair sin diamond: tras c-bet 33% casi siempre betea turn 55–66% — el check turn + 33% river es flush thin.' },
           { id: 'b', cards: ['Kc', 'Qh'], label: 'KQo', correct: false,
             eliminated: 'Sin diamante: river 33% es value de flush/middle pair mejorado — no KQ offsuit.' },
-          { id: 'c', cards: ['Ad', 'Qd'], label: 'AQo', correct: true }
+          { id: 'c', cards: ['Ad', 'Qd'], label: 'AQs', correct: true }
         ]
       }
     }),
@@ -245,7 +245,7 @@
         options: [
           { id: 'a', cards: ['Qc', 'Qd'], label: 'QQ', correct: false,
             eliminated: 'Overpair al 7: al menos turn o river va a 66% pot — triple 33% es bloqueo de full en paired.' },
-          { id: 'b', cards: ['Ah', '7s'], label: 'A7s', correct: false,
+          { id: 'b', cards: ['Ah', '7s'], label: 'A7o', correct: false,
             eliminated: 'Dos pares A7: cobraría turn 66%+ — no tres blocks 33% consecutivos.' },
           { id: 'c', cards: ['Kh', 'Ks'], label: 'KK', correct: true }
         ]
@@ -269,7 +269,7 @@
             eliminated: 'Sin A fuerte: flop 55% posible, pero turn 75% + overbet 125% pide top pair+ o farol — no KQ.' },
           { id: 'b', cards: ['6h', '6s'], label: '66', correct: false,
             eliminated: 'Underpair: no apuesta 75% turn two-tone ni overbet 125% river como value.' },
-          { id: 'c', cards: ['Ad', 'Td'], label: 'ATo', correct: true }
+          { id: 'c', cards: ['Ad', 'Td'], label: 'ATs', correct: true }
         ]
       }
     }),
@@ -333,9 +333,9 @@
         options: [
           { id: 'a', cards: ['8s', '8h'], label: '88', correct: false,
             eliminated: 'Set de ochos: river value 66%+ en 4-straight — no block 33% tras turn 66%.' },
-          { id: 'b', cards: ['Ah', '6s'], label: 'A6s', correct: false,
+          { id: 'b', cards: ['Ah', '6s'], label: 'A6o', correct: false,
             eliminated: 'Dos pares A6: turn 66% posible, pero river sería 66% por value — no block 33% de escalera.' },
-          { id: 'c', cards: ['9h', '7h'], label: '97o', correct: true }
+          { id: 'c', cards: ['9h', '7h'], label: '97s', correct: true }
         ]
       }
     }),

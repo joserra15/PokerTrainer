@@ -78,14 +78,14 @@ module.exports = {
       ],
       examples: [
         {
-          title: 'Iso clásico desde BTN',
+          title: 'Iso clásico desde BB',
           body:
-            'SB limpea, tú BTN con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones.'
+            'BTN fold, SB limpea, tú BB con AJs a ~20 bb: iso a ~3–4 bb. Quieres heads-up contra un rango de limp débil, con iniciativa y una mano que domina muchas de sus combinaciones. En Spin 3-max el BTN actúa primero: no existe «SB limpea, tú BTN».'
         },
         {
           title: 'Fold correcto vs limp',
           body:
-            'BTN con 72o vs limp SB: fold. No hay valor en aislar: no dominas nada, y si te pagan o entra alguien más el pot se complica sin equity.'
+            'BB con 72o vs limp SB: check (opción gratis). No hay valor en aislar: no dominas nada, y ya estás en el bote — overiso trash a stack corto duele entero el torneo.'
         },
         {
           title: 'KQs desde SB vs limp',

@@ -239,9 +239,9 @@ assert.strictEqual(lessons.length, 49, 'Cash M0+M1+M2+M3+Pro+Exploit = 49 leccio
 assert.strictEqual(Data.lessonsForRoute('spin').length, 23, 'Spins 23');
 assert.strictEqual(Data.lessonsForRoute('mtt').length, 28, 'MTT 28');
 assert.strictEqual(Data.lessonsForRoute('ranges').length, 35, 'Rangos 35');
-assert.strictEqual(Data.m0Lessons().length, 9, 'M0 9');
+assert.strictEqual(Data.m0Lessons().length, 8, 'M0 8');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
-assert.strictEqual(Data.m2Lessons().length, 14, 'M2 14');
+assert.strictEqual(Data.m2Lessons().length, 15, 'M2 15 (incl. Q-01 textura)');
 assert.strictEqual(Data.m3Lessons().length, 5, 'M3 5 (C-21…C-25)');
 ['C-21', 'C-22', 'C-23', 'C-24', 'C-25'].forEach(function (id) {
   var l = Data.getLesson(id);
@@ -250,9 +250,11 @@ assert.strictEqual(Data.m3Lessons().length, 5, 'M3 5 (C-21…C-25)');
 });
 assert.strictEqual(
   Data.m0Lessons().map(function (l) { return l.id; }).join(','),
-  'C-00,C-01,C-02,C-03,C-04,C-05,C-06,F-01,Q-01',
+  'C-00,C-01,C-02,C-03,C-04,C-05,C-06,F-01',
   'ids M0 en orden'
 );
+assert.strictEqual(Data.getLesson('Q-01').module, 'M2', 'Q-01 textura en M2 tras C-14');
+assert.ok(Data.getLesson('Q-01').order > Data.getLesson('C-14').order, 'Q-01 after C-14');
 ['spin', 'mtt', 'ranges'].forEach(function (rid) {
   const r = Data.ROUTES.find(function (x) { return x.id === rid; });
   assert.ok(r && r.status === 'active', rid + ' route active');
@@ -450,6 +452,10 @@ Data.m0Lessons().forEach(function (l) {
   assert.strictEqual(l.plan, 'free', l.id + ' plan free');
 });
 Data.m1Lessons().concat(Data.m2Lessons()).forEach(function (l) {
+  if (l.id === 'Q-01') {
+    assert.strictEqual(l.plan, 'free', 'Q-01 textura free en M2');
+    return;
+  }
   assert.strictEqual(l.plan, 'study', l.id + ' plan study');
 });
 /* M0 Spins y MTT enteros en plan Gratis */
@@ -1034,10 +1040,15 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   const hDef = openHand(s0201).hand;
   assert.ok(hDef.current.options.some(function (o) { return o.id === 'allin'; }), 'S-02 defensa ofrece 3-bet shove');
   assert.ok(['optima', 'aceptable'].indexOf(grade(s0201, 'allin')) >= 0, 'AJs vs steal: 3-bet shove óptimo');
-  const s0501 = spotById('S-05', 'sp-01');
-  const hPush = openHand(s0501).hand;
-  assert.ok(hPush.current.options.some(function (o) { return o.id === 'allin'; }), 'S-05 push ofrece shove');
-  assert.ok(!hPush.current.options.some(function (o) { return o.id === 'raise'; }), 'S-05 push sin min-raise');
+  const s0501 = spotById('S-05', 's05-01');
+  assert.ok(s0501, 'S-05 s05-01 existe');
+  const h3betShove = openHand(s0501).hand;
+  assert.ok(h3betShove.current.options.some(function (o) { return o.id === 'allin'; }), 'S-05 3-bet shove ofrece all-in');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0501, 'allin')) >= 0, 'JJ vs open: 3-bet shove óptimo');
+  const s0901 = spotById('S-09', 'sp-01');
+  const hPush = openHand(s0901).hand;
+  assert.ok(hPush.current.options.some(function (o) { return o.id === 'allin'; }), 'S-09 push ofrece shove');
+  assert.ok(!hPush.current.options.some(function (o) { return o.id === 'raise'; }), 'S-09 push sin min-raise');
 })();
 
 /* C-27: rivers (no ríos); mano completa; evalúa check-call vs check-raise. */
@@ -1315,7 +1326,7 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
 
 /* Desbloquear hasta C-07 y comprobar muro Study en free */
 (function () {
-  ['C-00', 'C-01', 'C-02', 'C-03', 'C-04', 'C-05', 'C-06', 'F-01', 'Q-01'].forEach(function (id) {
+  ['C-00', 'C-01', 'C-02', 'C-03', 'C-04', 'C-05', 'C-06', 'F-01'].forEach(function (id) {
     sandbox.Store._st.school.lessons[id] = {
       passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
     };

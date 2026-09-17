@@ -40,12 +40,17 @@
       iso('s04-03', 'SB', 'BTN', ['Kd', 'Qs'], 40403, { teachBack: 'KQo SB vs limp BTN: iso value.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
       bb('s04-04', ['Jh', '8d'], 40404, { trapTag: 'fancy_play', teachBack: 'J8o: check frecuente.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) })
     ];
-    if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH' || kind === 'SPIN_EXAM_M1') return [
+    if (kind === 'SPIN_SHOVE' || kind === 'SPIN_PUSH') return [
       rfi('sp-01', 'BTN', ['As', 'Ts'], 40501, { teachBack: 'ATs corto: shove/open shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
       rfi('sp-02', 'BTN', ['Kd', '6s'], 40502, { trapTag: 'dominated', teachBack: 'K6o: fold. No panic shove.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12' }) }),
       rfi('sp-03', 'SB', ['Kh', 'Js'], 40503, { teachBack: 'KJo SB corto: shove frecuente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
       rfi('sp-04', 'BTN', ['Jh', 'Jc'], 40504, { teachBack: 'JJ: shove value claro a 10–12 bb.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
     ];
+    if (kind === 'SPIN_3BET_SHOVE') return [
+      vs('s05-01', 'BB_vs_BTN', ['Jh', 'Jd'], 41501, { teachBack: 'JJ vs open: 3-bet shove value.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) }),
+      vs('s05-02', 'BB_vs_BTN', ['Td', '6c'], 41502, { trapTag: 'dominated', teachBack: 'T6o: fold. No flat.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) })
+    ];
+    if (kind === 'SPIN_EXAM_M1') return packSpots('SPIN_ISO', D).slice(0, 2).concat(packSpots('SPIN_PUSH', D).slice(0, 2));
     if (kind === 'MTT_EARLY') return [
       rfi('t01-01', 'BTN', ['Ah', 'Td'], 50101, { teachBack: 'ATo BTN early: open cash-like.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
       rfi('t01-02', 'UTG', ['9s', '6c'], 50102, { trapTag: 'dominated', teachBack: '96o UTG early: fold. Paciencia.', playConfig: mttCfg({ mttPhase: 'early', stackDepth: 'bb40' }) }),
@@ -63,11 +68,15 @@
       rfi('t04-05', 'CO', ['Jd', '8c'], 50405, { trapTag: 'fancy_play', teachBack: 'J8o CO: fold típico.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
       rfi('t04-06', 'BTN', ['7h', '6h'], 50406, { teachBack: '76s BTN: steal con jugabilidad.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) })
     ];
-    if (kind === 'MTT_3BET' || kind === 'MTT_RESTEAL') return [
+    if (kind === 'MTT_3BET') return [
       vs('t05-01', 'BB_vs_BTN', ['Jh', 'Jd'], 50501, { teachBack: 'JJ: 3-bet value vs steal.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
       vs('t05-02', 'BB_vs_BTN', ['Ad', '4d'], 50502, { teachBack: 'A4s: 3-bet polar/farol frecuente.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
       vs('t05-03', 'BB_vs_CO', ['Th', '7c'], 50503, { trapTag: 'dominated', teachBack: 'T7o: fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
       vs('t05-04', 'BB_vs_BTN', ['Qh', '9c'], 50504, { trapTag: 'fancy_play', teachBack: 'Q9o: no 3-bet spew. Fold.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
+    ];
+    if (kind === 'MTT_RESTEAL') return [
+      vs('t06-01', 'SB_vs_BTN', ['Ah', '5h'], 50601, { teachBack: 'A5s SB: resteal polar.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) }),
+      vs('t06-02', 'BTN_vs_CO', ['Kd', 'Kh'], 50602, { teachBack: 'KK BTN vs CO: 3-bet value.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb25' }) })
     ];
     if (kind === 'MTT_EXAM_M1') return packSpots('MTT_STEAL', D).slice(0, 2).concat(packSpots('MTT_3BET', D).slice(0, 2));
     if (kind === 'MTT_SHORT' || kind === 'MTT_PUSH') return [
@@ -202,7 +211,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Dado un flop, estima qué porcentaje del rango rival conectó pareja, proyecto o aire: la textura decide la ventaja de rango y, con ella, tu plan de c-bet.",
+      "concept": "Práctica de c-bet según textura: estima qué % del rango rival conectó el flop y elige bet o check. La textura (seco / wet / monotone) decide la ventaja de rango y, con ella, tu plan de continuación.",
       "theory": [
         {
           "title": "Conectar un board",
@@ -213,8 +222,8 @@
           "body": "La textura (seco, wet, monotone) cambia quién “encaja” mejor. Range advantage (ventaja de rango) significa que tu distribución de manos fuertes supera a la del rival en ese board. En A-high seco el agresor RFI suele tener ventaja; en bajos conectados el caller recupera mucho."
         },
         {
-          "title": "Enlace con el c-bet",
-          "body": "Si tu rango conecta más (o el rival falla más), el c-bet (apuesta de continuación tras haber subido preflop) tiene más sentido, a menudo a sizing pequeño. Si el board favorece al que solo hizo call, reduces frecuencia y cedes más. Enlace directo con Cash M2 (C-14…C-16)."
+          "title": "De la estimación al c-bet",
+          "body": "Los drills de esta lección son c-bet / check en flops concretos: si tu rango conecta más (o el rival falla más), c-bet frecuente a sizing pequeño; si el board favorece al caller, reduces frecuencia. Enlace directo con Cash M2 (C-14…C-16)."
         }
       ],
       "examples": [
@@ -239,7 +248,7 @@
       "spots": [],
       "exam": false,
       "id": "R-03",
-      "title": "Qué % del rango conecta un board",
+      "title": "C-bet según textura · % del rango que conecta",
       "matrixPreview": { "position": "BTN" }
     },
     {

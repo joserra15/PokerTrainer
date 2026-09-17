@@ -306,9 +306,9 @@
     oddsSpot('o01-05', 85005, 60, 90, 'Par + flush draw · 12 outs', ['Ah', '5h'], ['Kh', '7h', '2c', '9d'], 'depends',
       'Pot 60 + bet 90 → necesitas 37,5 %. Combo draw puede acercarse, pero bet grande pide implied odds reales.',
       { requiredPct: 38, equityPct: 40 }),
-    oddsSpot('o01-06', 85006, 200, 50, 'Two overcards · 6 outs', ['Ah', 'Kd'], ['Qs', '8c', '3h', '2d'], 'no',
-      'Pot 200 + bet 50 → necesitas 20 %. 6 outs ≈ 24 % pero sin par hecho. Fold vs bet grande en turn.',
-      { requiredPct: 20, equityPct: 24 }),
+    oddsSpot('o01-06', 85006, 200, 50, 'Two overcards · 6 outs', ['Ah', 'Kd'], ['Qs', '8c', '3h', '2d'], 'yes',
+      'Pot 200 + bet 50 → call 50 para ganar 250. Necesitas ~17 %. 6 outs ≈ 24 % en turn. Call correcto por precio (bet pequeño, no grande).',
+      { requiredPct: 17, equityPct: 24 }),
     oddsSpot('o01-07', 85007, 90, 30, 'Flush draw · 9 outs', ['Th', '9h'], ['Kh', 'Qh', '2c', '4d'], 'yes',
       'Pot 90 + bet 30 → call 30 para ganar 120. Necesitas 20 %. Flush draw claro → call.',
       { requiredPct: 20, equityPct: 35 }),
@@ -325,8 +325,8 @@
       'Pot 110 + bet 55 → necesitas 25 %. Nut flush draw + gutshot/overs supera el precio → call.',
       { requiredPct: 25, equityPct: 45 }),
     oddsSpot('o01-12', 85012, 100, 25, 'Gutshot + overcard · 7 outs', ['Ah', 'Td'], ['Ks', 'Qc', 'Jh', '2d'], 'depends',
-      'Pot 100 + bet 25 → necesitas 20 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
-      { requiredPct: 20, equityPct: 28 })
+      'Pot 100 + bet 25 → call 25 para ganar 125. Necesitas ~17 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
+      { requiredPct: 17, equityPct: 28 })
   ];
 
   /*
