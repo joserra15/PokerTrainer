@@ -1318,6 +1318,8 @@ console.log('OK dist-tournaments-bundle');
   /* Móvil: styles.css pone .seats { pointer-events:none }; torneo debe reactivar asientos. */
   assert.ok(/\.trn-play-like\s+\.seats\s+\.seat\s*\{[^}]*pointer-events:\s*auto/s.test(cssSrc),
     'css re-enables pointer-events on tournament seats');
+  assert.ok(cssSrc.includes('.table-felt:not(.table-9max) .seat-cards .card'),
+    'tournament villain cards enlarged except 9-max');
   assert.ok(uiSrc.includes('data-player') && uiSrc.includes('roleModalPlayerId'),
     'clicking villain opens role modal');
   const coreChunk = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
@@ -2852,7 +2854,8 @@ console.log('OK pushfold-freq-100');
   assert.strictEqual(Cfg.requiredPlanForPreset('huMedium'), 'pro');
   assert.strictEqual(Cfg.requiredPlanForPreset('huHard'), 'pro');
   assert.strictEqual(Cfg.requiredPlanForPreset('huPro'), 'premium');
-  assert.strictEqual(Cfg.handsPerLevelForSeats(2), 6, 'HU 6 hands/level');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(2), 12, 'HU 12 hands/level');
+  assert.strictEqual(Cfg.fromPreset('huEasy').blindSchedule[0].hands, 12, 'huEasy level1 = 12');
   const huState = g.PTTournamentRunner.create('huEasy', { seed: 42, heroName: 'Tester' });
   assert.strictEqual(huState.players.length, 2, 'HU 2 players');
   const hand = g.PTTournamentRunner.beginHand(huState);
