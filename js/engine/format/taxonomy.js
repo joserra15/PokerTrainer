@@ -490,6 +490,8 @@
   /**
    * Heads-up winner-take-all: chip EV ≈ $EV (un solo pago).
    * No aplicar ICM/bubble overfold en este spot.
+   * Requiere kind/fase/situación hu, o placesPaid explícito ≤1 con 2 left/seated.
+   * (placesPaid null/undefined no cuenta: Number(null)===0 falseaba MTT 2-seat smoke.)
    */
   function isHeadsUpWta(config) {
     if (!config) return false;
@@ -497,8 +499,9 @@
     const phase = config.mttPhase || config.resolvedPhase || config.effectivePhase || null;
     if (phase === 'hu') return true;
     if (config.mttStructureSituation === 'hu') return true;
+    if (config.placesPaid == null || config.placesPaid === '') return false;
     const paid = Number(config.placesPaid);
-    if (!(paid <= 1)) return false;
+    if (!isFinite(paid) || !(paid <= 1)) return false;
     const seated = Number(
       config.playersSeated != null ? config.playersSeated
         : (config.tableMax != null ? config.tableMax : config.seatsPerTable)
