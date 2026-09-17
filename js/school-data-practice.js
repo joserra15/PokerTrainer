@@ -118,9 +118,9 @@
   PACKS['S-10'] = [
     V('s10-01', 'BB_vs_BTN', ['As', 'Kd'], 72001, 'AKo vs shove/steal corto: call (o 3-bet shove). Incluso con ICM, premiums claros se pagan.', vsPush),
     V('s10-02', 'BB_vs_BTN', ['Jc', '8d'], 72002, 'J8o vs shove: fold. Chip EV negativo e ICM peor. Overfold vs shove es el default sano en Spins.', vsPush, 'dominated'),
-    V('s10-03', 'BB_vs_SB', ['Ad', 'Kd'], 72003, 'AKs vs shove SB: call. Par fuerte — chip EV y $EV suelen coincidir.', vsPush),
+    V('s10-03', 'BB_vs_SB', ['Ad', 'Kd'], 72003, 'AKs vs shove SB: call. Premium — chip EV y $EV suelen coincidir.', vsPush),
     V('s10-04', 'BB_vs_BTN', ['Jh', '7d'], 72004, 'J7o vs shove BTN: fold. Equity insuficiente; el ICM pide aún más tightness.', vsPush, 'fancy_play'),
-    V('s10-05', 'BB_vs_BTN', ['Tc', '4d'], 72005, 'T4o vs shove: call. Nuts. ICM no convierte AA en fold.', vsPush),
+    V('s10-05', 'BB_vs_BTN', ['As', 'Ah'], 72005, 'AA vs shove: call. Nuts. ICM no convierte AA en fold.', vsPush),
     V('s10-06', 'BB_vs_SB', ['Jd', '8c'], 72006, 'J8o vs shove: fold. Dominada y OOP. Overfold, no hero-call.', vsPush, 'dominated'),
     V('s10-07', 'BB_vs_BTN', ['Ah', 'Kd'], 72007, 'AKo vs shove: call. Premium — el ICM no te pide tirar reyes.', vsPush),
     V('s10-08', 'BB_vs_BTN', ['Qh', '9c'], 72008, 'Q9o vs shove BTN: fold frecuente. Flip feo + riesgo de bust = −EV $ típico.', vsPush, 'fancy_play'),
@@ -195,14 +195,14 @@
   PACKS['S-15'] = [
     R('s15-01', 'BTN', ['As', 'Ts'], 72501, 'ATs shove 10–12 bb: mide tu rango (Ax suited, pares, broadway) vs el call del BB, no vs “tiene QQ”.', pf12),
     R('s15-02', 'BTN', ['Jh', '7s'], 72502, 'J7o no está en el rango de shove. Range vs range empieza por no meter basura en tu banda.', pf12, 'dominated'),
-    V('s15-03', 'BB_vs_BTN', ['Qs', 'Qh'], 72503, 'QQ vs rango de shove BTN corto: call. AK gana vs un shove wide, no vs una mano concreta.', vsPush),
+    V('s15-03', 'BB_vs_BTN', ['Qs', 'Qh'], 72503, 'QQ vs rango de shove BTN corto: call. Tu par gana vs un shove wide, no vs una mano concreta.', vsPush),
     V('s15-04', 'BB_vs_BTN', ['Qc', '7h'], 72504, 'Q7o vs ese mismo rango: fold. Contra la banda, no contra “creo que tiene 87s”.', vsPush, 'fancy_play'),
     R('s15-05', 'SB', ['Kh', 'Js'], 72505, 'KJo SB: shove frecuente — entra en la banda SB corta.', pf10),
     V('s15-06', 'BB_vs_SB', ['Qh', '9c'], 72506, 'Q9o vs shove SB: fold. El rango de shove SB es más tight que BTN; Q9o queda fuera.', vsPush, 'fancy_play'),
     R('s15-07', 'BTN', ['8s', '8c'], 72507, '88: shove value. Par medio es banda de valor, no “una mano bonita”.', pf10),
     V('s15-08', 'BB_vs_BTN', ['Td', '6h'], 72508, 'T6o: fold. Fuera de cualquier banda de call.', vsPush, 'dominated'),
     R('s15-09', 'BTN', ['As', '6s'], 72509, 'A6s: shove frecuente. Ax suited = banda de presión + blocker de as.', pf10),
-    V('s15-10', 'BB_vs_BTN', ['As', 'Kd'], 72510, 'AKo vs shove BTN: call. Tu par contra un rango, no contra AK imaginario.', vsPush),
+    V('s15-10', 'BB_vs_BTN', ['As', 'Kd'], 72510, 'AKo vs shove BTN: call. Equity alta vs el rango de shove, no vs “él tiene QQ”.', vsPush),
     R('s15-11', 'SB', ['Ad', '9c'], 72511, 'A9o SB corto: shove frecuente. Entra en muchos charts SB.', pf10),
     V('s15-12', 'BB_vs_SB', ['Jh', '8d'], 72512, 'J8o vs shove: fold. No asignes “él tiene air” para justificar el call.', vsPush, 'fancy_play')
   ];
@@ -268,7 +268,7 @@
   PACKS['T-10'] = [
     V('t10-01', 'BB_vs_BTN', ['Qs', 'Qh'], 74001, 'QQ/QQ vs shove corto: call chip EV. Equity vs rango wide — base antes del ICM fino.', vsPushM),
     V('t10-02', 'BB_vs_BTN', ['9h', '7d'], 74002, '97o vs shove: fold. Ni chip EV. “Ver” no es argumento.', vsPushM, 'dominated'),
-    V('t10-03', 'BB_vs_SB', ['As', 'Kd'], 74003, 'AKo vs shove: call. Par fuerte — chip EV claro.', vsPushM),
+    V('t10-03', 'BB_vs_SB', ['As', 'Kd'], 74003, 'AKo vs shove: call. Mano premium — chip EV claro.', vsPushM),
     V('t10-04', 'BB_vs_BTN', ['Td', '6s'], 74004, 'T6o vs shove: fold. Equity insuficiente vs el rango.', vsPushM, 'fancy_play'),
     V('t10-05', 'BB_vs_BTN', ['Jh', 'Jd'], 74005, 'JJ: call. Chip EV máximo. Equity y precio justifican el call.', vsPushM),
     V('t10-06', 'BB_vs_SB', ['Jd', '8c'], 74006, 'J8o: fold. Dominada.', vsPushM, 'dominated'),
@@ -653,10 +653,10 @@
           answerCards: ['Ac', 'Qc'],
           teachBack: 'AQo: open + triple barrel value en A-high. TT suele pot-controlar turn; QJs sin as abandona la presión antes del river.',
           options: [
-            { id: 'a', cards: ['Ac', 'Qc'], label: 'AQo', correct: true },
+            { id: 'a', cards: ['Ac', 'Qc'], label: 'AQs', correct: true },
             { id: 'b', cards: ['Ts', 'Th'], label: 'TT', correct: false,
               eliminated: 'Abre BTN y puede c-bet flop, pero en A-high seco suele pot-controlar turn: no triple-barrela por valor. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' },
-            { id: 'c', cards: ['Qh', 'Js'], label: 'QJs', correct: false,
+            { id: 'c', cards: ['Qh', 'Js'], label: 'QJo', correct: false,
               eliminated: 'Open OK y c-bet posible, pero sin as ni pareja fuerte: en turn 9h suele dejar de meter presión. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' }
           ]
         }
@@ -744,7 +744,7 @@
             { id: 'a', cards: ['Ac', 'Ah'], label: 'AA', correct: false,
               eliminated: 'Premium: en Q-high casi siempre c-betea flop. El check-check la saca del rango. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' },
             { id: 'b', cards: ['Qs', 'Td'], label: 'QTo', correct: true },
-            { id: 'c', cards: ['Jh', 'Ts'], label: 'JTs', correct: false,
+            { id: 'c', cards: ['Jh', 'Ts'], label: 'JTo', correct: false,
               eliminated: 'Open OK; con Jx a menudo betea flop o checkea river — delayed double barrel no es su historia limpia. Tras check turn, el sizing river debe ser coherente con thin value o farol, no triple barrel de overpair.' }
           ]
         }
@@ -767,7 +767,7 @@
               eliminated: 'Defiende y puede call flop, pero con overpair suele raisear flop/turn: float pasivo + bet grande river es raro. El overbet river (125% pot) pide polarización: nuts o farol, no value medio.' },
             { id: 'b', cards: ['Qs', 'Js'], label: 'QJs', correct: false,
               eliminated: 'Call BB OK; float flop posible, pero en AsKh7 sin draw fuerte no mete bet grande de river. El overbet river (125% pot) pide polarización: nuts o farol, no value medio.' },
-            { id: 'c', cards: ['Ah', '7s'], label: 'A7s', correct: true }
+            { id: 'c', cards: ['Ah', '7s'], label: 'A7o', correct: true }
           ]
         }
       }),
@@ -832,7 +832,7 @@
             { id: 'a', cards: ['Kh', 'Qd'], label: 'KQo', correct: false,
               eliminated: 'Defiende BB, pero sin 9/8/draw en 982: check-call, no donk flop por value. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' },
             { id: 'b', cards: ['9h', '9d'], label: '99', correct: true },
-            { id: 'c', cards: ['Ac', 'Ts'], label: 'ATs', correct: false,
+            { id: 'c', cards: ['Ac', 'Ts'], label: 'ATo', correct: false,
               eliminated: 'Call BB estándar; en 982 sin pareja suele checkear flop, no donkear y meter tres calles. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' }
           ]
         }
@@ -876,7 +876,7 @@
             { id: 'a', cards: ['Ah', 'Ac'], label: 'AA', correct: true },
             { id: 'b', cards: ['5s', '5c'], label: '55', correct: false,
               eliminated: 'Open + c-bet flop posible, pero underpair: pot-control turn — no triple barrel value.' },
-            { id: 'c', cards: ['Kh', 'Qh'], label: 'KQo', correct: false,
+            { id: 'c', cards: ['Kh', 'Qh'], label: 'KQs', correct: false,
               eliminated: 'Open late y c-bet aire OK, pero barrel turn T y seguir river es farol largo: suele checkear turn. El bet river 66% pot pide value claro; este rango suele checkear o usar sizing menor.' }
           ]
         }

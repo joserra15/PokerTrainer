@@ -176,9 +176,12 @@
   function flopSpot(id, heroPos, heroCards, board, seed, meta) {
     meta = meta || {};
     var street = meta.street || 'flop';
+    // Aggressor on flop is rarely BB vs BB: when hero is BB without explicit
+    // villainPos, default to BTN (typical 3-bet pot / SB limp raise line).
+    var defaultVillain = meta.facingBet ? 'BTN' : (heroPos === 'BB' ? 'BTN' : 'BB');
     var spot = rfiSpot(id, heroPos, heroCards, seed, {
       board: board,
-      villainPos: meta.villainPos || (meta.facingBet ? 'BTN' : 'BB'),
+      villainPos: meta.villainPos || defaultVillain,
       villainCards: meta.villainCards || null,
       trapTag: meta.trapTag,
       teachBack: meta.teachBack,
@@ -338,7 +341,7 @@
         }),
         rfiSpot('c02-02', 'UTG', ['Qd', 'Tc'], 12002, {
           trapTag: 'dominated',
-          teachBack: 'QTo es la mano más débil del mazo. Fold desde cualquier silla cuando nadie ha entrado.'
+          teachBack: 'QTo desde UTG: fold típico — dominada por QJ+/AT+ y sin jugabilidad early. En BTN suele ser open; aquí la silla manda.'
         }),
         rfiSpot('c02-03', 'HJ', ['Ts', 'Tc'], 12003, {
           teachBack: 'TT se abre desde casi todas partes. Open.'

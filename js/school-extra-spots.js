@@ -44,7 +44,7 @@
     'C-11': [
       iso('c11-07', 'BTN', 'CO', ['Ah', 'Qd'], 21007, { teachBack: 'AQo vs limp: iso value. Premium — aísla y cobra.' }),
       iso('c11-08', 'CO', 'HJ', ['Qc', '2h'], 21008, { trapTag: 'dominated', teachBack: 'Q2o vs limp: fold. No overiso basura.' }),
-      iso('c11-09', 'BTN', 'SB', ['Jh', 'Ts'], 21009, { teachBack: 'JTo vs limp: iso razonable. Conectores altos suited con iniciativa.' }),
+      iso('c11-09', 'BTN', 'SB', ['Jh', 'Ts'], 21009, { teachBack: 'JTo vs limp: iso razonable. Conectores altos offsuit con iniciativa.' }),
       iso('c11-10', 'SB', 'BTN', ['Qd', '9c'], 21010, { trapTag: 'fancy_play', teachBack: 'Q9o vs limp OOP: fold frecuente. No aísles frágiles offsuit.' }),
       iso('c11-11', 'BTN', 'CO', ['9s', '9c'], 21011, { teachBack: '99 vs limp: iso claro. Par medio — heads-up con ventaja.' }),
       iso('c11-12', 'CO', 'UTG', ['Ad', '7d'], 21012, { teachBack: 'A7s vs limp: iso OK. Ax suited castiga limps wide.' })
@@ -54,13 +54,13 @@
       bb('c12-08', ['5d', '3c'], 22008, { trapTag: 'dominated', teachBack: '53o: check. No raise spew vs limp SB.' }),
       bb('c12-09', ['9s', '8s'], 22009, { teachBack: '98s vs SB limp: raise o check mixto; conectores suited juegan bien.' }),
       bb('c12-10', ['Qc', 'Th'], 22010, { trapTag: 'fancy_play', teachBack: 'QTo: no raise automático. Check frecuente — mano frágil.' }),
-      bb('c12-11', ['Ac', 'Qc'], 22011, { teachBack: 'AQs: raise value vs limp SB. Par fuerte — aísla.' }),
+      bb('c12-11', ['Ac', 'Qc'], 22011, { teachBack: 'AQs: raise value vs limp SB. Broadway suited fuerte — aísla.' }),
       bb('c12-12', ['Ah', '4h'], 22012, { teachBack: 'A4s: raise frecuente. Ax suited castiga limps de SB.' })
     ],
     'C-13': [
       vs('c13-11', 'BB_vs_BTN', ['As', 'Ts'], 23011, { teachBack: 'ATs vs BTN: 3-bet o call. Examen M1 — aplica defensa late.' }),
       vs('c13-12', 'BB_vs_UTG', ['Kd', 'Jd'], 23012, { teachBack: 'KJs vs UTG: mix 3-bet/call del chart (no fold puro). Early pide disciplina, no tirar broadway suited.' }),
-      f3('c13-13', 'BTN_vs_BB', ['Ks', '7d'], 23013, { teachBack: 'K7o vs 3-bet: 4-bet o call value. Examen — no hero-fold premium.' }),
+      f3('c13-13', 'BTN_vs_BB', ['Ks', '7d'], 23013, { trapTag: 'dominated', teachBack: 'K7o vs 3-bet: fold. Dominada y sin equity real — no es premium; el examen castiga hero-call/4-bet spew.' }),
       iso('c13-14', 'BTN', 'SB', ['Qs', 'Js'], 23014, { teachBack: 'QJs vs limp: iso. Examen M1 — aísla manos fuertes.' })
     ],
     'C-14': [

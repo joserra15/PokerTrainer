@@ -172,7 +172,7 @@
     rfiSpot('f01-03', 88003, 'CO', ['Jh', 'Ts'], 'open', 'JTs CO: open. Broadway suited conectado en late-middle es estándar.'),
     rfiSpot('f01-04', 88004, 'BTN', ['7c', '2d'], 'fold', '72o BTN: fold. El botón abre wide, no cualquier basura offsuit.'),
     rfiSpot('f01-05', 88005, 'BTN', ['6s', '5s'], 'open', '65s BTN: open. Suited connector bajo en late es parte del rango wide.'),
-    rfiSpot('f01-06', 88006, 'HJ', ['Kh', 'Jo'], 'mix', 'KJo HJ: mix/marginal. Muchos charts mezclan open/fold; no es slam dunk.'),
+    rfiSpot('f01-06', 88006, 'HJ', ['Kh', 'Jd'], 'mix', 'KJo HJ: mix/marginal. Muchos charts mezclan open/fold; no es slam dunk.'),
     rfiSpot('f01-07', 88007, 'CO', ['Td', '9d'], 'open', 'T9s CO: open. SC (suited connector) clásico desde cutoff.'),
     rfiSpot('f01-08', 88008, 'UTG', ['Qc', 'Qd'], 'open', 'QQ UTG: open por valor. Par premium siempre sube first in.'),
     rfiSpot('f01-09', 88009, 'SB', ['Kh', '8d'], 'fold', 'K8o SB: fold vs BB detrás. SB no es BTN: OOP si te pagan.'),
@@ -264,7 +264,7 @@
     nashSpot('n01-06', 92006, 'BTN', ['7s', '6s'], 10, 'shove', '76s 10 bb BTN: shove. SC suited entra en rango push late short.'),
     nashSpot('n01-07', 92007, 'BB', ['Ah', '5h'], 8, 'shove', 'A5s 8 bb BB vs open: reshove/fold spot — shove por blockers + equity.'),
     nashSpot('n01-08', 92008, 'BTN', ['Jh', '9h'], 12, 'shove', 'J9s 12 bb: shove marginal pero dentro del rango wide BTN short.'),
-    nashSpot('n01-09', 92009, 'SB', ['Qd', 'Jo'], 10, 'fold', 'QJo SB 10 bb: fold vs BB. Dominado por AQ/KQ y mejor shove con manos más puras.'),
+    nashSpot('n01-09', 92009, 'SB', ['Qd', 'Jh'], 10, 'fold', 'QJo SB 10 bb: fold vs BB. Dominado por AQ/KQ y mejor shove con manos más puras.'),
     nashSpot('n01-10', 92010, 'BTN', ['5h', '5c'], 8, 'shove', '55 8 bb BTN: shove. Par bajo pero suficiente equity + FE short.')
   ];
 
@@ -332,7 +332,7 @@
       { id: 'b', label: 'Caller (BTN)' },
       { id: 'c', label: 'Empate' }
     ], 'a', 'QJT monotone: 3-bettor tiene más Ax suited del palo → nut flush advantage.'),
-    nutAdvSpot('r34-03', 94003, 'UTG open → BB call', ['Ks', 'Qs', 'Js'], [
+    nutAdvSpot('r34-03', 94003, 'UTG open → BB call', ['Kh', 'Qd', 'Js'], [
       { id: 'a', label: 'Opener' },
       { id: 'b', label: 'Caller' },
       { id: 'c', label: 'Empate' }
