@@ -54,6 +54,7 @@ const STEPS = [
   ['Test all-in runout', ['node', 'tools/test-allin-runout.js']],
   ['Test MTT Heads Up entrenador', ['node', 'tools/test-mtt-heads-up-trainer.js']],
   ['Test villain HU fase/taxonomy', ['node', 'tools/test-villain-hu.js']],
+  ['Test HU chip-EV WTA eval/charts/stats', ['node', 'tools/test-hu-chip-ev-eval.js']],
   ['Test HU Pro sin call-down sticky', ['node', 'tools/test-hu-pro-calldown-leaks.js']],
   ['Test HU Pro sin spew Q2o/XR aire', ['node', 'tools/test-hu-pro-preflop-leaks.js']],
   ['Test river nut flush', ['node', 'tools/test-river-board-ace-nut-flush.js']],
