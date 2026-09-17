@@ -701,9 +701,8 @@ const trainer = PTHandAnalysis.toTrainerConfig(built, 'pro', 'emerald');
 assert(trainer.playConfig && trainer.playConfig.formatHub === 'mtt',
   'toTrainerConfig formatHub mtt (no cash): ' + (trainer.playConfig && trainer.playConfig.formatHub));
 assert(trainer.playConfig.tournamentType === 'pko', 'toTrainerConfig tournamentType pko');
-assert(trainer.playConfig.mttPhase === 'short' || trainer.playConfig.resolvedPhase === 'short'
-  || trainer.playConfig.mttPhase === 'auto',
-  'toTrainerConfig fase short/auto: ' + trainer.playConfig.mttPhase);
+assert(trainer.playConfig.mttPhase === 'hu' || trainer.playConfig.resolvedPhase === 'hu',
+  'toTrainerConfig fase hu (2-max WTA chip-EV): ' + trainer.playConfig.mttPhase);
 
 const pc = sandbox.window.PTPlayConfig.normalize({
   formatHub: 'mtt', gameType: 'mtt', tournamentType: 'pko', mttPhase: 'bubble', stackDepth: 'bb20'
