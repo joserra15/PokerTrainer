@@ -41,6 +41,33 @@
     ROUTES.push({ id: id, label: id, status: status || 'active', teaser: teaser });
   }
 
+  /** Quiz de sizing del open (2–2,5 bb vs oversized / fold / limp). */
+  function openSizeSpot(id, heroPos, heroCards, seed, correctId, teach, trap) {
+    return {
+      id: id,
+      kind: 'sizingQuiz',
+      seed: seed,
+      heroPos: heroPos,
+      teachBack: teach || '',
+      trapTag: trap || undefined,
+      quiz: {
+        prompt: '¿Qué sizing de open eliges?',
+        line: 'Cash 6-max · 100 bb · RFI ' + heroPos,
+        board: [],
+        heroCards: heroCards,
+        heroPos: heroPos,
+        options: [
+          { id: 'std', label: 'Open 2–2,5 bb' },
+          { id: 'big', label: 'Open 4–5 bb' },
+          { id: 'fold', label: 'Fold' },
+          { id: 'limp', label: 'Limp' }
+        ],
+        correctId: correctId,
+        teachBack: teach || ''
+      }
+    };
+  }
+
   /** Spots RFI: hero actúa open/fold; decisionEnd corta tras la 1ª decisión. */
   function rfiSpot(id, heroPos, heroCards, seed, meta) {
     meta = meta || {};
@@ -476,46 +503,30 @@
         '¿El sizing grande justifica abrir manos peores?'
       ],
       spots: [
-        rfiSpot('c04-01', 'CO', ['Ah', 'Js'], 14001, {
-          teachBack: 'AJo en cutoff: open claro con sizing estándar. Ni limpees ni abras oversized.'
-        }),
-        rfiSpot('c04-02', 'UTG', ['As', '9d'], 14002, {
-          trapTag: 'dominated',
-          teachBack: 'A9o no se arregla abriendo más grande. Fold.'
-        }),
-        rfiSpot('c04-03', 'BTN', ['Td', '9d'], 14003, {
-          teachBack: 'T9s en el botón: open de robo con tamaño normal. El fold equity viene de la posición, no de inflar el open.'
-        }),
-        rfiSpot('c04-04', 'HJ', ['Qs', '9c'], 14004, {
-          trapTag: 'fancy_play',
-          teachBack: 'Q9o desde hijack no entra cómodo: fold. Un open grande no la convierte en buena.'
-        }),
-        rfiSpot('c04-05', 'CO', ['Kh', 'Qs'], 14005, {
-          teachBack: 'KQo en cutoff: open de valor. Sizing estándar.'
-        }),
-        rfiSpot('c04-06', 'UTG', ['Ah', '9d'], 14006, {
-          trapTag: 'dominated',
-          teachBack: 'A9o desde UTG: fold. El tamaño no compensa una mano fuera de rango.'
-        }),
-        rfiSpot('c04-07', 'BTN', ['9s', '8s'], 14007, {
-          teachBack: '98s en el botón: open de robo con sizing normal.'
-        }),
-        rfiSpot('c04-08', 'HJ', ['5s', '5c'], 14008, {
-          teachBack: '55 desde hijack: open. El tamaño típico basta; no hace falta aislar enorme si nadie ha limpeado.'
-        }),
-        rfiSpot('c04-09', 'UTG', ['Jd', 'Td'], 14009, {
-          teachBack: 'JTs desde UTG suele ser open en charts modernos, con sizing estándar.'
-        }),
-        rfiSpot('c04-10', 'CO', ['6h', '5d'], 14010, {
-          trapTag: 'fancy_play',
-          teachBack: '65o en cutoff: fold frecuente. No lo forces “para ver flop” ni con un open raro.'
-        }),
-        rfiSpot('c04-11', 'BTN', ['Ac', '4c'], 14011, {
-          teachBack: 'A4s en el botón: open wide con blockers y tamaño normal.'
-        }),
-        rfiSpot('c04-12', 'HJ', ['Kd', 'Jc'], 14012, {
-          teachBack: 'KJo desde hijack: open habitual. Disciplina: sizing estándar o fold — no limpees.'
-        })
+        openSizeSpot('c04-01', 'CO', ['Ah', 'Js'], 14001, 'std',
+          'AJo en cutoff: open claro a 2–2,5 bb. Ni limpees ni abras oversized a 4–5 bb.'),
+        openSizeSpot('c04-02', 'UTG', ['As', '9d'], 14002, 'fold',
+          'A9o no se arregla abriendo más grande. Fold — el sizing no salva una mano fuera de rango.', 'dominated'),
+        openSizeSpot('c04-03', 'BTN', ['Td', '9d'], 14003, 'std',
+          'T9s en el botón: open de robo a 2–2,5 bb. El fold equity viene de la posición, no de inflar el open.'),
+        openSizeSpot('c04-04', 'HJ', ['Qs', '9c'], 14004, 'fold',
+          'Q9o desde hijack: fold. Un open a 4–5 bb no la convierte en buena.', 'fancy_play'),
+        openSizeSpot('c04-05', 'CO', ['Kh', 'Qs'], 14005, 'std',
+          'KQo en cutoff: open de valor a sizing estándar 2–2,5 bb.'),
+        openSizeSpot('c04-06', 'UTG', ['Ah', '9d'], 14006, 'fold',
+          'A9o desde UTG: fold. El tamaño no compensa una mano fuera de rango.', 'dominated'),
+        openSizeSpot('c04-07', 'BTN', ['9s', '8s'], 14007, 'std',
+          '98s en el botón: open de robo con sizing normal 2–2,5 bb.'),
+        openSizeSpot('c04-08', 'HJ', ['5s', '5c'], 14008, 'std',
+          '55 desde hijack: open a 2–2,5 bb. No hace falta “proteger” con 4–5 bb si nadie ha limpeado.'),
+        openSizeSpot('c04-09', 'UTG', ['Jd', 'Td'], 14009, 'std',
+          'JTs desde UTG suele ser open en charts modernos, con sizing estándar 2–2,5 bb.'),
+        openSizeSpot('c04-10', 'CO', ['6h', '5d'], 14010, 'fold',
+          '65o en cutoff: fold frecuente. No lo forces con un open oversized “para ver flop”.', 'fancy_play'),
+        openSizeSpot('c04-11', 'BTN', ['Ac', '4c'], 14011, 'std',
+          'A4s en el botón: open wide con blockers y tamaño normal 2–2,5 bb.'),
+        openSizeSpot('c04-12', 'HJ', ['Kd', 'Jc'], 14012, 'std',
+          'KJo desde hijack: open habitual a 2–2,5 bb. Disciplina: sizing estándar o fold — no limpees ni oversized.')
       ]
     },
     {
@@ -533,7 +544,7 @@
       concept: 'La ciega pequeña no es el botón: si hacen call, siempre juegas fuera de posición. Por eso abres más tight.',
       theory: [
         'Desde la SB solo queda la ciega grande detrás. Si el BB te paga, vas a jugar el flop fuera de posición — OOP (out of position): actúas primero en cada calle, sin ver qué hace el rival.',
-        'Por eso el rango de open desde SB es más tight que desde el botón: menos basura offsuit, más manos con jugabilidad o blockers. Abrir K9o o Q8o “porque es late” es la trampa clásica: en SB no eres BTN.',
+        'Por eso el rango de open desde SB es más tight que desde el botón: menos basura offsuit, más manos con jugabilidad o blockers (cartas que restan combinaciones fuertes al rival — p. ej. un as reduce AA/AK). Abrir K9o o Q8o “porque es late” es la trampa clásica: en SB no eres BTN.',
         'Prioriza manos suited, broadway decentes y parejas. Las offsuit mediocres que en el botón eran steals aquí suelen ser fold (o, más adelante, 3-bet muy selectivo — eso lo dejamos para otro módulo).'
       ],
       examples: [

@@ -65,7 +65,7 @@
       bb('s04-08', ['5c', '4d'], 40408, { trapTag: 'dominated', teachBack: '54o vs limp SB: check. No aísles conectores offsuit basura a stack corto.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
       bb('s04-09', ['Ac', '9c'], 40409, { teachBack: 'A9s BB vs limp SB: iso razonable. Ax suited castiga limps y juega bien postflop.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
       bb('s04-10', ['Td', '9c'], 40410, { trapTag: 'fancy_play', teachBack: 'T9o vs limp SB: check frecuente. Frágil offsuit — no mereces iso automático.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
-      iso('s04-11', 'SB', 'BTN', ['Ts', 'Ts'], 40411, { teachBack: 'TT en SB vs limp BTN: iso value. Par fuerte — aísla y construye bote.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
+      iso('s04-11', 'SB', 'BTN', ['Ah', 'Jh'], 40411, { teachBack: 'AJs en SB vs limp BTN: iso value. Broadway suited — aísla y construye bote.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
       bb('s04-12', ['Td', '8d'], 40412, { teachBack: 'T8s BB vs limp SB: iso selectivo OK. Conectores suited con plan; sizing ~3–4 bb, no shove.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_3BET_SHOVE') return [
@@ -100,10 +100,27 @@
       rfi('sp-13', 'BTN', ['2h', '2d'], 40513, { teachBack: '22 BTN ~10 bb: shove o fold según chart; muchas líneas shovean pares bajas desde botón.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) }),
       rfi('sp-14', 'SB', ['Ad', '9c'], 40514, { teachBack: 'A9o SB ~10 bb: shove frecuente. Ax offsuit entra en muchos charts SB cortos.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10' }) })
     ];
-    if (kind === 'SPIN_EXAM_M1') return packSpots('SPIN_ISO', D).slice(0, 4)
-      .concat(packSpots('SPIN_3BET_SHOVE', D).slice(0, 4))
-      .concat(packSpots('SPIN_PUSH', D).slice(0, 4))
-      .concat(packSpots('SPIN_ISO', D).slice(4, 6));
+    if (kind === 'SPIN_COVER') return [
+      rfi('scov-01', 'BTN', ['Qs', 'Jh'], 41601, { teachBack: 'Cover (~25 bb) BTN con QJo: steal razonable. El lead se usa para presionar ciegas, no para hero-call.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', stackRole: 'cover' }) }),
+      rfi('scov-02', 'BTN', ['8d', '4h'], 41602, { trapTag: 'dominated', teachBack: 'Aunque seas cover, 84o es fold. Presión ≠ spew: si te pagan, la mano no aguanta.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', stackRole: 'cover' }) }),
+      vs('scov-03', 'BB_vs_BTN', ['Jh', 'Jd'], 41603, { teachBack: 'Cover vs steal con JJ: 3-bet shove value. Equity alta y eliminar acerca al 1.º.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', stackRole: 'cover' }) }),
+      vs('scov-04', 'BB_vs_BTN', ['Qc', 'Th'], 41604, { trapTag: 'fancy_play', teachBack: 'Short abre y tú eres cover con QTo: fold. No pagues light “porque tengo más fichas”.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', stackRole: 'cover' }) }),
+      rfi('scov-05', 'SB', ['As', 'Ts'], 41605, { teachBack: 'Cover SB con ATs: open/steal. Pones al short en un spot feo.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', stackRole: 'cover' }) }),
+      vs('scov-06', 'BB_vs_BTN', ['8s', '6c'], 41606, { trapTag: 'fancy_play', teachBack: '86o cover vs steal: fold. Chip EV dudoso y $EV peor. El lead se guarda.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', stackRole: 'cover' }) })
+    ];
+    if (kind === 'SPIN_SHORT') return [
+      rfi('sshort-01', 'BTN', ['As', 'Ts'], 41701, { teachBack: 'Short (~10–12 bb) BTN ATs: shove para doblarte. Vs cover elige equity + fold equity, no panic.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12', stackRole: 'short' }) }),
+      rfi('sshort-02', 'BTN', ['Td', '6h'], 41702, { trapTag: 'dominated', teachBack: 'Short con T6o: fold. Necesitas doblarte, sí; no con basura vs un cover que te elimina.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12', stackRole: 'short' }) }),
+      rfi('sshort-03', 'SB', ['Kh', 'Jh'], 41703, { teachBack: 'Short SB KJs: shove frecuente. Broadway usable — spot para double-up, no min-raise.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', stackRole: 'short' }) }),
+      rfi('sshort-04', 'SB', ['Qd', '7c'], 41704, { trapTag: 'fancy_play', teachBack: 'Q7o SB corto: fold. Panic shove OOP vs cover es el leak del short desesperado.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', stackRole: 'short' }) }),
+      rfi('sshort-05', 'BTN', ['8s', '8c'], 41705, { teachBack: '88 short: shove value. Par medio — quieres que el cover foldee o ir a equity decente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', stackRole: 'short' }) }),
+      rfi('sshort-06', 'BTN', ['7s', '6s'], 41706, { teachBack: '76s BTN corto: shove frecuente. Conectores suited con fold equity vs cover.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', stackRole: 'short' }) })
+    ];
+    if (kind === 'SPIN_EXAM_M1') return packSpots('SPIN_ISO', D).slice(0, 3)
+      .concat(packSpots('SPIN_3BET_SHOVE', D).slice(0, 3))
+      .concat(packSpots('SPIN_PUSH', D).slice(0, 3))
+      .concat(packSpots('SPIN_COVER', D).slice(0, 3))
+      .concat(packSpots('SPIN_SHORT', D).slice(0, 3));
     
     if (kind === 'SPIN_HU_CHIP_EV') return [
       rfi('shu-01', 'SB', ['Ah', 'Td'], 41801, { teachBack: 'ATo SB HU ~20 bb: open/shove mixto chip-EV. A 2 jugadores el prize es WTA — no juegues ICM de 3-max.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20', mttPhase: 'hu' }) }),
@@ -288,7 +305,7 @@
       "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 6,
-      "concept": "Con 20–25 bb (ciegas grandes), desde BTN o SB robas ciegas (steal) con dos tamaños: shove (all-in) con manos fuertes y open ~2,5 bb con manos medias del rango GTO — no todo es min-raise.",
+      "concept": "Con 20–25 bb (ciegas grandes), desde BTN o SB robas ciegas (steal) con dos tamaños: shove (all-in) con manos fuertes y open ~2,5 bb con manos medias del rango GTO (equilibrio teórico de referencia) — no todo es min-raise.",
       "theory": [
         "Steal (robo de ciegas): open-raise esperando que todos folden. A 20–25 bb las ciegas son un % grande del stack; fold equity vale mucho.",
         "Dos tamaños a ~20 bb: premium y pares medios fuertes (99+, ATo+, KQs) suelen ir shove; suited connectors y broadways medias van open ~2,5 bb (3 bb desde SB).",
@@ -623,7 +640,7 @@
       "passThreshold": 0.85,
       "goldThreshold": 0.95,
       "decisionEnd": true,
-      "hands": 4,
+      "hands": 15,
       "concept": "Repaso M1: iso vs limp, 3-bet shove, chip lead y short vs cover. Examen = mezcla de esos spots sin teoría nueva. Más decisiones binarias (shove/fold) que en M0.",
       "theory": [
         {
@@ -1236,7 +1253,7 @@
       "goldThreshold": 0.9,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "HU corto: shove/call charts chip-EV y c-bets simples. Sin overfold ICM; sin panic shove basura.",
+      "concept": "HU corto: shove/call charts chip-EV. Sin overfold ICM; sin panic shove basura.",
       "theory": [
         {
           "title": "Push/fold limpio",
@@ -1247,8 +1264,8 @@
           "body": "Vs shove SB, el BB llama más wide en HU que en 3-max bubble. KJo/Axs mid suelen ser calls."
         },
         {
-          "title": "Postflop corto",
-          "body": "Con SPR bajo, c-bet value/bloqueo simple; evita bluffs multinivel si el stack no lo permite."
+          "title": "SPR bajo = decisiones simples",
+          "body": "Con stack muy corto casi no hay “juego de calle”: o all-in preflop o fold. Evita inventar líneas multinivel cuando el stack no lo permite."
         }
       ],
       "examples": [
@@ -1268,7 +1285,7 @@
       "spots": "SPIN_HU_SHORT",
       "exam": false,
       "id": "S-20",
-      "title": "Corto HU: shove, call y c-bet"
+      "title": "Corto HU: shove y call"
     },
     {
       "route": "spin",

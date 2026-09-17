@@ -325,8 +325,8 @@
       'Pot 110 + bet 55 → necesitas 25 %. Nut flush draw + gutshot/overs supera el precio → call.',
       { requiredPct: 25, equityPct: 45 }),
     oddsSpot('o01-12', 85012, 100, 25, 'Gutshot + overcard · 7 outs', ['Ah', 'Td'], ['Ks', 'Qc', 'Jh', '2d'], 'depends',
-      'Pot 100 + bet 25 → necesitas 20 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
-      { requiredPct: 20, equityPct: 28 })
+      'Pot 100 + bet 25 → call 25 para ganar 125. Necesitas ~17 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
+      { requiredPct: 17, equityPct: 28 })
   ];
 
   /*

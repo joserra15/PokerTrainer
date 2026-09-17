@@ -211,7 +211,7 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Dado un flop, estima qué porcentaje del rango rival conectó pareja, proyecto o aire: la textura decide la ventaja de rango y, con ella, tu plan de c-bet.",
+      "concept": "Práctica de c-bet según textura: estima qué % del rango rival conectó el flop y elige bet o check. La textura (seco / wet / monotone) decide la ventaja de rango y, con ella, tu plan de continuación.",
       "theory": [
         {
           "title": "Conectar un board",
@@ -222,8 +222,8 @@
           "body": "La textura (seco, wet, monotone) cambia quién “encaja” mejor. Range advantage (ventaja de rango) significa que tu distribución de manos fuertes supera a la del rival en ese board. En A-high seco el agresor RFI suele tener ventaja; en bajos conectados el caller recupera mucho."
         },
         {
-          "title": "Enlace con el c-bet",
-          "body": "Si tu rango conecta más (o el rival falla más), el c-bet (apuesta de continuación tras haber subido preflop) tiene más sentido, a menudo a sizing pequeño. Si el board favorece al que solo hizo call, reduces frecuencia y cedes más. Enlace directo con Cash M2 (C-14…C-16)."
+          "title": "De la estimación al c-bet",
+          "body": "Los drills de esta lección son c-bet / check en flops concretos: si tu rango conecta más (o el rival falla más), c-bet frecuente a sizing pequeño; si el board favorece al caller, reduces frecuencia. Enlace directo con Cash M2 (C-14…C-16)."
         }
       ],
       "examples": [
@@ -248,7 +248,7 @@
       "spots": [],
       "exam": false,
       "id": "R-03",
-      "title": "Qué % del rango conecta un board",
+      "title": "C-bet según textura · % del rango que conecta",
       "matrixPreview": { "position": "BTN" }
     },
     {

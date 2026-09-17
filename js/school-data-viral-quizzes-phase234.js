@@ -204,44 +204,44 @@
 
   PACKS['Q-01'] = [
     textureSpot('q01-01', 90001, ['As', 'Kd', '7c'], 'UTG open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired · static' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · favorece al que defendió' },
+      { id: 'paired', label: 'Paired · poco cambia' }
     ], 'dry', 'AK7 rainbow: seco, favorece al opener early. C-bet pequeño frecuente.'),
     textureSpot('q01-02', 90002, ['9s', '8s', '7h'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired · static' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · favorece al que defendió' },
+      { id: 'paired', label: 'Paired · poco cambia' }
     ], 'wet', '987 two-tone: wet, el caller conecta SC y pares. Reduce c-bet automático.'),
     textureSpot('q01-03', 90003, ['Kh', 'Kc', '4d'], 'CO open → BB call', [
       { id: 'dry', label: 'Seco · paired' },
       { id: 'wet', label: 'Wet · connected' },
-      { id: 'monotone', label: 'Monotone · flush draws' }
+      { id: 'monotone', label: 'Monotone · muchos draws de color' }
     ], 'dry', 'K44: paired seco. Opener mantiene ventaja con Kx/overpairs.'),
     textureSpot('q01-04', 90004, ['Qh', 'Jh', 'Th'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · connected' },
-      { id: 'monotone', label: 'Monotone · flush draws' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · muy conectado' },
+      { id: 'monotone', label: 'Monotone · muchos draws de color' }
     ], 'wet', 'QJT two-tone: muy conectado. Ambos conectan; ventaja poco clara.'),
     textureSpot('q01-05', 90005, ['Ah', '8d', '3c'], 'UTG open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired · static' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · favorece al que defendió' },
+      { id: 'paired', label: 'Paired · poco cambia' }
     ], 'dry', 'A83 rainbow: clásico seco A-high. Ventaja enorme del agresor.'),
     textureSpot('q01-06', 90006, ['5s', '4s', '3h'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · low connected' },
-      { id: 'paired', label: 'Paired · static' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · bajos conectados' },
+      { id: 'paired', label: 'Paired · poco cambia' }
     ], 'wet', '543 two-tone bajo: caller favorecido. Board de defensa BB.'),
     textureSpot('q01-07', 90007, ['Js', 'Ts', '9s'], 'HJ open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · connected' },
-      { id: 'monotone', label: 'Monotone · flush draws' }
-    ], 'monotone', 'JT9 monotone: nut advantage al rango con más Ax suited del palo.'),
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · muy conectado' },
+      { id: 'monotone', label: 'Monotone · muchos draws de color' }
+    ], 'monotone', 'JT9 monotone: ventaja de nuts al rango con más Ax suited del palo.'),
     textureSpot('q01-08', 90008, ['Kd', '7c', '2s'], 'BTN open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired · static' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · favorece al que defendió' },
+      { id: 'paired', label: 'Paired · poco cambia' }
     ], 'dry', 'K72 rainbow: seco. Patrón de c-bet ligero IP.'),
     textureSpot('q01-09', 90009, ['6h', '6d', '5s'], 'CO open → BB call', [
       { id: 'dry', label: 'Seco · paired' },
@@ -249,9 +249,9 @@
       { id: 'paired', label: 'Paired · medio' }
     ], 'paired', '665: paired + connected. Ambiguo — no es seco puro ni wet extremo.'),
     textureSpot('q01-10', 90010, ['Ac', 'Qd', '4h'], 'UTG open → BB call', [
-      { id: 'dry', label: 'Seco · RA opener' },
-      { id: 'wet', label: 'Wet · RA caller' },
-      { id: 'paired', label: 'Paired · static' }
+      { id: 'dry', label: 'Seco · favorece al que abrió' },
+      { id: 'wet', label: 'Wet · favorece al que defendió' },
+      { id: 'paired', label: 'Paired · poco cambia' }
     ], 'dry', 'AQ4 rainbow: seco A-high. Opener domina distribución Ax.')
   ];
 
@@ -427,8 +427,17 @@
     ], 'fold', 'SPR ~1.4 con air: fold — no estás committed con nada.')
   ];
 
-  /* Examen cronometrado: mezcla decisionQuiz con 75 s/spot */
-  var timedBase = (V.PACKS && V.PACKS['D-01']) ? V.PACKS['D-01'].slice(0, 10) : [];
+  /* Examen cronometrado: mezcla D-01 + D-02 + D-03 (sizing) + textura Q-01 */
+  var timedBase = (function () {
+    var d01 = (V.PACKS && V.PACKS['D-01']) ? V.PACKS['D-01'] : [];
+    var d02 = (V.PACKS && V.PACKS['D-02']) ? V.PACKS['D-02'] : [];
+    var mix = []
+      .concat(d01.slice(0, 3))
+      .concat(d02.slice(0, 2))
+      .concat(PACKS['D-03'].slice(0, 3))
+      .concat(PACKS['Q-01'].slice(0, 2));
+    return mix.length ? mix : d01.slice(0, 10);
+  })();
   PACKS['X-01'] = timedBase.map(function (s, i) {
     var copy = JSON.parse(JSON.stringify(s));
     copy.id = 'x01-' + String(i + 1).padStart(2, '0');
@@ -467,19 +476,19 @@
       ],
       examples: [{ title: 'FD turn', body: '~40 % bucket vs rango amplio.' }],
       aiQuestions: ['¿Equity de FD?', '¿Overpair en 972?', '¿Gutshot bucket?'], spots: [] },
-    { id: 'Q-01', title: 'Clasifica el board', route: 'cash', module: 'M0', order: 6.6, plan: 'free',
+    { id: 'Q-01', title: 'Clasifica el board', route: 'cash', module: 'M2', order: 14.5, plan: 'free',
       xp: 80, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
       concept: 'Seco, wet, paired, monotone — la textura dicta plan antes de mirar tu mano.',
       theory: [
         'Board seco (p. ej. K72 rainbow): pocos draws, el agresor IP puede c-bet frecuente con tamaño pequeño; clasifica antes de mirar tu mano.',
         'Board wet (conectado o two-tone): muchos straights y flushes posibles; check y tamaños medios dominan frente a rangos que conectan.',
-        'Board monotone o paired cambia quién tiene nut advantage: el palo del flop o el par en mesa dictan faroles, calls y sizings distintos.'
+        'Board monotone o paired cambia quién tiene más manos fuertes (nuts de color, full houses): el palo del flop o el par en mesa dictan faroles, calls y sizings distintos.'
       ],
       examples: [{ title: 'AK7 vs 987', body: 'Seco vs wet — respuesta distinta.' }],
       aiQuestions: ['¿Qué es wet?', '¿Monotone?', '¿Paired?'], spots: [] },
     { id: 'X-01', title: 'Examen · F/C/R bajo presión', route: 'cash', module: 'M2', order: 20.95, plan: 'study',
       xp: 120, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0, exam: true, timedSeconds: 75,
-      concept: 'Examen cronometrado: 75 s por spot. Entrena decisión rápida como en mesa real.',
+      concept: 'Examen cronometrado: 75 s por spot. Mezcla F/C/R (D-01/D-02), sizing (D-03) y textura — no es un clon de D-01.',
       theory: [
         'En examen cronometrado lee línea + board en los primeros 10 s: identifica quién es el agresor, el tamaño del bote y si estás IP u OOP.',
         'Elimina opciones imposibles antes de debatir entre dos líneas plausibles: muchos errores vienen de considerar raise donde solo existe fold.',
@@ -489,7 +498,7 @@
       aiQuestions: ['¿Cómo priorizar?', '¿Cuándo fold rápido?', '¿Presión en examen?'], spots: [] },
     { id: 'N-01', title: 'Push / fold · Nash Spin', route: 'spin', module: 'M1', order: 6.5, plan: 'study',
       xp: 100, passThreshold: 0.7, goldThreshold: 0.9, decisionEnd: true, hands: 0,
-      concept: 'Short stack Spin: shove o fold según Nash. 8–12 bb cambia todo vs cash 100 bb.',
+      concept: 'Short stack Spin: shove o fold según Nash (equilibrio teórico shove/fold: la mezcla donde nadie gana desviándose). 8–12 bb cambia todo vs cash 100 bb.',
       theory: [
         'En Spin short (8–12 bb efectivos), Nash push/fold reemplaza opens tradicionales: BTN abre wide en shove, SB no es BTN porque el BB sigue vivo.',
         'Manos premium y pares medios-altos suelen ser shove automático short; basura offsuit fold aunque «tenga blockers» sin fold equity real.',

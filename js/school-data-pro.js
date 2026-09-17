@@ -252,29 +252,29 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Ejercicio guiado: dado un board y una línea, describe el rango rival en bandas (value / medias / aire), no como una sola mano — el mismo músculo que R-05, ahora en modo quiz.",
+      "concept": "Práctica de c-bet con framing de rangos: en cada flop describe bandas del caller (value / medias / aire) y decide bet o check — el mismo músculo que R-05, aplicado al nodo de continuación.",
       "theory": [
         {
-          "title": "Range vs range",
-          "body": "Pensar range vs range es comparar tu distribución de manos con la del villano en ese nodo, no “mi mano contra la suya”. El quiz te obliga a escribir bandas: qué value llega, qué medias sobreviven, qué aire aún farolea. Sin eso, cada decisión se vuelve adivinanza de una carta."
+          "title": "Range vs range en el c-bet",
+          "body": "Pensar range vs range es comparar tu distribución de manos con la del villano en ese nodo, no “mi mano contra la suya”. En estos drills el nodo es el c-bet (o el check): qué value del BB llega, qué medias sobreviven, qué aire aún farolea. Sin eso, cada c-bet se vuelve adivinanza de una carta."
         },
         {
           "title": "Cómo responder el ejercicio",
-          "body": "Narrativa corta: posición, acciones preflop y postflop, textura del board. Luego tres columnas. Contrasta con el menú Rangos si hay chart del spot. Si tu columna de aire está vacía ante un bet polar, estás sesgado hacia “siempre value”."
+          "body": "Narrativa corta: posición, open → call, textura del flop. Luego tres bandas del caller y tu plan (c-bet / check). Contrasta con el menú Rangos si hay chart del spot. Si tu columna de aire está vacía ante un board seco, estás sesgado hacia “siempre value”."
         },
         {
           "title": "Trampa de la nuts fija",
-          "body": "Poner al hero o al villano “siempre en la nuts” mata el ejercicio. Oblígate a nombrar al menos un farol creíble y una media. El profesor no busca la mano exacta: busca una historia de rango coherente con la línea."
+          "body": "Poner al hero o al villano “siempre en la nuts” mata el ejercicio. Oblígate a nombrar al menos un farol creíble y una media. El profesor no busca la mano exacta: busca una historia de rango coherente con la línea de c-bet."
         }
       ],
       "examples": [
         {
           "title": "Plantilla de respuesta",
-          "body": "“BTN open, BB call; flop A72r check-check; turn 2 bet BTN; river 8 bet. Value: Ax fuerte, trips. Medias: Kx, mid pair. Aire: missed broadway con blocker.” Esa forma aprueba el quiz."
+          "body": "“BTN open, BB call; flop K72r. Caller: poco Kx, mucho aire, alguna pareja baja → c-bet pequeño. En JT9: más pares y draws → check o selectivo.” Esa forma aprueba el drill."
         },
         {
           "title": "Quiz express",
-          "body": "Te dan: CO open, BTN 3-bet, CO call; flop K93r; CO check, BTN bet, CO raise. Escribe rangos de CO en el raise antes de mirar cualquier chart."
+          "body": "Te dan: CO open, BB call; flop A83r. Escribe bandas del BB y decide c-bet o check antes de mirar cualquier chart."
         },
         {
           "title": "Autocorrección",
@@ -282,14 +282,14 @@
         }
       ],
       "aiQuestions": [
-        "¿Cómo describes un rango rival en tres bandas?",
+        "¿Cómo describes el rango del caller en tres bandas antes de c-betear?",
         "¿Por qué “siempre la nuts” invalida el ejercicio?",
         "¿Qué datos mínimos necesitas antes de asignar el rango (línea + board)?"
       ],
       "spots": [],
       "exam": false,
       "id": "C-29",
-      "title": "Range vs range (quiz)"
+      "title": "Range vs range en c-bet"
     },
     {
       "route": "cash",
@@ -350,15 +350,15 @@
       "goldThreshold": 1,
       "decisionEnd": true,
       "hands": 0,
-      "concept": "Examen Pro Cash: certifica 4-bet, SRP OOP, explotación fish/reg, lectura de rivales (C-32+) y rangos — sin teoría nueva fuera del checklist.",
+      "concept": "Examen Pro Cash: certifica 4-bet, SRP OOP, fish vs reg, node locking y bandas de rango (C-26…C-30). La lectura de arquetipos (nit/LAG/maniac) se examina en C-39.",
       "theory": [
         {
           "title": "Qué se evalúa",
-          "body": "Repasas C-26…C-30 y C-32…C-38: value vs farol en 4-bet, pot control OOP, fish vs reg, arquetipos (TAG/LAG/Nit/Fish/Maniac/Pro) y bandas de rango. Solo aplicación."
+          "body": "Repasas C-26…C-30: value vs farol en 4-bet, pot control OOP, fish vs reg, frecuencias mentales y bandas de rango. Solo aplicación — sin teoría nueva de arquetipos."
         },
         {
           "title": "Checklist de profesor",
-          "body": "Antes de cada decisión: (1) capa preflop (2) SRP/OOP (3) tipo de rival y delta vs GTO (4) bandas de rango (5) ¿frecuencia o “siempre”?"
+          "body": "Antes de cada decisión: (1) capa preflop (2) SRP/OOP (3) fish o reg y delta vs GTO (4) bandas de rango (5) ¿frecuencia o “siempre”?"
         }
       ],
       "examples": [
@@ -367,24 +367,24 @@
           "body": "¿Value premium o farol con blocker? ¿Cold o ya abrí? ¿El 3-bet viene de early o de BTN? Si no respondes las tres, no pulses 4-bet."
         },
         {
-          "title": "Mini checklist river",
-          "body": "¿Fish (value thin) / nit (presión) / LAG-maniac (call-down) / TAG-Pro (GTO)? Una pregunta de población evita el spew."
+          "title": "Mini checklist fish vs reg",
+          "body": "¿Fish (value thin, más c-bet) o reg (línea GTO, menos spew)? Una pregunta de población evita el spew — sin clasificar nit/maniac aún."
         },
         {
           "title": "Antes de pulsar",
-          "body": "Di el tipo de rival y el delta vs GTO en una frase. Si solo dices “voy”, aún no estás listo."
+          "body": "Di fish/reg y el delta vs GTO en una frase. Si solo dices “voy”, aún no estás listo."
         }
       ],
       "aiQuestions": [
         "Resume 4-bet value vs farol en una frase de profesor.",
-        "¿Qué cambia en river value entre fish y nit?",
-        "¿Cuáles son las preguntas del checklist Pro Cash con lectura de rivales?"
+        "¿Qué cambia en value thin entre fish y reg?",
+        "¿Cuáles son las preguntas del checklist Pro Cash (sin arquetipos C-32+)?"
       ],
       "spots": [],
       "exam": true,
       "id": "C-31",
       "title": "Examen Pro · Cash",
-      "relatedLessons": ["C-28", "C-32", "C-39"]
+      "relatedLessons": ["C-28", "C-30", "C-39"]
     }
   ];
   var lessons = RAW.map(function (lesson) { return resolveSpots(lesson, D); });

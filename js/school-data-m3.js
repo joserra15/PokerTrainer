@@ -31,7 +31,7 @@
       ],
       spots: [
         flop('c21-01', 'BTN', ['Kh', 'Qd'], ['As', '8d', '3c'], 32101, {
-          teachBack: 'A-high seco IP: range advantage → c-bet pequeño frecuente (~bet_33 mix alto).'
+          teachBack: 'A-high seco IP: range advantage → c-bet pequeño frecuente (~33 % del bote; el motor lo etiqueta bet_33).'
         }),
         flop('c21-02', 'BTN', ['Ah', 'Kd'], ['9s', '8s', '7h'], 32102, {
           trapTag: 'fancy_play',
@@ -112,7 +112,7 @@
       theory: [
         'SPR bajo (≤3–4): más jam y líneas polares. SPR alto: más bets pequeños merge y pot control.',
         'River overbet (~125 % pot) pide polarización: nuts o farol con blockers — no value medio.',
-        'En 3-bet pots el mix ya nace más polar: menos bet_33 merge, más bet_66/100.',
+        'En 3-bet pots el mix ya nace más polar: menos apuestas pequeñas (~33 % pot / bet_33) de merge, más bet_66/100.',
         'Trampa: overbet con top pair medio «porque queda cool». El motor castiga value no polar.'
       ],
       examples: [{
