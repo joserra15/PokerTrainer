@@ -148,6 +148,49 @@ eq(Comp.phaseMult('hu'), 1.25, 'phase hu');
   eq(ev.reason, 'low_impact', 'reason low_impact');
 }
 
+/* Jam HU turn con call local de aire: Alta/Media deben consultar */
+{
+  const ctx = {
+    potBB: 8,
+    stackBB: 11.64,
+    effStackBB: 11.64,
+    villainStackBB: 11.64,
+    toCallBB: 11.64,
+    facingJam: true,
+    street: 'turn',
+    handBand: 'air',
+    freqs: { call: 0.72, fold: 0.28 },
+    mttPhase: 'hu',
+    committedFrac: 0.15
+  };
+  const local = { freqs: ctx.freqs, handBand: 'air', action: { id: 'call' } };
+  ok(Comp.isCriticalJamSpot(ctx), 'Q-high turn jam es critical');
+  const hi = Comp.evaluate(ctx, local, null, { street: 'turn' }, 'high');
+  ok(hi.shouldAssist, 'Alta consulta jam HU turn con call de aire');
+  ok(hi.reason === 'pass' || hi.reason === 'critical_jam', 'reason pass/critical: ' + hi.reason);
+  const lo = Comp.evaluate(ctx, local, null, { street: 'turn' }, 'low');
+  /* Baja puede quedar bajo umbral; no forzar critical_jam en low */
+  ok(lo.threshold > hi.threshold, 'baja umbral mayor');
+}
+
+/* Call sintético 72/28 antes fallaba Alta (~0.43); ahora suelo critical */
+{
+  const ctx = {
+    potBB: 15,
+    stackBB: 12,
+    effStackBB: 12,
+    toCallBB: 12,
+    facingJam: true,
+    street: 'turn',
+    handBand: 'air',
+    freqs: { call: 0.72, fold: 0.28 },
+    mttPhase: 'hu'
+  };
+  const ev = Comp.evaluate(ctx, { freqs: ctx.freqs, handBand: 'air' }, null, { street: 'turn' }, 'high');
+  ok(ev.shouldAssist, 'Alta no se salta call-jam por freqs planas');
+  ok(ev.raw >= 0.62, 'raw suelo critical callish: ' + ev.raw);
+}
+
 eq(Comp.normalizeLevel('alta'), 'high');
 eq(Comp.normalizeLevel('baja'), 'low');
 eq(Comp.normalizeLevel('media'), 'medium');
