@@ -225,9 +225,9 @@ def draw_header(draw, solution: bool):
 
 
 def draw_line_history(draw, line, y0):
-    f_street = font(18, True)
-    f_norm = font(18, False)
-    f_gold = font(18, True)
+    f_street = font(20, True)
+    f_norm = font(20, False)
+    f_gold = font(20, True)
     y = y0
     for row in line:
         street = row["street"]
@@ -235,71 +235,73 @@ def draw_line_history(draw, line, y0):
         draw.text((40, y), f"{street}:", font=f_street, fill=MUTED)
         sw = draw.textbbox((0, 0), f"{street}: ", font=f_street)[2]
         highlight_sizing(draw, text, 40 + sw, y, f_norm, f_gold)
-        y += 28
+        y += 34
     return y
 
 
-def draw_board_and_hero(img, case, y0):
-    """Board a ancho casi completo; héroe debajo a la misma escala."""
-    draw = ImageDraw.Draw(img)
-    f_lab = font(20, True)
-    f_small = font(16, False)
+def fmt_stack(bb):
+    return f"{bb} bb"
 
-    # Board: 5 cartas lo más grandes posible (~160×222)
-    gap = 14
-    cw = (W - 56 - 4 * gap) // 5  # márgenes 28+28
-    ch = int(cw * 1.39)
+
+def draw_board_and_hero(img, case, y0):
+    """Board + héroe en fila (como v1), cartas ligeramente mayores; stacks visibles."""
+    draw = ImageDraw.Draw(img)
+    f_lab = font(19, True)
+    f_stack = font(17, True)
+    f_small = font(15, False)
+
+    # Ligera subida vs original 88×122 → ~102×142
+    cw, ch, gap = 102, 142, 10
     board_w = 5 * cw + 4 * gap
-    board_x = (W - board_w) // 2
+    hero_w = 2 * cw + gap
+    sep = 36
+    total = board_w + sep + hero_w
+    board_x = max(40, (W - total) // 2)
+    hero_x = board_x + board_w + sep
+
+    hs = case.get("heroStack", 100)
+    vs = case.get("villainStack", 100)
 
     draw.text((board_x, y0), "Board", font=f_lab, fill=MUTED)
-    cy = y0 + 24
+    draw.text((hero_x, y0), f"Héroe {case['heroPos']}", font=f_lab, fill=MUTED)
+    # stack héroe en oro a la derecha de la etiqueta
+    hw = draw.textbbox((0, 0), f"Héroe {case['heroPos']} ", font=f_lab)[2]
+    draw.text((hero_x + hw, y0), fmt_stack(hs), font=f_stack, fill=GOLD)
+
+    cy = y0 + 28
     for i, c in enumerate(case["board"]):
         draw_card(img, board_x + i * (cw + gap), cy, c, cw, ch)
-
-    # Héroe + backs villano en la misma fila, centrados
-    hy = cy + ch + 16
-    hero_gap = 12
-    back_w, back_h = int(cw * 0.62), int(ch * 0.62)
-    hero_block = 2 * cw + hero_gap
-    vill_block = 2 * back_w + 8
-    block_w = hero_block + 36 + vill_block
-    hx = (W - block_w) // 2
-
-    draw.text((hx, hy), f"Héroe {case['heroPos']}", font=f_lab, fill=MUTED)
-    draw.text((hx + hero_block + 36, hy), f"Villano {case['villainPos']}", font=f_lab, fill=MUTED)
-    card_y = hy + 24
     for i, c in enumerate(case["hero"]):
-        draw_card(img, hx + i * (cw + hero_gap), card_y, c, cw, ch)
+        draw_card(img, hero_x + i * (cw + gap), cy, c, cw, ch)
 
-    vx = hx + hero_block + 36
-    vy = card_y + (ch - back_h) // 2
-    draw_card(img, vx, vy, "Xx", back_w, back_h, hidden=True)
-    draw_card(img, vx + back_w + 8, vy, "Xx", back_w, back_h, hidden=True)
-    draw.text((vx, vy + back_h + 6), "cartas ocultas", font=f_small, fill=MUTED)
+    # Villano: backs + stack
+    back_w, back_h = 56, 78
+    bx = hero_x
+    by = cy + ch + 12
+    draw.text((bx, by), f"Villano {case['villainPos']}", font=f_small, fill=MUTED)
+    vw = draw.textbbox((0, 0), f"Villano {case['villainPos']} ", font=f_small)[2]
+    draw.text((bx + vw, by), fmt_stack(vs), font=f_stack, fill=GOLD)
+    draw_card(img, bx, by + 22, "Xx", back_w, back_h, hidden=True)
+    draw_card(img, bx + back_w + 8, by + 22, "Xx", back_w, back_h, hidden=True)
+    draw.text((bx + back_w * 2 + 16, by + 22 + back_h // 2 - 8), "ocultas", font=f_small, fill=MUTED)
 
-    return card_y + ch + 8
+    return by + 22 + back_h + 8
 
 
 def draw_options(img, case, y0, reveal_idx=None):
     draw = ImageDraw.Draw(img)
     f_h = font(22, True)
-    f_lab = font(18, True)
+    f_lab = font(17, True)
     draw.text((40, y0), "Opciones (elige una)", font=f_h, fill=WHITE)
-    y = y0 + 30
+    y = y0 + 36
 
     opts = case["options"]
-    margin = 24
-    gap = 12
+    margin = 36
+    gap = 18
     box_w = (W - 2 * margin - 2 * gap) // 3
-    # Cartas de opción grandes, limitadas por el alto restante
-    max_ch = H - y - 110  # footer
-    ch = min(176, max_ch - 52)
-    cw = int(ch / 1.39)
-    if 2 * cw + 10 > box_w - 16:
-        cw = (box_w - 26) // 2
-        ch = int(cw * 1.39)
-    box_h = 46 + ch + 14
+    # Opciones: original ~78×108 → ~90×124
+    cw, ch = 90, 124
+    box_h = 48 + ch + 16
 
     for i, opt in enumerate(opts):
         x = margin + i * (box_w + gap)
@@ -307,12 +309,12 @@ def draw_options(img, case, y0, reveal_idx=None):
         is_wrong = reveal_idx is not None and i != reveal_idx
         fill = (24, 60, 40) if is_ans else (PANEL if not is_wrong else (40, 28, 32))
         outline = GREEN if is_ans else (RED if is_wrong else (60, 80, 110))
-        rounded_rect(draw, (x, y, x + box_w, y + box_h), 16, fill, outline, 3 if is_ans else 2)
+        rounded_rect(draw, (x, y, x + box_w, y + box_h), 14, fill, outline, 3 if is_ans else 2)
 
         label = f"{chr(65 + i)}. {opt['label']}"
         if is_ans:
             label = f"✓ {label}"
-        draw.text((x + 12, y + 8), label, font=f_lab, fill=GREEN if is_ans else (MUTED if is_wrong else WHITE))
+        draw.text((x + 14, y + 10), label, font=f_lab, fill=GREEN if is_ans else (MUTED if is_wrong else WHITE))
 
         cards = opt["cards"]
         row_w = 2 * cw + 10
@@ -357,14 +359,12 @@ def render_case(case: dict, solution: bool) -> Image.Image:
     img = gradient_bg(W, H)
     draw = ImageDraw.Draw(img)
     draw_header(draw, solution)
-    y = draw_line_history(draw, case["line"], 136)
-    y = draw_board_and_hero(img, case, y + 14)
+    y = draw_line_history(draw, case["line"], 148)
+    y = draw_board_and_hero(img, case, y + 18)
     reveal = case["answer"] if solution else None
-    y = draw_options(img, case, y + 12, reveal_idx=reveal)
+    y = draw_options(img, case, y + 16, reveal_idx=reveal)
     why = case["why"] if solution else None
-    footer_y = y + 14
-    if footer_y > H - 100:
-        footer_y = H - 100
+    footer_y = min(y + 20, H - 120)
     draw_footer(draw, footer_y, solution_why=why)
     return img
 
