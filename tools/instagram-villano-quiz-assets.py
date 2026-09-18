@@ -211,31 +211,38 @@ def wrap_text(draw, text, f, max_w):
 
 
 def draw_header(draw, solution: bool):
-    f_brand = font(28, True)
-    f_sub = font(16, False)
-    f_title = font(36, True)
+    f_brand = font(30, True)
+    f_sub = font(17, False)
+    f_title = font(44, True)
 
-    draw.text((40, 22), "PokerForgeAI", font=f_brand, fill=WHITE)
+    draw.text((40, 20), "PokerForgeAI", font=f_brand, fill=WHITE)
     draw.text((40, 56), "Escuela · Rangos", font=f_sub, fill=MUTED)
 
     title = "Solución: ¿qué tenía el villano?" if solution else "¿Qué crees que tiene el villano?"
     bbox = draw.textbbox((0, 0), title, font=f_title)
     tw = bbox[2] - bbox[0]
-    draw.text(((W - tw) / 2, 86), title, font=f_title, fill=WHITE)
+    draw.text(((W - tw) / 2, 92), title, font=f_title, fill=WHITE)
 
 
 def draw_line_history(draw, line, y0):
-    f_street = font(20, True)
-    f_norm = font(20, False)
-    f_gold = font(20, True)
+    """Línea de acción: fuente grande, siempre 1 línea por street."""
+    f_street = font(25, True)
+    f_norm = font(25, False)
+    f_gold = font(25, True)
     y = y0
+    max_x = W - 40
     for row in line:
         street = row["street"]
         text = row["text"]
-        draw.text((40, y), f"{street}:", font=f_street, fill=MUTED)
-        sw = draw.textbbox((0, 0), f"{street}: ", font=f_street)[2]
+        label = f"{street}: "
+        draw.text((40, y), label, font=f_street, fill=MUTED)
+        sw = draw.textbbox((0, 0), label, font=f_street)[2]
+        # Comprueba que cabe en una línea
+        full_w = draw.textbbox((0, 0), label + text, font=f_norm)[2]
+        if 40 + full_w > max_x:
+            raise ValueError(f"Línea demasiado larga ({street}): {text}")
         highlight_sizing(draw, text, 40 + sw, y, f_norm, f_gold)
-        y += 34
+        y += 42
     return y
 
 
@@ -289,8 +296,8 @@ def draw_board_and_hero(img, case, y0):
 
 def draw_options(img, case, y0, reveal_idx=None):
     draw = ImageDraw.Draw(img)
-    f_h = font(22, True)
-    f_lab = font(17, True)
+    f_h = font(24, True)
+    f_lab = font(18, True)
     draw.text((40, y0), "Opciones (elige una)", font=f_h, fill=WHITE)
     y = y0 + 36
 
@@ -325,24 +332,25 @@ def draw_options(img, case, y0, reveal_idx=None):
 
 
 def draw_footer(draw, y, solution_why=None):
-    f_q = font(22, True)
+    f_q = font(24, True)
     f_url = font(20, True)
-    f_why = font(17, False)
+    f_why = font(18, False)
     f_small = font(14, False)
 
     if solution_why:
-        lines = wrap_text(draw, solution_why, f_why, W - 80)
-        for i, ln in enumerate(lines[:3]):
-            bbox = draw.textbbox((0, 0), ln, font=f_why)
-            tw = bbox[2] - bbox[0]
-            draw.text(((W - tw) / 2, y + i * 26), ln, font=f_why, fill=GOLD2)
-        y += min(len(lines), 3) * 26 + 12
+        # Una sola línea centrada (el copy ya está acotado en casos.json)
+        bbox = draw.textbbox((0, 0), solution_why, font=f_why)
+        tw = bbox[2] - bbox[0]
+        if tw > W - 80:
+            raise ValueError(f"Why demasiado largo: {solution_why}")
+        draw.text(((W - tw) / 2, y), solution_why, font=f_why, fill=GOLD2)
+        y += 32
     else:
         q = "¿Qué mano sobrevive a la línea?"
         bbox = draw.textbbox((0, 0), q, font=f_q)
         tw = bbox[2] - bbox[0]
         draw.text(((W - tw) / 2, y), q, font=f_q, fill=WHITE)
-        y += 36
+        y += 38
 
     url = "pokerforgeai.com"
     bbox = draw.textbbox((0, 0), url, font=f_url)
@@ -358,12 +366,14 @@ def render_case(case: dict, solution: bool) -> Image.Image:
     img = gradient_bg(W, H)
     draw = ImageDraw.Draw(img)
     draw_header(draw, solution)
-    y = draw_line_history(draw, case["line"], 148)
-    y = draw_board_and_hero(img, case, y + 18)
+    # Más aire bajo el título → línea de acción más legible
+    y = draw_line_history(draw, case["line"], 160)
+    # Cartas desplazadas abajo; mismo tamaño de carta
+    y = draw_board_and_hero(img, case, y + 36)
     reveal = case["answer"] if solution else None
-    y = draw_options(img, case, y + 16, reveal_idx=reveal)
+    y = draw_options(img, case, y + 18, reveal_idx=reveal)
     why = case["why"] if solution else None
-    footer_y = min(y + 20, H - 120)
+    footer_y = min(y + 18, H - 110)
     draw_footer(draw, footer_y, solution_why=why)
     return img
 

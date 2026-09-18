@@ -57,7 +57,7 @@
       }
     ],
     "answer": 2,
-    "why": "KJ es top pair + buen kicker: value limpio en tres calles. 98s miss y 88 underpair suelen pot-controlar river, no meter 66%.",
+    "why": "KJ top pair+kicker: value limpio 3 calles. 98s miss y 88 underpair no meten 66%.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -119,7 +119,7 @@
       }
     ],
     "answer": 0,
-    "why": "ATs donkea flush-draw fuerte y sigue turn; en river con Q checkea (miss + scare). 99 raisearía flop; 76s suele check-raise o check.",
+    "why": "ATs donkea FD fuerte y sigue turn; checkea Q river. 99 raisea flop; 76s no.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -181,7 +181,7 @@
       }
     ],
     "answer": 1,
-    "why": "Overbet river pide nuts/near-nuts: A5s hizo el nut flush. KQo valuea sizing medio; JJ sin club no overbetea.",
+    "why": "Overbet pide nuts: A5s nut flush. KQo sizing medio; JJ sin club no overbetea.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -243,7 +243,7 @@
       }
     ],
     "answer": 1,
-    "why": "KTs es straight (K-Q-J-T-9): all-in por value. AQ top pair no shovea 100bb; AA suele sizingar menos.",
+    "why": "KTs straight: all-in value. AQ no shovea 100bb; AA sizinga menos.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -305,7 +305,7 @@
       }
     ],
     "answer": 0,
-    "why": "77 set: check-raise flop + value turn/river. A5s miss flush; 98s OESD miss — no valuean river 50%.",
+    "why": "77 set: XR flop + value. A5s/98s miss no valuean river 50%.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -367,7 +367,7 @@
       }
     ],
     "answer": 0,
-    "why": "A5o slowplayea flop (trap) y probea turn+river. KK betearía flop; JTs no tiene value river.",
+    "why": "A5o trap flop + probe turn/river. KK betea flop; JTs sin value river.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -429,7 +429,7 @@
       }
     ],
     "answer": 0,
-    "why": "98s miss FD+OESD: donk river como bluff en A. J9s tiene showdown; A3s checkea o valuea pequeño, no donk 75%.",
+    "why": "98s miss FD+OESD: donk bluff en A. J9s/A3s no donkean 75%.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -491,7 +491,7 @@
       }
     ],
     "answer": 1,
-    "why": "Small-small + jam = polar: 76s air bluff. AQs valuea sizing medio; QJs no llega a jam sin equity.",
+    "why": "Small-small+jam = polar: 76s air. AQs sizing medio; QJs no jamea.",
     "heroStack": 100,
     "villainStack": 80
   },
@@ -553,7 +553,7 @@
       }
     ],
     "answer": 0,
-    "why": "AA 3-betea y barrela dry board. 88 underpair no mete tres calles; QJo no 3-betea BB vs BTN tan ancho.",
+    "why": "AA 3-betea y barrela dry. 88 no mete 3 calles; QJo no 3-betea tan ancho.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -615,7 +615,7 @@
       }
     ],
     "answer": 1,
-    "why": "99 set: check flop (slowplay) + value turn/river. AA casi siempre c-betea; KJo no dobla barrel sin Q.",
+    "why": "99 set: check flop + value. AA c-betea; KJo no dobla barrel sin Q.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -677,7 +677,7 @@
       }
     ],
     "answer": 1,
-    "why": "87s hizo straight en turn (J-T-9-8-7): donk value. QQ betearía flop; AJs checkea turn o raisea.",
+    "why": "87s straight turn: donk value. QQ betea flop; AJs no donk+bet.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -739,7 +739,7 @@
       }
     ],
     "answer": 1,
-    "why": "Overbet polar: 65s missed straight. AQ valuea 50–75%; 77 no overbetea A-high.",
+    "why": "Overbet polar: 65s miss straight. AQ valuea 50–75%; 77 no overbetea.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -801,7 +801,7 @@
       }
     ],
     "answer": 1,
-    "why": "JTs float flop + check turn + river bluff en Q. KT valuea turn; AA raisearía antes.",
+    "why": "JTs float + river bluff en Q. KT valuea turn; AA raisea antes.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -859,7 +859,7 @@
       }
     ],
     "answer": 0,
-    "why": "95s hizo straight (5-6-7-8-9): jam turn. 88 set raisearía flop; AKs miss FD no jamea.",
+    "why": "95s straight: jam turn. 88 raisea flop; AKs miss FD no jamea.",
     "heroStack": 100,
     "villainStack": 90
   },
@@ -921,7 +921,7 @@
       }
     ],
     "answer": 2,
-    "why": "T8s es straight Q-J-T-9-8: raise river. AQ valuea call/thin; AK sin Q no raisea river.",
+    "why": "T8s straight: raise river. AQ thin/call; AK sin Q no raisea.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -983,7 +983,7 @@
       }
     ],
     "answer": 1,
-    "why": "76s barrela air (gutshot+backdoor). KQs sizinga más pequeño en river; 99 pot-controla.",
+    "why": "76s barrela air. KQs sizinga menos river; 99 pot-controla.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1045,7 +1045,7 @@
       }
     ],
     "answer": 1,
-    "why": "76s donkea straight flop y paga raise; checkea turn/river con nuts medium. A5s FD miss; AT no donkea ese flop.",
+    "why": "76s donkea straight y paga raise. A5s miss; AT no donkea T98.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1107,7 +1107,7 @@
       }
     ],
     "answer": 1,
-    "why": "65s nuts straight: overbet. AK miss FD; A9s no overbetea top pair.",
+    "why": "65s nuts straight: overbet. AK miss FD; A9s no overbetea.",
     "heroStack": 150,
     "villainStack": 150
   },
@@ -1169,7 +1169,7 @@
       }
     ],
     "answer": 1,
-    "why": "JTs air en AKx: jam river como bluff. AQ valuea; KK limpea raro y no jamea A-high.",
+    "why": "JTs air en AKx: jam bluff. AQ valuea; KK no limpea+jamea.",
     "heroStack": 55,
     "villainStack": 55
   },
@@ -1231,7 +1231,7 @@
       }
     ],
     "answer": 1,
-    "why": "A8o hizo straight river (A no, 8-9-T-J): donk grande. 88 no; JT top two valuea turn antes.",
+    "why": "A8o straight river: donk grande. 88 no; JT valuea turn antes.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1254,7 +1254,7 @@
     "line": [
       {
         "street": "Preflop",
-        "text": "HJ open 2,2 bb → BTN call → BB squeeze 14 bb → HJ fold → BTN call"
+        "text": "HJ open 2,2 bb → BTN call → BB squeeze 14 bb → BTN call"
       },
       {
         "street": "Flop",
@@ -1293,7 +1293,7 @@
       }
     ],
     "answer": 1,
-    "why": "JTs float + bet river (broadway + blockers). AJ valuea turn más; 99 no paga squeeze flop AKx.",
+    "why": "JTs float + bet river. AJ valuea turn; 99 no paga squeeze AKx.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1355,7 +1355,7 @@
       }
     ],
     "answer": 0,
-    "why": "QJs flush turn: donk+barrel. 99 raisearía flop; 75o miss no barrela river.",
+    "why": "QJs flush: donk+barrel. 99 raisea flop; 75o miss no barrela.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1417,7 +1417,7 @@
       }
     ],
     "answer": 0,
-    "why": "Thin value pequeño: ATo. KQs bluffea más grande; 99 no c-betea A-high así.",
+    "why": "Thin value 25%: ATo. KQs bluffea más; 99 no c-betea A-high.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1474,7 +1474,7 @@
       }
     ],
     "answer": 0,
-    "why": "A9s: raise flop FD+gutshot + jam turn nut flush. AA 4-betea PF; 99 no raisea flop QJ.",
+    "why": "A9s raise flop + jam turn nut flush. AA 4-betea; 99 no raisea QJ.",
     "heroStack": 120,
     "villainStack": 110
   },
@@ -1536,7 +1536,7 @@
       }
     ],
     "answer": 1,
-    "why": "Tras dos checks, 65s bluffea river (miss). K9s betearía antes; 88 tiene showdown.",
+    "why": "Tras 2 checks, 65s bluffea river. K9s betea antes; 88 showdown.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1598,7 +1598,7 @@
       }
     ],
     "answer": 0,
-    "why": "QJs straight river (Q-J-T-9-8): jam. AA no donkea flop T9; 55 no encaja la línea.",
+    "why": "QJs straight river: jam. AA no donkea T9; 55 no encaja.",
     "heroStack": 100,
     "villainStack": 65
   },
@@ -1660,7 +1660,7 @@
       }
     ],
     "answer": 1,
-    "why": "JTs barrela miss flush como bluff. KQ sizinga más thin; AA 3-betea multiway.",
+    "why": "JTs barrela miss flush. KQ thin; AA 3-betea multiway.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1722,7 +1722,7 @@
       }
     ],
     "answer": 1,
-    "why": "Ks blocker nut flush: overbet bluff. AK valuea 50–75%; 99 no barrela A-high.",
+    "why": "Ks blocker nut flush: overbet bluff. AK 50–75%; 99 no barrela.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1784,7 +1784,7 @@
       }
     ],
     "answer": 0,
-    "why": "K9o nuts straight river (K-Q-J-T-9): check-raise. AQ valuea call; 76s no llega.",
+    "why": "K9o nuts straight: XR river. AQ call; 76s no llega.",
     "heroStack": 100,
     "villainStack": 100
   },
@@ -1846,7 +1846,7 @@
       }
     ],
     "answer": 1,
-    "why": "QTs flush river: overbet. A5s thin value sizing medio; 77 no donkea A-high así.",
+    "why": "QTs flush river: overbet. A5s thin; 77 no donkea A-high.",
     "heroStack": 100,
     "villainStack": 100
   }
