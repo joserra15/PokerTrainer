@@ -246,11 +246,22 @@ interface ThreadTurn {
   reportMarkdown?: string;
 }
 
-type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question' | 'parse_hand';
+type AiMode = 'report' | 'question' | 'session_report' | 'session_question' | 'stats_report' | 'stats_question' | 'parse_hand' | 'villain_action';
 
 const QUESTION_MAX = 500;
 const THREAD_MAX = 4;
 const THREAD_SNIPPET_MAX = 1500;
+
+const VILLAIN_ACTION_PROMPT = `Eres un motor de decisión para un villano de póker NL Hold'em en torneo.
+Recibes JSON con el spot (calle, bote, stack, toCall, handBand, fase, freqs locales).
+Responde SOLO JSON válido (sin markdown) con esta forma exacta:
+{"action":{"id":"fold|check|call|bet|raise|allin","amount":null},"freqs":{"fold":0,"check":0,"call":0,"bet":0,"raise":0},"confidence":0.0,"reasonCode":"mix|value|bluff|fold_equity|icm"}
+Reglas:
+- action.id debe ser legal respecto a toCall (si toCall>0 no uses check; si toCall=0 no uses fold).
+- freqs deben sumar ~1 (solo claves usadas).
+- amount en bb solo si bet/raise; null en fold/check/call.
+- Sé coherente con GTO de torneo (ICM en burbuja/FT; chip-EV en HU WTA).
+- No escribas texto fuera del JSON. No menciones solvers ni marcas.`;
 
 function normalizeMode(raw: unknown): AiMode {
   if (raw === 'question') return 'question';
@@ -259,6 +270,7 @@ function normalizeMode(raw: unknown): AiMode {
   if (raw === 'stats_report') return 'stats_report';
   if (raw === 'stats_question') return 'stats_question';
   if (raw === 'parse_hand') return 'parse_hand';
+  if (raw === 'villain_action') return 'villain_action';
   return 'report';
 }
 
@@ -296,6 +308,7 @@ function isHomeGreetingPayload(payload: unknown): boolean {
 }
 
 function promptForMode(mode: AiMode, payload?: unknown, freePromo?: boolean): string {
+  if (mode === 'villain_action') return VILLAIN_ACTION_PROMPT;
   if (mode === 'parse_hand') return PARSE_HAND_PROMPT;
   if (mode === 'session_report') return SESSION_REPORT_PROMPT;
   if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
@@ -646,17 +659,18 @@ async function callGemini(
   const isStats = mode.startsWith('stats_');
   const isQuestion = mode.endsWith('question');
   const isParse = mode === 'parse_hand';
+  const isVillainAction = mode === 'villain_action';
   const model = 'gemini-2.5-flash';
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/' + model +
     ':generateContent?key=' + geminiKey;
 
   const generationConfig: Record<string, unknown> = {
-    temperature: isParse ? 0.15 : (isQuestion ? 0.4 : 0.35),
-    maxOutputTokens: isParse ? 4096 : (isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048)),
+    temperature: (isParse || isVillainAction) ? 0.15 : (isQuestion ? 0.4 : 0.35),
+    maxOutputTokens: isVillainAction ? 512 : (isParse ? 4096 : (isQuestion ? 4096 : ((isSession || isStats) ? 4096 : 2048))),
     thinkingConfig: { thinkingBudget: 0 }
   };
-  if (isParse) generationConfig.responseMimeType = 'application/json';
+  if (isParse || isVillainAction) generationConfig.responseMimeType = 'application/json';
 
   const geminiRes = await fetch(url, {
     method: 'POST',
@@ -809,12 +823,14 @@ serve(async (req) => {
   const thread = mode.endsWith('question') ? sanitizeThread(body.thread) : [];
   const rawPayload = body.payload as PayloadRecord;
   const admin = adminClient();
-  const enrichedPayload = admin
-    ? await enrichPayload(admin, billingUserId, mode, rawPayload)
-    : rawPayload;
+  const enrichedPayload = (mode === 'villain_action')
+    ? rawPayload
+    : (admin ? await enrichPayload(admin, billingUserId, mode, rawPayload) : rawPayload);
 
   const systemPrompt = promptForMode(mode, enrichedPayload, freePromo);
-  const userContent = userContentForMode(mode, enrichedPayload, question);
+  const userContent = mode === 'villain_action'
+    ? ('Decide la acción del villano. JSON del spot:\n' + JSON.stringify(enrichedPayload || {}))
+    : userContentForMode(mode, enrichedPayload, question);
 
   let access: { ok: true; source: string; unlimited: boolean } | Awaited<ReturnType<typeof checkAiAccess>>;
   if (freePromo) {
@@ -842,6 +858,47 @@ serve(async (req) => {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'gemini_error';
     return json({ error: msg }, msg === 'empty_response' ? 502 : 502);
+  }
+
+  if (mode === 'villain_action') {
+    let parsed: Record<string, unknown> | null = null;
+    try {
+      parsed = JSON.parse(result.text) as Record<string, unknown>;
+    } catch {
+      const m = result.text.match(/\{[\s\S]*\}/);
+      if (m) {
+        try { parsed = JSON.parse(m[0]) as Record<string, unknown>; } catch { parsed = null; }
+      }
+    }
+    if (!parsed || typeof parsed !== 'object') {
+      return json({ error: 'parse_failed' }, 502);
+    }
+    const actionRaw = parsed.action as Record<string, unknown> | string | undefined;
+    let actionId = '';
+    let amount: number | null = null;
+    if (typeof actionRaw === 'string') {
+      actionId = actionRaw.toLowerCase();
+    } else if (actionRaw && typeof actionRaw === 'object') {
+      actionId = String(actionRaw.id || '').toLowerCase();
+      if (actionRaw.amount != null && isFinite(Number(actionRaw.amount))) amount = Number(actionRaw.amount);
+    }
+    const allowed = new Set(['fold', 'check', 'call', 'bet', 'raise', 'allin']);
+    if (!allowed.has(actionId)) {
+      return json({ error: 'invalid_action' }, 502);
+    }
+    if (!freePromo) {
+      await recordAiUsage(billingUserId, mode, access.source || 'plan', communityId);
+    }
+    return json({
+      action: { id: actionId, amount },
+      freqs: parsed.freqs || parsed.action_freqs || null,
+      confidence: parsed.confidence != null ? Number(parsed.confidence) : 0.55,
+      reasonCode: parsed.reasonCode || null,
+      model: result.model,
+      mode: mode,
+      charged: true,
+      createdAt: new Date().toISOString()
+    });
   }
 
   if (mode === 'parse_hand') {

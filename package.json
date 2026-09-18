@@ -5,6 +5,7 @@
   "scripts": {
     "build": "node tools/build-bundles.js",
     "test:ci": "node tools/run-ci-tests.js",
+    "test:villain-assist": "node tools/test-villain-assist.js",
     "test:import": "node tools/testimport.js",
     "test:p0": "node tools/test-p0-session-onboarding.js",
     "test:p1": "node tools/test-p1-retention.js",

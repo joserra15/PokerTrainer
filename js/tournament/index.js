@@ -185,6 +185,11 @@
 
   function render(el) {
     if (!el) return;
+    try {
+      if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.refresh) {
+        global.PTVillainAssistFlags.refresh();
+      }
+    } catch (e) { /* */ }
     if (global.PTTournamentsUI && global.PTTournamentsUI.render) {
       global.PTTournamentsUI.render(el);
     } else {

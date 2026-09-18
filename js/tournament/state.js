@@ -103,7 +103,12 @@
         wentToShowdown: 0
       },
       result: null,
-      _lastTableCount: 0
+      _lastTableCount: 0,
+      villainAssist: {
+        enabled: false,
+        level: 'medium',
+        calls: 0
+      }
     };
 
     Seat.rebalance(state);
