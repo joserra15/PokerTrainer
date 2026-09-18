@@ -155,6 +155,68 @@
     return m ? num(m[1]) : null;
   }
 
+  function parseTournamentIdFromText(text) {
+    if (!text) return null;
+    const m = String(text).match(/Tournament\s*#\s*(\d+)/i)
+      || String(text).match(/Torneo\s*(?:n\.?\s*º?\s*)?#?\s*(\d+)/i);
+    return m ? m[1] : null;
+  }
+
+  /**
+   * Resultado de torneo en el HH (premio / puesto).
+   * PokerStars: "X wins the tournament and receives €4.00"
+   *            "X finished the tournament in 2nd place"
+   */
+  function parseTournamentResultLine(line) {
+    if (!line) return null;
+    const ln = String(line).replace(/\u00a0/g, ' ').trim();
+    let m = ln.match(
+      /^(.+?)\s+wins the tournament and receives\s*((?:[€$£]|â‚¬)?)([\d.,]+)/i
+    );
+    if (m) {
+      return { player: m[1].trim(), cashPrize: num(m[3]), finishPlace: 1 };
+    }
+    m = ln.match(
+      /^(.+?)\s+gana el torneo y recibe\s*((?:[€$£]|â‚¬)?)([\d.,]+)/i
+    );
+    if (m) {
+      return { player: m[1].trim(), cashPrize: num(m[3]), finishPlace: 1 };
+    }
+    m = ln.match(
+      /^(.+?)\s+finished the tournament in\s+(\d+)(?:st|nd|rd|th)?\s+place/i
+    );
+    if (m) {
+      return { player: m[1].trim(), finishPlace: parseInt(m[2], 10), cashPrize: null };
+    }
+    m = ln.match(
+      /^(.+?)\s+(?:termin[oó]|acab[oó]) el torneo en(?:\s+el)?(?:\s+puesto)?\s+(\d+)/i
+    );
+    if (m) {
+      return { player: m[1].trim(), finishPlace: parseInt(m[2], 10), cashPrize: null };
+    }
+    return null;
+  }
+
+  function applyTournamentResultToHand(hand, line) {
+    const res = parseTournamentResultLine(line);
+    if (!hand || !res) return false;
+    const hero = hand.hero;
+    if (hero && res.player !== hero) {
+      // Solo guardamos resultado del héroe para profit/ROI
+      return false;
+    }
+    if (!hero) {
+      // Sin héroe aún: guardar si es win (suele ser el héroe del HH exportado)
+      if (res.cashPrize == null && res.finishPlace !== 1) return false;
+    }
+    if (res.finishPlace != null) hand.finishPlace = res.finishPlace;
+    if (res.cashPrize != null) {
+      hand.cashPrize = res.cashPrize;
+      if (hand.finishPlace == null) hand.finishPlace = 1;
+    }
+    return true;
+  }
+
   function parseTournamentBlinds(text) {
     if (!text) return null;
     // Level II (15/30) · Level2 (60/120) · Level 5 (100/200/25)
@@ -510,6 +572,9 @@
     variantLabel,
     parseBuyInFromText,
     parseMultiplierFromText,
+    parseTournamentIdFromText,
+    parseTournamentResultLine,
+    applyTournamentResultToHand,
     parseTournamentBlinds,
     stakeTierFromBb,
     stakesLabel,

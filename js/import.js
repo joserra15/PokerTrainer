@@ -773,6 +773,9 @@
       mttPhase: hand.mttPhase || null,
       buyIn: hand.buyIn != null ? hand.buyIn : null,
       buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      tournamentId: hand.tournamentId || null,
+      cashPrize: hand.cashPrize != null ? hand.cashPrize : null,
+      finishPlace: hand.finishPlace != null ? hand.finishPlace : null,
       multiplier: hand.multiplier != null ? hand.multiplier : null,
       ante: hand.ante || 0,
       straddle: hand.straddle || null,
@@ -937,6 +940,9 @@
       entries: hand.entries != null ? hand.entries : null,
       buyIn: hand.buyIn != null ? hand.buyIn : null,
       buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      tournamentId: hand.tournamentId || null,
+      cashPrize: hand.cashPrize != null ? hand.cashPrize : null,
+      finishPlace: hand.finishPlace != null ? hand.finishPlace : null,
       mttStructureSituation: hand.mttStructureSituation || null,
       multiplier: hand.multiplier != null ? hand.multiplier : null,
       ante: hand.ante || 0,
@@ -2643,11 +2649,10 @@
     return tags.filter((t) => { if (seen[t]) return false; seen[t] = true; return true; });
   }
 
-  /** Cash/spins: el neto va en dinero. MTT/SNG: el neto es en fichas, no en €. */
+  /** Solo cash: el neto de la mano va en dinero real. Spin/MTT/SNG usan fichas. */
   function handUsesMoneyUnits(h) {
     if (!h) return false;
-    const k = h.gameKind || '';
-    return k === 'cash' || k === 'spin';
+    return (h.gameKind || '') === 'cash';
   }
 
   function stripHeavyHand(h) {
@@ -2705,6 +2710,7 @@
     let buyInTotal = 0;
     let buyInEvents = 0;
     const tourneyInvested = {};
+    const tourneyPrize = {};
     const stakeTierCount = {};
     const phaseCount = {};
     const stackDepths = [];
@@ -2740,8 +2746,8 @@
       evLoss += h.totalEvLoss;
       if (handUsesMoneyUnits(h) && h.bb) netEuro += (h.heroNetBB || 0) * h.bb;
       if (h.buyIn != null) {
-        if (h.gameKind === 'mtt' || h.gameKind === 'sng') {
-          const tk = String(h.tournamentId || ('n:' + (h.tournamentName || '')));
+        if (h.gameKind === 'mtt' || h.gameKind === 'sng' || h.gameKind === 'spin') {
+          const tk = String(h.tournamentId || ('n:' + (h.tournamentName || '') || ('hand:' + h.id)));
           if (tourneyInvested[tk] == null) {
             tourneyInvested[tk] = (h.buyIn || 0) + (h.buyInFee || 0);
           }
@@ -2749,6 +2755,10 @@
           buyInTotal += h.buyIn + (h.buyInFee || 0);
           buyInEvents++;
         }
+      }
+      if (h.cashPrize != null && h.cashPrize > 0) {
+        const pk = String(h.tournamentId || ('n:' + (h.tournamentName || '') || ('hand:' + h.id)));
+        tourneyPrize[pk] = Math.max(tourneyPrize[pk] || 0, h.cashPrize);
       }
       if (h.stakeTier) stakeTierCount[h.stakeTier] = (stakeTierCount[h.stakeTier] || 0) + 1;
       if (h.mttPhase) phaseCount[h.mttPhase] = (phaseCount[h.mttPhase] || 0) + 1;
@@ -2924,11 +2934,21 @@
       buyInTotal += tourneyInvested[k];
       buyInEvents++;
     });
+    let cashPrizeTotal = 0;
+    Object.keys(tourneyPrize).forEach((k) => {
+      cashPrizeTotal += tourneyPrize[k];
+    });
     const avgBuyIn = buyInEvents ? (buyInTotal / buyInEvents) : (ctx && ctx.avgBuyIn) || null;
-    const moneyGame = gameKind === 'cash' || gameKind === 'spin';
-    let profitEuro = moneyGame ? r2(netEuro) : null;
+    let profitEuro = null;
     let roiPct = null;
-    if (moneyGame && gameKind === 'spin' && buyInEvents && buyInTotal > 0 && profitEuro != null) {
+    if (gameKind === 'cash') {
+      profitEuro = r2(netEuro);
+    } else if (gameKind === 'spin' && buyInTotal > 0) {
+      // Premio real del HH − buy-in (1× por torneo). No usar fichas×bb.
+      profitEuro = r2(cashPrizeTotal - buyInTotal);
+      roiPct = Math.round((profitEuro / buyInTotal) * 1000) / 10;
+    } else if ((gameKind === 'mtt' || gameKind === 'sng') && cashPrizeTotal > 0 && buyInTotal > 0) {
+      profitEuro = r2(cashPrizeTotal - buyInTotal);
       roiPct = Math.round((profitEuro / buyInTotal) * 1000) / 10;
     }
     let dominantStakeTier = null;
@@ -3031,7 +3051,7 @@
       mttPhase: dominantPhase,
       avgStackBB: avgStackBB,
       shortHandedShare: ctx ? ctx.shortHandedShare : 0,
-      profitEuro, avgBuyIn, roiPct,
+      profitEuro, avgBuyIn, roiPct, cashPrize: cashPrizeTotal || null,
       styleIdeal: ideal,
       style, styleAssess,
       grade
