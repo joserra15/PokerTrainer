@@ -2960,6 +2960,13 @@
     var scaryBoard = !!extra.scaryBoard;
     var underpairTp = !!extra.underpairBoardTwoPair;
     var boardOnly = !!extra.boardOnlyShowdown;
+    var stack = Math.max(0, Number(extra.stack) || 0);
+    var facingJam = !!extra.facingJam;
+    if (!facingJam && stack > 0 && tc >= stack * 0.85) facingJam = true;
+    if (!facingJam && (betFrac >= 0.70 || potOdds >= 0.45)) facingJam = true;
+    var realDraw = !!extra.hasRealDraw;
+    var strongDraw = !!extra.flushDraw || !!extra.oesd;
+    var airish = boardOnly || band === 'air' || strength < 0.30;
 
     /* River air / board-only: fold vs ≥25% pot (K-high / Q-high jugando el board). */
     if (street === 'river' && (strength < 0.30 || boardOnly || band === 'air')) {
@@ -2977,6 +2984,17 @@
     if (street === 'river' && potOdds < 0.08 && strength > 0.35 && face === 'fold'
       && !boardOnly && band !== 'air') {
       return 'call';
+    }
+
+    /*
+     * Turn/river jam o stack-off: Q-high / board-only / aire no pagan el torneo.
+     * El betFrac vs pote puede verse «barato» tras inversión previa en la calle;
+     * si el call cierra el stack, sigue siendo un jam.
+     */
+    if ((street === 'turn' || street === 'river') && facingJam && airish) {
+      if (street === 'river' || boardOnly || band === 'air' || !realDraw) return 'fold';
+      /* Turn con solo gutshot (sin FD/OESD): fold vs jam. */
+      if (!strongDraw) return 'fold';
     }
 
     /* Board-only / kicker-only en turn/river vs ≥33% pot. */
@@ -3146,13 +3164,18 @@
           }
         );
         /* Board-only / aire: no confiar en rangos stub que inflan equity de kickers. */
-        if (madeInfo && madeInfo.boardOnlyShowdown && streetEq === 'river' && tcBB > 0) {
-          var br = potBeforeBB > 0 ? tcBB / potBeforeBB : 1;
-          var eqCap = br >= 0.55 ? 0.10 : (br >= 0.35 ? 0.14 : 0.20);
+        var jamVsPot = potBeforeBB > 0 ? tcBB / potBeforeBB : 1;
+        var stackOff = (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85;
+        if (madeInfo && madeInfo.boardOnlyShowdown && tcBB > 0
+          && (streetEq === 'river' || ((streetEq === 'turn') && (jamVsPot >= 0.55 || stackOff)))) {
+          var eqCap = (streetEq === 'river')
+            ? (jamVsPot >= 0.55 ? 0.10 : (jamVsPot >= 0.35 ? 0.14 : 0.20))
+            : (jamVsPot >= 0.70 || stackOff ? 0.12 : 0.18);
           if (isFinite(Number(eq))) eq = Math.min(Number(eq), eqCap);
-        } else if (band === 'air' && streetEq === 'river' && tcBB > 0 && potBeforeBB > 0
-          && (tcBB / potBeforeBB) >= 0.55 && isFinite(Number(eq))) {
-          eq = Math.min(Number(eq), 0.12);
+        } else if (band === 'air' && tcBB > 0 && potBeforeBB > 0
+          && (jamVsPot >= 0.55 || stackOff) && isFinite(Number(eq))
+          && (streetEq === 'river' || streetEq === 'turn')) {
+          eq = Math.min(Number(eq), streetEq === 'river' ? 0.12 : 0.16);
         }
       }
     } catch (eEq) { eq = strength; }
@@ -3191,14 +3214,19 @@
         if (seat._linePlan) seat._linePlan.floatOop = true;
       }
       /* Disciplina Pro: no call-down sticky con aire / underpair en boards peligrosos. */
+      var discExtra = {
+        band: band,
+        heroLine: heroLine,
+        scaryBoard: isScaryCalldownBoard(hand.board),
+        underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
+        boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown),
+        stack: Number(seat.stack) || 0,
+        facingJam: tc > 0 && (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85,
+        hasRealDraw: hasRealDraw(madeInfo),
+        flushDraw: !!(madeInfo && madeInfo.flushDraw),
+        oesd: !!(madeInfo && madeInfo.oesd)
+      };
       if (act === 'call' || act === 'fold') {
-        var discExtra = {
-          band: band,
-          heroLine: heroLine,
-          scaryBoard: isScaryCalldownBoard(hand.board),
-          underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
-          boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
-        };
         act = applyPostflopFoldDiscipline(
           act, strength, spotCtx.potOdds, tc, pot, hand.street || 'flop', role, rnd, discExtra
         );
@@ -3214,6 +3242,12 @@
           && !hasRealDraw(madeInfo) && strength < 0.55;
         if ((stRaise === 'flop' || stRaise === 'turn') && airNoDraw) {
           act = strength > (spotCtx.potOdds || 0) + 0.05 ? 'call' : 'fold';
+          /* Tras raise→call, reaplicar disciplina (jam / board-only). */
+          if (act === 'call' || act === 'fold') {
+            act = applyPostflopFoldDiscipline(
+              act, strength, spotCtx.potOdds, tc, pot, stRaise, role, Math.random(), discExtra
+            );
+          }
         }
       }
       if (act === 'raise') {
@@ -3477,21 +3511,23 @@
         }
       }
 
-      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd, {
-        band: strength < 0.28 ? 'air' : (strength < 0.42 ? 'bluffcatch' : 'merge'),
+      var heurDisc = {
+        band: (madeInfo && DC && DC.bandFromMade)
+          ? DC.bandFromMade(madeInfo, strength)
+          : (strength < 0.28 ? 'air' : (strength < 0.42 ? 'bluffcatch' : 'merge')),
         heroLine: heroLine,
         scaryBoard: isScaryCalldownBoard(hand.board),
         underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
-        boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
-      });
+        boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown),
+        stack: Number(seat.stack) || 0,
+        facingJam: tc > 0 && (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85,
+        hasRealDraw: hasRealDraw(madeInfo),
+        flushDraw: !!(madeInfo && madeInfo.flushDraw),
+        oesd: !!(madeInfo && madeInfo.oesd)
+      };
+      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, rnd, heurDisc);
       face = applyFormatAdjustToFacing(face, strength, potOdds, ctx, profile, rnd);
-      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, Math.random(), {
-        band: strength < 0.28 ? 'air' : (strength < 0.42 ? 'bluffcatch' : 'merge'),
-        heroLine: heroLine,
-        scaryBoard: isScaryCalldownBoard(hand.board),
-        underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
-        boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown)
-      });
+      face = applyPostflopFoldDiscipline(face, strength, potOdds, tc, pot, street, role, Math.random(), heurDisc);
 
       if (face === 'fold' && isNeverFoldNuts(seat.cards, hand.board)) face = 'call';
 
@@ -3744,9 +3780,22 @@
       return { veto: true, reason: 'veto_single_option' };
     }
 
+    var criticalJam = isCriticalJamSpot(ctx);
     var freqs = local.freqs || ctx.freqs;
     var top = topFreq(freqs);
-    if (top) {
+    var band = String(ctx.handBand || local.handBand || '').toLowerCase();
+    var weakBand = band === 'air' || band === 'weak' || band === 'bluffcatch';
+    var topCallish = top && (top.id === 'call' || top.id === 'raise' || top.id === 'allin' || top.id === 'bet');
+
+    /*
+     * Jam clave + mano débil que el motor quiere pagar/subir: nunca vetar;
+     * es exactamente el caso donde la IA debe revisar (p.ej. Q-high vs shove).
+     */
+    if (criticalJam && weakBand && topCallish) {
+      return { veto: false, reason: null };
+    }
+
+    if (top && !(criticalJam && weakBand)) {
       var entries = sortedFreqEntries(freqs);
       var gap = entries.length > 1 ? (entries[0].f - entries[1].f) : 1;
       if (top.f >= 0.82) return { veto: true, reason: 'veto_motor_seguro' };
@@ -3767,12 +3816,13 @@
       }
     }
 
-    var band = String(ctx.handBand || local.handBand || '').toLowerCase();
     if (band === 'nuts' && top && (top.id === 'raise' || top.id === 'bet' || top.id === 'call' || top.id === 'allin')
       && top.f >= 0.80) {
       return { veto: true, reason: 'veto_nuts' };
     }
-    if ((band === 'air' || band === 'weak') && top && top.id === 'fold' && top.f >= 0.85) {
+    /* Fold trivial con aire: OK veto, salvo jam crítico (por si el fold local es dudoso). */
+    if ((band === 'air' || band === 'weak') && top && top.id === 'fold' && top.f >= 0.85
+      && !criticalJam) {
       return { veto: true, reason: 'veto_air_fold' };
     }
 
@@ -3782,6 +3832,34 @@
   /**
    * Impacto pot vs stack. 0 = hard skip (ni en HU).
    */
+  function isFacingJam(ctx) {
+    ctx = ctx || {};
+    if (ctx.facingJam) return true;
+    var stackBB = Math.max(0.01, Number(ctx.villainStackBB != null ? ctx.villainStackBB : ctx.stackBB) || 1);
+    var eff = Math.max(0.01, Number(ctx.effStackBB != null ? ctx.effStackBB : stackBB) || stackBB);
+    var toCallBB = Number(ctx.toCallBB) || 0;
+    return toCallBB >= eff * 0.85;
+  }
+
+  /**
+   * Jam en turn/river con vida de torneo (HU / burbuja / FT / stack corto):
+   * spot clave aunque el motor local parezca «seguro».
+   */
+  function isCriticalJamSpot(ctx) {
+    ctx = ctx || {};
+    if (!isFacingJam(ctx)) return false;
+    var street = String(ctx.street || '').toLowerCase();
+    if (street !== 'turn' && street !== 'river') return false;
+    var phase = resolvePhase(ctx);
+    if (phase === 'hu' || phase === 'bubble' || phase === 'mincash'
+      || phase === 'ft' || phase === 'ft9') {
+      return true;
+    }
+    var eff = Math.max(0.01, Number(ctx.effStackBB != null ? ctx.effStackBB
+      : (ctx.villainStackBB != null ? ctx.villainStackBB : ctx.stackBB)) || 1);
+    return eff <= 25;
+  }
+
   function impactMult(ctx) {
     ctx = ctx || {};
     var potBB = Math.max(0.01, Number(ctx.potBB) || 0);
@@ -3791,12 +3869,11 @@
     var spr = eff / Math.max(potBB, 0.5);
     var committed = Number(ctx.committedFrac);
     if (!isFinite(committed)) committed = 0;
-    var facingJam = !!ctx.facingJam;
-    var toCallBB = Number(ctx.toCallBB) || 0;
-    if (toCallBB >= eff * 0.85) facingJam = true;
+    var facingJam = isFacingJam(ctx);
 
+    if (isCriticalJamSpot(ctx)) return 1.25;
     if (committed >= 0.35 || facingJam) {
-      return 1.1;
+      return 1.15;
     }
     if (potFrac < 0.08 && spr > 12) return 0;
     if (potFrac < 0.15 || spr > 8) {
@@ -3854,13 +3931,22 @@
     local = local || {};
     var freqs = local.freqs || ctx.freqs;
     var band = ctx.handBand || local.handBand;
-    return clamp01(
+    var base = clamp01(
       0.40 * mixEntropy01(freqs) +
       0.20 * handBandAmbiguity(band) +
       0.15 * lineComplexity01(ctx) +
       0.15 * icmPressure01(ctx) +
       0.10 * streetPressure01(ctx.street || (local && local.street))
     );
+    /* Suelo si el motor quiere pagar/subir un jam clave con mano débil. */
+    if (isCriticalJamSpot(ctx)) {
+      var top = topFreq(freqs);
+      var b = String(band || '').toLowerCase();
+      var weak = b === 'air' || b === 'weak' || b === 'bluffcatch' || b === 'draw' || b === 'semi';
+      var callish = top && (top.id === 'call' || top.id === 'raise' || top.id === 'allin');
+      if (callish && weak) return Math.max(base, 0.62);
+    }
+    return base;
   }
 
   /**
@@ -3895,7 +3981,25 @@
     var phase = resolvePhase(ctx);
     var raw = rawScore(ctx, local);
     var score = clamp01(raw * impact * phaseMult(phase));
+    var critical = isCriticalJamSpot(ctx);
     var should = score >= lvl.threshold;
+    var reason = should ? 'pass' : 'below_threshold';
+    /*
+     * Alta/media: si el motor local quiere call/raise un jam de torneo con
+     * mano débil, forzar consulta aunque el score quede bajo el umbral.
+     */
+    if (!should && critical && (lvl.id === 'high' || lvl.id === 'medium')) {
+      var freqs = (local && local.freqs) || ctx.freqs;
+      var top = topFreq(freqs);
+      var b = String(ctx.handBand || (local && local.handBand) || '').toLowerCase();
+      var weak = b === 'air' || b === 'weak' || b === 'bluffcatch' || b === 'draw' || b === 'semi';
+      var callish = top && (top.id === 'call' || top.id === 'raise' || top.id === 'allin');
+      if (callish && weak) {
+        should = true;
+        reason = 'critical_jam';
+        score = Math.max(score, lvl.threshold);
+      }
+    }
     return {
       shouldAssist: should,
       score: score,
@@ -3903,9 +4007,10 @@
       impact: impact,
       phase: phase,
       phaseMult: phaseMult(phase),
-      reason: should ? 'pass' : 'below_threshold',
+      reason: reason,
       threshold: lvl.threshold,
-      level: lvl.id
+      level: lvl.id,
+      criticalJam: critical
     };
   }
 
@@ -3919,6 +4024,8 @@
     phaseMult: phaseMult,
     hardVeto: hardVeto,
     impactMult: impactMult,
+    isFacingJam: isFacingJam,
+    isCriticalJamSpot: isCriticalJamSpot,
     rawScore: rawScore,
     mixEntropy01: mixEntropy01,
     evaluate: evaluate,
@@ -4559,6 +4666,32 @@
     };
   }
 
+  function resolveLocalStrength(hand, seat) {
+    var D = global.PTTournamentVillainDecide;
+    if (!D || typeof D.strength01 !== 'function') return 0.5;
+    try {
+      if (seat && seat.cards) {
+        return D.strength01(seat.cards, (hand && hand.board) || [], (hand && hand.street) || 'flop');
+      }
+    } catch (e) { /* */ }
+    return 0.5;
+  }
+
+  function resolveMade(hand, seat) {
+    var Made = global.GTOEquityMadeHand;
+    if (!Made || typeof Made.classifyMadeHand !== 'function' || !seat || !seat.cards) return null;
+    try {
+      var hole = (seat.cards || []).map(function (c) {
+        return typeof c === 'string' ? c : (c && c.code) || c;
+      }).filter(Boolean);
+      var board = ((hand && hand.board) || []).map(function (c) {
+        return typeof c === 'string' ? c : (c && c.code) || c;
+      }).filter(Boolean);
+      if (hole.length >= 2 && board.length >= 3) return Made.classifyMadeHand(hole, board);
+    } catch (e) { /* */ }
+    return null;
+  }
+
   function computeLocalBundle(hand, seat) {
     var D = global.PTTournamentVillainDecide;
     var action = { id: 'check' };
@@ -4566,20 +4699,33 @@
       try { action = D.decide(hand, seat) || action; } catch (e) { /* */ }
     }
     var profile = D && D.profileForSeat ? D.profileForSeat(seat, hand) : null;
-    var strength = D && D.strength01 ? D.strength01(hand, seat) : 0.5;
-    var freqs = null;
-    /* Freqs aproximadas desde decisión: masa en la acción elegida. */
-    freqs = {};
+    var strength = resolveLocalStrength(hand, seat);
+    var made = resolveMade(hand, seat);
+    var freqs = {};
     freqs[actionFamily(action.id)] = 0.72;
     var alt = actionFamily(action.id) === 'fold' ? 'call'
       : (actionFamily(action.id) === 'check' ? 'bet' : 'fold');
     freqs[alt] = 0.28;
+    /*
+     * Ante jam, no fingir 72/28 «seguro»: mezcla más cerrada para que el
+     * score de complejidad refleje la dificultad real del spot.
+     */
+    var toCall = Math.max(0, (Number(hand.currentBet) || 0) - (Number(seat.streetInvested) || 0));
+    var stack = Number(seat.stack) || 0;
+    if (toCall > 0 && stack > 0 && toCall >= stack * 0.85) {
+      var primary = actionFamily(action.id);
+      var secondary = primary === 'fold' ? 'call' : 'fold';
+      freqs = {};
+      freqs[primary] = 0.58;
+      freqs[secondary] = 0.42;
+    }
     return {
       action: action,
       freqs: freqs,
       profile: profile,
       strength: strength,
-      handBand: bandFromStrength(strength, null)
+      made: made,
+      handBand: bandFromStrength(strength, made)
     };
   }
 
