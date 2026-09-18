@@ -82,12 +82,26 @@
 
   function isSpinSignal(text) {
     if (!text) return false;
-    return /Spin\s*&?\s*Go|Spin\s*and\s*Go|Jackpot\s*Sit\s*&?\s*Go|Sit\s*&?\s*Go\s*Jackpot|Nitro\s*&\s*Go|Spins?\b/i.test(text);
+    return /Spin\s*&?\s*Go|Spin\s*and\s*Go|Jackpot\s*Sit\s*&?\s*Go|Sit\s*&?\s*Go\s*Jackpot|Nitro\s*&\s*Go|Spins?\b|Expresso|Spin\s*&?\s*Gold/i.test(text);
   }
 
   function isSngSignal(text) {
     if (!text) return false;
     return /\bSit\s*&?\s*Go\b|\bSNG\b|\bSit\s*and\s*Go\b/i.test(text) && !isSpinSignal(text);
+  }
+
+  /**
+   * PokerStars (y salas similares) a menudo omiten «Spin & Go» en el HH:
+   * solo aparece Tournament #… + mesa 3-max. Eso es spin en la práctica
+   * (mismo criterio que Tournament History → players === 3).
+   */
+  function looksLikeSpinTournament(hand, text) {
+    if (!hand) return false;
+    if (hand.gameKind === 'spin' || isSpinSignal(text)) return true;
+    if (!(hand.isTournament || /Tournament|Torneo/i.test(text || ''))) return false;
+    if (isSngSignal(text) && !isSpinSignal(text)) return false;
+    const tmax = hand.tableMax != null ? hand.tableMax : detectTableMaxFromText(text);
+    return tmax === 3;
   }
 
   function detectVariant(text) {
@@ -275,7 +289,7 @@
       }
     }
 
-    const spin = isSpinSignal(full) || hand.gameKind === 'spin';
+    const spin = looksLikeSpinTournament(hand, full);
     const sng = !spin && (isSngSignal(full) || hand.gameKind === 'sng');
     if (spin) {
       hand.gameKind = 'spin';
@@ -489,6 +503,7 @@
     LABELS_FROM_MID_9,
     detectTableMaxFromText,
     isSpinSignal,
+    looksLikeSpinTournament,
     isSngSignal,
     detectVariant,
     isAnalysisUnsupportedVariant,

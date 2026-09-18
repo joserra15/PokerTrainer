@@ -1,0 +1,59 @@
+PokerStars Hand #262126142248: Tournament #4033085867, €0.93+€0.07 EUR Hold'em No Limit - Level I (10/20) - 2026/09/18 23:34:06 CET [2026/09/18 17:34:06 ET]
+Table '4033085867 1' 3-max Seat #3 is the button
+Seat 1: Hero (530 in chips)
+Seat 2: OppA (440 in chips)
+Seat 3: OppB (530 in chips)
+Hero: posts small blind 10
+OppA: posts big blind 20
+*** HOLE CARDS ***
+Dealt to Hero [9d Kc]
+OppB: calls 20
+Hero: raises 60 to 80
+OppA: calls 60
+OppB: folds
+*** FLOP *** [6s 5h 8h]
+Hero: bets 90
+OppA: calls 90
+*** TURN *** [6s 5h 8h] [Jd]
+Hero: checks
+OppA: checks
+*** RIVER *** [6s 5h 8h Jd] [8c]
+Hero: checks
+OppA: checks
+*** SHOW DOWN ***
+Hero: shows [9d Kc] (a pair of Eights)
+OppA: shows [As 9c] (a pair of Eights - Ace kicker)
+OppA collected 360 from pot
+*** SUMMARY ***
+Total pot 360 | Rake 0
+Board [6s 5h 8h Jd 8c]
+Seat 1: Hero (small blind) showed [9d Kc] and lost with a pair of Eights
+Seat 2: OppA (big blind) showed [As 9c] and won (360) with a pair of Eights
+Seat 3: OppB (button) folded before Flop
+
+
+PokerStars Hand #262126266246: Tournament #4033085867, €0.93+€0.07 EUR Hold'em No Limit - Level IV (30/60) - 2026/09/18 23:43:26 CET [2026/09/18 17:43:26 ET]
+Table '4033085867 1' 3-max Seat #1 is the button
+Seat 1: Hero (1260 in chips)
+Seat 3: OppB (240 in chips)
+Hero: posts small blind 30
+OppB: posts big blind 60
+*** HOLE CARDS ***
+Dealt to Hero [Ts Ks]
+Hero: raises 90 to 150
+OppB: raises 90 to 240 and is all-in
+Hero: calls 90
+*** FLOP *** [Jc Ad 4c]
+*** TURN *** [Jc Ad 4c] [3s]
+*** RIVER *** [Jc Ad 4c 3s] [Qc]
+*** SHOW DOWN ***
+OppB: shows [8c 9s] (high card Ace)
+Hero: shows [Ts Ks] (a straight, Ten to Ace)
+Hero collected 480 from pot
+OppB finished the tournament in 2nd place
+Hero wins the tournament and receives €4.00 - congratulations!
+*** SUMMARY ***
+Total pot 480 | Rake 0
+Board [Jc Ad 4c 3s Qc]
+Seat 1: Hero (button) (small blind) showed [Ts Ks] and won (480) with a straight, Ten to Ace
+Seat 3: OppB (big blind) showed [8c 9s] and lost with high card Ace

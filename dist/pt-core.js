@@ -32763,6 +32763,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function sessionSummary(session) {
+    const ctx = session && session.context;
     return {
       id: session.id,
       fileName: session.fileName,
@@ -32771,6 +32772,13 @@ window.PT_NASH_PUSH_JSON = {
       nTotal: session.nTotal,
       nDiscarded: session.nDiscarded,
       stats: session.stats,
+      context: ctx ? {
+        gameKind: ctx.gameKind || null,
+        formatKey: ctx.formatKey || null,
+        tableMax: ctx.tableMax != null ? ctx.tableMax : null,
+        stakesLabel: ctx.stakesLabel || null,
+        mix: ctx.mix || null
+      } : null,
       analysisVersion: session.analysisVersion,
       hasTxt: false,
       cloudOnly: true,
@@ -50001,47 +50009,101 @@ window.PT_NASH_PUSH_JSON = {
       const onProgress = function (done, total, phase) {
         setProgress(done, total, phase || 'analyze', fileLabel);
       };
-      let session;
-      try {
-        session = Importer.buildSessionAsync
-          ? await Importer.buildSessionAsync(parsed, file.name, onProgress, text)
-          : Importer.buildSession(parsed, file.name, text);
-      } catch (analyzeErr) {
+      const expand = Importer.expandParsedForSave
+        || function (p) { return [p]; };
+      const chunks = expand(parsed);
+      const savedSessions = [];
+      let handsImported = 0;
+      let lastSaveError = null;
+      let anyCloudOnly = false;
+      let lastFormat = parsed.format || fmtMeta;
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci];
+        const chunkLabel = chunks.length > 1
+          ? (fileLabel + ' · ' + (ci + 1) + '/' + chunks.length)
+          : fileLabel;
+        let session;
+        try {
+          const chunkProgress = function (done, total, phase) {
+            onProgress(done, total, phase);
+          };
+          session = Importer.buildSessionAsync
+            ? await Importer.buildSessionAsync(chunk, chunk.fileName || file.name, chunkProgress, text)
+            : Importer.buildSession(chunk, chunk.fileName || file.name, text);
+        } catch (analyzeErr) {
+          return {
+            ok: false,
+            error: (analyzeErr && analyzeErr.message) || ('No se pudo analizar «' + file.name + '».')
+          };
+        }
+        // Evitar colisión de ids si se construyen varias partes en el mismo ms
+        session.id = 's' + Date.now() + '_' + ci + '_' + Math.floor(Math.random() * 10000);
+        const partHands = (session.hands || []).length
+          || (session.stats && session.stats.nHands)
+          || 0;
+        session.freshImport = true;
+        setProgress(ci, chunks.length, 'save', chunkLabel);
+        const saveResult = await Store.saveSession(session, onProgress);
+        if (!(saveResult && saveResult.ok !== false)) {
+          lastSaveError = (saveResult && saveResult.error) || 'No se pudo guardar la sesión.';
+          continue;
+        }
+        handsImported += partHands;
+        const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
+        if (saveResult.cloudOnly) anyCloudOnly = true;
+        savedSessions.push(finalSession);
+        lastFormat = finalSession.format || lastFormat;
+      }
+      if (!savedSessions.length) {
         return {
           ok: false,
-          error: (analyzeErr && analyzeErr.message) || ('No se pudo analizar «' + file.name + '».')
+          saved: false,
+          saveError: lastSaveError,
+          error: lastSaveError || 'No se pudo guardar la sesión.',
+          session: null,
+          handsImported: handsImported,
+          sessionParts: 0,
+          format: lastFormat
         };
       }
-      const handsImported = (session.hands || []).length
-        || (session.stats && session.stats.nHands)
-        || 0;
       if (Ent && Ent.recordImportSession && handsImported) {
         const rec = await Ent.recordImportSession(handsImported);
         if (rec && rec.ok === false) {
           return { ok: false, paywall: rec.error, error: rec.error };
         }
       }
-      session.freshImport = true;
-      setProgress(0, 1, 'save', fileLabel);
-      const saveResult = await Store.saveSession(session, onProgress);
-      const saved = saveResult && saveResult.ok !== false;
-      const finalSession = (saveResult && saveResult.session) ? saveResult.session : session;
       if (window.PTAnalytics && PTAnalytics.trackImportSession) {
         PTAnalytics.trackImportSession({
-          hands: (finalSession.hands && finalSession.hands.length) || handsImported,
-          platform: finalSession.format && finalSession.format.platform
+          hands: handsImported,
+          platform: lastFormat && lastFormat.platform
         });
       }
+      function preferOpenSession(list) {
+        if (!list || !list.length) return null;
+        function bucketOf(s) {
+          const kind = (s && s.context && s.context.gameKind)
+            || (s && s.stats && s.stats.gameKind)
+            || 'cash';
+          if (kind === 'spin') return 'spin';
+          if (kind === 'mtt' || kind === 'sng') return 'mtt';
+          return 'cash';
+        }
+        return list.find(function (s) { return bucketOf(s) === 'spin'; })
+          || list.find(function (s) { return bucketOf(s) === 'mtt'; })
+          || list[list.length - 1];
+      }
+      const chosenSession = preferOpenSession(savedSessions);
       return {
-        ok: saved,
-        saved: saved,
-        cloudOnly: !!(saveResult && saveResult.cloudOnly),
-        saveError: saveResult && saveResult.error,
-        error: (!saved && saveResult && saveResult.error) || null,
-        session: finalSession,
-        handsImported: (finalSession.hands && finalSession.hands.length) || handsImported,
-        sessionParts: 1,
-        format: finalSession.format || parsed.format || fmtMeta
+        ok: true,
+        saved: true,
+        cloudOnly: anyCloudOnly,
+        saveError: lastSaveError,
+        error: null,
+        session: chosenSession,
+        sessions: savedSessions,
+        handsImported: handsImported,
+        sessionParts: savedSessions.length,
+        format: chosenSession.format || lastFormat
       };
     }
 
@@ -50079,12 +50141,15 @@ window.PT_NASH_PUSH_JSON = {
           }
           const mixBits = [];
           ok.forEach(function (r) {
-            const mix = r.session && r.session.context && r.session.context.mix;
-            if (!mix) return;
-            if (mix.cash) mixBits.push(mix.cash + ' cash');
-            if (mix.spin) mixBits.push(mix.spin + ' spin');
-            if (mix.mtt) mixBits.push(mix.mtt + ' MTT');
-            if (mix.sng) mixBits.push(mix.sng + ' SNG');
+            const list = (r.sessions && r.sessions.length) ? r.sessions : (r.session ? [r.session] : []);
+            list.forEach(function (ses) {
+              const mix = ses && ses.context && ses.context.mix;
+              if (!mix) return;
+              if (mix.cash) mixBits.push(mix.cash + ' cash');
+              if (mix.spin) mixBits.push(mix.spin + ' spin');
+              if (mix.mtt) mixBits.push(mix.mtt + ' MTT');
+              if (mix.sng) mixBits.push(mix.sng + ' SNG');
+            });
           });
           if (mixBits.length) {
             msg += ' <span class="muted-text">(' + escapeHtml(mixBits.join(', ')) + ')</span>';

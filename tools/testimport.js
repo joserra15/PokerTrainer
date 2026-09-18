@@ -114,6 +114,39 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   console.log('Spin & Go OK');
 })();
 
+// Spin PokerStars sin etiqueta «Spin & Go» (solo Tournament + 3-max)
+(function () {
+  const session = runFile('tools/fixtures/PokerStars-spin-no-label.txt', 'Spin sin label');
+  assert(session.hands.length === 2, 'spin-no-label 2 manos got ' + session.hands.length);
+  assert(session.hands.every((h) => h.gameKind === 'spin'), 'spin-no-label todas spin got '
+    + session.hands.map((h) => h.gameKind).join(','));
+  assert(session.context.gameKind === 'spin', 'spin-no-label context spin');
+  assert(session.context.tableMax === 3, 'spin-no-label tableMax 3');
+  assert(session.stats.formatKey === 'spin3', 'spin-no-label formatKey');
+  assert(U.looksLikeSpinTournament({ isTournament: true, tableMax: 3 }, 'Tournament #1'), 'helper 3-max');
+  assert(!U.looksLikeSpinTournament({ isTournament: true, tableMax: 9 }, 'Tournament #1'), 'helper 9-max no spin');
+  console.log('Spin sin label (3-max) OK');
+})();
+
+// HH mixto cash Zoom + spin → particiones separadas
+(function () {
+  const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'PokerStars-mixed-cash-spin.txt'), 'utf8');
+  const parsed = Importer.parseSession(txt, 'mixed.txt');
+  assert(parsed.hands.length === 2, 'mixed 2 manos');
+  assert(parsed.hands.filter((h) => h.gameKind === 'cash').length === 1, 'mixed 1 cash');
+  assert(parsed.hands.filter((h) => h.gameKind === 'spin').length === 1, 'mixed 1 spin');
+  const parts = Importer.partitionParsedByGameKind(parsed);
+  assert(parts.length === 2, 'mixed → 2 sesiones got ' + parts.length);
+  assert(parts.some((p) => p.gameKindPart === 'cash' && p.hands.length === 1), 'parte cash');
+  assert(parts.some((p) => p.gameKindPart === 'spin' && p.hands.length === 1), 'parte spin');
+  assert(parts.every((p) => / · (Cash|Spin)$/.test(p.fileName)), 'nombres con sufijo tipo');
+  const expanded = Importer.expandParsedForSave(parsed);
+  assert(expanded.length === 2, 'expand mixed → 2');
+  const mixedSession = Importer.buildSession(parsed, 'mixed.txt');
+  assert(mixedSession.context.mix.cash === 1 && mixedSession.context.mix.spin === 1, 'mix counts sin partir');
+  console.log('Partición cash/spin OK');
+})();
+
 // 9-max positions + format
 (function () {
   const session = runFile('tools/fixtures/PokerStars-9max-sample.txt', '9-max');

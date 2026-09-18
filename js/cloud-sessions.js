@@ -52,6 +52,7 @@
   }
 
   function sessionSummary(session) {
+    const ctx = session && session.context;
     return {
       id: session.id,
       fileName: session.fileName,
@@ -60,6 +61,13 @@
       nTotal: session.nTotal,
       nDiscarded: session.nDiscarded,
       stats: session.stats,
+      context: ctx ? {
+        gameKind: ctx.gameKind || null,
+        formatKey: ctx.formatKey || null,
+        tableMax: ctx.tableMax != null ? ctx.tableMax : null,
+        stakesLabel: ctx.stakesLabel || null,
+        mix: ctx.mix || null
+      } : null,
       analysisVersion: session.analysisVersion,
       hasTxt: false,
       cloudOnly: true,
