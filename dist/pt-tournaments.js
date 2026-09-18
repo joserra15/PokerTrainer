@@ -3755,6 +3755,37 @@
     return null;
   }
 
+  /**
+   * ¿Interviene el Hero en esta mano? Solo entonces tiene sentido el análisis profundo.
+   * Si no hay asiento Hero identifiable, no vetamos (ctx incompleto / tests).
+   * @returns {boolean|null} true/false si se conoce; null si no se puede determinar
+   */
+  function heroInvolvedStatus(hand, ctx) {
+    ctx = ctx || {};
+    if (ctx.heroInvolved === true) return true;
+    if (ctx.heroInvolved === false) return false;
+    if (!hand || !Array.isArray(hand.seats) || !hand.seats.length) return null;
+    var hero = null;
+    var i;
+    for (i = 0; i < hand.seats.length; i++) {
+      var s = hand.seats[i];
+      if (s && s.isHero) {
+        hero = s;
+        break;
+      }
+    }
+    if (!hero && hand.heroId != null) {
+      for (i = 0; i < hand.seats.length; i++) {
+        if (hand.seats[i] && hand.seats[i].id === hand.heroId) {
+          hero = hand.seats[i];
+          break;
+        }
+      }
+    }
+    if (!hero) return null;
+    return !hero.folded;
+  }
+
   function isPremiumTrivialPreflop(code, local) {
     var c = String(code || '').toUpperCase();
     if (c !== 'AA' && c !== 'KK' && c !== 'QQ') return false;
@@ -3775,6 +3806,15 @@
   function hardVeto(ctx, local, seat, hand) {
     ctx = ctx || {};
     local = local || {};
+
+    /*
+     * Solo Hero vs villano(s): si el Hero ya foldeó (o no está en el bote),
+     * el resto es villano vs villano y no debe consumir consultas.
+     */
+    if (heroInvolvedStatus(hand, ctx) === false) {
+      return { veto: true, reason: 'veto_hero_not_involved' };
+    }
+
     var options = ctx.legalOptions || local.legalOptions;
     if (options && options.length === 1) {
       return { veto: true, reason: 'veto_single_option' };
@@ -4022,6 +4062,7 @@
     isProPreset: isProPreset,
     resolvePhase: resolvePhase,
     phaseMult: phaseMult,
+    heroInvolvedStatus: heroInvolvedStatus,
     hardVeto: hardVeto,
     impactMult: impactMult,
     isFacingJam: isFacingJam,
@@ -4501,6 +4542,9 @@
       return s && !s.folded && (Number(s.stack) > 0 || (Number(s.streetInvested) || 0) > 0);
     });
     var playersInPot = alive.length || 2;
+    var heroStatus = Comp && Comp.heroInvolvedStatus
+      ? Comp.heroInvolvedStatus(hand, null)
+      : null;
 
     return {
       street: hand.street,
@@ -4533,7 +4577,9 @@
       lineIntent: seat._lineIntent || null,
       potType: hand.potType || null,
       spr: potBB > 0 ? stackBB / potBB : stackBB,
-      legalOptions: local.legalOptions || null
+      legalOptions: local.legalOptions || null,
+      /* false solo cuando el Hero ya no está en la mano (villano vs villano). */
+      heroInvolved: heroStatus == null ? true : heroStatus
     };
   }
 
@@ -11456,10 +11502,10 @@ function reducedMotion() {
       assistModal = '<div class="trn-modal-backdrop" data-act="close-assist-prompt">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Análisis profundo de rivales" data-act="noop">' +
         '<h3>Análisis profundo de rivales</h3>' +
-        '<p class="muted">En spots difíciles, los adversarios aplican un análisis más profundo ' +
-        'para enfrentarte a decisiones más exigentes (torneos Pro). ' +
-        'Solo interviene en situaciones ambiguas o caras; no en manos claras ni botes pequeños. ' +
-        'Consume cupo de consultas cuando no hay respuesta en caché.</p>' +
+        '<p class="muted">¿Quieres aumentar la dificultad? Activa el análisis profundo de los rivales IA: ' +
+        'en las manos clave pensarán con más calma y te enfrentarán a decisiones más exigentes. ' +
+        '¿Serás capaz de ganar contra un rival más difícil? ' +
+        'Esta opción puede consumir consultas adicionales de ForgeCoach.</p>' +
         '<label class="trn-assist-toggle"><input type="checkbox" id="trn-assist-enable"' +
         (ap.enabled ? ' checked' : '') + '> Activar análisis profundo</label>' +
         '<p class="trn-assist-level-lbl">Nivel de profundidad</p>' +
@@ -12179,8 +12225,8 @@ function reducedMotion() {
           var lvl = va.level || 'medium';
           return '<div class="trn-assist-info card-box">' +
             '<h4>Análisis profundo de rivales</h4>' +
-            '<p class="muted trn-assist-info-blurb">Añade análisis más profundo en situaciones complejas ' +
-            'para que los adversarios jueguen de forma más exigente.</p>' +
+            '<p class="muted trn-assist-info-blurb">Sube el listón: los rivales IA piensan más a fondo ' +
+            'en las manos clave frente a ti. Puede consumir consultas de ForgeCoach.</p>' +
             '<label class="trn-assist-toggle"><input type="checkbox" id="trn-info-assist-enable"' +
             (va.enabled ? ' checked' : '') + '> Activado</label>' +
             '<p class="trn-assist-level-lbl">Nivel de profundidad</p>' +

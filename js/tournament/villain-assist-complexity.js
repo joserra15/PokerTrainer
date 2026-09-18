@@ -102,6 +102,37 @@
     return null;
   }
 
+  /**
+   * ¿Interviene el Hero en esta mano? Solo entonces tiene sentido el análisis profundo.
+   * Si no hay asiento Hero identifiable, no vetamos (ctx incompleto / tests).
+   * @returns {boolean|null} true/false si se conoce; null si no se puede determinar
+   */
+  function heroInvolvedStatus(hand, ctx) {
+    ctx = ctx || {};
+    if (ctx.heroInvolved === true) return true;
+    if (ctx.heroInvolved === false) return false;
+    if (!hand || !Array.isArray(hand.seats) || !hand.seats.length) return null;
+    var hero = null;
+    var i;
+    for (i = 0; i < hand.seats.length; i++) {
+      var s = hand.seats[i];
+      if (s && s.isHero) {
+        hero = s;
+        break;
+      }
+    }
+    if (!hero && hand.heroId != null) {
+      for (i = 0; i < hand.seats.length; i++) {
+        if (hand.seats[i] && hand.seats[i].id === hand.heroId) {
+          hero = hand.seats[i];
+          break;
+        }
+      }
+    }
+    if (!hero) return null;
+    return !hero.folded;
+  }
+
   function isPremiumTrivialPreflop(code, local) {
     var c = String(code || '').toUpperCase();
     if (c !== 'AA' && c !== 'KK' && c !== 'QQ') return false;
@@ -122,6 +153,15 @@
   function hardVeto(ctx, local, seat, hand) {
     ctx = ctx || {};
     local = local || {};
+
+    /*
+     * Solo Hero vs villano(s): si el Hero ya foldeó (o no está en el bote),
+     * el resto es villano vs villano y no debe consumir consultas.
+     */
+    if (heroInvolvedStatus(hand, ctx) === false) {
+      return { veto: true, reason: 'veto_hero_not_involved' };
+    }
+
     var options = ctx.legalOptions || local.legalOptions;
     if (options && options.length === 1) {
       return { veto: true, reason: 'veto_single_option' };
@@ -369,6 +409,7 @@
     isProPreset: isProPreset,
     resolvePhase: resolvePhase,
     phaseMult: phaseMult,
+    heroInvolvedStatus: heroInvolvedStatus,
     hardVeto: hardVeto,
     impactMult: impactMult,
     isFacingJam: isFacingJam,
