@@ -3,6 +3,8 @@
 Puzzles y soluciones numerados en archivo (01–30). **Sin número en la imagen.**
 Cartas: mazo de cuatro colores (app `data-card-style=colored`).
 
+**Antes de hacer más:** lee [`CRITERIOS.md`](CRITERIOS.md) (layout, tipografía, stacks, contenido, anti-patrones).
+
 | # | Tag | Línea clave | Respuesta |
 |---|-----|-------------|-----------|
 | 01 | triple-barrel-value | CO vs BB | **KJo** |
@@ -37,8 +39,10 @@ Cartas: mazo de cuatro colores (app `data-card-style=colored`).
 | 30 | mixed-donk-overbet | BB vs BTN | **QTs** |
 
 ## Archivos
+- `CRITERIOS.md` — reglas de diseño y contenido para nuevas tandas
 - `puzzles/NN-puzzle.jpg`
 - `soluciones/NN-solucion.jpg`
 - `casos.json` — fuente regenerable
+- `CAPTIONS.md`
 
 Regenerar: `python3 tools/instagram-villano-quiz-assets.py`
