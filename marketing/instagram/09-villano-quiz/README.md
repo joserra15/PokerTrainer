@@ -1,6 +1,7 @@
 # Villano Quiz — 30 casos Instagram
 
-Puzzles y soluciones numerados 01–30. Publica el puzzle; la solución al día siguiente o en carrusel slide 2.
+Puzzles y soluciones numerados en archivo (01–30). **Sin número en la imagen.**
+Cartas: mazo de cuatro colores (app `data-card-style=colored`).
 
 | # | Tag | Línea clave | Respuesta |
 |---|-----|-------------|-----------|
