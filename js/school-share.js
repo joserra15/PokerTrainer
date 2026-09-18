@@ -1105,7 +1105,10 @@
     drawCardRow(ctx, payload.heroCards || [], 620, heroY + 16, 72, 100, 10);
     ctx.fillStyle = '#ffffff';
     ctx.font = '700 28px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.fillText('¿F, C o R?', 80, boardY + 160);
+    var decisionPrompt = (payload.kindLabel === 'Check / Bet' || payload.facingBet === false)
+      ? '¿Check o bet?'
+      : '¿F, C o R?';
+    ctx.fillText(decisionPrompt, 80, boardY + 160);
     drawOptionBoxes(ctx, payload.options || [
       { id: 'fold', label: 'Fold' },
       { id: 'call', label: 'Call' },

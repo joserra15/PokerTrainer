@@ -523,6 +523,49 @@ assert.ok(/Fold, call o raise/i.test(Data.getLesson('D-01').title), 'D-01 decisi
 assert.ok(Data.getLesson('D-01').spots.length >= 12, 'D-01 ≥12 spots');
 assert.ok(Data.getLesson('D-01').spots.every(function (s) { return s.kind === 'decisionQuiz'; }), 'D-01 decisionQuiz');
 (function () {
+  /* Coherencia F/C/R vs Check/Bet + orden OOP en decisionQuiz (bugs cash D-01/D-02). */
+  function assertDecisionQuizCoherence(lessonId) {
+    var lesson = Data.getLesson(lessonId);
+    assert.ok(lesson && lesson.spots && lesson.spots.length, lessonId + ' tiene spots');
+    lesson.spots.forEach(function (spot) {
+      if (spot.kind !== 'decisionQuiz') return;
+      var q = spot.quiz || {};
+      var ids = (q.options || []).map(function (o) { return o.id; });
+      assert.ok(ids.indexOf(q.correctId) >= 0, spot.id + ' correctId en options');
+      if (q.facingBet === false) {
+        assert.ok(ids.length === 2 && ids.indexOf('check') >= 0 && ids.indexOf('bet') >= 0,
+          spot.id + ' Check/Bet cuando no hay apuesta (' + ids.join(',') + ')');
+        assert.ok(ids.indexOf('call') < 0, spot.id + ' sin Call tras check');
+        assert.ok(/check/i.test(q.prompt || q.line || ''), spot.id + ' prompt/línea de check');
+      } else {
+        assert.ok(ids.indexOf('fold') >= 0 && ids.indexOf('call') >= 0 && ids.indexOf('raise') >= 0,
+          spot.id + ' Fold/Call/Raise vs bet');
+      }
+      assert.ok(!/check-check/.test(q.line || ''), spot.id + ' línea no anticipa check-check');
+      (q.lineStory || []).forEach(function (row) {
+        var t = row.text || '';
+        /* IP no actúa antes que BB/OOP en la misma calle (salvo preflop). */
+        if (/preflop/i.test(row.street || '')) return;
+        assert.ok(!/^(BTN|CO|HJ|UTG)\s+check\s*·\s*BB\s+(bet|check)/i.test(t),
+          spot.id + ' ' + row.street + ' orden OOP: ' + t);
+        assert.ok(!/check-check\s*$/i.test(t) || !/\?/.test(t),
+          spot.id + ' no cierra calle si héroe aún decide');
+      });
+    });
+  }
+  assertDecisionQuizCoherence('D-01');
+  assertDecisionQuizCoherence('D-02');
+  var wet = Data.getLesson('D-01').spots.find(function (s) { return s.id === 'd01-04'; });
+  assert.ok(wet && wet.quiz.facingBet === false && wet.quiz.correctId === 'check',
+    'd01-04 KQs wet → check (no Call/Fold)');
+  var air = Data.getLesson('D-01').spots.find(function (s) { return s.id === 'd01-12'; });
+  assert.ok(air && air.quiz.facingBet === false && air.quiz.correctId === 'check',
+    'd01-12 54s river → check back');
+  assert.ok(/decisionKindLabel|Check \/ Bet/.test(
+    fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8')),
+    'UI etiqueta Check/Bet dinámicamente');
+})();
+(function () {
   /* Coherencia mano/posición en D-01 (bugs reportados: middle pair≠escalera, héroe≠bettor). */
   function rankOf(c) {
     var r = c.slice(0, -1);
