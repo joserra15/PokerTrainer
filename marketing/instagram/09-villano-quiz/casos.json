@@ -1,0 +1,630 @@
+[
+  {
+    "n": 1,
+    "tag": "triple-barrel-value",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "hero": ["Qc", "8d"],
+    "board": ["Jh", "Td", "3c", "7d", "2s"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Jh Td 3c — BB check → CO c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "7d — BB check → CO bet 66% pot → BB call"},
+      {"street": "River", "text": "2s — BB check → CO bet 66% pot"}
+    ],
+    "options": [
+      {"cards": ["9s", "8s"], "label": "98s"},
+      {"cards": ["8h", "8c"], "label": "88"},
+      {"cards": ["Kh", "Js"], "label": "KJo"}
+    ],
+    "answer": 2,
+    "why": "KJ es top pair + buen kicker: value limpio en tres calles. 98s miss y 88 underpair suelen pot-controlar river, no meter 66%."
+  },
+  {
+    "n": 2,
+    "tag": "donk-flop-polarized",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Ah", "Kd"],
+    "board": ["9c", "8c", "2h", "3s", "Qd"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "9c 8c 2h — BB donk 50% pot → BTN call"},
+      {"street": "Turn", "text": "3s — BB bet 66% pot → BTN call"},
+      {"street": "River", "text": "Qd — BB check"}
+    ],
+    "options": [
+      {"cards": ["Ac", "Tc"], "label": "ATs"},
+      {"cards": ["9h", "9d"], "label": "99"},
+      {"cards": ["7c", "6c"], "label": "76s"}
+    ],
+    "answer": 0,
+    "why": "ATs donkea flush-draw fuerte y sigue turn; en river con Q checkea (miss + scare). 99 raisearía flop; 76s suele check-raise o check."
+  },
+  {
+    "n": 3,
+    "tag": "overbet-river",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["As", "Jh"],
+    "board": ["Kc", "7c", "2d", "4c", "9h"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Kc 7c 2d — BB check → BTN c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "4c — BB check → BTN bet 75% pot → BB call"},
+      {"street": "River", "text": "9h — BB check → BTN overbet 130% pot"}
+    ],
+    "options": [
+      {"cards": ["Kh", "Qd"], "label": "KQo"},
+      {"cards": ["Ac", "5c"], "label": "A5s"},
+      {"cards": ["Jd", "Js"], "label": "JJ"}
+    ],
+    "answer": 1,
+    "why": "Overbet river pide nuts/near-nuts: A5s hizo el nut flush. KQo valuea sizing medio; JJ sin club no overbetea."
+  },
+  {
+    "n": 4,
+    "tag": "all-in-river",
+    "heroPos": "BB",
+    "villainPos": "HJ",
+    "hero": ["Td", "9d"],
+    "board": ["Qs", "Jh", "9c", "2s", "4d"],
+    "line": [
+      {"street": "Preflop", "text": "HJ open 2,2 bb → BB call"},
+      {"street": "Flop", "text": "Qs Jh 9c — BB check → HJ c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "2s — BB check → HJ bet 66% pot → BB call"},
+      {"street": "River", "text": "4d — BB check → HJ all-in 100 bb"}
+    ],
+    "options": [
+      {"cards": ["Ah", "Qd"], "label": "AQo"},
+      {"cards": ["Kc", "Tc"], "label": "KTs"},
+      {"cards": ["Ad", "Ac"], "label": "AA"}
+    ],
+    "answer": 1,
+    "why": "KTs es straight (K-Q-J-T-9): all-in por value. AQ top pair no shovea 100bb; AA suele sizingar menos."
+  },
+  {
+    "n": 5,
+    "tag": "check-raise-flop",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "hero": ["Ad", "Jd"],
+    "board": ["7h", "6h", "2c", "Kd", "3s"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "7h 6h 2c — BB check → CO c-bet 33% pot → BB raise 3× → CO call"},
+      {"street": "Turn", "text": "Kd — BB bet 66% pot → CO call"},
+      {"street": "River", "text": "3s — BB bet 50% pot"}
+    ],
+    "options": [
+      {"cards": ["7c", "7s"], "label": "77"},
+      {"cards": ["Ah", "5h"], "label": "A5s"},
+      {"cards": ["9h", "8h"], "label": "98s"}
+    ],
+    "answer": 0,
+    "why": "77 set: check-raise flop + value turn/river. A5s miss flush; 98s OESD miss — no valuean river 50%."
+  },
+  {
+    "n": 6,
+    "tag": "probe-turn",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Qc", "Qd"],
+    "board": ["Ah", "9s", "4d", "8c", "2h"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Ah 9s 4d — check-check"},
+      {"street": "Turn", "text": "8c — BB probe 55% pot → BTN call"},
+      {"street": "River", "text": "2h — BB bet 66% pot"}
+    ],
+    "options": [
+      {"cards": ["As", "5c"], "label": "A5o"},
+      {"cards": ["Kh", "Kd"], "label": "KK"},
+      {"cards": ["Jh", "Th"], "label": "JTs"}
+    ],
+    "answer": 0,
+    "why": "A5o slowplayea flop (trap) y probea turn+river. KK betearía flop; JTs no tiene value river."
+  },
+  {
+    "n": 7,
+    "tag": "donk-river-bluff",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "hero": ["Kh", "Qs"],
+    "board": ["Jc", "Tc", "5d", "2h", "Ad"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Jc Tc 5d — BB check → CO c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "2h — check-check"},
+      {"street": "River", "text": "Ad — BB donk 75% pot"}
+    ],
+    "options": [
+      {"cards": ["9c", "8c"], "label": "98s"},
+      {"cards": ["Jd", "9d"], "label": "J9s"},
+      {"cards": ["As", "3s"], "label": "A3s"}
+    ],
+    "answer": 0,
+    "why": "98s miss FD+OESD: donk river como bluff en A. J9s tiene showdown; A3s checkea o valuea pequeño, no donk 75%."
+  },
+  {
+    "n": 8,
+    "tag": "small-small-jam",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["8s", "8h"],
+    "board": ["Ah", "Kd", "9c", "4s", "2d"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Ah Kd 9c — BB check → BTN c-bet 25% pot → BB call"},
+      {"street": "Turn", "text": "4s — BB check → BTN bet 30% pot → BB call"},
+      {"street": "River", "text": "2d — BB check → BTN all-in 80 bb"}
+    ],
+    "options": [
+      {"cards": ["Ac", "Qc"], "label": "AQs"},
+      {"cards": ["7c", "6c"], "label": "76s"},
+      {"cards": ["Qh", "Jh"], "label": "QJs"}
+    ],
+    "answer": 1,
+    "why": "Small-small + jam = polar: 76s air bluff. AQs valuea sizing medio; QJs no llega a jam sin equity."
+  },
+  {
+    "n": 9,
+    "tag": "3bet-pot-barrel",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["Jh", "Td"],
+    "board": ["7s", "6d", "2c", "Kc", "9h"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB 3-bet 11 bb → BTN call"},
+      {"street": "Flop", "text": "7s 6d 2c — BB c-bet 33% pot → BTN call"},
+      {"street": "Turn", "text": "Kc — BB bet 66% pot → BTN call"},
+      {"street": "River", "text": "9h — BB bet 66% pot"}
+    ],
+    "options": [
+      {"cards": ["Ad", "Ac"], "label": "AA"},
+      {"cards": ["8h", "8c"], "label": "88"},
+      {"cards": ["Qd", "Js"], "label": "QJo"}
+    ],
+    "answer": 0,
+    "why": "AA 3-betea y barrela dry board. 88 underpair no mete tres calles; QJo no 3-betea BB vs BTN tan ancho."
+  },
+  {
+    "n": 10,
+    "tag": "delayed-cbet",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "hero": ["5h", "5d"],
+    "board": ["Qc", "9s", "3h", "Td", "2c"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Qc 9s 3h — check-check"},
+      {"street": "Turn", "text": "Td — BB check → CO bet 66% pot → BB call"},
+      {"street": "River", "text": "2c — BB check → CO bet 75% pot"}
+    ],
+    "options": [
+      {"cards": ["Ah", "As"], "label": "AA"},
+      {"cards": ["9h", "9c"], "label": "99"},
+      {"cards": ["Kd", "Js"], "label": "KJo"}
+    ],
+    "answer": 1,
+    "why": "99 set: check flop (slowplay) + value turn/river. AA casi siempre c-betea; KJo no dobla barrel sin Q."
+  },
+  {
+    "n": 11,
+    "tag": "donk-turn",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Ac", "Kd"],
+    "board": ["Jh", "Ts", "4c", "9d", "2s"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Jh Ts 4c — check-check"},
+      {"street": "Turn", "text": "9d — BB donk 60% pot → BTN call"},
+      {"street": "River", "text": "2s — BB bet 70% pot"}
+    ],
+    "options": [
+      {"cards": ["Qh", "Qc"], "label": "QQ"},
+      {"cards": ["8h", "7h"], "label": "87s"},
+      {"cards": ["As", "Js"], "label": "AJs"}
+    ],
+    "answer": 1,
+    "why": "87s hizo straight en turn (J-T-9-8-7): donk value. QQ betearía flop; AJs checkea turn o raisea."
+  },
+  {
+    "n": 12,
+    "tag": "overbet-bluff",
+    "heroPos": "BB",
+    "villainPos": "SB",
+    "hero": ["Kc", "9c"],
+    "board": ["Ah", "7d", "3c", "2s", "Td"],
+    "line": [
+      {"street": "Preflop", "text": "SB open 3 bb → BB call"},
+      {"street": "Flop", "text": "Ah 7d 3c — SB c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "2s — SB bet 50% pot → BB call"},
+      {"street": "River", "text": "Td — SB overbet 140% pot"}
+    ],
+    "options": [
+      {"cards": ["Ad", "Qd"], "label": "AQo"},
+      {"cards": ["6h", "5h"], "label": "65s"},
+      {"cards": ["7h", "7c"], "label": "77"}
+    ],
+    "answer": 1,
+    "why": "Overbet polar: 65s missed straight. AQ valuea 50–75%; 77 no overbetea A-high."
+  },
+  {
+    "n": 13,
+    "tag": "float-donk-river",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "hero": ["9h", "9s"],
+    "board": ["Kd", "8c", "3h", "5s", "Qc"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Kd 8c 3h — BB check → CO c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "5s — check-check"},
+      {"street": "River", "text": "Qc — BB bet 66% pot"}
+    ],
+    "options": [
+      {"cards": ["Kh", "Th"], "label": "KTs"},
+      {"cards": ["Jd", "Td"], "label": "JTs"},
+      {"cards": ["Ac", "Ad"], "label": "AA"}
+    ],
+    "answer": 1,
+    "why": "JTs float flop + check turn + river bluff en Q. KT valuea turn; AA raisearía antes."
+  },
+  {
+    "n": 14,
+    "tag": "check-raise-turn",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Ah", "Qh"],
+    "board": ["8d", "7d", "2s", "6c", "Kh"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "8d 7d 2s — BB check → BTN c-bet 50% pot → BB call"},
+      {"street": "Turn", "text": "6c — BB check → BTN bet 66% pot → BB raise all-in 90 bb"}
+    ],
+    "options": [
+      {"cards": ["9c", "5c"], "label": "95s"},
+      {"cards": ["8h", "8c"], "label": "88"},
+      {"cards": ["Ad", "Kd"], "label": "AKs"}
+    ],
+    "answer": 0,
+    "why": "95s hizo straight (5-6-7-8-9): jam turn. 88 set raisearía flop; AKs miss FD no jamea."
+  },
+  {
+    "n": 15,
+    "tag": "min-raise-river",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "hero": ["Jc", "Ts"],
+    "board": ["Qh", "Jd", "4c", "9s", "2d"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Qh Jd 4c — BB check → CO c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "9s — BB check → CO bet 50% pot → BB call"},
+      {"street": "River", "text": "2d — BB check → CO bet 33% pot → BB raise 2,5×"}
+    ],
+    "options": [
+      {"cards": ["As", "Kh"], "label": "AKo"},
+      {"cards": ["Ac", "Qc"], "label": "AQs"},
+      {"cards": ["Th", "8h"], "label": "T8s"}
+    ],
+    "answer": 2,
+    "why": "T8s es straight Q-J-T-9-8: raise river. AQ valuea call/thin; AK sin Q no raisea river."
+  },
+  {
+    "n": 16,
+    "tag": "triple-barrel-bluff",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["As", "5c"],
+    "board": ["Kh", "9d", "4s", "3c", "2h"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Kh 9d 4s — BB check → BTN c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "3c — BB check → BTN bet 75% pot → BB call"},
+      {"street": "River", "text": "2h — BB check → BTN bet 80% pot"}
+    ],
+    "options": [
+      {"cards": ["Kd", "Qd"], "label": "KQs"},
+      {"cards": ["7s", "6s"], "label": "76s"},
+      {"cards": ["9h", "9c"], "label": "99"}
+    ],
+    "answer": 1,
+    "why": "76s barrela air (gutshot+backdoor). KQs sizinga más pequeño en river; 99 pot-controla."
+  },
+  {
+    "n": 17,
+    "tag": "donk-flop-straight",
+    "heroPos": "HJ",
+    "villainPos": "BB",
+    "hero": ["Qd", "Qc"],
+    "board": ["Ts", "9s", "8h", "2c", "Ad"],
+    "line": [
+      {"street": "Preflop", "text": "HJ open 2,2 bb → BB call"},
+      {"street": "Flop", "text": "Ts 9s 8h — BB donk 33% pot → HJ raise 3× → BB call"},
+      {"street": "Turn", "text": "2c — BB check → HJ bet 66% pot → BB call"},
+      {"street": "River", "text": "Ad — BB check → HJ bet 50% pot"}
+    ],
+    "options": [
+      {"cards": ["As", "5s"], "label": "A5s"},
+      {"cards": ["7h", "6h"], "label": "76s"},
+      {"cards": ["Ah", "Th"], "label": "ATs"}
+    ],
+    "answer": 1,
+    "why": "76s donkea straight flop y paga raise; checkea turn/river con nuts medium. A5s FD miss; AT no donkea ese flop."
+  },
+  {
+    "n": 18,
+    "tag": "ip-overbet-nuts",
+    "heroPos": "SB",
+    "villainPos": "BTN",
+    "hero": ["Jh", "Tc"],
+    "board": ["9d", "8d", "3c", "7h", "2s"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → SB call → BB fold"},
+      {"street": "Flop", "text": "9d 8d 3c — SB check → BTN c-bet 40% pot → SB call"},
+      {"street": "Turn", "text": "7h — SB check → BTN bet 70% pot → SB call"},
+      {"street": "River", "text": "2s — SB check → BTN overbet 150% pot"}
+    ],
+    "options": [
+      {"cards": ["Ad", "Kd"], "label": "AKs"},
+      {"cards": ["6c", "5c"], "label": "65s"},
+      {"cards": ["As", "9s"], "label": "A9s"}
+    ],
+    "answer": 1,
+    "why": "65s nuts straight: overbet. AK miss FD; A9s no overbetea top pair."
+  },
+  {
+    "n": 19,
+    "tag": "limp-jam-bluff",
+    "heroPos": "BB",
+    "villainPos": "SB",
+    "hero": ["8d", "7d"],
+    "board": ["Ac", "Kh", "4s", "9c", "2d"],
+    "line": [
+      {"street": "Preflop", "text": "SB limp → BB check"},
+      {"street": "Flop", "text": "Ac Kh 4s — SB bet 50% pot → BB call"},
+      {"street": "Turn", "text": "9c — SB bet 66% pot → BB call"},
+      {"street": "River", "text": "2d — SB all-in 55 bb"}
+    ],
+    "options": [
+      {"cards": ["As", "Qs"], "label": "AQs"},
+      {"cards": ["Jd", "Td"], "label": "JTs"},
+      {"cards": ["Ks", "Kd"], "label": "KK"}
+    ],
+    "answer": 1,
+    "why": "JTs air en AKx: jam river como bluff. AQ valuea; KK limpea raro y no jamea A-high."
+  },
+  {
+    "n": 20,
+    "tag": "cbet-x-donk-river",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "hero": ["Kd", "Qd"],
+    "board": ["Jh", "7c", "2s", "9d", "Tc"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Jh 7c 2s — BB check → CO c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "9d — check-check"},
+      {"street": "River", "text": "Tc — BB donk 90% pot"}
+    ],
+    "options": [
+      {"cards": ["8h", "8s"], "label": "88"},
+      {"cards": ["As", "8c"], "label": "A8o"},
+      {"cards": ["Js", "Ts"], "label": "JTs"}
+    ],
+    "answer": 1,
+    "why": "A8o hizo straight river (A no, 8-9-T-J): donk grande. 88 no; JT top two valuea turn antes."
+  },
+  {
+    "n": 21,
+    "tag": "squeeze-pot",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["6c", "6d"],
+    "board": ["Ah", "Kd", "Qc", "5s", "2h"],
+    "line": [
+      {"street": "Preflop", "text": "HJ open 2,2 bb → BTN call → BB squeeze 14 bb → HJ fold → BTN call"},
+      {"street": "Flop", "text": "Ah Kd Qc — BB c-bet 33% pot → BTN call"},
+      {"street": "Turn", "text": "5s — BB bet 60% pot → BTN call"},
+      {"street": "River", "text": "2h — BB check → BTN bet 70% pot"}
+    ],
+    "options": [
+      {"cards": ["As", "Js"], "label": "AJs"},
+      {"cards": ["Jh", "Th"], "label": "JTs"},
+      {"cards": ["9h", "9d"], "label": "99"}
+    ],
+    "answer": 1,
+    "why": "JTs float + bet river (broadway + blockers). AJ valuea turn más; 99 no paga squeeze flop AKx."
+  },
+  {
+    "n": 22,
+    "tag": "lead-triple-flush",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Ac", "5d"],
+    "board": ["9h", "6h", "3d", "Kh", "2c"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "9h 6h 3d — BB donk 40% pot → BTN call"},
+      {"street": "Turn", "text": "Kh — BB bet 55% pot → BTN call"},
+      {"street": "River", "text": "2c — BB bet 70% pot"}
+    ],
+    "options": [
+      {"cards": ["Qh", "Jh"], "label": "QJs"},
+      {"cards": ["9c", "9d"], "label": "99"},
+      {"cards": ["7d", "5h"], "label": "75o"}
+    ],
+    "answer": 0,
+    "why": "QJs flush turn: donk+barrel. 99 raisearía flop; 75o miss no barrela river."
+  },
+  {
+    "n": 23,
+    "tag": "thin-value-small",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "hero": ["7s", "7h"],
+    "board": ["As", "Jd", "8c", "4h", "2s"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "As Jd 8c — BB check → CO c-bet 25% pot → BB call"},
+      {"street": "Turn", "text": "4h — check-check"},
+      {"street": "River", "text": "2s — BB check → CO bet 25% pot"}
+    ],
+    "options": [
+      {"cards": ["Ah", "Td"], "label": "ATo"},
+      {"cards": ["Kc", "Qc"], "label": "KQs"},
+      {"cards": ["9d", "9c"], "label": "99"}
+    ],
+    "answer": 0,
+    "why": "Thin value pequeño: ATo. KQs bluffea más grande; 99 no c-betea A-high así."
+  },
+  {
+    "n": 24,
+    "tag": "all-in-turn-draw",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["Kh", "Kd"],
+    "board": ["Qc", "Jc", "5h", "Tc"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB 3-bet 12 bb → BTN call"},
+      {"street": "Flop", "text": "Qc Jc 5h — BB c-bet 40% pot → BTN raise 3× → BB call"},
+      {"street": "Turn", "text": "Tc — BB check → BTN all-in 110 bb"}
+    ],
+    "options": [
+      {"cards": ["Ac", "9c"], "label": "A9s"},
+      {"cards": ["As", "Ad"], "label": "AA"},
+      {"cards": ["9h", "9d"], "label": "99"}
+    ],
+    "answer": 0,
+    "why": "A9s: raise flop FD+gutshot + jam turn nut flush. AA 4-betea PF; 99 no raisea flop QJ."
+  },
+  {
+    "n": 25,
+    "tag": "probe-bluff-river",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "hero": ["Ad", "Qd"],
+    "board": ["Kh", "8s", "3c", "7d", "2h"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Kh 8s 3c — check-check"},
+      {"street": "Turn", "text": "7d — check-check"},
+      {"street": "River", "text": "2h — BB bet 55% pot"}
+    ],
+    "options": [
+      {"cards": ["Kc", "9c"], "label": "K9s"},
+      {"cards": ["6h", "5h"], "label": "65s"},
+      {"cards": ["8h", "8d"], "label": "88"}
+    ],
+    "answer": 1,
+    "why": "Tras dos checks, 65s bluffea river (miss). K9s betearía antes; 88 tiene showdown."
+  },
+  {
+    "n": 26,
+    "tag": "iso-donk-jam",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Js", "Jd"],
+    "board": ["Td", "9c", "4h", "3s", "8d"],
+    "line": [
+      {"street": "Preflop", "text": "HJ limp → BTN iso 4 bb → BB call → HJ fold"},
+      {"street": "Flop", "text": "Td 9c 4h — BB donk 55% pot → BTN call"},
+      {"street": "Turn", "text": "3s — BB bet 70% pot → BTN call"},
+      {"street": "River", "text": "8d — BB all-in 65 bb"}
+    ],
+    "options": [
+      {"cards": ["Qh", "Jh"], "label": "QJs"},
+      {"cards": ["Ah", "Ac"], "label": "AA"},
+      {"cards": ["5c", "5d"], "label": "55"}
+    ],
+    "answer": 0,
+    "why": "QJs straight river (Q-J-T-9-8): jam. AA no donkea flop T9; 55 no encaja la línea."
+  },
+  {
+    "n": 27,
+    "tag": "multiway-barrel-bluff",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "hero": ["Ah", "3h"],
+    "board": ["Kh", "7h", "2d", "9c", "4s"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BTN call → BB call"},
+      {"street": "Flop", "text": "Kh 7h 2d — BB check → CO c-bet 33% pot → BTN fold → BB call"},
+      {"street": "Turn", "text": "9c — BB check → CO bet 75% pot → BB call"},
+      {"street": "River", "text": "4s — BB check → CO bet 80% pot"}
+    ],
+    "options": [
+      {"cards": ["Kd", "Qd"], "label": "KQo"},
+      {"cards": ["Jh", "Th"], "label": "JTs"},
+      {"cards": ["As", "Ad"], "label": "AA"}
+    ],
+    "answer": 1,
+    "why": "JTs barrela miss flush como bluff. KQ sizinga más thin; AA 3-betea multiway."
+  },
+  {
+    "n": 28,
+    "tag": "blocker-bluff-overbet",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "hero": ["Qc", "Jd"],
+    "board": ["As", "Ts", "5s", "8d", "2c"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "As Ts 5s — BB check → BTN c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "8d — BB check → BTN bet 50% pot → BB call"},
+      {"street": "River", "text": "2c — BB check → BTN overbet 125% pot"}
+    ],
+    "options": [
+      {"cards": ["Ah", "Kh"], "label": "AKo"},
+      {"cards": ["Ks", "9h"], "label": "K9o"},
+      {"cards": ["9c", "9d"], "label": "99"}
+    ],
+    "answer": 1,
+    "why": "Ks blocker nut flush: overbet bluff. AK valuea 50–75%; 99 no barrela A-high."
+  },
+  {
+    "n": 29,
+    "tag": "check-raise-river",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "hero": ["9s", "9h"],
+    "board": ["Qd", "Jc", "8h", "3s", "Td"],
+    "line": [
+      {"street": "Preflop", "text": "CO open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Qd Jc 8h — BB check → CO c-bet 33% pot → BB call"},
+      {"street": "Turn", "text": "3s — check-check"},
+      {"street": "River", "text": "Td — BB check → CO bet 50% pot → BB raise 3×"}
+    ],
+    "options": [
+      {"cards": ["Kh", "9d"], "label": "K9o"},
+      {"cards": ["As", "Qs"], "label": "AQs"},
+      {"cards": ["7c", "6c"], "label": "76s"}
+    ],
+    "answer": 0,
+    "why": "K9o nuts straight river (K-Q-J-T-9): check-raise. AQ valuea call; 76s no llega."
+  },
+  {
+    "n": 30,
+    "tag": "mixed-donk-overbet",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "hero": ["Kd", "Js"],
+    "board": ["Ac", "7c", "4d", "2h", "9c"],
+    "line": [
+      {"street": "Preflop", "text": "BTN open 2,5 bb → BB call"},
+      {"street": "Flop", "text": "Ac 7c 4d — BB donk 33% pot → BTN call"},
+      {"street": "Turn", "text": "2h — BB bet 40% pot → BTN call"},
+      {"street": "River", "text": "9c — BB overbet 120% pot"}
+    ],
+    "options": [
+      {"cards": ["Ah", "5h"], "label": "A5s"},
+      {"cards": ["Qc", "Tc"], "label": "QTs"},
+      {"cards": ["7h", "7s"], "label": "77"}
+    ],
+    "answer": 1,
+    "why": "QTs flush river: overbet. A5s thin value sizing medio; 77 no donkea A-high así."
+  }
+]
