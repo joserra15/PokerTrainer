@@ -117,6 +117,66 @@
     return out;
   }
 
+  function gameKindBucket(kind) {
+    const k = String(kind || 'cash').toLowerCase();
+    if (k === 'spin') return 'spin';
+    if (k === 'mtt' || k === 'sng') return 'mtt';
+    if (k === 'cash') return 'cash';
+    return 'cash';
+  }
+
+  function gameKindPartLabel(bucket) {
+    if (bucket === 'spin') return 'Spin';
+    if (bucket === 'mtt') return 'Torneo';
+    return 'Cash';
+  }
+
+  function gameKindPartFileName(fileName, bucket) {
+    const base = fileName || 'sesion.txt';
+    return base + ' · ' + gameKindPartLabel(bucket);
+  }
+
+  /**
+   * Separa cash / spin / torneo en parseos distintos para que cada uno se
+   * guarde y liste en su pestaña (un HH mixto de PokerStars no debe quedar
+   * enterrado como «solo cash»).
+   */
+  function partitionParsedByGameKind(parsed) {
+    if (!parsed || parsed.source === 'tournamentSummary') return [parsed];
+    const hands = parsed.hands || [];
+    if (hands.length < 2) return [parsed];
+    const buckets = { cash: [], spin: [], mtt: [] };
+    hands.forEach(function (h) {
+      const b = gameKindBucket(h && h.gameKind);
+      buckets[b].push(h);
+    });
+    const present = ['cash', 'spin', 'mtt'].filter(function (k) {
+      return buckets[k].length > 0;
+    });
+    if (present.length <= 1) return [parsed];
+    const srcName = parsed.sourceFileName || parsed.fileName;
+    return present.map(function (bucket) {
+      return Object.assign({}, parsed, {
+        hands: buckets[bucket],
+        fileName: gameKindPartFileName(srcName, bucket),
+        sourceFileName: srcName,
+        gameKindPart: bucket
+      });
+    });
+  }
+
+  /** Particiones por tipo de juego + troceo por tamaño. */
+  function expandParsedForSave(parsed, maxHands) {
+    const parts = partitionParsedByGameKind(parsed);
+    const out = [];
+    parts.forEach(function (part) {
+      chunkParsedSession(part, maxHands).forEach(function (chunk) {
+        out.push(chunk);
+      });
+    });
+    return out.length ? out : [parsed];
+  }
+
   /** Parsea sesiones grandes en lotes para no bloquear la UI. */
   function parseSessionAsync(text, fileName, onProgress) {
     var blocks = splitHandBlocks(text || '');
@@ -3075,7 +3135,7 @@
 
   global.Importer = {
     parseSession, parseSessionAsync, parseHand, detectSessionFormat, analyzeHand, buildSession, buildSessionAsync,
-    chunkParsedSession, MAX_HANDS_PER_SESSION, RAW_TEXT_MAX_CHARS,
+    chunkParsedSession, partitionParsedByGameKind, expandParsedForSave, MAX_HANDS_PER_SESSION, RAW_TEXT_MAX_CHARS,
     heroPlayed, computeStats, heroPreflopHud, heroStyleHud, assessVpipPfr, assessStyleStats,
     sampleTrust, styleIdealForFormat, formatHubFromKey, inferSessionFormat, inferSessionFormatKey, formatKeyToRangeGameType,
     drillsFromAssess, buildHandTags, computeBbPer100CI,
