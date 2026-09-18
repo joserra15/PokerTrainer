@@ -1202,10 +1202,10 @@ function reducedMotion() {
       assistModal = '<div class="trn-modal-backdrop" data-act="close-assist-prompt">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Análisis profundo de rivales" data-act="noop">' +
         '<h3>Análisis profundo de rivales</h3>' +
-        '<p class="muted">En spots difíciles, los adversarios aplican un análisis más profundo ' +
-        'para enfrentarte a decisiones más exigentes (torneos Pro). ' +
-        'Solo interviene en situaciones ambiguas o caras; no en manos claras ni botes pequeños. ' +
-        'Consume cupo de consultas cuando no hay respuesta en caché.</p>' +
+        '<p class="muted">¿Quieres aumentar la dificultad? Activa el análisis profundo de los rivales IA: ' +
+        'en las manos clave pensarán con más calma y te enfrentarán a decisiones más exigentes. ' +
+        '¿Serás capaz de ganar contra un rival más difícil? ' +
+        'Esta opción puede consumir consultas adicionales de ForgeCoach.</p>' +
         '<label class="trn-assist-toggle"><input type="checkbox" id="trn-assist-enable"' +
         (ap.enabled ? ' checked' : '') + '> Activar análisis profundo</label>' +
         '<p class="trn-assist-level-lbl">Nivel de profundidad</p>' +
@@ -1925,8 +1925,8 @@ function reducedMotion() {
           var lvl = va.level || 'medium';
           return '<div class="trn-assist-info card-box">' +
             '<h4>Análisis profundo de rivales</h4>' +
-            '<p class="muted trn-assist-info-blurb">Añade análisis más profundo en situaciones complejas ' +
-            'para que los adversarios jueguen de forma más exigente.</p>' +
+            '<p class="muted trn-assist-info-blurb">Sube el listón: los rivales IA piensan más a fondo ' +
+            'en las manos clave frente a ti. Puede consumir consultas de ForgeCoach.</p>' +
             '<label class="trn-assist-toggle"><input type="checkbox" id="trn-info-assist-enable"' +
             (va.enabled ? ' checked' : '') + '> Activado</label>' +
             '<p class="trn-assist-level-lbl">Nivel de profundidad</p>' +

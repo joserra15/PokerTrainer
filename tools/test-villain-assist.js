@@ -191,6 +191,63 @@ eq(Comp.phaseMult('hu'), 1.25, 'phase hu');
   ok(ev.raw >= 0.62, 'raw suelo critical callish: ' + ev.raw);
 }
 
+/* Hero foldeado → nunca assist (villano vs villano) */
+{
+  const ctx = {
+    potBB: 40,
+    stackBB: 35,
+    effStackBB: 35,
+    toCallBB: 20,
+    street: 'river',
+    handBand: 'bluffcatch',
+    freqs: { call: 0.48, fold: 0.42, raise: 0.1 },
+    mttPhase: 'bubble',
+    committedFrac: 0.2,
+    heroInvolved: false
+  };
+  const local = { freqs: ctx.freqs, handBand: 'bluffcatch' };
+  const ev = Comp.evaluate(ctx, local, null, { street: 'river' }, 'high');
+  eq(ev.shouldAssist, false, 'sin Hero en bote → no assist');
+  eq(ev.reason, 'veto_hero_not_involved', 'reason hero not involved');
+}
+
+{
+  const handFolded = {
+    street: 'river',
+    seats: [
+      { id: 'hero', isHero: true, folded: true, stack: 100 },
+      { id: 'v1', isHero: false, folded: false, stack: 200 },
+      { id: 'v2', isHero: false, folded: false, stack: 180 }
+    ]
+  };
+  const handLive = {
+    street: 'river',
+    seats: [
+      { id: 'hero', isHero: true, folded: false, stack: 100 },
+      { id: 'v1', isHero: false, folded: false, stack: 200 }
+    ]
+  };
+  const ctx = {
+    potBB: 40,
+    stackBB: 35,
+    effStackBB: 35,
+    toCallBB: 20,
+    street: 'river',
+    handBand: 'bluffcatch',
+    freqs: { call: 0.48, fold: 0.42, raise: 0.1 },
+    mttPhase: 'bubble',
+    committedFrac: 0.2
+  };
+  const local = { freqs: ctx.freqs, handBand: 'bluffcatch' };
+  const foldedEv = Comp.evaluate(ctx, local, null, handFolded, 'high');
+  eq(foldedEv.shouldAssist, false, 'Hero folded en seats → no assist');
+  eq(foldedEv.reason, 'veto_hero_not_involved', 'reason from seats');
+  const liveEv = Comp.evaluate(ctx, local, null, handLive, 'high');
+  ok(liveEv.shouldAssist, 'Hero en bote → assist sigue posible');
+  eq(Comp.heroInvolvedStatus(handLive, null), true, 'heroInvolvedStatus live');
+  eq(Comp.heroInvolvedStatus(handFolded, null), false, 'heroInvolvedStatus folded');
+}
+
 eq(Comp.normalizeLevel('alta'), 'high');
 eq(Comp.normalizeLevel('baja'), 'low');
 eq(Comp.normalizeLevel('media'), 'medium');
@@ -312,8 +369,11 @@ gAssist.PTTournamentVillainDecide = {
   ok(indexHtml.indexOf('admin-villain-assist-btn') >= 0, 'admin panel btn');
   const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
   ok(uiSrc.indexOf('Análisis profundo de rivales') >= 0, 'ui copy title');
+  ok(uiSrc.indexOf('aumentar la dificultad') >= 0, 'ui challenge framing');
+  ok(uiSrc.indexOf('ForgeCoach') >= 0, 'ui mentions ForgeCoach');
   ok(uiSrc.indexOf('consume más consultas') >= 0, 'ui alta quota hint');
   ok(uiSrc.indexOf('Asistente IA de villanos') < 0, 'ui no longer says asistente IA');
+  ok(uiSrc.indexOf('En spots difíciles, los adversarios') < 0, 'ui old descriptive copy gone');
   const adminChunkSrc = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   ok(/admin:\s*\[[^\]]*villain-assist-flags\.js/s.test(adminChunkSrc), 'flags in admin chunk');
   const adminDist = fs.readFileSync(path.join(ROOT, 'dist/pt-admin.js'), 'utf8');

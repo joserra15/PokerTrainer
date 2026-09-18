@@ -122,6 +122,9 @@
       return s && !s.folded && (Number(s.stack) > 0 || (Number(s.streetInvested) || 0) > 0);
     });
     var playersInPot = alive.length || 2;
+    var heroStatus = Comp && Comp.heroInvolvedStatus
+      ? Comp.heroInvolvedStatus(hand, null)
+      : null;
 
     return {
       street: hand.street,
@@ -154,7 +157,9 @@
       lineIntent: seat._lineIntent || null,
       potType: hand.potType || null,
       spr: potBB > 0 ? stackBB / potBB : stackBB,
-      legalOptions: local.legalOptions || null
+      legalOptions: local.legalOptions || null,
+      /* false solo cuando el Hero ya no está en la mano (villano vs villano). */
+      heroInvolved: heroStatus == null ? true : heroStatus
     };
   }
 
