@@ -32,6 +32,9 @@ Hero: folds
 OppA: folds
 Uncalled bet (10) returned to OppB
 OppB collected 20 from pot
+OppA finished the tournament in 3rd place
+OppB finished the tournament in 2nd place
+Hero wins the tournament and receives $16.50 - congratulations!
 *** SUMMARY ***
 Total pot 20 | Rake 0
 Seat 1: Hero folded before Flop (didn't bet)
