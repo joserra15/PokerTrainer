@@ -127,9 +127,22 @@
       return { veto: true, reason: 'veto_single_option' };
     }
 
+    var criticalJam = isCriticalJamSpot(ctx);
     var freqs = local.freqs || ctx.freqs;
     var top = topFreq(freqs);
-    if (top) {
+    var band = String(ctx.handBand || local.handBand || '').toLowerCase();
+    var weakBand = band === 'air' || band === 'weak' || band === 'bluffcatch';
+    var topCallish = top && (top.id === 'call' || top.id === 'raise' || top.id === 'allin' || top.id === 'bet');
+
+    /*
+     * Jam clave + mano débil que el motor quiere pagar/subir: nunca vetar;
+     * es exactamente el caso donde la IA debe revisar (p.ej. Q-high vs shove).
+     */
+    if (criticalJam && weakBand && topCallish) {
+      return { veto: false, reason: null };
+    }
+
+    if (top && !(criticalJam && weakBand)) {
       var entries = sortedFreqEntries(freqs);
       var gap = entries.length > 1 ? (entries[0].f - entries[1].f) : 1;
       if (top.f >= 0.82) return { veto: true, reason: 'veto_motor_seguro' };
@@ -150,12 +163,13 @@
       }
     }
 
-    var band = String(ctx.handBand || local.handBand || '').toLowerCase();
     if (band === 'nuts' && top && (top.id === 'raise' || top.id === 'bet' || top.id === 'call' || top.id === 'allin')
       && top.f >= 0.80) {
       return { veto: true, reason: 'veto_nuts' };
     }
-    if ((band === 'air' || band === 'weak') && top && top.id === 'fold' && top.f >= 0.85) {
+    /* Fold trivial con aire: OK veto, salvo jam crítico (por si el fold local es dudoso). */
+    if ((band === 'air' || band === 'weak') && top && top.id === 'fold' && top.f >= 0.85
+      && !criticalJam) {
       return { veto: true, reason: 'veto_air_fold' };
     }
 
@@ -165,6 +179,34 @@
   /**
    * Impacto pot vs stack. 0 = hard skip (ni en HU).
    */
+  function isFacingJam(ctx) {
+    ctx = ctx || {};
+    if (ctx.facingJam) return true;
+    var stackBB = Math.max(0.01, Number(ctx.villainStackBB != null ? ctx.villainStackBB : ctx.stackBB) || 1);
+    var eff = Math.max(0.01, Number(ctx.effStackBB != null ? ctx.effStackBB : stackBB) || stackBB);
+    var toCallBB = Number(ctx.toCallBB) || 0;
+    return toCallBB >= eff * 0.85;
+  }
+
+  /**
+   * Jam en turn/river con vida de torneo (HU / burbuja / FT / stack corto):
+   * spot clave aunque el motor local parezca «seguro».
+   */
+  function isCriticalJamSpot(ctx) {
+    ctx = ctx || {};
+    if (!isFacingJam(ctx)) return false;
+    var street = String(ctx.street || '').toLowerCase();
+    if (street !== 'turn' && street !== 'river') return false;
+    var phase = resolvePhase(ctx);
+    if (phase === 'hu' || phase === 'bubble' || phase === 'mincash'
+      || phase === 'ft' || phase === 'ft9') {
+      return true;
+    }
+    var eff = Math.max(0.01, Number(ctx.effStackBB != null ? ctx.effStackBB
+      : (ctx.villainStackBB != null ? ctx.villainStackBB : ctx.stackBB)) || 1);
+    return eff <= 25;
+  }
+
   function impactMult(ctx) {
     ctx = ctx || {};
     var potBB = Math.max(0.01, Number(ctx.potBB) || 0);
@@ -174,12 +216,11 @@
     var spr = eff / Math.max(potBB, 0.5);
     var committed = Number(ctx.committedFrac);
     if (!isFinite(committed)) committed = 0;
-    var facingJam = !!ctx.facingJam;
-    var toCallBB = Number(ctx.toCallBB) || 0;
-    if (toCallBB >= eff * 0.85) facingJam = true;
+    var facingJam = isFacingJam(ctx);
 
+    if (isCriticalJamSpot(ctx)) return 1.25;
     if (committed >= 0.35 || facingJam) {
-      return 1.1;
+      return 1.15;
     }
     if (potFrac < 0.08 && spr > 12) return 0;
     if (potFrac < 0.15 || spr > 8) {
@@ -237,13 +278,22 @@
     local = local || {};
     var freqs = local.freqs || ctx.freqs;
     var band = ctx.handBand || local.handBand;
-    return clamp01(
+    var base = clamp01(
       0.40 * mixEntropy01(freqs) +
       0.20 * handBandAmbiguity(band) +
       0.15 * lineComplexity01(ctx) +
       0.15 * icmPressure01(ctx) +
       0.10 * streetPressure01(ctx.street || (local && local.street))
     );
+    /* Suelo si el motor quiere pagar/subir un jam clave con mano débil. */
+    if (isCriticalJamSpot(ctx)) {
+      var top = topFreq(freqs);
+      var b = String(band || '').toLowerCase();
+      var weak = b === 'air' || b === 'weak' || b === 'bluffcatch' || b === 'draw' || b === 'semi';
+      var callish = top && (top.id === 'call' || top.id === 'raise' || top.id === 'allin');
+      if (callish && weak) return Math.max(base, 0.62);
+    }
+    return base;
   }
 
   /**
@@ -278,7 +328,25 @@
     var phase = resolvePhase(ctx);
     var raw = rawScore(ctx, local);
     var score = clamp01(raw * impact * phaseMult(phase));
+    var critical = isCriticalJamSpot(ctx);
     var should = score >= lvl.threshold;
+    var reason = should ? 'pass' : 'below_threshold';
+    /*
+     * Alta/media: si el motor local quiere call/raise un jam de torneo con
+     * mano débil, forzar consulta aunque el score quede bajo el umbral.
+     */
+    if (!should && critical && (lvl.id === 'high' || lvl.id === 'medium')) {
+      var freqs = (local && local.freqs) || ctx.freqs;
+      var top = topFreq(freqs);
+      var b = String(ctx.handBand || (local && local.handBand) || '').toLowerCase();
+      var weak = b === 'air' || b === 'weak' || b === 'bluffcatch' || b === 'draw' || b === 'semi';
+      var callish = top && (top.id === 'call' || top.id === 'raise' || top.id === 'allin');
+      if (callish && weak) {
+        should = true;
+        reason = 'critical_jam';
+        score = Math.max(score, lvl.threshold);
+      }
+    }
     return {
       shouldAssist: should,
       score: score,
@@ -286,9 +354,10 @@
       impact: impact,
       phase: phase,
       phaseMult: phaseMult(phase),
-      reason: should ? 'pass' : 'below_threshold',
+      reason: reason,
       threshold: lvl.threshold,
-      level: lvl.id
+      level: lvl.id,
+      criticalJam: critical
     };
   }
 
@@ -302,6 +371,8 @@
     phaseMult: phaseMult,
     hardVeto: hardVeto,
     impactMult: impactMult,
+    isFacingJam: isFacingJam,
+    isCriticalJamSpot: isCriticalJamSpot,
     rawScore: rawScore,
     mixEntropy01: mixEntropy01,
     evaluate: evaluate,

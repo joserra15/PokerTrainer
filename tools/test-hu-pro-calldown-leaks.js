@@ -136,6 +136,51 @@ assert.ok(rQ8.folds >= 92,
   'HU Pro Q8 board-only vs river all-in debe foldear ≥92%, got folds=' + rQ8.folds + ' calls=' + rQ8.calls);
 console.log('OK Q8 all-in folds', rQ8.folds + '/' + n);
 
+/* Turn jam con Q-high board-only (caso Heads Up Pro: 7sQs en 5d2h9dKs) */
+const BOARD_TURN_QHIGH = ['5d', '2h', '9d', 'Ks'];
+const madeQ7 = Made.classifyMadeHand(['7s', 'Qs'], BOARD_TURN_QHIGH);
+const strQ7 = Made.relativeStrength01(['7s', 'Qs'], BOARD_TURN_QHIGH, 'turn');
+assert.strictEqual(madeQ7.boardOnlyShowdown, true, 'Q7s turn board-only');
+assert.ok(madeQ7.tier === 'air' || madeQ7.tier === 'weak', 'Q7s tier air/weak, got ' + madeQ7.tier);
+assert.ok(strQ7 < 0.32, 'Q7s turn strength air, got ' + strQ7);
+assert.strictEqual(DC.bandFromMade(madeQ7, strQ7), 'air', 'Q7s band air');
+
+const rTurnJam = countActs(mkHu(BOARD_TURN_QHIGH, 'turn', ['7s', 'Qs'], {
+  pot: 800,
+  currentBet: 1164,
+  log: [
+    { street: 'flop', id: 'h1', action: 'bet', amount: 200 },
+    { street: 'turn', id: 'h1', action: 'allin', amount: 1164 }
+  ]
+}), n);
+assert.ok(rTurnJam.folds >= 95,
+  'HU Pro Q7s vs turn all-in debe foldear ≥95%, got folds=' + rTurnJam.folds + ' calls=' + rTurnJam.calls);
+console.log('OK Q7s turn jam folds', rTurnJam.folds + '/' + n);
+
+/* Stack-off «barato» vs pote tras inversión en la calle: sigue siendo jam */
+{
+  let folds = 0;
+  let calls = 0;
+  for (let i = 0; i < n; i++) {
+    const h = mkHu(BOARD_TURN_QHIGH, 'turn', ['7s', 'Qs'], {
+      pot: 1500,
+      currentBet: 800,
+      log: [{ street: 'turn', id: 'h1', action: 'allin', amount: 800 }]
+    });
+    h.seats[1].streetInvested = 600;
+    h.seats[1].stack = 200;
+    h.seats[0].streetInvested = 800;
+    h.seats[0].stack = 0;
+    h.seats[0].allIn = true;
+    const a = D.decide(h, h.seats[1]);
+    if (a && a.id === 'fold') folds++;
+    else if (a && a.id === 'call') calls++;
+  }
+  assert.ok(folds >= 95,
+    'HU Pro Q7s stack-off restante vs turn jam debe foldear ≥95%, got folds=' + folds + ' calls=' + calls);
+  console.log('OK Q7s committed stack-off folds', folds + '/' + n);
+}
+
 /* Top pair sigue pagando a menudo */
 const rTp = countActs(mkHu(['Ac', '7d', '2c', '9s', '3h'], 'river', ['Ah', 'Kd'], {
   pot: 400,

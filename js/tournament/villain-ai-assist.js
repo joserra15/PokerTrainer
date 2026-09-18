@@ -287,6 +287,32 @@
     };
   }
 
+  function resolveLocalStrength(hand, seat) {
+    var D = global.PTTournamentVillainDecide;
+    if (!D || typeof D.strength01 !== 'function') return 0.5;
+    try {
+      if (seat && seat.cards) {
+        return D.strength01(seat.cards, (hand && hand.board) || [], (hand && hand.street) || 'flop');
+      }
+    } catch (e) { /* */ }
+    return 0.5;
+  }
+
+  function resolveMade(hand, seat) {
+    var Made = global.GTOEquityMadeHand;
+    if (!Made || typeof Made.classifyMadeHand !== 'function' || !seat || !seat.cards) return null;
+    try {
+      var hole = (seat.cards || []).map(function (c) {
+        return typeof c === 'string' ? c : (c && c.code) || c;
+      }).filter(Boolean);
+      var board = ((hand && hand.board) || []).map(function (c) {
+        return typeof c === 'string' ? c : (c && c.code) || c;
+      }).filter(Boolean);
+      if (hole.length >= 2 && board.length >= 3) return Made.classifyMadeHand(hole, board);
+    } catch (e) { /* */ }
+    return null;
+  }
+
   function computeLocalBundle(hand, seat) {
     var D = global.PTTournamentVillainDecide;
     var action = { id: 'check' };
@@ -294,20 +320,33 @@
       try { action = D.decide(hand, seat) || action; } catch (e) { /* */ }
     }
     var profile = D && D.profileForSeat ? D.profileForSeat(seat, hand) : null;
-    var strength = D && D.strength01 ? D.strength01(hand, seat) : 0.5;
-    var freqs = null;
-    /* Freqs aproximadas desde decisión: masa en la acción elegida. */
-    freqs = {};
+    var strength = resolveLocalStrength(hand, seat);
+    var made = resolveMade(hand, seat);
+    var freqs = {};
     freqs[actionFamily(action.id)] = 0.72;
     var alt = actionFamily(action.id) === 'fold' ? 'call'
       : (actionFamily(action.id) === 'check' ? 'bet' : 'fold');
     freqs[alt] = 0.28;
+    /*
+     * Ante jam, no fingir 72/28 «seguro»: mezcla más cerrada para que el
+     * score de complejidad refleje la dificultad real del spot.
+     */
+    var toCall = Math.max(0, (Number(hand.currentBet) || 0) - (Number(seat.streetInvested) || 0));
+    var stack = Number(seat.stack) || 0;
+    if (toCall > 0 && stack > 0 && toCall >= stack * 0.85) {
+      var primary = actionFamily(action.id);
+      var secondary = primary === 'fold' ? 'call' : 'fold';
+      freqs = {};
+      freqs[primary] = 0.58;
+      freqs[secondary] = 0.42;
+    }
     return {
       action: action,
       freqs: freqs,
       profile: profile,
       strength: strength,
-      handBand: bandFromStrength(strength, null)
+      made: made,
+      handBand: bandFromStrength(strength, made)
     };
   }
 
