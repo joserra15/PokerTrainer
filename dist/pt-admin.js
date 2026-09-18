@@ -3733,6 +3733,15 @@
     var bump = $('#admin-va-bump-schema');
     if (bump) {
       bump.onclick = async function () {
+        var ok = global.confirm(
+          '¿Invalidar la caché L3 del asistente de villanos?\n\n' +
+          'Impacto:\n' +
+          '• Las decisiones guardadas dejan de usarse (sube la versión de schema).\n' +
+          '• Las próximas manos difíciles volverán a consultar Gemini y consumirán cupo hasta recrear la caché.\n' +
+          '• También se limpia la caché L1 de esta sesión.\n\n' +
+          'No borra filas históricas; solo las marca obsoletas. Usa esto tras cambiar prompts o lógica, no por accidente.'
+        );
+        if (!ok) return;
         try {
           if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.bumpSchemaVersion) {
             var n = await global.PTVillainAssistFlags.bumpSchemaVersion();
