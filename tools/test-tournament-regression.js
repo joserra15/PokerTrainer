@@ -423,4 +423,32 @@ function playUntilFinished(g, state, maxHands) {
   console.log('OK cap entries');
 }
 
+// ---------------------------------------------------------------------------
+// 9) Asistente IA villanos: default off + opt-in en create (presets Pro)
+// ---------------------------------------------------------------------------
+{
+  var stateVa = g.PTTournamentRunner.create('mttPro', { seed: 3, heroName: 'AssistReg' });
+  assert.ok(stateVa.villainAssist, 'villainAssist en state');
+  assert.strictEqual(stateVa.villainAssist.enabled, false, 'default off');
+  assert.strictEqual(stateVa.villainAssist.calls, 0, 'calls 0');
+
+  var stateVaOn = g.PTTournamentRunner.create('spinPro', {
+    seed: 4,
+    heroName: 'AssistOn',
+    villainAssist: { enabled: true, level: 'high' }
+  });
+  assert.strictEqual(stateVaOn.villainAssist.enabled, true, 'opt-in on');
+  assert.strictEqual(stateVaOn.villainAssist.level, 'high', 'level high');
+  assert.strictEqual(stateVaOn.config.id, 'spinPro', 'preset spinPro');
+
+  var stateVaMed = g.PTTournamentRunner.create('huPro', {
+    seed: 5,
+    villainAssist: { enabled: true, level: 'baja' }
+  });
+  /* normalizeLevel vive en complexity; runner usa Comp si está cargado */
+  assert.ok(stateVaMed.villainAssist.enabled, 'huPro assist on');
+  assert.strictEqual(stateVaMed.villainAssist.level, 'low', 'baja → low sin módulo complexity');
+  console.log('OK villain assist state (default off / opt-in)');
+}
+
 console.log('*** test-tournament-regression OK ***');

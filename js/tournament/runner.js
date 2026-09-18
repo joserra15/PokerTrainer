@@ -23,9 +23,17 @@
     state._presetId = typeof configOrPreset === 'string' ? configOrPreset : (cfg.id || null);
     if (opts.villainAssist && typeof opts.villainAssist === 'object') {
       var Comp = global.PTVillainAssistComplexity;
-      var lvl = Comp && Comp.normalizeLevel
-        ? Comp.normalizeLevel(opts.villainAssist.level)
-        : 'medium';
+      var rawLvl = opts.villainAssist.level;
+      var lvl = 'medium';
+      if (Comp && typeof Comp.normalizeLevel === 'function') {
+        lvl = Comp.normalizeLevel(rawLvl);
+      } else if (rawLvl != null) {
+        var s = String(rawLvl).toLowerCase();
+        if (s === 'low' || s === 'baja') lvl = 'low';
+        else if (s === 'high' || s === 'alta') lvl = 'high';
+        else if (s === 'medium' || s === 'media') lvl = 'medium';
+        else lvl = s;
+      }
       state.villainAssist = {
         enabled: !!opts.villainAssist.enabled,
         level: lvl,
