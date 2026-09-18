@@ -261,11 +261,17 @@ gAssist.PTTournamentVillainDecide = {
   ok(mig.indexOf('pt_admin_villain_assist_stats') >= 0, 'mig admin stats');
   ok(mig.indexOf('villain_assist_enabled') >= 0, 'mig flag');
 
-  /* Admin UI wiring */
+  /* Admin UI wiring — fuente + dist desplegado (regresión: botón sin handler) */
   const adminJs = fs.readFileSync(path.join(ROOT, 'js/admin-panel.js'), 'utf8');
   ok(adminJs.indexOf('showAdminVillainAssist') >= 0, 'admin panel fn');
   const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   ok(indexHtml.indexOf('admin-villain-assist-panel') >= 0, 'admin panel html');
+  ok(indexHtml.indexOf('admin-villain-assist-btn') >= 0, 'admin panel btn');
+  const adminChunkSrc = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
+  ok(/admin:\s*\[[^\]]*villain-assist-flags\.js/s.test(adminChunkSrc), 'flags in admin chunk');
+  const adminDist = fs.readFileSync(path.join(ROOT, 'dist/pt-admin.js'), 'utf8');
+  ok(adminDist.indexOf('showAdminVillainAssist') >= 0, 'dist admin has showAdminVillainAssist');
+  ok(adminDist.indexOf('PTVillainAssistFlags') >= 0, 'dist admin has PTVillainAssistFlags');
 
   /* State default assist off */
   const gState = loadFiles(['js/tournament/config.js', 'js/tournament/names.js', 'js/tournament/seating.js', 'js/tournament/state.js'], {
