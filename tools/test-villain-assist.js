@@ -267,6 +267,10 @@ gAssist.PTTournamentVillainDecide = {
   const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   ok(indexHtml.indexOf('admin-villain-assist-panel') >= 0, 'admin panel html');
   ok(indexHtml.indexOf('admin-villain-assist-btn') >= 0, 'admin panel btn');
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  ok(uiSrc.indexOf('Análisis profundo de rivales') >= 0, 'ui copy title');
+  ok(uiSrc.indexOf('consume más consultas') >= 0, 'ui alta quota hint');
+  ok(uiSrc.indexOf('Asistente IA de villanos') < 0, 'ui no longer says asistente IA');
   const adminChunkSrc = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   ok(/admin:\s*\[[^\]]*villain-assist-flags\.js/s.test(adminChunkSrc), 'flags in admin chunk');
   const adminDist = fs.readFileSync(path.join(ROOT, 'dist/pt-admin.js'), 'utf8');

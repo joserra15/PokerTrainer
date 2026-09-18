@@ -3656,7 +3656,7 @@
       '<h4>Kill-switch</h4>' +
       '<label class="admin-toggle">' +
       '<input type="checkbox" id="admin-va-enabled"' + (enabled ? ' checked' : '') + '> ' +
-      'Asistente IA villanos (torneos Pro) visible</label>' +
+      'Análisis profundo de rivales (torneos Pro) visible</label>' +
       '<p class="muted-text">Por defecto está desactivado. Al activarlo, en torneos Pro aparece el aviso al empezar y el bloque en Info. Si se desactiva, se oculta por completo.</p>' +
       '<div class="admin-promo-actions">' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-va-bump-schema">Invalidar caché L3 (schema++)</button>' +
@@ -3719,8 +3719,8 @@
           }
           if (errEl) {
             errEl.textContent = on
-              ? 'Asistente visible en torneos Pro.'
-              : 'Asistente oculto en la app.';
+              ? 'Análisis profundo visible en torneos Pro.'
+              : 'Análisis profundo oculto en la app.';
           }
         } catch (e3) {
           toggle.checked = !on;
