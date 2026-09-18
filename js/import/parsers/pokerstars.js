@@ -141,10 +141,13 @@
             const det = U.detectVariant(ln);
             if (det && det !== 'unknown') hand.variant = det;
           }
+          const tid = U.parseTournamentIdFromText(ln);
+          if (tid) hand.tournamentId = tid;
           const dt = ln.match(/-\s*(\d{4}\/\d{2}\/\d{2} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
         }
+        if (U.applyTournamentResultToHand(hand, ln)) continue;
         if ((m = ln.match(/Seat #(\d+) is the button/))) { hand.buttonSeat = +m[1]; continue; }
         if ((m = ln.match(/^Seat (\d+):\s*(.+?)\s*\((?:[€$£])?([\d.,]+) in chips\)/))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
@@ -224,10 +227,13 @@
             const det = U.detectVariant(ln);
             if (det && det !== 'unknown') hand.variant = det;
           }
+          const tidEs = U.parseTournamentIdFromText(ln);
+          if (tidEs) hand.tournamentId = tidEs;
           const dt = ln.match(/-\s*(\d{2}-\d{2}-\d{4} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
         }
+        if (U.applyTournamentResultToHand(hand, ln)) continue;
         if ((m = ln.match(/El asiento n\.º (\d+) es el botón/))) { hand.buttonSeat = +m[1]; continue; }
         if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\)/))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;

@@ -156,6 +156,68 @@
     return m ? num(m[1]) : null;
   }
 
+  function parseTournamentIdFromText(text) {
+    if (!text) return null;
+    const m = String(text).match(/Tournament\s*#\s*(\d+)/i)
+      || String(text).match(/Torneo\s*(?:n\.?\s*º?\s*)?#?\s*(\d+)/i);
+    return m ? m[1] : null;
+  }
+
+  /**
+   * Resultado de torneo en el HH (premio / puesto).
+   * PokerStars: "X wins the tournament and receives €4.00"
+   *            "X finished the tournament in 2nd place"
+   */
+  function parseTournamentResultLine(line) {
+    if (!line) return null;
+    const ln = String(line).replace(/\u00a0/g, ' ').trim();
+    let m = ln.match(
+      /^(.+?)\s+wins the tournament and receives\s*((?:[€$£]|â‚¬)?)([\d.,]+)/i
+    );
+    if (m) {
+      return { player: m[1].trim(), cashPrize: num(m[3]), finishPlace: 1 };
+    }
+    m = ln.match(
+      /^(.+?)\s+gana el torneo y recibe\s*((?:[€$£]|â‚¬)?)([\d.,]+)/i
+    );
+    if (m) {
+      return { player: m[1].trim(), cashPrize: num(m[3]), finishPlace: 1 };
+    }
+    m = ln.match(
+      /^(.+?)\s+finished the tournament in\s+(\d+)(?:st|nd|rd|th)?\s+place/i
+    );
+    if (m) {
+      return { player: m[1].trim(), finishPlace: parseInt(m[2], 10), cashPrize: null };
+    }
+    m = ln.match(
+      /^(.+?)\s+(?:termin[oó]|acab[oó]) el torneo en(?:\s+el)?(?:\s+puesto)?\s+(\d+)/i
+    );
+    if (m) {
+      return { player: m[1].trim(), finishPlace: parseInt(m[2], 10), cashPrize: null };
+    }
+    return null;
+  }
+
+  function applyTournamentResultToHand(hand, line) {
+    const res = parseTournamentResultLine(line);
+    if (!hand || !res) return false;
+    const hero = hand.hero;
+    if (hero && res.player !== hero) {
+      // Solo guardamos resultado del héroe para profit/ROI
+      return false;
+    }
+    if (!hero) {
+      // Sin héroe aún: guardar si es win (suele ser el héroe del HH exportado)
+      if (res.cashPrize == null && res.finishPlace !== 1) return false;
+    }
+    if (res.finishPlace != null) hand.finishPlace = res.finishPlace;
+    if (res.cashPrize != null) {
+      hand.cashPrize = res.cashPrize;
+      if (hand.finishPlace == null) hand.finishPlace = 1;
+    }
+    return true;
+  }
+
   function parseTournamentBlinds(text) {
     if (!text) return null;
     // Level II (15/30) · Level2 (60/120) · Level 5 (100/200/25)
@@ -511,6 +573,9 @@
     variantLabel,
     parseBuyInFromText,
     parseMultiplierFromText,
+    parseTournamentIdFromText,
+    parseTournamentResultLine,
+    applyTournamentResultToHand,
     parseTournamentBlinds,
     stakeTierFromBb,
     stakesLabel,
@@ -1240,10 +1305,13 @@
             const det = U.detectVariant(ln);
             if (det && det !== 'unknown') hand.variant = det;
           }
+          const tid = U.parseTournamentIdFromText(ln);
+          if (tid) hand.tournamentId = tid;
           const dt = ln.match(/-\s*(\d{4}\/\d{2}\/\d{2} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
         }
+        if (U.applyTournamentResultToHand(hand, ln)) continue;
         if ((m = ln.match(/Seat #(\d+) is the button/))) { hand.buttonSeat = +m[1]; continue; }
         if ((m = ln.match(/^Seat (\d+):\s*(.+?)\s*\((?:[€$£])?([\d.,]+) in chips\)/))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
@@ -1323,10 +1391,13 @@
             const det = U.detectVariant(ln);
             if (det && det !== 'unknown') hand.variant = det;
           }
+          const tidEs = U.parseTournamentIdFromText(ln);
+          if (tidEs) hand.tournamentId = tidEs;
           const dt = ln.match(/-\s*(\d{2}-\d{2}-\d{4} \d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
           continue;
         }
+        if (U.applyTournamentResultToHand(hand, ln)) continue;
         if ((m = ln.match(/El asiento n\.º (\d+) es el botón/))) { hand.buttonSeat = +m[1]; continue; }
         if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\)/))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;
@@ -3485,6 +3556,9 @@
       mttPhase: hand.mttPhase || null,
       buyIn: hand.buyIn != null ? hand.buyIn : null,
       buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      tournamentId: hand.tournamentId || null,
+      cashPrize: hand.cashPrize != null ? hand.cashPrize : null,
+      finishPlace: hand.finishPlace != null ? hand.finishPlace : null,
       multiplier: hand.multiplier != null ? hand.multiplier : null,
       ante: hand.ante || 0,
       straddle: hand.straddle || null,
@@ -3649,6 +3723,9 @@
       entries: hand.entries != null ? hand.entries : null,
       buyIn: hand.buyIn != null ? hand.buyIn : null,
       buyInFee: hand.buyInFee != null ? hand.buyInFee : null,
+      tournamentId: hand.tournamentId || null,
+      cashPrize: hand.cashPrize != null ? hand.cashPrize : null,
+      finishPlace: hand.finishPlace != null ? hand.finishPlace : null,
       mttStructureSituation: hand.mttStructureSituation || null,
       multiplier: hand.multiplier != null ? hand.multiplier : null,
       ante: hand.ante || 0,
@@ -5355,11 +5432,10 @@
     return tags.filter((t) => { if (seen[t]) return false; seen[t] = true; return true; });
   }
 
-  /** Cash/spins: el neto va en dinero. MTT/SNG: el neto es en fichas, no en €. */
+  /** Solo cash: el neto de la mano va en dinero real. Spin/MTT/SNG usan fichas. */
   function handUsesMoneyUnits(h) {
     if (!h) return false;
-    const k = h.gameKind || '';
-    return k === 'cash' || k === 'spin';
+    return (h.gameKind || '') === 'cash';
   }
 
   function stripHeavyHand(h) {
@@ -5417,6 +5493,7 @@
     let buyInTotal = 0;
     let buyInEvents = 0;
     const tourneyInvested = {};
+    const tourneyPrize = {};
     const stakeTierCount = {};
     const phaseCount = {};
     const stackDepths = [];
@@ -5452,8 +5529,8 @@
       evLoss += h.totalEvLoss;
       if (handUsesMoneyUnits(h) && h.bb) netEuro += (h.heroNetBB || 0) * h.bb;
       if (h.buyIn != null) {
-        if (h.gameKind === 'mtt' || h.gameKind === 'sng') {
-          const tk = String(h.tournamentId || ('n:' + (h.tournamentName || '')));
+        if (h.gameKind === 'mtt' || h.gameKind === 'sng' || h.gameKind === 'spin') {
+          const tk = String(h.tournamentId || ('n:' + (h.tournamentName || '') || ('hand:' + h.id)));
           if (tourneyInvested[tk] == null) {
             tourneyInvested[tk] = (h.buyIn || 0) + (h.buyInFee || 0);
           }
@@ -5461,6 +5538,10 @@
           buyInTotal += h.buyIn + (h.buyInFee || 0);
           buyInEvents++;
         }
+      }
+      if (h.cashPrize != null && h.cashPrize > 0) {
+        const pk = String(h.tournamentId || ('n:' + (h.tournamentName || '') || ('hand:' + h.id)));
+        tourneyPrize[pk] = Math.max(tourneyPrize[pk] || 0, h.cashPrize);
       }
       if (h.stakeTier) stakeTierCount[h.stakeTier] = (stakeTierCount[h.stakeTier] || 0) + 1;
       if (h.mttPhase) phaseCount[h.mttPhase] = (phaseCount[h.mttPhase] || 0) + 1;
@@ -5636,11 +5717,21 @@
       buyInTotal += tourneyInvested[k];
       buyInEvents++;
     });
+    let cashPrizeTotal = 0;
+    Object.keys(tourneyPrize).forEach((k) => {
+      cashPrizeTotal += tourneyPrize[k];
+    });
     const avgBuyIn = buyInEvents ? (buyInTotal / buyInEvents) : (ctx && ctx.avgBuyIn) || null;
-    const moneyGame = gameKind === 'cash' || gameKind === 'spin';
-    let profitEuro = moneyGame ? r2(netEuro) : null;
+    let profitEuro = null;
     let roiPct = null;
-    if (moneyGame && gameKind === 'spin' && buyInEvents && buyInTotal > 0 && profitEuro != null) {
+    if (gameKind === 'cash') {
+      profitEuro = r2(netEuro);
+    } else if (gameKind === 'spin' && buyInTotal > 0) {
+      // Premio real del HH − buy-in (1× por torneo). No usar fichas×bb.
+      profitEuro = r2(cashPrizeTotal - buyInTotal);
+      roiPct = Math.round((profitEuro / buyInTotal) * 1000) / 10;
+    } else if ((gameKind === 'mtt' || gameKind === 'sng') && cashPrizeTotal > 0 && buyInTotal > 0) {
+      profitEuro = r2(cashPrizeTotal - buyInTotal);
       roiPct = Math.round((profitEuro / buyInTotal) * 1000) / 10;
     }
     let dominantStakeTier = null;
@@ -5743,7 +5834,7 @@
       mttPhase: dominantPhase,
       avgStackBB: avgStackBB,
       shortHandedShare: ctx ? ctx.shortHandedShare : 0,
-      profitEuro, avgBuyIn, roiPct,
+      profitEuro, avgBuyIn, roiPct, cashPrize: cashPrizeTotal || null,
       styleIdeal: ideal,
       style, styleAssess,
       grade

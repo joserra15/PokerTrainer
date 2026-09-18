@@ -109,6 +109,12 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   assert(session.stats.format === 'spin', 'spin legacy format');
   assert(session.hands.every((h) => h.gameKind === 'spin'), 'todas spin');
   assert(session.hands[0].buyIn === 5, 'spin buyIn 5 got ' + session.hands[0].buyIn);
+  assert(session.hands.some((h) => h.cashPrize === 16.5), 'spin parsea premio 16.50');
+  assert(session.hands.some((h) => h.tournamentId === '11223344'), 'spin tournamentId');
+  // Premio $16.50 − BI $5.50 → profit +11; ROI 200%
+  assert(Math.abs(session.stats.profitEuro - 11) < 1e-9, 'spin profit +11 got ' + session.stats.profitEuro);
+  assert(session.stats.roiPct === 200, 'spin ROI 200 got ' + session.stats.roiPct);
+  assert(session.stats.avgBuyIn === 5.5, 'spin avgBuyIn 5.5 got ' + session.stats.avgBuyIn);
   const ideal = Importer.styleIdealForFormat('spin3');
   assert(ideal.vpipMin >= 30, 'ideales spin más loose');
   console.log('Spin & Go OK');
@@ -125,6 +131,10 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   assert(session.stats.formatKey === 'spin3', 'spin-no-label formatKey');
   assert(U.looksLikeSpinTournament({ isTournament: true, tableMax: 3 }, 'Tournament #1'), 'helper 3-max');
   assert(!U.looksLikeSpinTournament({ isTournament: true, tableMax: 9 }, 'Tournament #1'), 'helper 9-max no spin');
+  // Premio €4 − BI €1 → +3€ · ROI 300%
+  assert(session.hands.some((h) => h.cashPrize === 4), 'spin-no-label premio 4');
+  assert(Math.abs(session.stats.profitEuro - 3) < 1e-9, 'spin-no-label profit +3 got ' + session.stats.profitEuro);
+  assert(session.stats.roiPct === 300, 'spin-no-label ROI 300 got ' + session.stats.roiPct);
   console.log('Spin sin label (3-max) OK');
 })();
 
