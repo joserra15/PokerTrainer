@@ -179,7 +179,11 @@
     ],
     contact: ['js/contact.js'],
     manager: ['js/manager-panel.js'],
-    admin: ['js/admin-panel.js', 'js/admin-promotions.js']
+    admin: [
+      'js/tournament/villain-assist-flags.js',
+      'js/admin-panel.js',
+      'js/admin-promotions.js'
+    ]
   };
 
   var ALL_APP_SCRIPTS = CHUNKS.core.concat(

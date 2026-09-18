@@ -1291,7 +1291,12 @@
         wentToShowdown: 0
       },
       result: null,
-      _lastTableCount: 0
+      _lastTableCount: 0,
+      villainAssist: {
+        enabled: false,
+        level: 'medium',
+        calls: 0
+      }
     };
 
     Seat.rebalance(state);
@@ -3611,6 +3616,1111 @@
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
+ * villain-assist-complexity.js — Vetoes, impacto pot/stack, rawScore × fase × nivel.
+ * Decide si un spot de villano merece asistente IA (sin llamar a la red).
+ */
+(function (global) {
+  'use strict';
+
+  var LEVELS = {
+    low: { id: 'low', threshold: 0.80, capPerHand: 1, capPerTournament: 20 },
+    medium: { id: 'medium', threshold: 0.64, capPerHand: 2, capPerTournament: 40 },
+    high: { id: 'high', threshold: 0.50, capPerHand: 2, capPerTournament: 60 }
+  };
+
+  var PHASE_MULT = {
+    early: 0.55,
+    mid: 0.75,
+    late: 0.90,
+    short: 0.90,
+    push: 0.90,
+    bubble: 1.20,
+    mincash: 1.20,
+    ft: 1.25,
+    ft9: 1.25,
+    hu: 1.25,
+    spin: 1.05,
+    auto: 0.75
+  };
+
+  var PRO_PRESETS = { mttPro: 1, sngPro: 1, spinPro: 1, huPro: 1 };
+
+  function clamp01(x) {
+    return Math.max(0, Math.min(1, Number(x) || 0));
+  }
+
+  function normalizeLevel(v) {
+    var s = String(v || 'medium').toLowerCase();
+    if (s === 'low' || s === 'baja') return 'low';
+    if (s === 'high' || s === 'alta') return 'high';
+    return 'medium';
+  }
+
+  function levelConfig(level) {
+    return LEVELS[normalizeLevel(level)] || LEVELS.medium;
+  }
+
+  function isProPreset(id) {
+    return !!PRO_PRESETS[String(id || '')];
+  }
+
+  function resolvePhase(ctx) {
+    ctx = ctx || {};
+    var p = String(ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase || '').toLowerCase();
+    var situ = String(ctx.mttStructureSituation || '').toLowerCase();
+    if (situ === 'hu' || p === 'hu') return 'hu';
+    if (situ === 'bubble' || p === 'bubble') return 'bubble';
+    if (situ === 'ft9' || situ === 'ft' || p === 'ft' || p === 'ft9') return situ === 'ft9' ? 'ft9' : 'ft';
+    if (situ === 'mincash' || p === 'mincash') return 'mincash';
+    if (p === 'early' || p === 'mid' || p === 'late' || p === 'short' || p === 'push') return p;
+    if (ctx.formatHub === 'spin' && p !== 'hu') return 'spin';
+    return p || 'mid';
+  }
+
+  function phaseMult(phase) {
+    var p = String(phase || 'mid').toLowerCase();
+    return PHASE_MULT[p] != null ? PHASE_MULT[p] : 0.75;
+  }
+
+  function sortedFreqEntries(freqs) {
+    var out = [];
+    if (!freqs || typeof freqs !== 'object') return out;
+    Object.keys(freqs).forEach(function (k) {
+      if (!k || k.charAt(0) === '_') return;
+      var v = Number(freqs[k]) || 0;
+      if (v > 0) out.push({ id: k, f: v });
+    });
+    out.sort(function (a, b) { return b.f - a.f; });
+    return out;
+  }
+
+  function topFreq(freqs) {
+    var e = sortedFreqEntries(freqs);
+    return e.length ? e[0] : null;
+  }
+
+  function mixEntropy01(freqs) {
+    var e = sortedFreqEntries(freqs);
+    if (!e.length) return 0.5;
+    if (e.length === 1 || e[0].f >= 0.82) return 0.05;
+    var gap = e.length > 1 ? (e[0].f - e[1].f) : 1;
+    if (e[0].f >= 0.75 && gap >= 0.45) return 0.08;
+    if (gap < 0.12) return 0.95;
+    if (gap < 0.18) return 0.8;
+    if (gap < 0.28) return 0.55;
+    return 0.25;
+  }
+
+  function handCodeOf(seat, hand) {
+    var D = global.PTTournamentVillainDecide;
+    if (D && typeof D.handCode === 'function') {
+      try { return D.handCode(seat && seat.cards); } catch (e) { /* */ }
+    }
+    return null;
+  }
+
+  function isPremiumTrivialPreflop(code, local) {
+    var c = String(code || '').toUpperCase();
+    if (c !== 'AA' && c !== 'KK' && c !== 'QQ') return false;
+    var top = topFreq(local && local.freqs);
+    var act = String((local && local.action && local.action.id) || (top && top.id) || '').toLowerCase();
+    if (act === 'fold') return false;
+    if (act === 'raise' || act === 'bet' || act === 'allin' || act === 'call') {
+      if (top && top.f >= 0.70) return true;
+      if (!top) return true;
+    }
+    return c === 'AA' || c === 'KK';
+  }
+
+  /**
+   * Hard vetoes: spots claros donde no se debe consultar (ni caché ni Gemini).
+   * @returns {{ veto: boolean, reason: string|null }}
+   */
+  function hardVeto(ctx, local, seat, hand) {
+    ctx = ctx || {};
+    local = local || {};
+    var options = ctx.legalOptions || local.legalOptions;
+    if (options && options.length === 1) {
+      return { veto: true, reason: 'veto_single_option' };
+    }
+
+    var freqs = local.freqs || ctx.freqs;
+    var top = topFreq(freqs);
+    if (top) {
+      var entries = sortedFreqEntries(freqs);
+      var gap = entries.length > 1 ? (entries[0].f - entries[1].f) : 1;
+      if (top.f >= 0.82) return { veto: true, reason: 'veto_motor_seguro' };
+      if (top.f >= 0.75 && gap >= 0.45) return { veto: true, reason: 'veto_motor_seguro' };
+    }
+
+    var street = String(ctx.street || (hand && hand.street) || '').toLowerCase();
+    if (street === 'preflop') {
+      var code = handCodeOf(seat, hand);
+      if (isPremiumTrivialPreflop(code, local)) {
+        return { veto: true, reason: 'veto_premium_preflop' };
+      }
+      var strict = Number(ctx.preflopStrict != null ? ctx.preflopStrict
+        : (local.profile && local.profile.preflopStrict)) || 0;
+      if (strict >= 0.92 && top && top.f >= 0.70 && mixEntropy01(freqs) < 0.35) {
+        var icm = Number(ctx.icmPressure) || 0;
+        if (icm < 0.65) return { veto: true, reason: 'veto_preflop_chart' };
+      }
+    }
+
+    var band = String(ctx.handBand || local.handBand || '').toLowerCase();
+    if (band === 'nuts' && top && (top.id === 'raise' || top.id === 'bet' || top.id === 'call' || top.id === 'allin')
+      && top.f >= 0.80) {
+      return { veto: true, reason: 'veto_nuts' };
+    }
+    if ((band === 'air' || band === 'weak') && top && top.id === 'fold' && top.f >= 0.85) {
+      return { veto: true, reason: 'veto_air_fold' };
+    }
+
+    return { veto: false, reason: null };
+  }
+
+  /**
+   * Impacto pot vs stack. 0 = hard skip (ni en HU).
+   */
+  function impactMult(ctx) {
+    ctx = ctx || {};
+    var potBB = Math.max(0.01, Number(ctx.potBB) || 0);
+    var stackBB = Math.max(0.01, Number(ctx.villainStackBB != null ? ctx.villainStackBB : ctx.stackBB) || 1);
+    var eff = Math.max(0.01, Number(ctx.effStackBB != null ? ctx.effStackBB : stackBB) || stackBB);
+    var potFrac = potBB / Math.max(stackBB, eff);
+    var spr = eff / Math.max(potBB, 0.5);
+    var committed = Number(ctx.committedFrac);
+    if (!isFinite(committed)) committed = 0;
+    var facingJam = !!ctx.facingJam;
+    var toCallBB = Number(ctx.toCallBB) || 0;
+    if (toCallBB >= eff * 0.85) facingJam = true;
+
+    if (committed >= 0.35 || facingJam) {
+      return 1.1;
+    }
+    if (potFrac < 0.08 && spr > 12) return 0;
+    if (potFrac < 0.15 || spr > 8) {
+      return potFrac < 0.10 ? 0.35 : 0.5;
+    }
+    if (potFrac >= 0.30 || spr <= 4) return potFrac >= 0.45 || spr <= 2.5 ? 1.15 : 1.0;
+    return 0.8;
+  }
+
+  function handBandAmbiguity(band) {
+    var b = String(band || '').toLowerCase();
+    if (b === 'merge' || b === 'bluffcatch') return 0.9;
+    if (b === 'draw' || b === 'semi') return 0.75;
+    if (b === 'value') return 0.35;
+    if (b === 'nuts') return 0.1;
+    if (b === 'air') return 0.2;
+    return 0.45;
+  }
+
+  function lineComplexity01(ctx) {
+    ctx = ctx || {};
+    var n = 0;
+    if (ctx.threeBetPot || ctx.potType === '3bet') n += 0.35;
+    if (ctx.lineIntent === 'checkRaise' || ctx.didCheckRaise) n += 0.25;
+    if (ctx.leadType === 'donk' || ctx.leadType === 'delayed_cbet') n += 0.2;
+    if (ctx.playersInPot >= 3 || ctx.multiway) n += 0.25;
+    if (ctx.facingSizeBucket === 'over' || ctx.facingSizeBucket === 'jam') n += 0.15;
+    return clamp01(n);
+  }
+
+  function icmPressure01(ctx) {
+    ctx = ctx || {};
+    if (ctx.icmPressure != null && isFinite(Number(ctx.icmPressure))) {
+      return clamp01(ctx.icmPressure);
+    }
+    var phase = resolvePhase(ctx);
+    if (phase === 'bubble' || phase === 'mincash') return 0.85;
+    if (phase === 'ft' || phase === 'ft9') return 0.8;
+    if (phase === 'hu') return 0.55;
+    if (phase === 'late' || phase === 'short' || phase === 'push') return 0.45;
+    if (phase === 'early') return 0.15;
+    return 0.3;
+  }
+
+  function streetPressure01(street) {
+    var s = String(street || '').toLowerCase();
+    if (s === 'river') return 1;
+    if (s === 'turn') return 0.7;
+    if (s === 'flop') return 0.45;
+    return 0.25;
+  }
+
+  function rawScore(ctx, local) {
+    ctx = ctx || {};
+    local = local || {};
+    var freqs = local.freqs || ctx.freqs;
+    var band = ctx.handBand || local.handBand;
+    return clamp01(
+      0.40 * mixEntropy01(freqs) +
+      0.20 * handBandAmbiguity(band) +
+      0.15 * lineComplexity01(ctx) +
+      0.15 * icmPressure01(ctx) +
+      0.10 * streetPressure01(ctx.street || (local && local.street))
+    );
+  }
+
+  /**
+   * Evaluación completa: ¿debe activarse el camino assist?
+   */
+  function evaluate(ctx, local, seat, hand, level) {
+    var lvl = levelConfig(level);
+    var veto = hardVeto(ctx, local, seat, hand);
+    if (veto.veto) {
+      return {
+        shouldAssist: false,
+        score: 0,
+        reason: veto.reason,
+        impact: 0,
+        phase: resolvePhase(ctx),
+        threshold: lvl.threshold,
+        level: lvl.id
+      };
+    }
+    var impact = impactMult(ctx);
+    if (impact <= 0) {
+      return {
+        shouldAssist: false,
+        score: 0,
+        reason: 'low_impact',
+        impact: 0,
+        phase: resolvePhase(ctx),
+        threshold: lvl.threshold,
+        level: lvl.id
+      };
+    }
+    var phase = resolvePhase(ctx);
+    var raw = rawScore(ctx, local);
+    var score = clamp01(raw * impact * phaseMult(phase));
+    var should = score >= lvl.threshold;
+    return {
+      shouldAssist: should,
+      score: score,
+      raw: raw,
+      impact: impact,
+      phase: phase,
+      phaseMult: phaseMult(phase),
+      reason: should ? 'pass' : 'below_threshold',
+      threshold: lvl.threshold,
+      level: lvl.id
+    };
+  }
+
+  global.PTVillainAssistComplexity = {
+    LEVELS: LEVELS,
+    PRO_PRESETS: PRO_PRESETS,
+    normalizeLevel: normalizeLevel,
+    levelConfig: levelConfig,
+    isProPreset: isProPreset,
+    resolvePhase: resolvePhase,
+    phaseMult: phaseMult,
+    hardVeto: hardVeto,
+    impactMult: impactMult,
+    rawScore: rawScore,
+    mixEntropy01: mixEntropy01,
+    evaluate: evaluate,
+    clamp01: clamp01
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * villain-assist-flags.js — Kill-switch admin + lectura de feature asistente villanos.
+ * Si admin desactiva: la UI debe ocultar la feature (no mostrar deshabilitada).
+ */
+(function (global) {
+  'use strict';
+
+  var LS_KEY = 'pt_villain_assist_admin_enabled';
+  var cache = {
+    loaded: false,
+    enabled: false,
+    schemaVersion: 1
+  };
+
+  function readLocal() {
+    try {
+      if (!global.localStorage) return null;
+      var v = global.localStorage.getItem(LS_KEY);
+      if (v === '1' || v === 'true') return true;
+      if (v === '0' || v === 'false') return false;
+    } catch (e) { /* */ }
+    return null;
+  }
+
+  function writeLocal(on) {
+    try {
+      if (global.localStorage) global.localStorage.setItem(LS_KEY, on ? '1' : '0');
+    } catch (e) { /* */ }
+  }
+
+  function isEnabled() {
+    if (cache.loaded) return !!cache.enabled;
+    var local = readLocal();
+    if (local != null) return local;
+    return false;
+  }
+
+  function setLocalEnabled(on) {
+    cache.enabled = !!on;
+    cache.loaded = true;
+    writeLocal(!!on);
+  }
+
+  async function refresh() {
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (c && c.rpc) {
+        var res = await c.rpc('pt_get_app_setting', { p_key: 'villain_assist_enabled' });
+        if (!res.error && res.data != null) {
+          var row = Array.isArray(res.data) ? res.data[0] : res.data;
+          var val = row && (row.value != null ? row.value : row);
+          var on = false;
+          if (typeof val === 'boolean') on = val;
+          else if (val && typeof val === 'object' && val.enabled != null) on = !!val.enabled;
+          else if (val === true || val === 'true' || val === 1 || val === '1') on = true;
+          cache.enabled = on;
+          cache.loaded = true;
+          writeLocal(on);
+          return on;
+        }
+      }
+    } catch (e) { /* */ }
+    var local = readLocal();
+    cache.enabled = local != null ? local : false;
+    cache.loaded = true;
+    return cache.enabled;
+  }
+
+  async function setEnabledAdmin(on) {
+    on = !!on;
+    setLocalEnabled(on);
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (c && c.rpc) {
+        await c.rpc('pt_admin_set_app_setting', {
+          p_key: 'villain_assist_enabled',
+          p_value: { enabled: on }
+        });
+      }
+    } catch (e) { /* */ }
+    return on;
+  }
+
+  async function bumpSchemaVersion() {
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (!c || !c.rpc) return null;
+      var cur = await c.rpc('pt_get_app_setting', { p_key: 'villain_assist_schema_version' });
+      var n = 1;
+      if (!cur.error && cur.data != null) {
+        var row = Array.isArray(cur.data) ? cur.data[0] : cur.data;
+        var val = row && (row.value != null ? row.value : row);
+        if (typeof val === 'number') n = val;
+        else if (val && val.version != null) n = Number(val.version) || 1;
+      }
+      n += 1;
+      await c.rpc('pt_admin_set_app_setting', {
+        p_key: 'villain_assist_schema_version',
+        p_value: { version: n }
+      });
+      cache.schemaVersion = n;
+      if (global.PTVillainAssistCache && global.PTVillainAssistCache.clearL1) {
+        global.PTVillainAssistCache.clearL1();
+      }
+      return n;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  global.PTVillainAssistFlags = {
+    isEnabled: isEnabled,
+    refresh: refresh,
+    setEnabledAdmin: setEnabledAdmin,
+    setLocalEnabled: setLocalEnabled,
+    bumpSchemaVersion: bumpSchemaVersion,
+    /** Visible en UI solo si admin feature on. */
+    isVisible: function () { return isEnabled(); }
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * villain-assist-cache.js — L1 (sesión) + L3 (Supabase) para decisiones de assist.
+ * Hits no consumen cupo. Escritura solo tras respuesta Gemini válida.
+ */
+(function (global) {
+  'use strict';
+
+  var SCHEMA_VERSION = 1;
+  var l1 = Object.create(null);
+  var l1Order = [];
+  var L1_MAX = 200;
+
+  function spotKeyString(parts) {
+    if (!parts) return '';
+    if (typeof parts === 'string') return parts;
+    var Spot = global.GTOSpotKey;
+    var base = '';
+    if (Spot && Spot.spotKeyString && Spot.buildSpotKey) {
+      try {
+        base = Spot.spotKeyString(Spot.buildSpotKey(parts.spotInput || parts));
+      } catch (e) { base = ''; }
+    }
+    return [
+      'v' + (parts.schemaVersion != null ? parts.schemaVersion : SCHEMA_VERSION),
+      base || parts.baseKey || '?',
+      parts.handBand || '-',
+      parts.facingSizeBucket || '-',
+      parts.playersInPot || 'hu',
+      parts.formatHub || 'mtt',
+      parts.icmBucket || 'none',
+      parts.roleBucket || 'pro'
+    ].join('|');
+  }
+
+  function facingSizeBucket(toCallBB, potBB) {
+    var pot = Math.max(0.5, Number(potBB) || 1);
+    var tc = Math.max(0, Number(toCallBB) || 0);
+    if (tc <= 0) return 'none';
+    var r = tc / pot;
+    if (r >= 2.5) return 'jam';
+    if (r >= 1.15) return 'over';
+    if (r >= 0.75) return 'pot';
+    if (r >= 0.4) return 'half';
+    return 'third';
+  }
+
+  function icmBucket(phase) {
+    var p = String(phase || '').toLowerCase();
+    if (p === 'hu') return 'hu';
+    if (p === 'bubble' || p === 'mincash') return 'bubble';
+    if (p === 'ft' || p === 'ft9') return 'ft';
+    if (p === 'early') return 'early';
+    if (p === 'late' || p === 'short' || p === 'push') return 'late';
+    return 'none';
+  }
+
+  function buildKeyFromCtx(ctx) {
+    ctx = ctx || {};
+    return spotKeyString({
+      schemaVersion: SCHEMA_VERSION,
+      spotInput: {
+        board: ctx.board || [],
+        potBB: ctx.potBB,
+        stackDepth: ctx.stackBB || ctx.effStackBB,
+        effStack: ctx.effStackBB || ctx.stackBB,
+        gameType: ctx.gameType || ctx.formatHub,
+        street: ctx.street,
+        position: ctx.position,
+        vsPosition: ctx.vsPosition,
+        initiative: ctx.initiative,
+        spotKind: ctx.street === 'preflop' ? 'preflop' : 'postflop',
+        toCallBB: ctx.toCallBB,
+        inPosition: ctx.inPosition,
+        priorAggressorBet: ctx.priorAggressorBet,
+        rangeContext: { gameType: ctx.gameType, stackDepth: ctx.stackLabel },
+        spr: ctx.spr
+      },
+      handBand: ctx.handBand || 'merge',
+      facingSizeBucket: ctx.facingSizeBucket || facingSizeBucket(ctx.toCallBB, ctx.potBB),
+      playersInPot: (ctx.playersInPot >= 3 || ctx.multiway) ? 'mw' : 'hu',
+      formatHub: ctx.formatHub || 'mtt',
+      icmBucket: ctx.icmBucket || icmBucket(ctx.effectivePhase || ctx.mttPhase),
+      roleBucket: ctx.roleBucket || 'pro'
+    });
+  }
+
+  function l1Get(key) {
+    return key && l1[key] ? l1[key] : null;
+  }
+
+  function l1Set(key, entry) {
+    if (!key || !entry) return;
+    if (!l1[key]) {
+      l1Order.push(key);
+      while (l1Order.length > L1_MAX) {
+        var old = l1Order.shift();
+        delete l1[old];
+      }
+    }
+    l1[key] = entry;
+  }
+
+  function clearL1() {
+    l1 = Object.create(null);
+    l1Order = [];
+  }
+
+  function sampleFromFreqs(freqs, rnd) {
+    rnd = rnd == null ? Math.random() : rnd;
+    var keys = Object.keys(freqs || {}).filter(function (k) {
+      return k.charAt(0) !== '_' && (Number(freqs[k]) || 0) > 0;
+    });
+    if (!keys.length) return null;
+    var sum = 0;
+    keys.forEach(function (k) { sum += Math.max(0, Number(freqs[k]) || 0); });
+    if (sum <= 0) return keys[0];
+    var roll = rnd * sum;
+    var acc = 0;
+    for (var i = 0; i < keys.length; i++) {
+      acc += Math.max(0, Number(freqs[keys[i]]) || 0);
+      if (roll <= acc) return keys[i];
+    }
+    return keys[keys.length - 1];
+  }
+
+  function normalizeEntry(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    var freqs = raw.action_freqs || raw.freqs || null;
+    var action = raw.action || null;
+    if (!action && freqs) {
+      var id = sampleFromFreqs(freqs);
+      if (id) action = { id: id, amount: raw.size_bb != null ? raw.size_bb : raw.sizeBB };
+    }
+    if (!action || !action.id) return null;
+    return {
+      action: { id: String(action.id).toLowerCase(), amount: action.amount != null ? action.amount : action.sizeBB },
+      freqs: freqs || null,
+      samples: Number(raw.samples) || 1,
+      confidence: Number(raw.confidence) || 0.5,
+      source: raw.source || 'cache'
+    };
+  }
+
+  async function l3Lookup(key) {
+    if (!key) return null;
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (!c || !c.rpc) return null;
+      var res = await c.rpc('pt_villain_assist_cache_get', {
+        p_spot_key: key,
+        p_schema_version: SCHEMA_VERSION
+      });
+      if (res.error || !res.data) return null;
+      var row = Array.isArray(res.data) ? res.data[0] : res.data;
+      return normalizeEntry(row);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function l3Write(key, payload) {
+    if (!key || !payload) return false;
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (!c || !c.rpc) return false;
+      var freqs = payload.freqs || {};
+      if (payload.action && payload.action.id && !Object.keys(freqs).length) {
+        freqs[payload.action.id] = 1;
+      }
+      var res = await c.rpc('pt_villain_assist_cache_put', {
+        p_spot_key: key,
+        p_schema_version: SCHEMA_VERSION,
+        p_action_freqs: freqs,
+        p_size_bb: payload.action && payload.action.amount != null ? Number(payload.action.amount) : null,
+        p_confidence: payload.confidence != null ? Number(payload.confidence) : 0.5,
+        p_model: payload.model || null,
+        p_prompt_version: payload.promptVersion || 'v1'
+      });
+      return !res.error;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function lookup(key) {
+    var hit = l1Get(key);
+    if (hit) {
+      hit = normalizeEntry(Object.assign({}, hit, { source: 'l1' }));
+      if (hit) return hit;
+    }
+    var remote = await l3Lookup(key);
+    if (remote) {
+      l1Set(key, remote);
+      remote.source = 'l3';
+      return remote;
+    }
+    return null;
+  }
+
+  async function write(key, payload) {
+    var entry = normalizeEntry(Object.assign({}, payload, { source: payload.source || 'gemini' }));
+    if (!entry) return false;
+    l1Set(key, entry);
+    await l3Write(key, entry);
+    return true;
+  }
+
+  global.PTVillainAssistCache = {
+    SCHEMA_VERSION: SCHEMA_VERSION,
+    buildKeyFromCtx: buildKeyFromCtx,
+    spotKeyString: spotKeyString,
+    facingSizeBucket: facingSizeBucket,
+    icmBucket: icmBucket,
+    lookup: lookup,
+    write: write,
+    l1Get: l1Get,
+    l1Set: l1Set,
+    clearL1: clearL1,
+    sampleFromFreqs: sampleFromFreqs,
+    normalizeEntry: normalizeEntry
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * villain-ai-assist.js — Asistente IA de villanos (torneos Pro).
+ * Local-first → veto/impacto/score → L1/L3 → Gemini (timeout) → audit vs motor.
+ */
+(function (global) {
+  'use strict';
+
+  var TIMEOUT_MS = 1100;
+  var PROMPT_VERSION = 'v1';
+
+  function assistStateFromHand(hand) {
+    var st = (hand && hand.villainAssist) || null;
+    if (!st) return null;
+    return st;
+  }
+
+  function hasAiQuota() {
+    var E = global.PTEntitlements;
+    if (!E || !E.canUseAI) return false;
+    try {
+      var r = E.canUseAI();
+      return !!(r && r.ok);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function quotaRemaining() {
+    var E = global.PTEntitlements;
+    if (!E) return null;
+    try {
+      if (E.aiQuotaSummary) {
+        var s = E.aiQuotaSummary();
+        if (s && s.unlimited) return Infinity;
+        if (s && s.totalLeft != null) return Number(s.totalLeft) || 0;
+      }
+      if (E.aiCombinedQuota) {
+        var q = E.aiCombinedQuota();
+        if (q && q.unlimited) return Infinity;
+        if (q && q.totalLeft != null) return Number(q.totalLeft) || 0;
+      }
+    } catch (e) { /* */ }
+    return null;
+  }
+
+  function bandFromStrength(strength, made) {
+    var DC = global.GTODecisionContext;
+    if (DC && typeof DC.bandFromMade === 'function') {
+      try { return DC.bandFromMade(made, strength); } catch (e) { /* */ }
+    }
+    var s = strength != null ? strength : 0.5;
+    if (s >= 0.88) return 'nuts';
+    if (s >= 0.68) return 'value';
+    if (s >= 0.45) return 'merge';
+    if (s >= 0.28) return 'bluffcatch';
+    return 'air';
+  }
+
+  function actionFamily(id) {
+    var a = String(id || '').toLowerCase();
+    if (a === 'allin') return 'raise';
+    if (a === 'bet') return 'bet';
+    if (a === 'raise') return 'raise';
+    if (a === 'call') return 'call';
+    if (a === 'check') return 'check';
+    if (a === 'fold') return 'fold';
+    return a;
+  }
+
+  function sameActionFamily(a, b) {
+    return actionFamily(a && a.id) === actionFamily(b && b.id);
+  }
+
+  function withTimeout(promise, ms) {
+    return new Promise(function (resolve, reject) {
+      var done = false;
+      var t = setTimeout(function () {
+        if (done) return;
+        done = true;
+        reject(new Error('assist_timeout'));
+      }, ms);
+      promise.then(function (v) {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        resolve(v);
+      }, function (e) {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        reject(e);
+      });
+    });
+  }
+
+  function buildCtx(hand, seat, local) {
+    var D = global.PTTournamentVillainDecide;
+    var profile = local.profile || (D && D.profileForSeat ? D.profileForSeat(seat, hand) : null);
+    var pot = Number(hand.pot) || 0;
+    var bb = Math.max(1, Number(hand.bb) || 1);
+    var potBB = pot / bb;
+    var stack = Number(seat.stack) || 0;
+    var stackBB = stack / bb;
+    var invested = Number(seat.invested) || 0;
+    var startStack = Number(seat.startStack) || (stack + invested);
+    var committedFrac = startStack > 0 ? invested / startStack : 0;
+    var toCall = Math.max(0, (Number(hand.currentBet) || 0) - (Number(seat.streetInvested) || 0));
+    var toCallBB = toCall / bb;
+    var strength = local.strength != null ? local.strength
+      : (D && D.strength01 ? D.strength01(hand, seat) : 0.5);
+    var made = local.made || null;
+    var band = local.handBand || bandFromStrength(strength, made);
+    var Cache = global.PTVillainAssistCache;
+    var Comp = global.PTVillainAssistComplexity;
+    var phase = Comp ? Comp.resolvePhase({
+      effectivePhase: hand.effectivePhase || hand.mttPhase,
+      mttPhase: hand.mttPhase,
+      mttStructureSituation: hand.mttStructureSituation
+    }) : (hand.mttPhase || 'mid');
+
+    var alive = (hand.seats || []).filter(function (s) {
+      return s && !s.folded && (Number(s.stack) > 0 || (Number(s.streetInvested) || 0) > 0);
+    });
+    var playersInPot = alive.length || 2;
+
+    return {
+      street: hand.street,
+      potBB: potBB,
+      stackBB: stackBB,
+      villainStackBB: stackBB,
+      effStackBB: stackBB,
+      toCallBB: toCallBB,
+      committedFrac: committedFrac,
+      facingJam: toCallBB >= stackBB * 0.85,
+      handBand: band,
+      freqs: local.freqs,
+      board: (hand.board || []).map(function (c) {
+        return typeof c === 'string' ? c : (c && c.code) || c;
+      }),
+      formatHub: hand.formatHub || (hand.kind === 'spin' ? 'spin' : 'mtt'),
+      gameType: hand.gameType || hand.formatHub,
+      effectivePhase: phase,
+      mttPhase: hand.mttPhase,
+      mttStructureSituation: hand.mttStructureSituation,
+      position: seat.pos,
+      inPosition: !!local.inPosition,
+      initiative: local.initiative || 'none',
+      playersInPot: playersInPot,
+      multiway: playersInPot >= 3,
+      roleBucket: (profile && profile.id) || seat.roleId || 'pro',
+      preflopStrict: profile && profile.preflopStrict,
+      facingSizeBucket: Cache ? Cache.facingSizeBucket(toCallBB, potBB) : 'none',
+      icmBucket: Cache ? Cache.icmBucket(phase) : 'none',
+      lineIntent: seat._lineIntent || null,
+      potType: hand.potType || null,
+      spr: potBB > 0 ? stackBB / potBB : stackBB,
+      legalOptions: local.legalOptions || null
+    };
+  }
+
+  function mergePreferRemote(localAction, remote) {
+    if (!remote || !remote.action || !remote.action.id) return localAction;
+    var id = String(remote.action.id).toLowerCase();
+    var allowed = { fold: 1, check: 1, call: 1, bet: 1, raise: 1, allin: 1 };
+    if (!allowed[id]) return localAction;
+    var out = { id: id };
+    if (remote.action.amount != null && isFinite(Number(remote.action.amount))) {
+      out.amount = Number(remote.action.amount);
+    }
+    return out;
+  }
+
+  function validateAgainstLocal(hand, seat, action, localAction) {
+    if (!action || !action.id) return localAction;
+    var tc = Math.max(0, (Number(hand.currentBet) || 0) - (Number(seat.streetInvested) || 0));
+    var id = action.id;
+    if (id === 'check' && tc > 0) return localAction || { id: 'fold' };
+    if (id === 'fold' && tc <= 0) return { id: 'check' };
+    if ((id === 'bet' || id === 'raise' || id === 'allin') && action.amount == null) {
+      if (localAction && localAction.amount != null) {
+        return { id: id === 'allin' ? 'raise' : id, amount: localAction.amount };
+      }
+      if (id === 'allin') {
+        return { id: 'raise', amount: (Number(seat.streetInvested) || 0) + (Number(seat.stack) || 0) };
+      }
+    }
+    return action;
+  }
+
+  function estimateEvDelta(localAction, finalAction, local) {
+    /* Heurística ligera: si coinciden → 0; si no, usar freqs locales como proxy. */
+    if (sameActionFamily(localAction, finalAction)) return 0;
+    var freqs = (local && local.freqs) || {};
+    var locF = Number(freqs[actionFamily(localAction && localAction.id)]) || 0;
+    var finF = Number(freqs[actionFamily(finalAction && finalAction.id)]) || 0;
+    /* ΔEV aproximado en bb: diferencia de masa de probabilidad * escala. */
+    return Math.round(((finF - locF) * 0.8) * 100) / 100;
+  }
+
+  function auditTag(agree, deltaEv) {
+    if (agree) return 'agree';
+    if (deltaEv > 0.05) return 'differ_better';
+    if (deltaEv < -0.05) return 'differ_worse';
+    return 'differ_neutral';
+  }
+
+  function recordAudit(payload) {
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (c && c.rpc) {
+        c.rpc('pt_villain_assist_audit_insert', {
+          p_payload: payload
+        }).then(function () { /* fire-and-forget */ }, function () { /* */ });
+      }
+    } catch (e) { /* */ }
+    try {
+      if (global.PTLog && global.PTLog.event) {
+        global.PTLog.event('villain_assist_audit', {
+          tag: payload.tag,
+          source: payload.source,
+          phase: payload.phase,
+          level: payload.level
+        });
+      }
+    } catch (e2) { /* */ }
+  }
+
+  async function fetchVillainAction(ctx, local) {
+    var endpoint = (global.PT_AI && global.PT_AI.endpoint) || '';
+    if (!endpoint) throw new Error('no_endpoint');
+    var token = null;
+    if (global.PTSupabase && global.PTSupabase.getAccessToken) {
+      token = await global.PTSupabase.getAccessToken();
+    }
+    if (!token) throw new Error('missing_auth');
+    var key = (global.PTSupabase && global.PTSupabase.anonKey) || '';
+    if (typeof key === 'function') key = key();
+    var body = {
+      mode: 'villain_action',
+      payload: {
+        spot: ctx,
+        localAction: local.action,
+        localFreqs: local.freqs || null,
+        handBand: ctx.handBand,
+        strength: local.strength
+      }
+    };
+    if (global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive()) body.demo = true;
+    if (global.PTCommunity && global.PTCommunity.aiCommunityId) {
+      var cid = global.PTCommunity.aiCommunityId();
+      if (cid) body.communityId = cid;
+    }
+    var res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + token,
+        'apikey': key || ''
+      },
+      body: JSON.stringify(body)
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok) {
+      throw new Error(data.error || ('HTTP ' + res.status));
+    }
+    var action = data.action || (data.result && data.result.action);
+    var freqs = data.freqs || data.action_freqs || (data.result && data.result.freqs);
+    if (!action || !action.id) {
+      if (freqs) {
+        var Cache = global.PTVillainAssistCache;
+        var id = Cache ? Cache.sampleFromFreqs(freqs) : null;
+        if (id) action = { id: id, amount: data.sizeBB != null ? data.sizeBB : data.size_bb };
+      }
+    }
+    if (!action || !action.id) throw new Error('invalid_action');
+    return {
+      action: {
+        id: String(action.id).toLowerCase(),
+        amount: action.amount != null ? action.amount : (action.sizeBB != null ? action.sizeBB : null)
+      },
+      freqs: freqs || null,
+      confidence: data.confidence != null ? Number(data.confidence) : 0.55,
+      model: data.model || null,
+      promptVersion: PROMPT_VERSION,
+      valid: true,
+      charged: data.charged !== false
+    };
+  }
+
+  function computeLocalBundle(hand, seat) {
+    var D = global.PTTournamentVillainDecide;
+    var action = { id: 'check' };
+    if (D && typeof D.decide === 'function') {
+      try { action = D.decide(hand, seat) || action; } catch (e) { /* */ }
+    }
+    var profile = D && D.profileForSeat ? D.profileForSeat(seat, hand) : null;
+    var strength = D && D.strength01 ? D.strength01(hand, seat) : 0.5;
+    var freqs = null;
+    /* Freqs aproximadas desde decisión: masa en la acción elegida. */
+    freqs = {};
+    freqs[actionFamily(action.id)] = 0.72;
+    var alt = actionFamily(action.id) === 'fold' ? 'call'
+      : (actionFamily(action.id) === 'check' ? 'bet' : 'fold');
+    freqs[alt] = 0.28;
+    return {
+      action: action,
+      freqs: freqs,
+      profile: profile,
+      strength: strength,
+      handBand: bandFromStrength(strength, null)
+    };
+  }
+
+  /**
+   * Decisión con assist. Si no aplica, devuelve acción local sync vía Promise.resolve.
+   */
+  async function decideWithAssist(hand, seat) {
+    var Flags = global.PTVillainAssistFlags;
+    var Comp = global.PTVillainAssistComplexity;
+    var Cache = global.PTVillainAssistCache;
+    var local = computeLocalBundle(hand, seat);
+    var localAction = local.action;
+
+    if (!Flags || !Flags.isEnabled()) return localAction;
+    var st = assistStateFromHand(hand);
+    if (!st || !st.enabled) return localAction;
+
+    var presetId = (hand.tournamentConfig && hand.tournamentConfig.id) || hand.presetId;
+    if (Comp && !Comp.isProPreset(presetId) && !(hand.villainAssist && hand.villainAssist.forcePro)) {
+      return localAction;
+    }
+
+    var level = (st.level || 'medium');
+    var lvlCfg = Comp ? Comp.levelConfig(level) : { threshold: 0.64, capPerHand: 2, capPerTournament: 40 };
+    st.usedThisHand = Number(st.usedThisHand) || 0;
+    st.calls = Number(st.calls) || 0;
+    if (st.usedThisHand >= lvlCfg.capPerHand) return localAction;
+    if (st.calls >= lvlCfg.capPerTournament) return localAction;
+
+    var ctx = buildCtx(hand, seat, local);
+    var ev = Comp ? Comp.evaluate(ctx, local, seat, hand, level) : { shouldAssist: false, reason: 'no_comp' };
+    if (!ev.shouldAssist) {
+      try {
+        if (global.PTLog && global.PTLog.event) {
+          global.PTLog.event('villain_assist_skipped', { reason: ev.reason, phase: ev.phase, score: ev.score });
+        }
+      } catch (eSk) { /* */ }
+      return localAction;
+    }
+
+    var key = Cache ? Cache.buildKeyFromCtx(ctx) : null;
+    var remote = null;
+    var source = null;
+
+    if (key && Cache) {
+      try {
+        remote = await Cache.lookup(key);
+        if (remote) source = remote.source || 'cache';
+      } catch (eL) { /* */ }
+    }
+
+    if (!remote) {
+      var left = quotaRemaining();
+      var canCharge = hasAiQuota() && (left == null || left > 0 || left === Infinity);
+      if (!canCharge) {
+        /* Solo-caché: sin miss de red. */
+        return localAction;
+      }
+      try {
+        remote = await withTimeout(fetchVillainAction(ctx, local), TIMEOUT_MS);
+        source = 'gemini';
+        if (remote && remote.valid) {
+          st.calls += 1;
+          st.usedThisHand += 1;
+          if (key && Cache) {
+            try { await Cache.write(key, remote); } catch (eW) { /* */ }
+          }
+          try {
+            if (global.PTEntitlements && global.PTEntitlements.refresh) {
+              global.PTEntitlements.refresh();
+            }
+          } catch (eR) { /* */ }
+        }
+      } catch (eFetch) {
+        try {
+          if (global.PTLog && global.PTLog.event) {
+            global.PTLog.event('villain_assist_fallback', {
+              error: String(eFetch && eFetch.message || eFetch)
+            });
+          }
+        } catch (eF) { /* */ }
+        return localAction;
+      }
+    }
+
+    if (!remote || !remote.action) return localAction;
+    var merged = mergePreferRemote(localAction, remote);
+    var finalAction = validateAgainstLocal(hand, seat, merged, localAction);
+    var agree = sameActionFamily(localAction, finalAction);
+    var deltaEv = estimateEvDelta(localAction, finalAction, local);
+    var tag = auditTag(agree, deltaEv);
+
+    recordAudit({
+      tag: tag,
+      agree: agree,
+      deltaEvVillain: deltaEv,
+      source: source,
+      phase: ev.phase,
+      level: lvlCfg.id,
+      score: ev.score,
+      impact: ev.impact,
+      presetId: presetId || null,
+      spotKey: key,
+      localAction: localAction && localAction.id,
+      finalAction: finalAction && finalAction.id,
+      charged: source === 'gemini',
+      at: new Date().toISOString()
+    });
+
+    if (source === 'gemini' || source === 'l1' || source === 'l3' || source === 'cache') {
+      try {
+        if (global.PTLog && global.PTLog.event) {
+          global.PTLog.event(source === 'gemini' ? 'assist_called' : 'assist_cache_hit', {
+            phase: ev.phase,
+            level: lvlCfg.id
+          });
+        }
+      } catch (eE) { /* */ }
+    }
+
+    return finalAction;
+  }
+
+  function resetHandCounters(hand) {
+    if (hand && hand.villainAssist) hand.villainAssist.usedThisHand = 0;
+  }
+
+  global.PTVillainAiAssist = {
+    decideWithAssist: decideWithAssist,
+    computeLocalBundle: computeLocalBundle,
+    buildCtx: buildCtx,
+    mergePreferRemote: mergePreferRemote,
+    sameActionFamily: sameActionFamily,
+    quotaRemaining: quotaRemaining,
+    hasAiQuota: hasAiQuota,
+    resetHandCounters: resetHandCounters,
+    TIMEOUT_MS: TIMEOUT_MS
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
  * tournament/live-hand.js — Mano de torneo completa (Hero + IA).
  */
 (function (global) {
@@ -4583,6 +5693,23 @@
     return { id: 'check' };
   }
 
+  function handAssistOn(hand) {
+    return !!(hand && hand.villainAssist && hand.villainAssist.enabled
+      && global.PTVillainAssistFlags && global.PTVillainAssistFlags.isEnabled
+      && global.PTVillainAssistFlags.isEnabled());
+  }
+
+  async function villainActionAsync(hand, seat) {
+    if (handAssistOn(hand) && global.PTVillainAiAssist
+      && typeof global.PTVillainAiAssist.decideWithAssist === 'function') {
+      try {
+        var actA = await global.PTVillainAiAssist.decideWithAssist(hand, seat);
+        if (actA && actA.id) return actA;
+      } catch (eA) { /* fallback local */ }
+    }
+    return villainAction(hand, seat);
+  }
+
   function applyAction(hand, seat, action) {
     hand.acted[seat.id] = true;
     var id = action.id;
@@ -4652,6 +5779,40 @@
     return hand;
   }
 
+  async function advanceAsync(hand) {
+    if (!hand || hand.stage !== 'playing') return hand;
+    hand._frames = hand._frames || [];
+
+    if (alive(hand).length <= 1) return finishFoldWin(hand);
+
+    if (streetDone(hand)) {
+      var canStill = alive(hand).filter(canAct);
+      if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
+      if (hand.street === 'river') return finishShowdown(hand);
+      if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
+      pushFrame(hand, { kind: 'street' });
+      return hand;
+    }
+
+    var seat = nextToAct(hand);
+    if (!seat) {
+      alive(hand).forEach(function (s) { if (canAct(s)) hand.acted[s.id] = true; });
+      return hand;
+    }
+
+    if (seat.isHero) {
+      hand.awaitingHero = true;
+      hand._heroSeatId = seat.id;
+      hand.heroOptions = heroOptions(hand, seat);
+      return hand;
+    }
+
+    var act = await villainActionAsync(hand, seat);
+    applyAction(hand, seat, act);
+    pushSeatFrame(hand, seat);
+    return hand;
+  }
+
   /** Avanza hasta héroe, fin de mano, o un máximo de pasos (simulación / skip). */
   function run(hand, opts) {
     opts = opts || {};
@@ -4659,13 +5820,22 @@
     var stopOnFrame = !!opts.stopOnFrame;
     var guard = 0;
     while (hand.stage === 'playing' && !hand.awaitingHero && guard++ < maxSteps) {
-      var framesBefore = (hand._frames && hand._frames.length) || 0;
+      var before = (hand._frames && hand._frames.length) || 0;
       advance(hand);
-      if (stopOnFrame && hand._frames && hand._frames.length > framesBefore) break;
-      if (hand.awaitingHero || hand.stage === 'complete') break;
+      if (stopOnFrame && hand._frames && hand._frames.length > before) break;
     }
-    if (hand.stage === 'playing' && !hand.awaitingHero && guard >= maxSteps) {
-      finishShowdown(hand);
+    return hand;
+  }
+
+  async function runAsync(hand, opts) {
+    opts = opts || {};
+    var maxSteps = opts.maxSteps != null ? opts.maxSteps : 250;
+    var stopOnFrame = !!opts.stopOnFrame;
+    var guard = 0;
+    while (hand.stage === 'playing' && !hand.awaitingHero && guard++ < maxSteps) {
+      var before = (hand._frames && hand._frames.length) || 0;
+      await advanceAsync(hand);
+      if (stopOnFrame && hand._frames && hand._frames.length > before) break;
     }
     return hand;
   }
@@ -4688,10 +5858,12 @@
     return advance(hand);
   }
 
-  /** Draga pasos hasta héroe o fin (saltar animación / mesas satélite). */
+  /** Draga pasos hasta héroe o fin. Con assist on puede devolver Promise. */
   function runToHeroOrEnd(hand) {
     if (!hand) return hand;
-    /* Conserva fotogramas previos (p.ej. deal) y añade acciones hasta el héroe. */
+    if (handAssistOn(hand)) {
+      return runAsync(hand, { maxSteps: 250, stopOnFrame: false });
+    }
     return run(hand, { maxSteps: 250, stopOnFrame: false });
   }
 
@@ -4722,6 +5894,9 @@
     hand.heroOptions = null;
     applyAction(hand, seat, action);
     pushSeatFrame(hand, seat);
+    if (global.PTVillainAiAssist && global.PTVillainAiAssist.resetHandCounters) {
+      try { global.PTVillainAiAssist.resetHandCounters(hand); } catch (eRh) { /* */ }
+    }
     /* Continúa hasta el próximo turno de héroe o el fin (villanos deciden al actuar). */
     return runToHeroOrEnd(hand);
   }
@@ -4839,6 +6014,12 @@
         };
       } catch (eStats) { heroStatsPayload = null; }
       hand.heroSessionStats = heroStatsPayload;
+      /* Misma referencia que state: contador de consultas del torneo. */
+      if (state.villainAssist) {
+        hand.villainAssist = state.villainAssist;
+        hand.villainAssist.usedThisHand = 0;
+      }
+      hand.presetId = cfg.id || null;
       hand.state = {
         formatHub: hub,
         kind: kind,
@@ -4875,6 +6056,8 @@
     hand._noFrames = true;
     hand.decisions = [];
     if (state) attachTourneyContext(hand, state);
+    /* Otras mesas: nunca assist IA (solo motor local sync). */
+    hand.villainAssist = { enabled: false, level: 'medium', calls: 0, usedThisHand: 0 };
     pushFrame(hand, { kind: 'deal' });
     runToHeroOrEnd(hand);
     hand._frames = [];
@@ -4886,7 +6069,9 @@
     start: start,
     step: step,
     advance: advance,
+    advanceAsync: advanceAsync,
     run: run,
+    runAsync: runAsync,
     runToHeroOrEnd: runToHeroOrEnd,
     heroAct: heroAct,
     simulateTable: simulateTable,
@@ -8289,6 +9474,26 @@
     var state = State.create(cfg, opts);
     state._liveHand = null;
     state._presetId = typeof configOrPreset === 'string' ? configOrPreset : (cfg.id || null);
+    if (opts.villainAssist && typeof opts.villainAssist === 'object') {
+      var Comp = global.PTVillainAssistComplexity;
+      var rawLvl = opts.villainAssist.level;
+      var lvl = 'medium';
+      if (Comp && typeof Comp.normalizeLevel === 'function') {
+        lvl = Comp.normalizeLevel(rawLvl);
+      } else if (rawLvl != null) {
+        var s = String(rawLvl).toLowerCase();
+        if (s === 'low' || s === 'baja') lvl = 'low';
+        else if (s === 'high' || s === 'alta') lvl = 'high';
+        else if (s === 'medium' || s === 'media') lvl = 'medium';
+        else lvl = s;
+      }
+      state.villainAssist = {
+        enabled: !!opts.villainAssist.enabled,
+        level: lvl,
+        calls: 0,
+        usedThisHand: 0
+      };
+    }
     return state;
   }
 
@@ -8406,14 +9611,20 @@
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
     if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
-    Live.runToHeroOrEnd(hand);
-    state._liveHand = hand;
-    /* Simulación satélite en background mientras el hero juega / lee el resumen. */
-    try {
-      var Other = global.PTTournamentOtherTables;
-      if (Other && Other.scheduleRound) Other.scheduleRound(state);
-    } catch (eSched) { /* */ }
-    return hand;
+    var ran = Live.runToHeroOrEnd(hand);
+    function afterRun() {
+      state._liveHand = hand;
+      /* Simulación satélite en background mientras el hero juega / lee el resumen. */
+      try {
+        var Other = global.PTTournamentOtherTables;
+        if (Other && Other.scheduleRound) Other.scheduleRound(state);
+      } catch (eSched) { /* */ }
+      return hand;
+    }
+    if (ran && typeof ran.then === 'function') {
+      return ran.then(afterRun);
+    }
+    return afterRun();
   }
 
   function applyStackDeltas(state, deltas) {
@@ -8603,11 +9814,16 @@
   function heroAct(state, actionId, amount) {
     if (!state || !state._liveHand) return state;
     var Live = global.PTTournamentLiveHand;
-    var hand = Live.heroAct(state._liveHand, actionId, amount);
-    state._liveHand = hand;
-    /* No aplicar resultados aún: la UI muestra el popup de fin de mano
-       (como en Entrenar) y el usuario pulsa Continuar. */
-    return state;
+    var result = Live.heroAct(state._liveHand, actionId, amount);
+    function done(hand) {
+      state._liveHand = hand;
+      /* No aplicar resultados aún: la UI muestra el popup de fin de mano. */
+      return state;
+    }
+    if (result && typeof result.then === 'function') {
+      return result.then(done);
+    }
+    return done(result);
   }
 
   /** Aplica la mano completa y reparte la siguiente (o cierra si el torneo acabó). */
@@ -8616,7 +9832,12 @@
     if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result) {
       applyResults(state, state._liveHand);
     }
-    if (state.status === 'running') beginHand(state);
+    if (state.status === 'running') {
+      var next = beginHand(state);
+      if (next && typeof next.then === 'function') {
+        return next.then(function () { return state; });
+      }
+    }
     return state;
   }
 
@@ -8921,8 +10142,43 @@
     popupClearScheduled: { blind: false, ft: false, itm: false, start: false, congrats: false },
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null },
     heldFrames: null,
-    heldFramesDone: null
+    heldFramesDone: null,
+    assistPrompt: null
   };
+
+  function assistFeatureVisible() {
+    return !!(global.PTVillainAssistFlags && global.PTVillainAssistFlags.isVisible
+      && global.PTVillainAssistFlags.isVisible());
+  }
+
+  function isProPresetId(id) {
+    var Comp = global.PTVillainAssistComplexity;
+    if (Comp && Comp.isProPreset) return Comp.isProPreset(id);
+    return id === 'mttPro' || id === 'sngPro' || id === 'spinPro' || id === 'huPro';
+  }
+
+  function quotaLeftLabel() {
+    try {
+      if (global.PTVillainAiAssist && global.PTVillainAiAssist.quotaRemaining) {
+        var left = global.PTVillainAiAssist.quotaRemaining();
+        if (left === Infinity) return '∞';
+        if (left != null) return String(left);
+      }
+      if (global.PTEntitlements && global.PTEntitlements.aiQuotaSummary) {
+        var s = global.PTEntitlements.aiQuotaSummary();
+        if (s && s.unlimited) return '∞';
+        if (s && s.totalLeft != null) return String(s.totalLeft);
+      }
+    } catch (e) { /* */ }
+    return '—';
+  }
+
+  function whenReady(maybePromise, fn) {
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      return maybePromise.then(fn).catch(function () { fn(); });
+    }
+    return fn(maybePromise);
+  }
 
   function displayKoins() {
     try {
@@ -9854,23 +11110,27 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.upgradePrompt = null;
+    ui.assistPrompt = null;
     ui.handDetailOpen = false;
     ui.heldFrames = null;
     ui.heldFramesDone = null;
     stopAnim();
-    Runner.beginHand(ui.state);
-    persistActive();
-    var frames = takeFrames();
-    ui.view = VIEW.table;
-    if (frames) {
-      ui.heldFrames = frames;
-      ui.heldFramesDone = paint;
-      ensureBannerTimers();
-      paint();
-    } else {
-      ensureBannerTimers();
-      paint();
+    var began = Runner.beginHand(ui.state);
+    function afterBegin() {
+      persistActive();
+      var frames = takeFrames();
+      ui.view = VIEW.table;
+      if (frames) {
+        ui.heldFrames = frames;
+        ui.heldFramesDone = paint;
+        ensureBannerTimers();
+        paint();
+      } else {
+        ensureBannerTimers();
+        paint();
+      }
     }
+    whenReady(began, afterBegin);
   }
 
   function startPreset(id) {
@@ -9883,6 +11143,11 @@ function reducedMotion() {
     var active = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     if (active) {
       ui.resumePrompt = { presetId: id, active: active };
+      paint();
+      return;
+    }
+    if (assistFeatureVisible() && isProPresetId(id)) {
+      ui.assistPrompt = { presetId: id, level: 'medium', enabled: false };
       paint();
       return;
     }
@@ -10038,6 +11303,34 @@ function reducedMotion() {
         '</div></div></div>';
     }
 
+    var assistModal = '';
+    if (ui.assistPrompt && ui.assistPrompt.presetId) {
+      var ap = ui.assistPrompt;
+      var apLevel = ap.level || 'medium';
+      assistModal = '<div class="trn-modal-backdrop" data-act="close-assist-prompt">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Asistente de villanos" data-act="noop">' +
+        '<h3>Asistente IA de villanos</h3>' +
+        '<p class="muted">Mejora las decisiones complejas de los rivales en este torneo Pro. ' +
+        'Consume cupo de consultas cuando no hay respuesta en caché. ' +
+        'Se priorizan spots ambiguos y caros (bote relevante); no se gasta en manos claras ni botes pequeños.</p>' +
+        '<label class="trn-assist-toggle"><input type="checkbox" id="trn-assist-enable"' +
+        (ap.enabled ? ' checked' : '') + '> Activar asistente</label>' +
+        '<p class="trn-assist-level-lbl">Nivel de asistencia</p>' +
+        '<div class="trn-assist-levels" role="group">' +
+        '<button type="button" class="btn btn-sm' + (apLevel === 'low' ? ' is-selected' : '') +
+        '" data-act="assist-level" data-level="low">Baja</button>' +
+        '<button type="button" class="btn btn-sm' + (apLevel === 'medium' ? ' is-selected' : '') +
+        '" data-act="assist-level" data-level="medium">Media</button>' +
+        '<button type="button" class="btn btn-sm' + (apLevel === 'high' ? ' is-selected' : '') +
+        '" data-act="assist-level" data-level="high">Alta</button>' +
+        '</div>' +
+        '<p class="muted trn-assist-quota">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
+        '<div class="trn-setup-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="confirm-assist-prompt">Empezar torneo</button>' +
+        '<button type="button" class="btn" data-act="close-assist-prompt">Cancelar</button>' +
+        '</div></div></div>';
+    }
+
     var canCustom = !(global.PTTournaments && typeof global.PTTournaments.canUseCustom === 'function') ||
       global.PTTournaments.canUseCustom();
     var customBtn = canCustom
@@ -10088,7 +11381,7 @@ function reducedMotion() {
       })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-lobby-recent-grid">' + histHtml + '</ul>' +
-      '</section>' + resumeModal + upgradeModal + '</div>';
+      '</section>' + resumeModal + upgradeModal + assistModal + '</div>';
   }
 
   /* ---------- Setup ---------- */
@@ -10729,6 +12022,29 @@ function reducedMotion() {
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        (function () {
+          if (!assistFeatureVisible() || !isProPresetId((state.config && state.config.id) || state._presetId)) {
+            return '';
+          }
+          var va = state.villainAssist || { enabled: false, level: 'medium', calls: 0 };
+          var lvl = va.level || 'medium';
+          return '<div class="trn-assist-info card-box">' +
+            '<h4>Asistente IA de villanos</h4>' +
+            '<label class="trn-assist-toggle"><input type="checkbox" id="trn-info-assist-enable"' +
+            (va.enabled ? ' checked' : '') + '> Activado</label>' +
+            '<div class="trn-assist-levels" role="group">' +
+            '<button type="button" class="btn btn-sm' + (lvl === 'low' ? ' is-selected' : '') +
+            '" data-act="info-assist-level" data-level="low">Baja</button>' +
+            '<button type="button" class="btn btn-sm' + (lvl === 'medium' ? ' is-selected' : '') +
+            '" data-act="info-assist-level" data-level="medium">Media</button>' +
+            '<button type="button" class="btn btn-sm' + (lvl === 'high' ? ' is-selected' : '') +
+            '" data-act="info-assist-level" data-level="high">Alta</button>' +
+            '</div>' +
+            '<p class="trn-assist-stats">Consultas IA en este torneo: <strong>' +
+            esc(String(Number(va.calls) || 0)) + '</strong></p>' +
+            '<p class="trn-assist-stats">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
+            '</div>';
+        })() +
         roleLegendHtml() +
         '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
         '<summary data-act="toggle-handlog">Histórico de manos' +
@@ -11872,6 +13188,39 @@ function reducedMotion() {
           paint();
         } else if (act === 'upgrade-plans') {
           openUpgradePlans();
+        } else if (act === 'close-assist-prompt') {
+          ui.assistPrompt = null;
+          paint();
+        } else if (act === 'assist-level') {
+          if (ui.assistPrompt) {
+            ui.assistPrompt.level = btn.getAttribute('data-level') || 'medium';
+            paint();
+          }
+        } else if (act === 'confirm-assist-prompt') {
+          var apConfirm = ui.assistPrompt;
+          if (!apConfirm || !apConfirm.presetId) {
+            ui.assistPrompt = null;
+            paint();
+            return;
+          }
+          var enableEl = root.querySelector('#trn-assist-enable');
+          var enabled = enableEl ? !!enableEl.checked : !!apConfirm.enabled;
+          var level = apConfirm.level || 'medium';
+          var pidAssist = apConfirm.presetId;
+          ui.assistPrompt = null;
+          startFromConfig(pidAssist, {
+            villainAssist: { enabled: enabled, level: level }
+          });
+        } else if (act === 'info-assist-level') {
+          if (ui.state) {
+            ui.state.villainAssist = ui.state.villainAssist || { enabled: false, calls: 0 };
+            ui.state.villainAssist.level = btn.getAttribute('data-level') || 'medium';
+            if (ui.state._liveHand && ui.state._liveHand.villainAssist) {
+              ui.state._liveHand.villainAssist.level = ui.state.villainAssist.level;
+            }
+            persistActive();
+            paint();
+          }
         } else if (act === 'restart-preset') {
           var pid = btn.getAttribute('data-preset-id');
           clearActive();
@@ -11880,9 +13229,13 @@ function reducedMotion() {
           else paint();
         } else if (act === 'continue-hand') {
           if (ui.state) {
-            global.PTTournamentRunner.continueAfterHand(ui.state);
+            var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
             ui.handDetailOpen = false;
-            persistActive();
+            whenReady(cont, function () {
+              persistActive();
+              afterActionAnimated();
+            });
+            return;
           }
           afterActionAnimated();
         } else if (act === 'skip-anim') {
@@ -11992,8 +13345,12 @@ function reducedMotion() {
           paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
-            global.PTTournamentRunner.continueAfterHand(ui.state);
-            persistActive();
+            var nx = global.PTTournamentRunner.continueAfterHand(ui.state);
+            whenReady(nx, function () {
+              persistActive();
+              afterActionAnimated();
+            });
+            return;
           }
           afterActionAnimated();
         } else if (act === 'clear-hist') {
@@ -12013,10 +13370,26 @@ function reducedMotion() {
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
-        global.PTTournamentRunner.heroAct(ui.state, id, amt);
-        afterActionAnimated();
+        var acted = global.PTTournamentRunner.heroAct(ui.state, id, amt);
+        whenReady(acted, function () {
+          afterActionAnimated();
+        });
       });
     });
+
+    var infoAssistEnable = root.querySelector('#trn-info-assist-enable');
+    if (infoAssistEnable) {
+      infoAssistEnable.addEventListener('change', function () {
+        if (!ui.state) return;
+        ui.state.villainAssist = ui.state.villainAssist || { level: 'medium', calls: 0 };
+        ui.state.villainAssist.enabled = !!infoAssistEnable.checked;
+        if (ui.state._liveHand) {
+          ui.state._liveHand.villainAssist = ui.state.villainAssist;
+        }
+        persistActive();
+        paint();
+      });
+    }
 
     /* Backdrop de salida: click fuera cierra el prompt */
     root.querySelectorAll('.trn-modal-backdrop[data-act="close-exit"]').forEach(function (el) {
@@ -12299,6 +13672,11 @@ function reducedMotion() {
 
   function render(el) {
     if (!el) return;
+    try {
+      if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.refresh) {
+        global.PTVillainAssistFlags.refresh();
+      }
+    } catch (e) { /* */ }
     if (global.PTTournamentsUI && global.PTTournamentsUI.render) {
       global.PTTournamentsUI.render(el);
     } else {

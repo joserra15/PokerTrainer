@@ -3485,33 +3485,57 @@
     var host = $('#admin-villain-assist-content');
     var errEl = $('#admin-villain-assist-error');
     if (errEl) errEl.textContent = '';
-    if (!host) return;
+    if (!host) {
+      if (errEl) errEl.textContent = 'No se encontró el panel del asistente en el HTML.';
+      return;
+    }
     host.innerHTML = '<p class="muted-text">Cargando…</p>';
     var enabled = false;
     var stats = null;
+
+    /* Asegurar flags aunque el chunk torneos no se haya cargado. */
     try {
       if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.refresh) {
-        enabled = await global.PTVillainAssistFlags.refresh();
+        enabled = !!(await global.PTVillainAssistFlags.refresh());
       } else if (global.PTVillainAssistFlags) {
         enabled = !!global.PTVillainAssistFlags.isEnabled();
+      } else {
+        var c0 = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+        if (c0 && c0.rpc) {
+          var resFlag = await c0.rpc('pt_get_app_setting', { p_key: 'villain_assist_enabled' });
+          if (!resFlag.error && resFlag.data != null) {
+            var row = Array.isArray(resFlag.data) ? resFlag.data[0] : resFlag.data;
+            var val = row && (row.value != null ? row.value : row);
+            if (typeof val === 'boolean') enabled = val;
+            else if (val && typeof val === 'object' && val.enabled != null) enabled = !!val.enabled;
+            else if (val === true || val === 'true' || val === 1 || val === '1') enabled = true;
+          }
+        }
       }
     } catch (e) { /* */ }
+
     try {
       var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
       if (c && c.rpc) {
         var res = await c.rpc('pt_admin_villain_assist_stats', { p_days: 30 });
         if (!res.error) stats = res.data;
+        else if (errEl && String(res.error.message || res.error).indexOf('function') >= 0) {
+          errEl.textContent = 'Falta aplicar la migración 058_villain_assist.sql en Supabase.';
+        }
       }
     } catch (e2) { /* */ }
 
     var s = stats || {};
+    if (s && typeof s === 'object' && s.feature_enabled != null) {
+      enabled = !!s.feature_enabled;
+    }
     host.innerHTML =
       '<div class="card-box admin-villain-assist-controls">' +
       '<h4>Kill-switch</h4>' +
       '<label class="admin-toggle">' +
       '<input type="checkbox" id="admin-va-enabled"' + (enabled ? ' checked' : '') + '> ' +
       'Asistente IA villanos (torneos Pro) visible</label>' +
-      '<p class="muted-text">Si se desactiva, la opción desaparece del lobby e Info (no se muestra en gris).</p>' +
+      '<p class="muted-text">Por defecto está desactivado. Al activarlo, en torneos Pro aparece el aviso al empezar y el bloque en Info. Si se desactiva, se oculta por completo.</p>' +
       '<div class="admin-promo-actions">' +
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-va-bump-schema">Invalidar caché L3 (schema++)</button>' +
       '</div></div>' +
@@ -3547,32 +3571,57 @@
       '</div>';
 
     var toggle = $('#admin-va-enabled');
-    if (toggle && !toggle.dataset.bound) {
-      toggle.dataset.bound = '1';
-      toggle.addEventListener('change', async function () {
+    if (toggle) {
+      toggle.onchange = null;
+      toggle.addEventListener('change', async function onVaToggle() {
         var on = !!toggle.checked;
         try {
           if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.setEnabledAdmin) {
             await global.PTVillainAssistFlags.setEnabledAdmin(on);
+          } else {
+            var cSet = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+            if (cSet && cSet.rpc) {
+              var put = await cSet.rpc('pt_admin_set_app_setting', {
+                p_key: 'villain_assist_enabled',
+                p_value: { enabled: on }
+              });
+              if (put.error) throw put.error;
+              try {
+                if (global.localStorage) {
+                  global.localStorage.setItem('pt_villain_assist_admin_enabled', on ? '1' : '0');
+                }
+              } catch (eLs) { /* */ }
+            } else {
+              throw new Error('no_client');
+            }
+          }
+          if (errEl) {
+            errEl.textContent = on
+              ? 'Asistente visible en torneos Pro.'
+              : 'Asistente oculto en la app.';
           }
         } catch (e3) {
-          if (errEl) errEl.textContent = 'No se pudo guardar el flag.';
+          toggle.checked = !on;
+          if (errEl) {
+            errEl.textContent = 'No se pudo guardar el flag. ¿Está aplicada la migración 058?';
+          }
         }
-      });
+      }, { once: false });
     }
     var bump = $('#admin-va-bump-schema');
-    if (bump && !bump.dataset.bound) {
-      bump.dataset.bound = '1';
-      bump.addEventListener('click', async function () {
+    if (bump) {
+      bump.onclick = async function () {
         try {
           if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.bumpSchemaVersion) {
             var n = await global.PTVillainAssistFlags.bumpSchemaVersion();
             if (errEl) errEl.textContent = n ? ('Caché invalidada · schema ' + n) : 'No se pudo invalidar.';
+          } else if (errEl) {
+            errEl.textContent = 'Módulo de flags no cargado.';
           }
         } catch (e4) {
           if (errEl) errEl.textContent = 'Error al invalidar caché.';
         }
-      });
+      };
     }
   }
 

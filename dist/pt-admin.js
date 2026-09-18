@@ -1,5 +1,126 @@
 /* PokerForgeAI bundle: pt-admin.js — do not edit */
 /*
+ * villain-assist-flags.js — Kill-switch admin + lectura de feature asistente villanos.
+ * Si admin desactiva: la UI debe ocultar la feature (no mostrar deshabilitada).
+ */
+(function (global) {
+  'use strict';
+
+  var LS_KEY = 'pt_villain_assist_admin_enabled';
+  var cache = {
+    loaded: false,
+    enabled: false,
+    schemaVersion: 1
+  };
+
+  function readLocal() {
+    try {
+      if (!global.localStorage) return null;
+      var v = global.localStorage.getItem(LS_KEY);
+      if (v === '1' || v === 'true') return true;
+      if (v === '0' || v === 'false') return false;
+    } catch (e) { /* */ }
+    return null;
+  }
+
+  function writeLocal(on) {
+    try {
+      if (global.localStorage) global.localStorage.setItem(LS_KEY, on ? '1' : '0');
+    } catch (e) { /* */ }
+  }
+
+  function isEnabled() {
+    if (cache.loaded) return !!cache.enabled;
+    var local = readLocal();
+    if (local != null) return local;
+    return false;
+  }
+
+  function setLocalEnabled(on) {
+    cache.enabled = !!on;
+    cache.loaded = true;
+    writeLocal(!!on);
+  }
+
+  async function refresh() {
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (c && c.rpc) {
+        var res = await c.rpc('pt_get_app_setting', { p_key: 'villain_assist_enabled' });
+        if (!res.error && res.data != null) {
+          var row = Array.isArray(res.data) ? res.data[0] : res.data;
+          var val = row && (row.value != null ? row.value : row);
+          var on = false;
+          if (typeof val === 'boolean') on = val;
+          else if (val && typeof val === 'object' && val.enabled != null) on = !!val.enabled;
+          else if (val === true || val === 'true' || val === 1 || val === '1') on = true;
+          cache.enabled = on;
+          cache.loaded = true;
+          writeLocal(on);
+          return on;
+        }
+      }
+    } catch (e) { /* */ }
+    var local = readLocal();
+    cache.enabled = local != null ? local : false;
+    cache.loaded = true;
+    return cache.enabled;
+  }
+
+  async function setEnabledAdmin(on) {
+    on = !!on;
+    setLocalEnabled(on);
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (c && c.rpc) {
+        await c.rpc('pt_admin_set_app_setting', {
+          p_key: 'villain_assist_enabled',
+          p_value: { enabled: on }
+        });
+      }
+    } catch (e) { /* */ }
+    return on;
+  }
+
+  async function bumpSchemaVersion() {
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (!c || !c.rpc) return null;
+      var cur = await c.rpc('pt_get_app_setting', { p_key: 'villain_assist_schema_version' });
+      var n = 1;
+      if (!cur.error && cur.data != null) {
+        var row = Array.isArray(cur.data) ? cur.data[0] : cur.data;
+        var val = row && (row.value != null ? row.value : row);
+        if (typeof val === 'number') n = val;
+        else if (val && val.version != null) n = Number(val.version) || 1;
+      }
+      n += 1;
+      await c.rpc('pt_admin_set_app_setting', {
+        p_key: 'villain_assist_schema_version',
+        p_value: { version: n }
+      });
+      cache.schemaVersion = n;
+      if (global.PTVillainAssistCache && global.PTVillainAssistCache.clearL1) {
+        global.PTVillainAssistCache.clearL1();
+      }
+      return n;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  global.PTVillainAssistFlags = {
+    isEnabled: isEnabled,
+    refresh: refresh,
+    setEnabledAdmin: setEnabledAdmin,
+    setLocalEnabled: setLocalEnabled,
+    bumpSchemaVersion: bumpSchemaVersion,
+    /** Visible en UI solo si admin feature on. */
+    isVisible: function () { return isEnabled(); }
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
  * admin-panel.js — Panel de administración (solo isAdmin).
  */
 (function (global) {
@@ -366,10 +487,12 @@
     var usersPanel = $('#admin-users-panel');
     var usagePanel = $('#admin-usage-panel');
     var communitiesPanel = $('#admin-communities-panel');
+    var villainAssistPanel = $('#admin-villain-assist-panel');
     if (msgPanel) msgPanel.classList.add('hidden');
     if (promoPanel) promoPanel.classList.add('hidden');
     if (usagePanel) usagePanel.classList.add('hidden');
     if (communitiesPanel) communitiesPanel.classList.add('hidden');
+    if (villainAssistPanel) villainAssistPanel.classList.add('hidden');
     if (usersPanel) usersPanel.classList.remove('hidden');
     var usageContent = $('#admin-usage-content');
     if (usageContent) usageContent.innerHTML = '';
@@ -3443,16 +3566,184 @@
     var promoPanel = $('#admin-promos-panel');
     var msgPanel = $('#admin-messages-panel');
     var usagePanel = $('#admin-usage-panel');
+    var villainAssistPanel = $('#admin-villain-assist-panel');
     if (communitiesPanel) communitiesPanel.classList.toggle('hidden', !show);
     if (show) {
       if (usersPanel) usersPanel.classList.add('hidden');
       if (promoPanel) promoPanel.classList.add('hidden');
       if (msgPanel) msgPanel.classList.add('hidden');
       if (usagePanel) usagePanel.classList.add('hidden');
+      if (villainAssistPanel) villainAssistPanel.classList.add('hidden');
       loadAdminCommunities();
     } else if (communitiesPanel) {
       communitiesPanel.classList.add('hidden');
       if (usersPanel) usersPanel.classList.remove('hidden');
+    }
+  }
+
+  function showAdminVillainAssist(show) {
+    if (show && !requireAdminAccess()) return;
+    var panel = $('#admin-villain-assist-panel');
+    var usersPanel = $('#admin-users-panel');
+    var promoPanel = $('#admin-promos-panel');
+    var msgPanel = $('#admin-messages-panel');
+    var usagePanel = $('#admin-usage-panel');
+    var communitiesPanel = $('#admin-communities-panel');
+    if (panel) panel.classList.toggle('hidden', !show);
+    if (show) {
+      if (usersPanel) usersPanel.classList.add('hidden');
+      if (promoPanel) promoPanel.classList.add('hidden');
+      if (msgPanel) msgPanel.classList.add('hidden');
+      if (usagePanel) usagePanel.classList.add('hidden');
+      if (communitiesPanel) communitiesPanel.classList.add('hidden');
+      loadVillainAssistAdmin();
+    } else if (panel) {
+      panel.classList.add('hidden');
+      if (usersPanel) usersPanel.classList.remove('hidden');
+    }
+  }
+
+  async function loadVillainAssistAdmin() {
+    var host = $('#admin-villain-assist-content');
+    var errEl = $('#admin-villain-assist-error');
+    if (errEl) errEl.textContent = '';
+    if (!host) {
+      if (errEl) errEl.textContent = 'No se encontró el panel del asistente en el HTML.';
+      return;
+    }
+    host.innerHTML = '<p class="muted-text">Cargando…</p>';
+    var enabled = false;
+    var stats = null;
+
+    /* Asegurar flags aunque el chunk torneos no se haya cargado. */
+    try {
+      if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.refresh) {
+        enabled = !!(await global.PTVillainAssistFlags.refresh());
+      } else if (global.PTVillainAssistFlags) {
+        enabled = !!global.PTVillainAssistFlags.isEnabled();
+      } else {
+        var c0 = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+        if (c0 && c0.rpc) {
+          var resFlag = await c0.rpc('pt_get_app_setting', { p_key: 'villain_assist_enabled' });
+          if (!resFlag.error && resFlag.data != null) {
+            var row = Array.isArray(resFlag.data) ? resFlag.data[0] : resFlag.data;
+            var val = row && (row.value != null ? row.value : row);
+            if (typeof val === 'boolean') enabled = val;
+            else if (val && typeof val === 'object' && val.enabled != null) enabled = !!val.enabled;
+            else if (val === true || val === 'true' || val === 1 || val === '1') enabled = true;
+          }
+        }
+      }
+    } catch (e) { /* */ }
+
+    try {
+      var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+      if (c && c.rpc) {
+        var res = await c.rpc('pt_admin_villain_assist_stats', { p_days: 30 });
+        if (!res.error) stats = res.data;
+        else if (errEl && String(res.error.message || res.error).indexOf('function') >= 0) {
+          errEl.textContent = 'Falta aplicar la migración 058_villain_assist.sql en Supabase.';
+        }
+      }
+    } catch (e2) { /* */ }
+
+    var s = stats || {};
+    if (s && typeof s === 'object' && s.feature_enabled != null) {
+      enabled = !!s.feature_enabled;
+    }
+    host.innerHTML =
+      '<div class="card-box admin-villain-assist-controls">' +
+      '<h4>Kill-switch</h4>' +
+      '<label class="admin-toggle">' +
+      '<input type="checkbox" id="admin-va-enabled"' + (enabled ? ' checked' : '') + '> ' +
+      'Asistente IA villanos (torneos Pro) visible</label>' +
+      '<p class="muted-text">Por defecto está desactivado. Al activarlo, en torneos Pro aparece el aviso al empezar y el bloque en Info. Si se desactiva, se oculta por completo.</p>' +
+      '<div class="admin-promo-actions">' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-va-bump-schema">Invalidar caché L3 (schema++)</button>' +
+      '</div></div>' +
+      '<div class="card-box">' +
+      '<h4>Métricas (30 días)</h4>' +
+      '<ul class="admin-usage-bars">' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Audits totales</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.total || 0)) + '</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">% agree motor local</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.agree_pct != null ? s.agree_pct : 0)) +
+      '%</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">% differ</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.differ_pct != null ? s.differ_pct : 0)) +
+      '%</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Differ mejor / peor / neutro</span>' +
+      '<span class="admin-usage-bar-count">' +
+      escapeHtml([s.differ_better || 0, s.differ_worse || 0, s.differ_neutral || 0].join(' / ')) +
+      '</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">ΔEV medio (differ)</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.avg_delta_ev_differ != null ? s.avg_delta_ev_differ : 0)) +
+      ' bb</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Gemini / cache hits</span>' +
+      '<span class="admin-usage-bar-count">' +
+      escapeHtml(String(s.gemini || 0)) + ' / ' + escapeHtml(String(s.cache_hits || 0)) +
+      ' (' + escapeHtml(String(s.cache_hit_pct != null ? s.cache_hit_pct : 0)) + '% hit)</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Consultas cobradas</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.charged || 0)) + '</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Filas caché L3</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.cache_rows || 0)) + '</span></div></li>' +
+      '</ul>' +
+      '<p class="muted-text">Si agree ≥ ~70% y ΔEV≈0, la IA aporta poco. ' +
+      'Si differ_better &gt; differ_worse con ΔEV&gt;0 en burbuja/FT/HU, señal de mejora.</p>' +
+      '</div>';
+
+    var toggle = $('#admin-va-enabled');
+    if (toggle) {
+      toggle.onchange = null;
+      toggle.addEventListener('change', async function onVaToggle() {
+        var on = !!toggle.checked;
+        try {
+          if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.setEnabledAdmin) {
+            await global.PTVillainAssistFlags.setEnabledAdmin(on);
+          } else {
+            var cSet = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+            if (cSet && cSet.rpc) {
+              var put = await cSet.rpc('pt_admin_set_app_setting', {
+                p_key: 'villain_assist_enabled',
+                p_value: { enabled: on }
+              });
+              if (put.error) throw put.error;
+              try {
+                if (global.localStorage) {
+                  global.localStorage.setItem('pt_villain_assist_admin_enabled', on ? '1' : '0');
+                }
+              } catch (eLs) { /* */ }
+            } else {
+              throw new Error('no_client');
+            }
+          }
+          if (errEl) {
+            errEl.textContent = on
+              ? 'Asistente visible en torneos Pro.'
+              : 'Asistente oculto en la app.';
+          }
+        } catch (e3) {
+          toggle.checked = !on;
+          if (errEl) {
+            errEl.textContent = 'No se pudo guardar el flag. ¿Está aplicada la migración 058?';
+          }
+        }
+      }, { once: false });
+    }
+    var bump = $('#admin-va-bump-schema');
+    if (bump) {
+      bump.onclick = async function () {
+        try {
+          if (global.PTVillainAssistFlags && global.PTVillainAssistFlags.bumpSchemaVersion) {
+            var n = await global.PTVillainAssistFlags.bumpSchemaVersion();
+            if (errEl) errEl.textContent = n ? ('Caché invalidada · schema ' + n) : 'No se pudo invalidar.';
+          } else if (errEl) {
+            errEl.textContent = 'Módulo de flags no cargado.';
+          }
+        } catch (e4) {
+          if (errEl) errEl.textContent = 'Error al invalidar caché.';
+        }
+      };
     }
   }
 
@@ -3463,12 +3754,14 @@
     var promoPanel = $('#admin-promos-panel');
     var msgPanel = $('#admin-messages-panel');
     var communitiesPanel = $('#admin-communities-panel');
+    var villainAssistPanel = $('#admin-villain-assist-panel');
     if (usagePanel) usagePanel.classList.toggle('hidden', !show);
     if (show) {
       if (usersPanel) usersPanel.classList.add('hidden');
       if (promoPanel) promoPanel.classList.add('hidden');
       if (msgPanel) msgPanel.classList.add('hidden');
       if (communitiesPanel) communitiesPanel.classList.add('hidden');
+      if (villainAssistPanel) villainAssistPanel.classList.add('hidden');
       loadUsageStats();
     } else if (usagePanel) {
       usagePanel.classList.add('hidden');
@@ -3489,6 +3782,8 @@
     if (show && promoPanel) promoPanel.classList.add('hidden');
     if (show && usagePanel) usagePanel.classList.add('hidden');
     if (show && communitiesPanel) communitiesPanel.classList.add('hidden');
+    var villainAssistPanel = $('#admin-villain-assist-panel');
+    if (show && villainAssistPanel) villainAssistPanel.classList.add('hidden');
     if (show) {
       bindAdminComposeModal();
       if (opts.userId) adminMsgSelectedUserId = opts.userId;
@@ -3555,6 +3850,17 @@
     if (usageBack && !usageBack.dataset.bound) {
       usageBack.dataset.bound = '1';
       usageBack.addEventListener('click', function () { showAdminUsage(false); });
+    }
+
+    var vaBtn = $('#admin-villain-assist-btn');
+    var vaBack = $('#admin-villain-assist-back');
+    if (vaBtn && !vaBtn.dataset.bound) {
+      vaBtn.dataset.bound = '1';
+      vaBtn.addEventListener('click', function () { showAdminVillainAssist(true); });
+    }
+    if (vaBack && !vaBack.dataset.bound) {
+      vaBack.dataset.bound = '1';
+      vaBack.addEventListener('click', function () { showAdminVillainAssist(false); });
     }
 
     var communitiesBtn = $('#admin-communities-btn');
