@@ -11308,14 +11308,15 @@ function reducedMotion() {
       var ap = ui.assistPrompt;
       var apLevel = ap.level || 'medium';
       assistModal = '<div class="trn-modal-backdrop" data-act="close-assist-prompt">' +
-        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Asistente de villanos" data-act="noop">' +
-        '<h3>Asistente IA de villanos</h3>' +
-        '<p class="muted">Mejora las decisiones complejas de los rivales en este torneo Pro. ' +
-        'Consume cupo de consultas cuando no hay respuesta en caché. ' +
-        'Se priorizan spots ambiguos y caros (bote relevante); no se gasta en manos claras ni botes pequeños.</p>' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Análisis profundo de rivales" data-act="noop">' +
+        '<h3>Análisis profundo de rivales</h3>' +
+        '<p class="muted">En spots difíciles, los adversarios aplican un análisis más profundo ' +
+        'para enfrentarte a decisiones más exigentes (torneos Pro). ' +
+        'Solo interviene en situaciones ambiguas o caras; no en manos claras ni botes pequeños. ' +
+        'Consume cupo de consultas cuando no hay respuesta en caché.</p>' +
         '<label class="trn-assist-toggle"><input type="checkbox" id="trn-assist-enable"' +
-        (ap.enabled ? ' checked' : '') + '> Activar asistente</label>' +
-        '<p class="trn-assist-level-lbl">Nivel de asistencia</p>' +
+        (ap.enabled ? ' checked' : '') + '> Activar análisis profundo</label>' +
+        '<p class="trn-assist-level-lbl">Nivel de profundidad</p>' +
         '<div class="trn-assist-levels" role="group">' +
         '<button type="button" class="btn btn-sm' + (apLevel === 'low' ? ' is-selected' : '') +
         '" data-act="assist-level" data-level="low">Baja</button>' +
@@ -11324,6 +11325,8 @@ function reducedMotion() {
         '<button type="button" class="btn btn-sm' + (apLevel === 'high' ? ' is-selected' : '') +
         '" data-act="assist-level" data-level="high">Alta</button>' +
         '</div>' +
+        '<p class="muted trn-assist-level-hint">Alta analiza más spots difíciles y consume más consultas. ' +
+        'Baja es más selectiva y gasta menos cupo.</p>' +
         '<p class="muted trn-assist-quota">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
         '<div class="trn-setup-actions">' +
         '<button type="button" class="btn btn-primary" data-act="confirm-assist-prompt">Empezar torneo</button>' +
@@ -12029,9 +12032,12 @@ function reducedMotion() {
           var va = state.villainAssist || { enabled: false, level: 'medium', calls: 0 };
           var lvl = va.level || 'medium';
           return '<div class="trn-assist-info card-box">' +
-            '<h4>Asistente IA de villanos</h4>' +
+            '<h4>Análisis profundo de rivales</h4>' +
+            '<p class="muted trn-assist-info-blurb">Añade análisis más profundo en situaciones complejas ' +
+            'para que los adversarios jueguen de forma más exigente.</p>' +
             '<label class="trn-assist-toggle"><input type="checkbox" id="trn-info-assist-enable"' +
             (va.enabled ? ' checked' : '') + '> Activado</label>' +
+            '<p class="trn-assist-level-lbl">Nivel de profundidad</p>' +
             '<div class="trn-assist-levels" role="group">' +
             '<button type="button" class="btn btn-sm' + (lvl === 'low' ? ' is-selected' : '') +
             '" data-act="info-assist-level" data-level="low">Baja</button>' +
@@ -12040,7 +12046,8 @@ function reducedMotion() {
             '<button type="button" class="btn btn-sm' + (lvl === 'high' ? ' is-selected' : '') +
             '" data-act="info-assist-level" data-level="high">Alta</button>' +
             '</div>' +
-            '<p class="trn-assist-stats">Consultas IA en este torneo: <strong>' +
+            '<p class="muted trn-assist-level-hint">Alta analiza más spots difíciles y consume más consultas.</p>' +
+            '<p class="trn-assist-stats">Consultas en este torneo: <strong>' +
             esc(String(Number(va.calls) || 0)) + '</strong></p>' +
             '<p class="trn-assist-stats">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
             '</div>';

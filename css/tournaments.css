@@ -3049,5 +3049,9 @@
   outline-offset: 1px;
 }
 .trn-assist-stats,
-.trn-assist-quota { margin: 4px 0; font-size: 13px; }
+.trn-assist-quota,
+.trn-assist-level-hint,
+.trn-assist-info-blurb { margin: 4px 0; font-size: 13px; }
+.trn-assist-level-hint { margin-top: 2px; }
+.trn-assist-info-blurb { margin: 0 0 8px; }
 .admin-villain-assist-controls { margin-bottom: 16px; }
