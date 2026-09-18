@@ -283,7 +283,6 @@ def draw_board_and_hero(img, case, y0):
     draw.text((bx + vw, by), fmt_stack(vs), font=f_stack, fill=GOLD)
     draw_card(img, bx, by + 22, "Xx", back_w, back_h, hidden=True)
     draw_card(img, bx + back_w + 8, by + 22, "Xx", back_w, back_h, hidden=True)
-    draw.text((bx + back_w * 2 + 16, by + 22 + back_h // 2 - 8), "ocultas", font=f_small, fill=MUTED)
 
     return by + 22 + back_h + 8
 
