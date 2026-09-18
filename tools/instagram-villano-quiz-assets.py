@@ -2,6 +2,9 @@
 """Genera puzzles + soluciones Instagram '¿Qué tiene el villano?' estilo PokerForgeAI.
 
 Cartas: mazo de cuatro colores (igual que data-card-style=colored en la app).
+
+Criterios de diseño/contenido (obligatorio leer al añadir casos):
+  marketing/instagram/09-villano-quiz/CRITERIOS.md
 """
 from __future__ import annotations
 
