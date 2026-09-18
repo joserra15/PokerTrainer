@@ -34,8 +34,43 @@
     popupClearScheduled: { blind: false, ft: false, itm: false, start: false, congrats: false },
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null },
     heldFrames: null,
-    heldFramesDone: null
+    heldFramesDone: null,
+    assistPrompt: null
   };
+
+  function assistFeatureVisible() {
+    return !!(global.PTVillainAssistFlags && global.PTVillainAssistFlags.isVisible
+      && global.PTVillainAssistFlags.isVisible());
+  }
+
+  function isProPresetId(id) {
+    var Comp = global.PTVillainAssistComplexity;
+    if (Comp && Comp.isProPreset) return Comp.isProPreset(id);
+    return id === 'mttPro' || id === 'sngPro' || id === 'spinPro' || id === 'huPro';
+  }
+
+  function quotaLeftLabel() {
+    try {
+      if (global.PTVillainAiAssist && global.PTVillainAiAssist.quotaRemaining) {
+        var left = global.PTVillainAiAssist.quotaRemaining();
+        if (left === Infinity) return '∞';
+        if (left != null) return String(left);
+      }
+      if (global.PTEntitlements && global.PTEntitlements.aiQuotaSummary) {
+        var s = global.PTEntitlements.aiQuotaSummary();
+        if (s && s.unlimited) return '∞';
+        if (s && s.totalLeft != null) return String(s.totalLeft);
+      }
+    } catch (e) { /* */ }
+    return '—';
+  }
+
+  function whenReady(maybePromise, fn) {
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      return maybePromise.then(fn).catch(function () { fn(); });
+    }
+    return fn(maybePromise);
+  }
 
   function displayKoins() {
     try {
@@ -967,23 +1002,27 @@ function reducedMotion() {
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.upgradePrompt = null;
+    ui.assistPrompt = null;
     ui.handDetailOpen = false;
     ui.heldFrames = null;
     ui.heldFramesDone = null;
     stopAnim();
-    Runner.beginHand(ui.state);
-    persistActive();
-    var frames = takeFrames();
-    ui.view = VIEW.table;
-    if (frames) {
-      ui.heldFrames = frames;
-      ui.heldFramesDone = paint;
-      ensureBannerTimers();
-      paint();
-    } else {
-      ensureBannerTimers();
-      paint();
+    var began = Runner.beginHand(ui.state);
+    function afterBegin() {
+      persistActive();
+      var frames = takeFrames();
+      ui.view = VIEW.table;
+      if (frames) {
+        ui.heldFrames = frames;
+        ui.heldFramesDone = paint;
+        ensureBannerTimers();
+        paint();
+      } else {
+        ensureBannerTimers();
+        paint();
+      }
     }
+    whenReady(began, afterBegin);
   }
 
   function startPreset(id) {
@@ -996,6 +1035,11 @@ function reducedMotion() {
     var active = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     if (active) {
       ui.resumePrompt = { presetId: id, active: active };
+      paint();
+      return;
+    }
+    if (assistFeatureVisible() && isProPresetId(id)) {
+      ui.assistPrompt = { presetId: id, level: 'medium', enabled: false };
       paint();
       return;
     }
@@ -1151,6 +1195,34 @@ function reducedMotion() {
         '</div></div></div>';
     }
 
+    var assistModal = '';
+    if (ui.assistPrompt && ui.assistPrompt.presetId) {
+      var ap = ui.assistPrompt;
+      var apLevel = ap.level || 'medium';
+      assistModal = '<div class="trn-modal-backdrop" data-act="close-assist-prompt">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Asistente de villanos" data-act="noop">' +
+        '<h3>Asistente IA de villanos</h3>' +
+        '<p class="muted">Mejora las decisiones complejas de los rivales en este torneo Pro. ' +
+        'Consume cupo de consultas cuando no hay respuesta en caché. ' +
+        'Se priorizan spots ambiguos y caros (bote relevante); no se gasta en manos claras ni botes pequeños.</p>' +
+        '<label class="trn-assist-toggle"><input type="checkbox" id="trn-assist-enable"' +
+        (ap.enabled ? ' checked' : '') + '> Activar asistente</label>' +
+        '<p class="trn-assist-level-lbl">Nivel de asistencia</p>' +
+        '<div class="trn-assist-levels" role="group">' +
+        '<button type="button" class="btn btn-sm' + (apLevel === 'low' ? ' is-selected' : '') +
+        '" data-act="assist-level" data-level="low">Baja</button>' +
+        '<button type="button" class="btn btn-sm' + (apLevel === 'medium' ? ' is-selected' : '') +
+        '" data-act="assist-level" data-level="medium">Media</button>' +
+        '<button type="button" class="btn btn-sm' + (apLevel === 'high' ? ' is-selected' : '') +
+        '" data-act="assist-level" data-level="high">Alta</button>' +
+        '</div>' +
+        '<p class="muted trn-assist-quota">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
+        '<div class="trn-setup-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="confirm-assist-prompt">Empezar torneo</button>' +
+        '<button type="button" class="btn" data-act="close-assist-prompt">Cancelar</button>' +
+        '</div></div></div>';
+    }
+
     var canCustom = !(global.PTTournaments && typeof global.PTTournaments.canUseCustom === 'function') ||
       global.PTTournaments.canUseCustom();
     var customBtn = canCustom
@@ -1201,7 +1273,7 @@ function reducedMotion() {
       })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-lobby-recent-grid">' + histHtml + '</ul>' +
-      '</section>' + resumeModal + upgradeModal + '</div>';
+      '</section>' + resumeModal + upgradeModal + assistModal + '</div>';
   }
 
   /* ---------- Setup ---------- */
@@ -1842,6 +1914,29 @@ function reducedMotion() {
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        (function () {
+          if (!assistFeatureVisible() || !isProPresetId((state.config && state.config.id) || state._presetId)) {
+            return '';
+          }
+          var va = state.villainAssist || { enabled: false, level: 'medium', calls: 0 };
+          var lvl = va.level || 'medium';
+          return '<div class="trn-assist-info card-box">' +
+            '<h4>Asistente IA de villanos</h4>' +
+            '<label class="trn-assist-toggle"><input type="checkbox" id="trn-info-assist-enable"' +
+            (va.enabled ? ' checked' : '') + '> Activado</label>' +
+            '<div class="trn-assist-levels" role="group">' +
+            '<button type="button" class="btn btn-sm' + (lvl === 'low' ? ' is-selected' : '') +
+            '" data-act="info-assist-level" data-level="low">Baja</button>' +
+            '<button type="button" class="btn btn-sm' + (lvl === 'medium' ? ' is-selected' : '') +
+            '" data-act="info-assist-level" data-level="medium">Media</button>' +
+            '<button type="button" class="btn btn-sm' + (lvl === 'high' ? ' is-selected' : '') +
+            '" data-act="info-assist-level" data-level="high">Alta</button>' +
+            '</div>' +
+            '<p class="trn-assist-stats">Consultas IA en este torneo: <strong>' +
+            esc(String(Number(va.calls) || 0)) + '</strong></p>' +
+            '<p class="trn-assist-stats">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
+            '</div>';
+        })() +
         roleLegendHtml() +
         '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
         '<summary data-act="toggle-handlog">Histórico de manos' +
@@ -2985,6 +3080,39 @@ function reducedMotion() {
           paint();
         } else if (act === 'upgrade-plans') {
           openUpgradePlans();
+        } else if (act === 'close-assist-prompt') {
+          ui.assistPrompt = null;
+          paint();
+        } else if (act === 'assist-level') {
+          if (ui.assistPrompt) {
+            ui.assistPrompt.level = btn.getAttribute('data-level') || 'medium';
+            paint();
+          }
+        } else if (act === 'confirm-assist-prompt') {
+          var apConfirm = ui.assistPrompt;
+          if (!apConfirm || !apConfirm.presetId) {
+            ui.assistPrompt = null;
+            paint();
+            return;
+          }
+          var enableEl = root.querySelector('#trn-assist-enable');
+          var enabled = enableEl ? !!enableEl.checked : !!apConfirm.enabled;
+          var level = apConfirm.level || 'medium';
+          var pidAssist = apConfirm.presetId;
+          ui.assistPrompt = null;
+          startFromConfig(pidAssist, {
+            villainAssist: { enabled: enabled, level: level }
+          });
+        } else if (act === 'info-assist-level') {
+          if (ui.state) {
+            ui.state.villainAssist = ui.state.villainAssist || { enabled: false, calls: 0 };
+            ui.state.villainAssist.level = btn.getAttribute('data-level') || 'medium';
+            if (ui.state._liveHand && ui.state._liveHand.villainAssist) {
+              ui.state._liveHand.villainAssist.level = ui.state.villainAssist.level;
+            }
+            persistActive();
+            paint();
+          }
         } else if (act === 'restart-preset') {
           var pid = btn.getAttribute('data-preset-id');
           clearActive();
@@ -2993,9 +3121,13 @@ function reducedMotion() {
           else paint();
         } else if (act === 'continue-hand') {
           if (ui.state) {
-            global.PTTournamentRunner.continueAfterHand(ui.state);
+            var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
             ui.handDetailOpen = false;
-            persistActive();
+            whenReady(cont, function () {
+              persistActive();
+              afterActionAnimated();
+            });
+            return;
           }
           afterActionAnimated();
         } else if (act === 'skip-anim') {
@@ -3105,8 +3237,12 @@ function reducedMotion() {
           paint();
         } else if (act === 'next-hand') {
           if (ui.state && ui.state.status === 'running') {
-            global.PTTournamentRunner.continueAfterHand(ui.state);
-            persistActive();
+            var nx = global.PTTournamentRunner.continueAfterHand(ui.state);
+            whenReady(nx, function () {
+              persistActive();
+              afterActionAnimated();
+            });
+            return;
           }
           afterActionAnimated();
         } else if (act === 'clear-hist') {
@@ -3126,10 +3262,26 @@ function reducedMotion() {
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
-        global.PTTournamentRunner.heroAct(ui.state, id, amt);
-        afterActionAnimated();
+        var acted = global.PTTournamentRunner.heroAct(ui.state, id, amt);
+        whenReady(acted, function () {
+          afterActionAnimated();
+        });
       });
     });
+
+    var infoAssistEnable = root.querySelector('#trn-info-assist-enable');
+    if (infoAssistEnable) {
+      infoAssistEnable.addEventListener('change', function () {
+        if (!ui.state) return;
+        ui.state.villainAssist = ui.state.villainAssist || { level: 'medium', calls: 0 };
+        ui.state.villainAssist.enabled = !!infoAssistEnable.checked;
+        if (ui.state._liveHand) {
+          ui.state._liveHand.villainAssist = ui.state.villainAssist;
+        }
+        persistActive();
+        paint();
+      });
+    }
 
     /* Backdrop de salida: click fuera cierra el prompt */
     root.querySelectorAll('.trn-modal-backdrop[data-act="close-exit"]').forEach(function (el) {

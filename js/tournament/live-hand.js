@@ -971,6 +971,23 @@
     return { id: 'check' };
   }
 
+  function handAssistOn(hand) {
+    return !!(hand && hand.villainAssist && hand.villainAssist.enabled
+      && global.PTVillainAssistFlags && global.PTVillainAssistFlags.isEnabled
+      && global.PTVillainAssistFlags.isEnabled());
+  }
+
+  async function villainActionAsync(hand, seat) {
+    if (handAssistOn(hand) && global.PTVillainAiAssist
+      && typeof global.PTVillainAiAssist.decideWithAssist === 'function') {
+      try {
+        var actA = await global.PTVillainAiAssist.decideWithAssist(hand, seat);
+        if (actA && actA.id) return actA;
+      } catch (eA) { /* fallback local */ }
+    }
+    return villainAction(hand, seat);
+  }
+
   function applyAction(hand, seat, action) {
     hand.acted[seat.id] = true;
     var id = action.id;
@@ -1040,6 +1057,40 @@
     return hand;
   }
 
+  async function advanceAsync(hand) {
+    if (!hand || hand.stage !== 'playing') return hand;
+    hand._frames = hand._frames || [];
+
+    if (alive(hand).length <= 1) return finishFoldWin(hand);
+
+    if (streetDone(hand)) {
+      var canStill = alive(hand).filter(canAct);
+      if (canStill.length <= 1 && alive(hand).length >= 2) return finishShowdown(hand);
+      if (hand.street === 'river') return finishShowdown(hand);
+      if (advanceStreet(hand) === 'showdown') return finishShowdown(hand);
+      pushFrame(hand, { kind: 'street' });
+      return hand;
+    }
+
+    var seat = nextToAct(hand);
+    if (!seat) {
+      alive(hand).forEach(function (s) { if (canAct(s)) hand.acted[s.id] = true; });
+      return hand;
+    }
+
+    if (seat.isHero) {
+      hand.awaitingHero = true;
+      hand._heroSeatId = seat.id;
+      hand.heroOptions = heroOptions(hand, seat);
+      return hand;
+    }
+
+    var act = await villainActionAsync(hand, seat);
+    applyAction(hand, seat, act);
+    pushSeatFrame(hand, seat);
+    return hand;
+  }
+
   /** Avanza hasta héroe, fin de mano, o un máximo de pasos (simulación / skip). */
   function run(hand, opts) {
     opts = opts || {};
@@ -1047,13 +1098,22 @@
     var stopOnFrame = !!opts.stopOnFrame;
     var guard = 0;
     while (hand.stage === 'playing' && !hand.awaitingHero && guard++ < maxSteps) {
-      var framesBefore = (hand._frames && hand._frames.length) || 0;
+      var before = (hand._frames && hand._frames.length) || 0;
       advance(hand);
-      if (stopOnFrame && hand._frames && hand._frames.length > framesBefore) break;
-      if (hand.awaitingHero || hand.stage === 'complete') break;
+      if (stopOnFrame && hand._frames && hand._frames.length > before) break;
     }
-    if (hand.stage === 'playing' && !hand.awaitingHero && guard >= maxSteps) {
-      finishShowdown(hand);
+    return hand;
+  }
+
+  async function runAsync(hand, opts) {
+    opts = opts || {};
+    var maxSteps = opts.maxSteps != null ? opts.maxSteps : 250;
+    var stopOnFrame = !!opts.stopOnFrame;
+    var guard = 0;
+    while (hand.stage === 'playing' && !hand.awaitingHero && guard++ < maxSteps) {
+      var before = (hand._frames && hand._frames.length) || 0;
+      await advanceAsync(hand);
+      if (stopOnFrame && hand._frames && hand._frames.length > before) break;
     }
     return hand;
   }
@@ -1076,10 +1136,12 @@
     return advance(hand);
   }
 
-  /** Draga pasos hasta héroe o fin (saltar animación / mesas satélite). */
+  /** Draga pasos hasta héroe o fin. Con assist on puede devolver Promise. */
   function runToHeroOrEnd(hand) {
     if (!hand) return hand;
-    /* Conserva fotogramas previos (p.ej. deal) y añade acciones hasta el héroe. */
+    if (handAssistOn(hand)) {
+      return runAsync(hand, { maxSteps: 250, stopOnFrame: false });
+    }
     return run(hand, { maxSteps: 250, stopOnFrame: false });
   }
 
@@ -1110,6 +1172,9 @@
     hand.heroOptions = null;
     applyAction(hand, seat, action);
     pushSeatFrame(hand, seat);
+    if (global.PTVillainAiAssist && global.PTVillainAiAssist.resetHandCounters) {
+      try { global.PTVillainAiAssist.resetHandCounters(hand); } catch (eRh) { /* */ }
+    }
     /* Continúa hasta el próximo turno de héroe o el fin (villanos deciden al actuar). */
     return runToHeroOrEnd(hand);
   }
@@ -1227,6 +1292,12 @@
         };
       } catch (eStats) { heroStatsPayload = null; }
       hand.heroSessionStats = heroStatsPayload;
+      /* Misma referencia que state: contador de consultas del torneo. */
+      if (state.villainAssist) {
+        hand.villainAssist = state.villainAssist;
+        hand.villainAssist.usedThisHand = 0;
+      }
+      hand.presetId = cfg.id || null;
       hand.state = {
         formatHub: hub,
         kind: kind,
@@ -1263,6 +1334,8 @@
     hand._noFrames = true;
     hand.decisions = [];
     if (state) attachTourneyContext(hand, state);
+    /* Otras mesas: nunca assist IA (solo motor local sync). */
+    hand.villainAssist = { enabled: false, level: 'medium', calls: 0, usedThisHand: 0 };
     pushFrame(hand, { kind: 'deal' });
     runToHeroOrEnd(hand);
     hand._frames = [];
@@ -1274,7 +1347,9 @@
     start: start,
     step: step,
     advance: advance,
+    advanceAsync: advanceAsync,
     run: run,
+    runAsync: runAsync,
     runToHeroOrEnd: runToHeroOrEnd,
     heroAct: heroAct,
     simulateTable: simulateTable,

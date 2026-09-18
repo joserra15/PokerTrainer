@@ -21,6 +21,18 @@
     var state = State.create(cfg, opts);
     state._liveHand = null;
     state._presetId = typeof configOrPreset === 'string' ? configOrPreset : (cfg.id || null);
+    if (opts.villainAssist && typeof opts.villainAssist === 'object') {
+      var Comp = global.PTVillainAssistComplexity;
+      var lvl = Comp && Comp.normalizeLevel
+        ? Comp.normalizeLevel(opts.villainAssist.level)
+        : 'medium';
+      state.villainAssist = {
+        enabled: !!opts.villainAssist.enabled,
+        level: lvl,
+        calls: 0,
+        usedThisHand: 0
+      };
+    }
     return state;
   }
 
@@ -138,14 +150,20 @@
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
     if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
-    Live.runToHeroOrEnd(hand);
-    state._liveHand = hand;
-    /* Simulación satélite en background mientras el hero juega / lee el resumen. */
-    try {
-      var Other = global.PTTournamentOtherTables;
-      if (Other && Other.scheduleRound) Other.scheduleRound(state);
-    } catch (eSched) { /* */ }
-    return hand;
+    var ran = Live.runToHeroOrEnd(hand);
+    function afterRun() {
+      state._liveHand = hand;
+      /* Simulación satélite en background mientras el hero juega / lee el resumen. */
+      try {
+        var Other = global.PTTournamentOtherTables;
+        if (Other && Other.scheduleRound) Other.scheduleRound(state);
+      } catch (eSched) { /* */ }
+      return hand;
+    }
+    if (ran && typeof ran.then === 'function') {
+      return ran.then(afterRun);
+    }
+    return afterRun();
   }
 
   function applyStackDeltas(state, deltas) {
@@ -335,11 +353,16 @@
   function heroAct(state, actionId, amount) {
     if (!state || !state._liveHand) return state;
     var Live = global.PTTournamentLiveHand;
-    var hand = Live.heroAct(state._liveHand, actionId, amount);
-    state._liveHand = hand;
-    /* No aplicar resultados aún: la UI muestra el popup de fin de mano
-       (como en Entrenar) y el usuario pulsa Continuar. */
-    return state;
+    var result = Live.heroAct(state._liveHand, actionId, amount);
+    function done(hand) {
+      state._liveHand = hand;
+      /* No aplicar resultados aún: la UI muestra el popup de fin de mano. */
+      return state;
+    }
+    if (result && typeof result.then === 'function') {
+      return result.then(done);
+    }
+    return done(result);
   }
 
   /** Aplica la mano completa y reparte la siguiente (o cierra si el torneo acabó). */
@@ -348,7 +371,12 @@
     if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result) {
       applyResults(state, state._liveHand);
     }
-    if (state.status === 'running') beginHand(state);
+    if (state.status === 'running') {
+      var next = beginHand(state);
+      if (next && typeof next.then === 'function') {
+        return next.then(function () { return state; });
+      }
+    }
     return state;
   }
 

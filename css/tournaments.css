@@ -3023,3 +3023,31 @@
   .trn-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .trn-stat-cell .trn-stat-val { font-size: 20px !important; }
 }
+
+/* Asistente IA villanos (torneos Pro) */
+.trn-assist-info,
+.trn-assist-info.card-box {
+  margin: 12px 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+}
+.trn-assist-info h4 { margin: 0 0 8px; font-size: 0.95rem; }
+.trn-assist-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 14px;
+}
+.trn-assist-level-lbl { margin: 10px 0 6px; font-size: 13px; color: var(--muted, #9aa4b2); }
+.trn-assist-levels { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.trn-assist-levels .btn.is-selected,
+.trn-assist-levels .btn.btn-sm.is-selected {
+  outline: 2px solid var(--gold, #f5c451);
+  outline-offset: 1px;
+}
+.trn-assist-stats,
+.trn-assist-quota { margin: 4px 0; font-size: 13px; }
+.admin-villain-assist-controls { margin-bottom: 16px; }
