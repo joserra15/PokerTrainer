@@ -109,14 +109,16 @@
     { top: 58, left: 97 },
     { top: 84, left: 84 }
   ];
-  /* Coordenadas para óvalo horizontal en móvil (más aire en laterales). */
+  /* Coordenadas para óvalo horizontal en móvil (más aire en laterales).
+   * CO (arco superior-dcho) y BTN (lateral dcho) separados en vertical para
+   * que cartas + badge no se monten cuando el héroe está en SB/BB. */
   const SEAT_COORDS_MOBILE = [
     { top: 94, left: 50 },
-    { top: 70, left: 3 },
-    { top: 32, left: 2 },
-    { top: 5, left: 22 },
-    { top: 5, left: 78 },
-    { top: 32, left: 98 }
+    { top: 72, left: 4 },
+    { top: 36, left: 3 },
+    { top: 8, left: 28 },
+    { top: 8, left: 72 },
+    { top: 42, left: 96 }
   ];
   const SEAT_COORDS_MOBILE_3 = [
     { top: 94, left: 50 },
@@ -1103,35 +1105,6 @@
     });
   }
 
-  const REPLAY_TABLE_THEMES = [
-    { val: 'emerald', label: 'Esmeralda', swatch: 'theme-swatch-emerald' },
-    { val: 'midnight', label: 'Medianoche', swatch: 'theme-swatch-midnight' },
-    { val: 'crimson', label: 'Burdeos', swatch: 'theme-swatch-crimson' }
-  ];
-
-  function sessionReplayThemeHTML() {
-    const saved = loadTableTheme();
-    const chips = REPLAY_TABLE_THEMES.map((t) =>
-      '<button type="button" class="setup-chip theme-chip' + (saved === t.val ? ' active' : '') +
-      '" data-val="' + t.val + '"><span class="theme-swatch ' + t.swatch + '" aria-hidden="true"></span>' +
-      escapeHtml(t.label) + '</button>'
-    ).join('');
-    return '<div class="session-replay-theme-wrap"><div class="setup-chips session-replay-theme" id="session-replay-table-theme">' + chips + '</div></div>';
-  }
-
-  function bindSessionReplayTheme() {
-    const box = $('#session-replay-table-theme');
-    if (!box) return;
-    box.onclick = (e) => {
-      const chip = e.target.closest('.setup-chip');
-      if (!chip || !box.contains(chip)) return;
-      box.querySelectorAll('.setup-chip').forEach((c) => c.classList.remove('active'));
-      chip.classList.add('active');
-      const theme = chip.dataset.val || 'emerald';
-      saveTableTheme(theme);
-      applyTableTheme(theme);
-    };
-  }
   function restoreTableThemeChip() {
     const box = $('#setup-table-theme');
     if (!box) return;
@@ -10133,7 +10106,6 @@
     </div>`;
     html += unsupportedBanner + icmBanner;
 
-    html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
     html += renderSwapRolesPanelHTML(h);
 
@@ -10213,7 +10185,6 @@
       html += `<button class="btn btn-secondary" id="to-trainer-from-review" style="margin-top:14px;margin-left:8px">Jugar en entrenador (POV actual) &raquo;</button>`;
     }
     box.innerHTML = html;
-    bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
     bindSwapRolesPanel(h);
     bindShareButton($('#share-hand-review'), () => ({
@@ -10497,10 +10468,15 @@
         const known = holeByPos[pos];
         cardsHtml = seatCardsHTML(known, !!(known && known.length >= 2));
       }
+      const holeHtml = cardsHtml
+        ? '<div class="seat-hole">' + cardsHtml + '</div>'
+        : '';
       seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
-        ${cardsHtml}
-        <div class="seat-pos">${pos}</div>
-        ${role ? `<div class="seat-role">${role}</div>` : ''}
+        <div class="seat-body">
+          ${holeHtml}
+          <div class="seat-pos">${pos}</div>
+          ${role ? `<div class="seat-role">${role}</div>` : ''}
+        </div>
       </div>`;
     });
 
@@ -10511,7 +10487,7 @@
 
     const feltCfg = replayFeltConfigFromHand(h);
     const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
-    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
+    return `<div class="poker-table session-replay-table review-play-like"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potBB || 0)}</span> Bote: <strong class="pot-amt">${potBB != null ? fmtBB(potBB) : '—'} bb</strong></div>
@@ -10536,7 +10512,6 @@
         <div class="muted-text">Resultado real: <span class="${h.heroNetBB >= 0 ? 'net-pos' : 'net-neg'}">${h.heroNetBB >= 0 ? '+' : ''}${fmtBB(h.heroNetBB)} bb</span></div>
       </div>
     </div>`;
-    html += sessionReplayThemeHTML();
     html += renderShowdownTableHTML(h);
     html += '<div class="session-street-log"><strong>River:</strong> board completo</div>';
     knownVillains.forEach((pos) => {
@@ -10545,7 +10520,6 @@
     html += `<div class="result-line" style="border:none">Board: ${(h.board || []).map(Cards.cardToHTML).join(' ')}</div>`;
     html += `<button class="btn btn-primary" id="replay-to-summary" style="margin-top:14px">Ver resumen de la repetición »</button>`;
     box.innerHTML = html;
-    bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
     bindTableChromeSessionInfo(box, replayFeltConfigFromHand(h), h);
     $('#replay-to-summary').addEventListener('click', () => renderReplaySummary());
@@ -10790,9 +10764,16 @@
       if (c.top < 12) cls.push('seat-edge-top');
 
       const role = isHero ? 'Héroe' : (isVillain ? 'Villano' : '');
+      const streetBet = state.streetBetBB[pos] || 0;
+      const totalInv = state.totalInvBB[pos] || 0;
+      const inFront = (!isHero && !state.folded[pos])
+        ? (streetBet > 0 ? streetBet : (d.street === 'preflop' ? totalInv : 0))
+        : 0;
       const act = (!isHero && state.lastAction[pos]) ? state.lastAction[pos] : null;
-      const actHtml = act && !state.folded[pos] ? actionBadgeHTML(act) : '';
-      const chipsHtml = renderSeatChips(state.totalInvBB[pos] || 0, state.streetBetBB[pos] || 0);
+      const nearEdge = c.left < 22 || c.left > 78;
+      const actHtml = act && !state.folded[pos]
+        ? actionBadgeHTML(act, false, (inFront > 0) || nearEdge)
+        : '';
       let cardsHtml = '';
       if (!isHero && isParticipant && state.folded[pos]) {
         cardsHtml = seatFoldMarkHTML();
@@ -10800,12 +10781,25 @@
         cardsHtml = seatCardsHTML(null, false);
       }
 
+      let placement = seatBetPlacement(c);
+      if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
+        placement = c.top > 50 ? 'bet-above' : 'bet-below';
+      }
+      const actBelowCards = c.top < 20 || (mobile && !!actHtml && placement === 'bet-above');
+      if (actBelowCards && actHtml) cls.push('seat-act-below');
+      const betHtml = renderSeatBet(inFront, placement);
+      const holeHtml = '<div class="seat-hole">'
+        + (actHtml ? '<div class="seat-act-wrap">' + actHtml + '</div>' : '')
+        + (cardsHtml || (actHtml ? '<div class="seat-cards seat-cards-placeholder"></div>' : ''))
+        + '</div>';
+
       seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
-        ${cardsHtml}
-        <div class="seat-pos">${pos}</div>
-        ${role ? `<div class="seat-role">${role}</div>` : ''}
-        ${chipsHtml}
-        ${actHtml ? `<div class="seat-act-wrap">${actHtml}</div>` : ''}
+        <div class="seat-body">
+          ${holeHtml}
+          <div class="seat-pos">${pos}</div>
+          ${role ? `<div class="seat-role">${role}</div>` : ''}
+        </div>
+        ${betHtml}
       </div>`;
     });
 
@@ -10813,13 +10807,14 @@
     const heroPos = h.heroPos || '';
     const heroStreet = state.streetBetBB[heroPos] || 0;
     const heroInv = state.totalInvBB[heroPos] || 0;
-    const heroChipsHtml = (heroInv > 0 || heroStreet > 0) ? renderSeatChips(heroInv, heroStreet) : '';
+    const heroInFront = heroStreet > 0 ? heroStreet : (d.street === 'preflop' ? heroInv : 0);
+    const heroBetHtml = renderSeatBet(heroInFront, 'bet-above');
     const heroCardsHtml = heroCards.length >= 2
       ? '<div class="hero-cards">' + heroCards.map(Cards.cardFaceHTML).join('') + '</div>'
       : '';
     const heroAreaHtml =
       '<div class="hero-area">' +
-      (heroChipsHtml ? '<div class="hero-chips">' + heroChipsHtml + '</div>' : '') +
+      (heroBetHtml ? '<div class="hero-chips">' + heroBetHtml + '</div>' : '') +
       '<div class="hero-label">HÉROE · <span>' + escapeHtml(heroPos) + '</span></div>' +
       heroCardsHtml +
       '</div>';
@@ -10828,7 +10823,7 @@
     const feltCfg = replayFeltConfigFromHand(h);
     const feltClass = layout === '9' ? ' table-9max' : (layout === '3' ? ' table-3max' : '');
 
-    return `<div class="poker-table session-replay-table"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
+    return `<div class="poker-table session-replay-table review-play-like"><div class="table-felt${feltClass}" data-theme="${loadTableTheme()}" data-format="${feltCfg.formatHub}">
       ${tableChromeHTML(feltCfg)}
       <div class="seats">${seatsHtml}</div>
       <div class="board-area"><div class="pot"><span class="pot-chips">${chipStackHTML(potDisplay || 0)}</span> Bote: <strong class="pot-amt">${fmtBB(potDisplay)} bb</strong></div>
@@ -10854,7 +10849,6 @@
         <div class="muted-text">Decisión ${replayState.idx + 1} de ${h.decisions.length}</div>
       </div>
     </div>`;
-    html += sessionReplayThemeHTML();
     html += renderSessionReplayTableHTML(h, d, replayState.idx, replayStateTable);
     html += renderSessionStreetLogHTML(h, replayStateTable);
     html += `<div class="session-spot-head"><strong>${escapeHtml(d.spot || '')}</strong>`;
@@ -10867,7 +10861,6 @@
     ).join('') + `</div>`;
     html += `<div id="replay-feedback"></div>`;
     box.innerHTML = html;
-    bindSessionReplayTheme();
     applyTableTheme(loadTableTheme());
     bindTableChromeSessionInfo(box, replayFeltConfigFromHand(h), h);
     scrollSessionReviewToTop();
