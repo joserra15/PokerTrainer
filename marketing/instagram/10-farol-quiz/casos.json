@@ -1,0 +1,1732 @@
+[
+  {
+    "n": 1,
+    "tag": "flush-nut-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Kh",
+      "8h",
+      "3h",
+      "Jd",
+      "2c"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Kh 8h 3h — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "Jd — check-check"
+      },
+      {
+        "street": "River",
+        "text": "2c — BB check → BTN ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "5d"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "5h",
+          "4d"
+        ],
+        "label": "54o"
+      },
+      {
+        "cards": [
+          "Qc",
+          "9c"
+        ],
+        "label": "Q9s"
+      }
+    ],
+    "answer": 0,
+    "why": "A♥ bloquea nut flush. 5♥ quita flushes flojos que tiraban; Q9s no toca el color."
+  },
+  {
+    "n": 2,
+    "tag": "k-high-a-blocker",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Kd",
+      "7c",
+      "2s",
+      "9h",
+      "3c"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Kd 7c 2s — BB check → CO c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "9h — BB check → CO bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "3c — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "5h"
+        ],
+        "label": "A5s"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      },
+      {
+        "cards": [
+          "8h",
+          "6h"
+        ],
+        "label": "86s"
+      }
+    ],
+    "answer": 0,
+    "why": "A-high bloquea AA/AK/AQ que pagan. QJ/86 solo quitan basura que ya foldeaba."
+  },
+  {
+    "n": 3,
+    "tag": "flush-overbet-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Kh",
+      "9h",
+      "4h",
+      "2c",
+      "7d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Kh 9h 4h — BB check → BTN c-bet 50% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "2c — BB check → BTN bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "7d — BB check → BTN overbet 130% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "6c"
+        ],
+        "label": "A6o"
+      },
+      {
+        "cards": [
+          "Th",
+          "8c"
+        ],
+        "label": "T8o"
+      },
+      {
+        "cards": [
+          "Qc",
+          "Jc"
+        ],
+        "label": "QJs"
+      }
+    ],
+    "answer": 0,
+    "why": "Overbet polar: A♥ bloquea nut flush. T♥ bloquea flushes medios; QJs no."
+  },
+  {
+    "n": 4,
+    "tag": "straight-nuts-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ts",
+      "9c",
+      "8d",
+      "3h",
+      "2c"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ts 9c 8d — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "3h — check-check"
+      },
+      {
+        "street": "River",
+        "text": "2c — BB check → BTN ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Qh",
+          "5d"
+        ],
+        "label": "Q5o"
+      },
+      {
+        "cards": [
+          "Ah",
+          "Kd"
+        ],
+        "label": "AKo"
+      },
+      {
+        "cards": [
+          "6c",
+          "4h"
+        ],
+        "label": "64o"
+      }
+    ],
+    "answer": 0,
+    "why": "En T98, QJ es nuts: Qx sin J bloquea. AK no toca; 64 bloquea solo la baja."
+  },
+  {
+    "n": 5,
+    "tag": "paired-aces-blocker",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ac",
+      "Ad",
+      "9h",
+      "6c",
+      "2s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ac Ad 9h — BB check → CO c-bet 25% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "6c — BB check → CO bet 50% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2s — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Kh",
+          "7h"
+        ],
+        "label": "K7s"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      },
+      {
+        "cards": [
+          "8h",
+          "7d"
+        ],
+        "label": "87o"
+      }
+    ],
+    "answer": 0,
+    "why": "En AA, K-high bloquea KK/KQ/KJ value. QJ/87 no tocan ese value premium."
+  },
+  {
+    "n": 6,
+    "tag": "broadway-straight-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Qs",
+      "Jd",
+      "Tc",
+      "4h",
+      "2d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Qs Jd Tc — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "4h — BB check → BTN bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2d — BB check → BTN ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "5c"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "7h",
+          "6h"
+        ],
+        "label": "76s"
+      },
+      {
+        "cards": [
+          "Kh",
+          "6d"
+        ],
+        "label": "K6o"
+      }
+    ],
+    "answer": 0,
+    "why": "En QJT, AK es nuts: A-high (sin K) bloquea. 76/K6 no bloquean la nuts."
+  },
+  {
+    "n": 7,
+    "tag": "paired-k-blocker",
+    "heroPos": "HJ",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ks",
+      "7d",
+      "2c",
+      "2h",
+      "9s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "HJ open 2,2 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ks 7d 2c — BB check → HJ c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "2h — check-check"
+      },
+      {
+        "street": "River",
+        "text": "9s — BB check → HJ ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "5h"
+        ],
+        "label": "A5s"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      },
+      {
+        "cards": [
+          "8h",
+          "6h"
+        ],
+        "label": "86s"
+      }
+    ],
+    "answer": 0,
+    "why": "K72 pareado: A-high bloquea Ax value. QJ quita folds; 86 no toca Ax."
+  },
+  {
+    "n": 8,
+    "tag": "low-straight-tx-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "9s",
+      "8s",
+      "7h",
+      "3c",
+      "2d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "9s 8s 7h — BB check → BTN c-bet 40% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "3c — BB check → BTN bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2d — BB check → BTN ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Th",
+          "5c"
+        ],
+        "label": "T5o"
+      },
+      {
+        "cards": [
+          "Ah",
+          "Kh"
+        ],
+        "label": "AKs"
+      },
+      {
+        "cards": [
+          "6c",
+          "4h"
+        ],
+        "label": "64o"
+      }
+    ],
+    "answer": 0,
+    "why": "En 987, JT es nuts: Tx bloquea. AK no interactúa; 64 solo bloquea la baja."
+  },
+  {
+    "n": 9,
+    "tag": "ace-high-dont-block-folds",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ah",
+      "9d",
+      "6c",
+      "Kd",
+      "2h"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ah 9d 6c — BB check → CO c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "Kd — BB check → CO bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2h — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "5c",
+          "4c"
+        ],
+        "label": "54s"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      },
+      {
+        "cards": [
+          "Jh",
+          "7d"
+        ],
+        "label": "J7o"
+      }
+    ],
+    "answer": 0,
+    "why": "Con A en board no faroleas Ax. 54s no quita floats que tiraban; QJ/J7 sí."
+  },
+  {
+    "n": 10,
+    "tag": "jt9-qx-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Js",
+      "Ts",
+      "9d",
+      "4c",
+      "2h"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Js Ts 9d — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "4c — BB check → BTN bet 75% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2h — BB check → BTN overbet 140% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Qh",
+          "5d"
+        ],
+        "label": "Q5o"
+      },
+      {
+        "cards": [
+          "8h",
+          "5d"
+        ],
+        "label": "85o"
+      },
+      {
+        "cards": [
+          "Kh",
+          "6h"
+        ],
+        "label": "K6s"
+      }
+    ],
+    "answer": 0,
+    "why": "En JT9, AQ es nuts: Qx sin A bloquea. 85 bloquea baja; K-high casi no toca."
+  },
+  {
+    "n": 11,
+    "tag": "kk-paired-a-blocker",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ks",
+      "Kh",
+      "4d",
+      "7c",
+      "2s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ks Kh 4d — BB check → CO c-bet 25% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "7c — check-check"
+      },
+      {
+        "street": "River",
+        "text": "2s — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "Qh"
+        ],
+        "label": "AQs"
+      },
+      {
+        "cards": [
+          "9h",
+          "8h"
+        ],
+        "label": "98s"
+      },
+      {
+        "cards": [
+          "5h",
+          "3h"
+        ],
+        "label": "53s"
+      }
+    ],
+    "answer": 0,
+    "why": "En KK, A-high bloquea AA/AK. 98/53 no quitan ese value caro."
+  },
+  {
+    "n": 12,
+    "tag": "qj-paired-ak-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Qs",
+      "Jd",
+      "4c",
+      "4h",
+      "2d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Qs Jd 4c — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "4h — BB check → BTN bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2d — BB check → BTN ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "Kh"
+        ],
+        "label": "AKs"
+      },
+      {
+        "cards": [
+          "Ts",
+          "9s"
+        ],
+        "label": "T9s"
+      },
+      {
+        "cards": [
+          "8h",
+          "7h"
+        ],
+        "label": "87s"
+      }
+    ],
+    "answer": 0,
+    "why": "En QJ pareado, AK bloquea AQ/AJ/KQ/KJ que pagan. T9/87 no."
+  },
+  {
+    "n": 13,
+    "tag": "donk-river-flush-blocker",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Qc",
+      "7c",
+      "2d",
+      "9c",
+      "3h"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Qc 7c 2d — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "9c — check-check"
+      },
+      {
+        "street": "River",
+        "text": "3h — BB donk 75% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ac",
+          "5h"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "6c",
+          "5d"
+        ],
+        "label": "65o"
+      },
+      {
+        "cards": [
+          "Kh",
+          "Jd"
+        ],
+        "label": "KJo"
+      }
+    ],
+    "answer": 0,
+    "why": "Donk river: Ac bloquea nut flush. 6c quita flushes flojos; KJ no toca clubs."
+  },
+  {
+    "n": 14,
+    "tag": "checkraise-bluff-blocker",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "As",
+      "Td",
+      "5c",
+      "8h",
+      "2s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "As Td 5c — BB check → CO c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "8h — check-check"
+      },
+      {
+        "street": "River",
+        "text": "2s — BB check → CO bet 50% pot → BB raise 3×"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ks",
+          "4d"
+        ],
+        "label": "K4o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      },
+      {
+        "cards": [
+          "9c",
+          "7c"
+        ],
+        "label": "97s"
+      }
+    ],
+    "answer": 0,
+    "why": "XR river: Ks bloquea nut flush + AK. QJ/97 quitan floats que tiraban."
+  },
+  {
+    "n": 15,
+    "tag": "probe-turn-bluff",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Jh",
+      "8d",
+      "3c",
+      "Kd"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Jh 8d 3c — check-check"
+      },
+      {
+        "street": "Turn",
+        "text": "Kd — BB probe 55% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "As",
+          "5c"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Th"
+        ],
+        "label": "QTs"
+      },
+      {
+        "cards": [
+          "7c",
+          "6c"
+        ],
+        "label": "76s"
+      }
+    ],
+    "answer": 0,
+    "why": "Probe turn K: A-high bloquea AK/AQ. QT/76 bloquean menos value."
+  },
+  {
+    "n": 16,
+    "tag": "3bet-pot-missed-fd",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "9h",
+      "6h",
+      "2c",
+      "Kd",
+      "3s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB 3-bet 11 bb → BTN call"
+      },
+      {
+        "street": "Flop",
+        "text": "9h 6h 2c — BB c-bet 33% pot → BTN call"
+      },
+      {
+        "street": "Turn",
+        "text": "Kd — BB bet 66% pot → BTN call"
+      },
+      {
+        "street": "River",
+        "text": "3s — BB ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "4d"
+        ],
+        "label": "A4o"
+      },
+      {
+        "cards": [
+          "Th",
+          "8d"
+        ],
+        "label": "T8o"
+      },
+      {
+        "cards": [
+          "Qc",
+          "Jc"
+        ],
+        "label": "QJs"
+      }
+    ],
+    "answer": 0,
+    "why": "Miss FD: Ah bloquea nut flush + Ax. Th quita flushes medios; QJ no."
+  },
+  {
+    "n": 17,
+    "tag": "multiway-to-hu-blocker",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "8s",
+      "7s",
+      "2d",
+      "Ac",
+      "4h"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BTN call → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "8s 7s 2d — BB check → CO c-bet 33% pot → BTN fold → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "Ac — BB check → CO bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "4h — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ks",
+          "5d"
+        ],
+        "label": "K5o"
+      },
+      {
+        "cards": [
+          "6h",
+          "3h"
+        ],
+        "label": "63s"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jd"
+        ],
+        "label": "QJo"
+      }
+    ],
+    "answer": 0,
+    "why": "Ks bloquea nut flush en spades. 63/QJ no bloquean el flush nuts."
+  },
+  {
+    "n": 18,
+    "tag": "small-small-jam-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 80,
+    "board": [
+      "Qc",
+      "9d",
+      "3h",
+      "5s",
+      "2c"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Qc 9d 3h — BB check → BTN c-bet 25% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "5s — BB check → BTN bet 30% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2c — BB check → BTN all-in 80 bb"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ac",
+          "7h"
+        ],
+        "label": "A7o"
+      },
+      {
+        "cards": [
+          "Kh",
+          "Jh"
+        ],
+        "label": "KJs"
+      },
+      {
+        "cards": [
+          "8d",
+          "7d"
+        ],
+        "label": "87s"
+      }
+    ],
+    "answer": 0,
+    "why": "Jam polar: Ac bloquea nut flush. KJ/87 no bloquean clubs nuts."
+  },
+  {
+    "n": 19,
+    "tag": "delayed-barrel-blocker",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Jh",
+      "6c",
+      "2s",
+      "Td",
+      "4h"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Jh 6c 2s — check-check"
+      },
+      {
+        "street": "Turn",
+        "text": "Td — BB check → CO bet 66% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "4h — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "5c"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "9h",
+          "8h"
+        ],
+        "label": "98s"
+      },
+      {
+        "cards": [
+          "Kh",
+          "Qd"
+        ],
+        "label": "KQo"
+      }
+    ],
+    "answer": 0,
+    "why": "Delayed barrel: A-high bloquea AJ/AT/AQ. 98/KQ bloquean menos value."
+  },
+  {
+    "n": 20,
+    "tag": "four-flush-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ad",
+      "9d",
+      "4c",
+      "2d",
+      "7c"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ad 9d 4c — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "2d — BB check → BTN bet 50% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "7c — BB check → BTN ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Kd",
+          "5h"
+        ],
+        "label": "K5o"
+      },
+      {
+        "cards": [
+          "8d",
+          "3h"
+        ],
+        "label": "83o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      }
+    ],
+    "answer": 0,
+    "why": "3♦: Kd bloquea nut flush. 8d quita flushes flojos; QJ no."
+  },
+  {
+    "n": 21,
+    "tag": "squeeze-miss-draw",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Th",
+      "8h",
+      "3c",
+      "5d",
+      "2s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "HJ open 2,2 bb → BTN call → BB squeeze 14 bb → BTN call"
+      },
+      {
+        "street": "Flop",
+        "text": "Th 8h 3c — BB c-bet 33% pot → BTN call"
+      },
+      {
+        "street": "Turn",
+        "text": "5d — BB bet 60% pot → BTN call"
+      },
+      {
+        "street": "River",
+        "text": "2s — BB ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "9c"
+        ],
+        "label": "A9o"
+      },
+      {
+        "cards": [
+          "9h",
+          "7d"
+        ],
+        "label": "97o"
+      },
+      {
+        "cards": [
+          "Kc",
+          "Qd"
+        ],
+        "label": "KQo"
+      }
+    ],
+    "answer": 0,
+    "why": "Ah bloquea nut flush. 9h quita flushes medios; KQ no toca hearts."
+  },
+  {
+    "n": 22,
+    "tag": "lead-triple-miss",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "9c",
+      "6c",
+      "2h",
+      "Kd",
+      "4s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "9c 6c 2h — BB donk 40% pot → BTN call"
+      },
+      {
+        "street": "Turn",
+        "text": "Kd — BB bet 55% pot → BTN call"
+      },
+      {
+        "street": "River",
+        "text": "4s — BB ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ac",
+          "5d"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "8c",
+          "7h"
+        ],
+        "label": "87o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      }
+    ],
+    "answer": 0,
+    "why": "Lead miss FD: Ac bloquea nut flush. 8c quita medios; QJ no."
+  },
+  {
+    "n": 23,
+    "tag": "thin-spot-vs-station",
+    "heroPos": "CO",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Qs",
+      "8d",
+      "3c",
+      "7h",
+      "2s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Qs 8d 3c — BB check → CO c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "7h — BB check → CO bet 50% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2s — BB check → CO ?"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "As",
+          "5h"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "Jh",
+          "Td"
+        ],
+        "label": "JTo"
+      },
+      {
+        "cards": [
+          "6c",
+          "5c"
+        ],
+        "label": "65s"
+      }
+    ],
+    "answer": 0,
+    "why": "As bloquea AQ/AJ/A8 + flush. JT/65 bloquean menos manos que pagan."
+  },
+  {
+    "n": 24,
+    "tag": "turn-jam-semibluff-blocker",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 110,
+    "villainStack": 110,
+    "board": [
+      "9s",
+      "8s",
+      "2c",
+      "Kh"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "9s 8s 2c — BB check → BTN c-bet 50% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "Kh — BB check → BTN all-in 110 bb"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "As",
+          "7d"
+        ],
+        "label": "A7o"
+      },
+      {
+        "cards": [
+          "7s",
+          "6h"
+        ],
+        "label": "76o"
+      },
+      {
+        "cards": [
+          "Qd",
+          "Jd"
+        ],
+        "label": "QJs"
+      }
+    ],
+    "answer": 0,
+    "why": "Jam turn: As = nut FD + bloquea Ax. 7s es FD peor; QJ sin spade."
+  },
+  {
+    "n": 25,
+    "tag": "double-check-river-bluff",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Kd",
+      "8c",
+      "3h",
+      "6s",
+      "2d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Kd 8c 3h — check-check"
+      },
+      {
+        "street": "Turn",
+        "text": "6s — check-check"
+      },
+      {
+        "street": "River",
+        "text": "2d — BB bet 55% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ad",
+          "5c"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jh"
+        ],
+        "label": "QJs"
+      },
+      {
+        "cards": [
+          "9h",
+          "7h"
+        ],
+        "label": "97s"
+      }
+    ],
+    "answer": 0,
+    "why": "Tras 2 checks: Ad bloquea flush + AK/AQ. QJ/97 quitan folds."
+  },
+  {
+    "n": 26,
+    "tag": "iso-donk-river-blocker",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 65,
+    "board": [
+      "Jc",
+      "Tc",
+      "4h",
+      "3s",
+      "7d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "HJ limp → BTN iso 4 bb → BB call → HJ fold"
+      },
+      {
+        "street": "Flop",
+        "text": "Jc Tc 4h — BB donk 55% pot → BTN call"
+      },
+      {
+        "street": "Turn",
+        "text": "3s — BB bet 70% pot → BTN call"
+      },
+      {
+        "street": "River",
+        "text": "7d — BB all-in 65 bb"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ac",
+          "5h"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "9h",
+          "5d"
+        ],
+        "label": "95o"
+      },
+      {
+        "cards": [
+          "Kh",
+          "Qd"
+        ],
+        "label": "KQo"
+      }
+    ],
+    "answer": 0,
+    "why": "Jam river: Ac bloquea nut flush. 95 no completa; KQ no toca clubs."
+  },
+  {
+    "n": 27,
+    "tag": "blocker-overbet-spade",
+    "heroPos": "BTN",
+    "villainPos": "BB",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "As",
+      "Ts",
+      "5s",
+      "8d",
+      "2c"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "As Ts 5s — BB check → BTN c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "8d — BB check → BTN bet 50% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2c — BB check → BTN overbet 125% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ks",
+          "4h"
+        ],
+        "label": "K4o"
+      },
+      {
+        "cards": [
+          "9s",
+          "3h"
+        ],
+        "label": "93o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jd"
+        ],
+        "label": "QJo"
+      }
+    ],
+    "answer": 0,
+    "why": "Overbet: Ks bloquea nut flush. 9s quita flushes flojos; QJ no."
+  },
+  {
+    "n": 28,
+    "tag": "min-raise-river-bluff",
+    "heroPos": "BB",
+    "villainPos": "CO",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Qh",
+      "Jd",
+      "5c",
+      "9s",
+      "2d"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "CO open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Qh Jd 5c — BB check → CO c-bet 33% pot → BB call"
+      },
+      {
+        "street": "Turn",
+        "text": "9s — BB check → CO bet 50% pot → BB call"
+      },
+      {
+        "street": "River",
+        "text": "2d — BB check → CO bet 33% pot → BB raise 2,5×"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ah",
+          "4c"
+        ],
+        "label": "A4o"
+      },
+      {
+        "cards": [
+          "8c",
+          "7c"
+        ],
+        "label": "87s"
+      },
+      {
+        "cards": [
+          "Kh",
+          "7d"
+        ],
+        "label": "K7o"
+      }
+    ],
+    "answer": 0,
+    "why": "Raise river: A-high bloquea AQ/AJ/AK. 87/K7 bloquean menos value."
+  },
+  {
+    "n": 29,
+    "tag": "ip-overbet-missed-oesd",
+    "heroPos": "BTN",
+    "villainPos": "SB",
+    "heroStack": 150,
+    "villainStack": 150,
+    "board": [
+      "9d",
+      "8d",
+      "3c",
+      "Kh",
+      "2s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → SB call → BB fold"
+      },
+      {
+        "street": "Flop",
+        "text": "9d 8d 3c — SB check → BTN c-bet 40% pot → SB call"
+      },
+      {
+        "street": "Turn",
+        "text": "Kh — SB check → BTN bet 70% pot → SB call"
+      },
+      {
+        "street": "River",
+        "text": "2s — SB check → BTN overbet 150% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Ad",
+          "5c"
+        ],
+        "label": "A5o"
+      },
+      {
+        "cards": [
+          "7h",
+          "6h"
+        ],
+        "label": "76s"
+      },
+      {
+        "cards": [
+          "Qc",
+          "Jc"
+        ],
+        "label": "QJs"
+      }
+    ],
+    "answer": 0,
+    "why": "Overbet: Ad bloquea nut flush. 76 miss OESD sin blocker; QJ no toca ♦."
+  },
+  {
+    "n": 30,
+    "tag": "mixed-donk-overbet-blocker",
+    "heroPos": "BB",
+    "villainPos": "BTN",
+    "heroStack": 100,
+    "villainStack": 100,
+    "board": [
+      "Ac",
+      "7c",
+      "4d",
+      "2h",
+      "9s"
+    ],
+    "line": [
+      {
+        "street": "Preflop",
+        "text": "BTN open 2,5 bb → BB call"
+      },
+      {
+        "street": "Flop",
+        "text": "Ac 7c 4d — BB donk 33% pot → BTN call"
+      },
+      {
+        "street": "Turn",
+        "text": "2h — BB bet 40% pot → BTN call"
+      },
+      {
+        "street": "River",
+        "text": "9s — BB overbet 120% pot"
+      }
+    ],
+    "options": [
+      {
+        "cards": [
+          "Kc",
+          "5d"
+        ],
+        "label": "K5o"
+      },
+      {
+        "cards": [
+          "6c",
+          "3h"
+        ],
+        "label": "63o"
+      },
+      {
+        "cards": [
+          "Qh",
+          "Jd"
+        ],
+        "label": "QJo"
+      }
+    ],
+    "answer": 0,
+    "why": "Overbet: Kc bloquea nut flush. 6c quita flushes flojos; QJ no."
+  }
+]

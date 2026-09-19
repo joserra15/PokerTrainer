@@ -15,6 +15,7 @@ Plan de promoción integral: plantillas, spots, carruseles, b-roll de la app y g
 | [`07-sprint-founder-oct/`](07-sprint-founder-oct/) | **Sprint 22 sep–5 oct**: Torneos IA · Reto IA Pro · FOUNDER 1 oct |
 | [`08-reel-aprende-cero/`](08-reel-aprende-cero/) | **Reel**: cold audience · desde cero · DM = 1 mes gratis |
 | [`09-villano-quiz/`](09-villano-quiz/) | **30 puzzles** ¿qué tiene el villano? + soluciones · ver [`CRITERIOS.md`](09-villano-quiz/CRITERIOS.md) |
+| [`10-farol-quiz/`](10-farol-quiz/) | **30 puzzles** ¿con qué faroleas mejor? (blockers) · [`CRITERIOS.md`](10-farol-quiz/CRITERIOS.md) |
 
 ## Orden de uso
 1. Configura bio + UTM (`05-semana-1/GUIONES_Y_CAPTIONS.md`)
