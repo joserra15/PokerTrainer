@@ -43,6 +43,12 @@
 
     if (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin'
       || (action && action.startsWith('bet_'))) {
+      /* All-in / bet residual (p.ej. 0.2 bb a bote 35): no es un sizing elegido;
+         castigar con «¼ del bote» inventaba fugas enormes (HU mano #50). */
+      const rem = Number(input.heroRemainingBB) || 0;
+      const dustCap = Math.max(1, pot * 0.08);
+      const dustJam = betSize > 0 && betSize <= dustCap
+        && (action === 'allin' || (rem > 0 && betSize >= rem - 0.02));
       // La acción «overbet» es sizing polar a propósito: no marcarla absurda/incoherente.
       if (action !== 'overbet' && betSize > pot * 1.5 && spr > 4) {
         errors.push({ type: 'overbet_absurda', msg: 'Overbet desproporcionada para el SPR actual.' });
@@ -54,11 +60,12 @@
         && (freqs.overbet || 0) < 0.15) {
         errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
       }
-      if (tier === 'strong' && betSize < pot * 0.2 && (action === 'bet' || action.startsWith('bet_'))) {
+      if (!dustJam && tier === 'strong' && betSize < pot * 0.2
+        && (action === 'bet' || action.startsWith('bet_'))) {
         errors.push({ type: 'valor_insuficiente', msg: 'Apuesta pequeña con mano fuerte — pérdida de extracción de valor.' });
       }
       const ideal = input.boardWet ? pot * 0.6 : pot * 0.4;
-      if (action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
+      if (!dustJam && action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
       if (tier === 'air' || tier === 'weak') {

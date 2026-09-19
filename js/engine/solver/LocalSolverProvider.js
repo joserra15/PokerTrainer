@@ -330,13 +330,26 @@
       // no inventar una fuga «suboptimal_ev» por un hueco EV residual.
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
-        evLoss = EvLoss.round2(evGap);
-        evErroneous = true;
-        evErrorReasons.push({
-          type: 'suboptimal_ev',
-          msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
-        });
-        if (mathParams) mathParams.deltaEV = evLoss;
+        let gapLoss = EvLoss.round2(evGap);
+        const risked = Math.max(
+          Number(enriched.betSizeBB) || 0,
+          Number(enriched.heroRemainingBB) || 0,
+          Number(enriched.toCallBB) || 0
+        );
+        const pot = Number(enriched.potBB) || 1;
+        const dustCap = Math.max(1, pot * 0.08);
+        if (risked > 0 && risked <= dustCap) {
+          gapLoss = EvLoss.round2(Math.min(gapLoss, risked));
+        }
+        if (gapLoss >= EV_TIE) {
+          evLoss = gapLoss;
+          evErroneous = true;
+          evErrorReasons.push({
+            type: 'suboptimal_ev',
+            msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
+          });
+          if (mathParams) mathParams.deltaEV = evLoss;
+        }
       }
 
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).

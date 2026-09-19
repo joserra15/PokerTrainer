@@ -184,6 +184,7 @@
       gto: strategy,
       optionBreakdown: breakdown,
       evLoss: Number(d.evLoss) || 0,
+      evErroneous: !!d.evErroneous,
       frequency: Number(d.frequency) || 0,
       explanation: d.explanation || null,
       context: d.context || null,
@@ -194,6 +195,10 @@
       toCallBB: input && input.toCallBB != null ? input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
       potBeforeBB: d.potBeforeBB != null ? d.potBeforeBB
         : (input && input.potBeforeBB != null ? input.potBeforeBB : null),
+      betSizeBB: d.betSizeBB != null ? d.betSizeBB
+        : (input && input.betSizeBB != null ? input.betSizeBB : null),
+      heroRemainingBB: d.heroRemainingBB != null ? d.heroRemainingBB
+        : (input && input.heroRemainingBB != null ? input.heroRemainingBB : null),
       spotKind: (input && input.spotKind) || d.spotKind || null,
       vsPosition: d.vsPosition || (input && input.vsPosition) || null,
       initiative: d.initiative || (input && input.initiative) || null,
@@ -366,7 +371,13 @@
     }).filter(Boolean);
 
     var totalEvLoss = 0;
-    decisions.forEach(function (d) { totalEvLoss += Number(d.evLoss) || 0; });
+    if (global.GTOEvLoss && typeof global.GTOEvLoss.totalEvLossFromDecisions === 'function') {
+      totalEvLoss = global.GTOEvLoss.totalEvLossFromDecisions(decisions);
+    } else {
+      decisions.forEach(function (d) {
+        if (d && d.evErroneous) totalEvLoss += Number(d.evLoss) || 0;
+      });
+    }
     totalEvLoss = r2(totalEvLoss);
 
     var heroNet = source.result && source.result.heroNet != null

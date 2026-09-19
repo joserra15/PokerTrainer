@@ -220,8 +220,15 @@
     var hands = (state && state.sessionHands) || [];
     return hands.slice()
       .filter(function (h) {
-        return (Number(h.totalEvLoss) || 0) > 0
-          || (h.decisions || []).some(function (d) { return LEAK_CLASSES[d && d.class]; });
+        if (!h) return false;
+        /* No listar manos «perfectas» (detalle 10/10) aunque totalEvLoss esté stale. */
+        if (h.handScoreMeta && h.handScoreMeta.allOptimal && (Number(h.totalEvLoss) || 0) <= 0.01) {
+          return false;
+        }
+        var hasLeak = (h.decisions || []).some(function (d) {
+          return d && LEAK_CLASSES[d.class] && !d.unscored;
+        });
+        return hasLeak || (Number(h.totalEvLoss) || 0) > 0.05;
       })
       .sort(function (a, b) {
         return (Number(b.totalEvLoss) || 0) - (Number(a.totalEvLoss) || 0);

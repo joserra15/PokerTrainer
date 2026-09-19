@@ -13251,16 +13251,34 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     if (cls === 'imprecisa' || cls === 'error') {
+      const riskedBB = Math.max(
+        Number(input.betSizeBB) || 0,
+        Number(input.heroRemainingBB) || 0,
+        Number(ctx.betSizeBB) || 0,
+        chosen === 'call' ? (Number(ctx.toCallBB) || 0) : 0
+      );
+      const potBB = Number(input.potBB) || Number(ctx.potBB) || 1;
+      const dustCap = Math.max(1, potBB * 0.08);
+      const isDustRisk = riskedBB > 0 && riskedBB <= dustCap;
+
       (stratErrors || []).forEach((e) => {
         if (e.type === 'valor_insuficiente' || e.type === 'sizing_incoherente') {
-          const sizingLoss = round2(Math.max(formula.formulaDelta, (input.potBB || 1) * 0.25));
+          let sizingLoss = round2(Math.max(formula.formulaDelta, potBB * 0.25));
+          /* Micro all-in / bet residual: la fuga no puede superar las fichas
+             arriesgadas (evita −8.82 bb por un all-in de 0.2 bb). */
+          if (isDustRisk) {
+            sizingLoss = round2(Math.max(formula.formulaDelta, riskedBB));
+          }
           if (sizingLoss >= EV_ERR_THRESHOLD_BB) {
             evLoss = round2(Math.max(evLoss, sizingLoss));
             reasons.push({ type: 'sizing_valor', msg: e.msg });
           }
         }
         if (e.type === 'bluff_sin_fold_equity' || e.type === 'bluff_excesivo') {
-          const bluffLoss = round2(Math.max(formula.formulaDelta, (input.betSizeBB || ctx.toCallBB || 0) * 0.9));
+          let bluffLoss = round2(Math.max(formula.formulaDelta, (input.betSizeBB || ctx.toCallBB || 0) * 0.9));
+          if (isDustRisk) {
+            bluffLoss = round2(Math.min(bluffLoss, Math.max(formula.formulaDelta, riskedBB)));
+          }
           if (bluffLoss >= EV_ERR_THRESHOLD_BB) {
             evLoss = round2(Math.max(evLoss, bluffLoss));
             reasons.push({ type: 'bluff_polarizado', msg: e.msg });
@@ -13650,6 +13668,12 @@ window.PT_NASH_PUSH_JSON = {
 
     if (action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin'
       || (action && action.startsWith('bet_'))) {
+      /* All-in / bet residual (p.ej. 0.2 bb a bote 35): no es un sizing elegido;
+         castigar con «¼ del bote» inventaba fugas enormes (HU mano #50). */
+      const rem = Number(input.heroRemainingBB) || 0;
+      const dustCap = Math.max(1, pot * 0.08);
+      const dustJam = betSize > 0 && betSize <= dustCap
+        && (action === 'allin' || (rem > 0 && betSize >= rem - 0.02));
       // La acción «overbet» es sizing polar a propósito: no marcarla absurda/incoherente.
       if (action !== 'overbet' && betSize > pot * 1.5 && spr > 4) {
         errors.push({ type: 'overbet_absurda', msg: 'Overbet desproporcionada para el SPR actual.' });
@@ -13661,11 +13685,12 @@ window.PT_NASH_PUSH_JSON = {
         && (freqs.overbet || 0) < 0.15) {
         errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
       }
-      if (tier === 'strong' && betSize < pot * 0.2 && (action === 'bet' || action.startsWith('bet_'))) {
+      if (!dustJam && tier === 'strong' && betSize < pot * 0.2
+        && (action === 'bet' || action.startsWith('bet_'))) {
         errors.push({ type: 'valor_insuficiente', msg: 'Apuesta pequeña con mano fuerte — pérdida de extracción de valor.' });
       }
       const ideal = input.boardWet ? pot * 0.6 : pot * 0.4;
-      if (action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
+      if (!dustJam && action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
       if (tier === 'air' || tier === 'weak') {
@@ -14222,13 +14247,26 @@ window.PT_NASH_PUSH_JSON = {
       // no inventar una fuga «suboptimal_ev» por un hueco EV residual.
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
-        evLoss = EvLoss.round2(evGap);
-        evErroneous = true;
-        evErrorReasons.push({
-          type: 'suboptimal_ev',
-          msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
-        });
-        if (mathParams) mathParams.deltaEV = evLoss;
+        let gapLoss = EvLoss.round2(evGap);
+        const risked = Math.max(
+          Number(enriched.betSizeBB) || 0,
+          Number(enriched.heroRemainingBB) || 0,
+          Number(enriched.toCallBB) || 0
+        );
+        const pot = Number(enriched.potBB) || 1;
+        const dustCap = Math.max(1, pot * 0.08);
+        if (risked > 0 && risked <= dustCap) {
+          gapLoss = EvLoss.round2(Math.min(gapLoss, risked));
+        }
+        if (gapLoss >= EV_TIE) {
+          evLoss = gapLoss;
+          evErroneous = true;
+          evErrorReasons.push({
+            type: 'suboptimal_ev',
+            msg: 'Acción con EV inferior a la óptima (ΔEV ' + evLoss + ' bb).'
+          });
+          if (mathParams) mathParams.deltaEV = evLoss;
+        }
       }
 
       // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).

@@ -600,6 +600,7 @@
         base.actionEV = result.evaluation.actionEV;
         base.bestEV = result.evaluation.bestEV;
       }
+      if (input.heroRemainingBB != null) base.heroRemainingBB = input.heroRemainingBB;
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
@@ -611,6 +612,7 @@
         stackBB: input.stackBB,
         stackDepth: input.stackDepth,
         betSizeBB: input.betSizeBB,
+        heroRemainingBB: input.heroRemainingBB,
         availableActions: (input.availableActions || []).slice(),
         chosenAction: input.chosenAction,
         initiative: input.initiative,
@@ -633,8 +635,14 @@
     var scored = list.filter(function (d) { return d && !d.unscored && d.class !== 'unscored'; });
     var totalEv = 0;
     var hits = 0;
+    if (global.GTOEvLoss && typeof global.GTOEvLoss.totalEvLossFromDecisions === 'function') {
+      totalEv = global.GTOEvLoss.totalEvLossFromDecisions(scored);
+    } else {
+      scored.forEach(function (d) {
+        if (d && d.evErroneous) totalEv += Number(d.evLoss) || 0;
+      });
+    }
     scored.forEach(function (d) {
-      totalEv += Number(d.evLoss) || 0;
       var cls = mapClass(d.class);
       if (cls === 'optima' || cls === 'aceptable') hits += 1;
       else if (d.frequency >= 0.25) hits += 1;
