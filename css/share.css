@@ -97,9 +97,10 @@ body {
 .net-pos { color: var(--green); font-weight: 800; }
 .net-neg { color: var(--red); font-weight: 800; }
 
-.review-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .review-head h2 { font-size: 20px; }
 .rec-cards { display: flex; gap: 4px; }
+.review-head .big-cards .card { width: 32px; height: 44px; font-size: 14px; }
 .big-cards .card { width: 50px; height: 70px; font-size: 20px; }
 
 .card {
@@ -366,7 +367,7 @@ body {
 }
 .pot-chips .chip-ico { width: 18px; height: 18px; }
 .board { display: flex; gap: 6px; justify-content: center; min-height: 56px; }
-.session-replay-table .table-felt { min-height: 340px; }
+.session-replay-table .table-felt { min-height: 420px; }
 
 .hero-area { text-align: center; z-index: 3; position: relative; flex-shrink: 0; }
 .hero-label {
@@ -473,5 +474,6 @@ body {
   .seat { min-width: 56px; padding: 4px 6px; }
   .seat .seat-pos { font-size: 10px; }
   .seat-cards .card { width: 18px; height: 26px; }
+  .review-head .big-cards .card { width: 28px; height: 40px; font-size: 12px; }
   .big-cards .card { width: 40px; height: 56px; font-size: 16px; }
 }

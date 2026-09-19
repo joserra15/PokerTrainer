@@ -11687,11 +11687,11 @@ function reducedMotion() {
   ];
   var SEAT_COORDS_MOBILE_6 = [
     { top: 94, left: 50 },
-    { top: 70, left: 3 },
-    { top: 32, left: 2 },
-    { top: 5, left: 22 },
-    { top: 5, left: 78 },
-    { top: 32, left: 98 }
+    { top: 78, left: 5 },
+    { top: 30, left: 3 },
+    { top: 8, left: 28 },
+    { top: 8, left: 72 },
+    { top: 42, left: 96 }
   ];
   var SEAT_COORDS_MOBILE_3 = [
     { top: 94, left: 50 },

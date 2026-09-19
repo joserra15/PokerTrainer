@@ -3170,16 +3170,35 @@ body.age-gate-open {
 .pot-chips .chip + .chip { margin-left: -10px; }
 .board { display: flex; gap: 7px; justify-content: center; min-height: 64px; }
 .spot-context { margin-top: 10px; font-size: 13px; color: #dfe7ef; max-width: 460px; }
-.session-replay-table .table-felt { min-height: 340px; }
-.session-replay-theme-wrap {
-  display: flex; justify-content: center; margin: 0 0 10px;
-}
-.session-replay-theme { justify-content: center; }
+.session-replay-table .table-felt { min-height: 420px; }
 .session-street-log { font-size: 13px; color: #dfe7ef; margin: 10px 0 6px; line-height: 1.5; }
 .session-street-act { white-space: nowrap; }
 .session-spot-head { margin: 8px 0 10px; }
 .session-spot-head strong { font-size: 15px; color: var(--gold); }
 .session-spot-head .spot-context { margin-top: 6px; }
+
+/* Paso a paso: presencia de mesa tipo torneo (sin roles/clicks). */
+.review-play-like .table-felt:not(.table-9max) .seat-cards .card {
+  width: 30px;
+  height: 42px;
+}
+.review-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
+  width: 36px;
+  height: 50px;
+  font-size: 16px;
+}
+.review-play-like .seat .seat-body {
+  gap: 2px;
+}
+.review-play-like .hero-area .seat-bet {
+  position: relative;
+  left: auto;
+  right: auto;
+  top: auto;
+  bottom: auto;
+  transform: none;
+  margin: 0 auto 6px;
+}
 
 
 .hero-area { text-align: center; z-index: 3; position: relative; flex-shrink: 0; }
@@ -3442,6 +3461,7 @@ body.age-gate-open {
   gap: 8px; margin-bottom: 4px;
 }
 .hero-chips .seat-chips { margin: 0; }
+.hero-chips .seat-bet { margin: 0 auto; }
 .seat.folded { opacity: 0.88; }
 .seat.folded .seat-cards .card { display: none; }
 .seat-folded-mark {
@@ -4075,7 +4095,9 @@ body.paywall-open { overflow: hidden; }
 .mini-hand .rec-cards .card { width: 24px; height: 34px; font-size: 11px; }
 .mini-hand > span:nth-child(2) { flex: 1; }
 
-.review-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+.review-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+/* Cabecera compacta: las cartas grandes viven en el tapete (.hero-cards). */
+.review-head .big-cards .card { width: 32px; height: 44px; font-size: 14px; }
 .big-cards .card { width: 50px; height: 70px; font-size: 20px; }
 
 .timeline { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
@@ -4401,7 +4423,18 @@ body.paywall-open { overflow: hidden; }
   .stats-content { grid-template-columns: 1fr 1fr; }
   .top-hands { grid-template-columns: 1fr; }
   .tl-player { min-width: 110px; }
-  .review-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .review-head { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .review-head .big-cards .card { width: 28px; height: 40px; font-size: 12px; }
+  .session-replay-table .table-felt { min-height: 380px; }
+  .review-play-like .table-felt:not(.table-9max) .seat-cards .card {
+    width: 28px;
+    height: 40px;
+  }
+  .review-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
+    width: 32px;
+    height: 44px;
+    font-size: 13px;
+  }
   .import-row input[type=file] { width: 100%; }
 
   /* Estadísticas — gráficas legibles en móvil (excepto carrusel rediseñado) */
