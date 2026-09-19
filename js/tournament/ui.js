@@ -1387,8 +1387,8 @@ function reducedMotion() {
   ];
   var SEAT_COORDS_MOBILE_6 = [
     { top: 94, left: 50 },
-    { top: 72, left: 4 },
-    { top: 36, left: 3 },
+    { top: 78, left: 5 },
+    { top: 30, left: 3 },
     { top: 8, left: 28 },
     { top: 8, left: 72 },
     { top: 42, left: 96 }
