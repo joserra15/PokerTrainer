@@ -103,12 +103,12 @@ const pfStrat = PF.pushFoldStrategy({
 assert.ok(Math.max(pfStrat.raise || 0, pfStrat.allin || 0) > 0.5, 'AA shove');
 assert.ok(!((pfStrat.raise || 0) > 0.05 && (pfStrat.allin || 0) > 0.05), 'no dual raise+allin');
 
-// vsRFI push: fold/call/shove (villano abre 2.5bb, no all-in)
+// vsRFI push: fold/call vs jam (scenario push = shove del villano; charts ICM/burbuja)
 const pfVsOpen = PF.pushFoldStrategy({
   handCode: 'AA', position: 'BB', effStack: 10, toCallBB: 1.5, openerPos: 'BTN'
 });
-assert.ok((pfVsOpen.allin || 0) > 0.5, 'AA 3-bet shove vs open corto');
-assert.ok((pfVsOpen.call || 0) < (pfVsOpen.allin || 0), 'shove > call con AA vs open');
+assert.ok((pfVsOpen.allin || 0) > 0.5, 'AA 3-bet shove vs open corto (chart)');
+assert.ok((pfVsOpen.call || 0) < (pfVsOpen.allin || 0), 'shove > call con AA vs open (chart)');
 
 function assertPushVsRfiOptions(hub, label) {
   const cfg = PC.normalize({
@@ -121,8 +121,10 @@ function assertPushVsRfiOptions(hub, label) {
   const ids = (hand.current.options || []).map((o) => o.id);
   assert.ok(ids.indexOf('fold') >= 0, label + ' fold');
   assert.ok(ids.indexOf('call') >= 0, label + ' call');
-  assert.ok(ids.indexOf('allin') >= 0, label + ' shove/allin vs open');
-  assert.ok(/shove/i.test((hand.current.options.find((o) => o.id === 'allin') || {}).label || ''), label + ' label shove');
+  assert.ok(ids.indexOf('allin') < 0 && ids.indexOf('raise') < 0, label + ' solo fold/call vs jam');
+  assert.ok(hand.current.facingAllIn || hand.current.toCallBB >= 6, label + ' toCall de shove');
+  assert.ok(hand.villainAction && hand.villainAction.type === 'allin', label + ' villano all-in');
+  assert.ok(/shove|all-in/i.test(hand.current.context || ''), label + ' contexto vs shove');
 }
 assertPushVsRfiOptions('spin', 'spin push vsRFI');
 assertPushVsRfiOptions('mtt', 'mtt push vsRFI');

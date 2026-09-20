@@ -5470,10 +5470,13 @@ window.PT_NASH_PUSH_JSON = {
     if (nash) {
       const out = {};
       Object.keys(nash).forEach(function (code) {
-        let w = pressureAdjust(nash[code], input, 'call');
-        // 15–25bb: recortar semibluffs / connectors del chart corto.
+        const raw = Number(nash[code]) || 0;
+        let w = raw;
+        // 15–25bb: recortar semibluffs / connectors del chart corto (no premiums ~1.0).
         if (bb > 14 && w > 0 && w < 0.92) w = Math.max(0, w - 0.25);
         if (bb > 18 && w > 0 && w < 0.98) w = Math.max(0, w - 0.15);
+        // ICM/burbuja después: aprieta calls, pero AK/QQ+ siguen pagando.
+        w = pressureAdjust(w, input, 'call');
         out[code] = w;
       });
       return out;
@@ -22618,6 +22621,10 @@ window.PT_NASH_PUSH_JSON = {
     input.pushFold = input.preflopMode === 'push';
     input.stealMode = input.preflopMode === 'steal' || input.preflopMode === 'stealDefense';
     const PF = global.GTOPushFold;
+    if (node.facingAllIn || node.villainAllIn) {
+      input.facingAllIn = true;
+      input.villainAllIn = true;
+    }
     if (PF && PF.isFacingShove && PF.isFacingShove(input)) {
       input.facingAllIn = true;
       input.pushFold = true;
@@ -23513,6 +23520,10 @@ window.PT_NASH_PUSH_JSON = {
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
     initHandStacks(hand);
+    // setupVsRFI corre antes de cartas/stacks: recalcular GTO vs jam con mano real.
+    if (hand.current && hand.current.kind === 'vsRFI' && hand.current.facingAllIn) {
+      hand.current.gto = strategyForNode(hand, hand.current);
+    }
     syncVillainMeta(hand);
     if (force && force.forceDeal) {
       const villainSeatBefore = hand.villain && hand.villain.pos;
@@ -23956,7 +23967,17 @@ window.PT_NASH_PUSH_JSON = {
     ensureOpenerOpenHand(hand, opener);
     hand.villain.rangeStr = openRangeStr(opener, hand);
     initVillainTracker(hand);
-    const openSize = openSizeForPos(hand, opener);
+    const mode = preflopSizingMode(hand);
+    const stackBB = round2(effStackForHand(hand));
+    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
+    // Escenario explícito «push» + vsRFI = call/fold vs shove (ICM/burbuja Escuela).
+    // No confundir con 3bet/stealDefense a stack corto que resuelve mode=push:
+    // ahí el villano sigue abriendo ~2.5 y el héroe puede 3-bet shove.
+    const cfgSc = (hand.playConfig && hand.playConfig.scenario) || '';
+    const facingJam = mode === 'push' && cfgSc === 'push';
+    const openSize = facingJam
+      ? Math.max(stackBB, openSizeForPos(hand, opener))
+      : openSizeForPos(hand, opener);
 
     // contribuciones: villano abrió a openSize; ciegas puestas
     const heroBlind = hero === 'SB' ? SB : (hero === 'BB' ? BBET : 0);
@@ -23976,14 +23997,29 @@ window.PT_NASH_PUSH_JSON = {
     hand.toCallBB = round2(openSize - heroBlind);
 
     const threeBetSize = threeBetSizeBb(hand, openSize, hero);
-    const freqs = strategyForNode(hand, { street: 'preflop', kind: 'vsRFI', potBB: hand.potBB, toCallBB: hand.toCallBB });
-    const mode = preflopSizingMode(hand);
-    const stackBB = round2(effStackForHand(hand));
-    const fmt = global.GTOPotMath ? global.GTOPotMath.formatBB : (x) => String(round2(x));
+    const probeOptions = facingJam
+      ? [{ id: 'fold' }, { id: 'call' }]
+      : (mode === 'push' || mode === 'stealDefense'
+        ? [{ id: 'fold' }, { id: 'call' }, { id: 'allin' }]
+        : [{ id: 'fold' }, { id: 'call' }, { id: 'raise' }]);
+    const freqs = strategyForNode(hand, {
+      street: 'preflop',
+      kind: 'vsRFI',
+      potBB: hand.potBB,
+      toCallBB: hand.toCallBB,
+      options: probeOptions,
+      facingAllIn: facingJam
+    });
     let options;
     let context;
-    if (mode === 'push') {
-      // Villano abre a 2.5/3bb (no shove): fold / call / 3-bet shove — MTT y spins push.
+    if (facingJam) {
+      options = [
+        { id: 'fold', label: 'Fold (retirarse)' },
+        { id: 'call', label: `Call (igualar ${fmt(hand.toCallBB)}bb)` }
+      ];
+      context = `Eres ${hero}. ${opener} shoves all-in a ${fmt(openSize)}bb (~${fmt(stackBB)}bb efectivos). ¿Fold o call?`;
+    } else if (mode === 'push') {
+      // Villano abre a 2.5/3bb (no shove): fold / call / 3-bet shove — MTT y spins push corto.
       options = [
         { id: 'fold', label: 'Fold (retirarse)' },
         { id: 'call', label: `Call (igualar ${hand.toCallBB}bb)` },
@@ -24012,12 +24048,14 @@ window.PT_NASH_PUSH_JSON = {
       toCallBB: hand.toCallBB,
       openSize,
       threeBetSize,
+      facingAllIn: facingJam,
       options,
       gto: freqs,
       context
     };
-    setVillainAct(hand, 'open', openSize);
-    seedLineAction(hand, villainTableSeat(hand) || opener, 'open', openSize);
+    const vAct = facingJam ? 'allin' : 'open';
+    setVillainAct(hand, vAct, openSize);
+    seedLineAction(hand, villainTableSeat(hand) || opener, vAct, openSize);
     addInvest(hand, opener, openSize);
     setPreflopSeatBet(hand, opener, openSize);
     markPreflopFoldsForFacingAction(hand, opener);
@@ -24592,13 +24630,20 @@ window.PT_NASH_PUSH_JSON = {
       }
       if (actionId === 'call') {
         delete hand._forceOpenerFourBet;
-        setHeroAct(hand, 'call', node.toCallBB);
+        const callPutsAllIn = !!(node.facingAllIn
+          || (node.toCallBB > 0 && node.toCallBB >= heroRemainingBB(hand) - 0.01));
+        setHeroAct(hand, callPutsAllIn ? 'allin' : 'call', callPutsAllIn ? node.openSize : node.toCallBB);
         hand.heroIsAggressor = false; // el villano (abridor) es el agresor
         hand.heroInvested = node.openSize;
         hand.villainInvested = node.openSize;
         addInvest(hand, hero, node.toCallBB);
         setPreflopSeatBet(hand, hero, node.openSize);
         hand.heroInPosition = inPos(hero, opener);
+        if (callPutsAllIn) {
+          resolvePendingAfterHero(hand);
+          recalcPot(hand);
+          return allInShowdown(hand);
+        }
         if (hand._multiwayPendingCallers && hand._multiwayPendingCallers.length && MW() && MW().allowMultiway(hand)) {
           const openSize = hand._multiwayOpenSize || node.openSize || configuredOpenSize(hand);
           const extras = hand._multiwayPendingCallers.filter(function (c) { return c !== opener && c !== hero; });

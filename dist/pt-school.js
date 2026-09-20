@@ -7537,7 +7537,7 @@
   PACKS['T-14'] = [
     R('t14-01', 'BTN', ['Kc', 'Ts'], 74401, 'Big stack BTN KTo: steal. Presión ICM = fold equity, no call light.', big45),
     R('t14-02', 'BTN', ['5d', '3c'], 74402, '53o big: fold. Presión ≠ pagar/abrir basura.', big45, 'dominated'),
-    R('t14-03', 'CO', ['As', '6s'], 74403, 'Big CO A6s: open/steal. Castigas mids que overfoldean.', big45),
+    R('t14-03', 'CO', ['As', '5s'], 74403, 'Big CO A5s: open/steal. Castigas mids que overfoldean.', big45),
     V('t14-04', 'BB_vs_BTN', ['Qd', '9c'], 74404, 'Big vs open: Q9o fold. Si el short ya está committed, no regales el doble.', vsBig, 'fancy_play'),
     V('t14-05', 'BB_vs_BTN', ['Kd', 'Kh'], 74405, 'KK big vs open: 3-bet value. Cobra; no flat eterno por “presión”.', vsBig),
     R('t14-06', 'SB', ['Qd', 'Td'], 74406, 'Big SB QTs: open frecuente. Presión desde ciegas con broadway.', big45),
