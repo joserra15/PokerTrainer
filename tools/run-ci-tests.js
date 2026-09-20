@@ -25,6 +25,7 @@ const STEPS = [
   ['Regresión tablas de rangos (dominancia/tokens/scoring)', ['node', 'tools/test-range-tables.js']],
   ['Regresión EV Poker76', ['node', 'tools/regression-poker76.js']],
   ['Regresión EV modo Jugar', ['node', 'tools/test-play-ev.js']],
+  ['Regresión all-in residual EV (HU peores manos)', ['node', 'tools/test-dust-allin-ev-loss.js']],
   ['Test payload informe IA', ['node', 'tools/test-ai-payload.js']],
   ['Test saludo ForgeCoach caché 8h', ['node', 'tools/test-home-greeting-cache.js']],
   ['Test river trips board doblado', ['node', 'tools/test-river-trips.js']],

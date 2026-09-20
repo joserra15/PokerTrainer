@@ -1926,6 +1926,7 @@
         base.actionEV = result.evaluation.actionEV;
         base.bestEV = result.evaluation.bestEV;
       }
+      if (input.heroRemainingBB != null) base.heroRemainingBB = input.heroRemainingBB;
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
@@ -1937,6 +1938,7 @@
         stackBB: input.stackBB,
         stackDepth: input.stackDepth,
         betSizeBB: input.betSizeBB,
+        heroRemainingBB: input.heroRemainingBB,
         availableActions: (input.availableActions || []).slice(),
         chosenAction: input.chosenAction,
         initiative: input.initiative,
@@ -1959,8 +1961,14 @@
     var scored = list.filter(function (d) { return d && !d.unscored && d.class !== 'unscored'; });
     var totalEv = 0;
     var hits = 0;
+    if (global.GTOEvLoss && typeof global.GTOEvLoss.totalEvLossFromDecisions === 'function') {
+      totalEv = global.GTOEvLoss.totalEvLossFromDecisions(scored);
+    } else {
+      scored.forEach(function (d) {
+        if (d && d.evErroneous) totalEv += Number(d.evLoss) || 0;
+      });
+    }
     scored.forEach(function (d) {
-      totalEv += Number(d.evLoss) || 0;
       var cls = mapClass(d.class);
       if (cls === 'optima' || cls === 'aceptable') hits += 1;
       else if (d.frequency >= 0.25) hits += 1;
@@ -8647,6 +8655,7 @@
       gto: strategy,
       optionBreakdown: breakdown,
       evLoss: Number(d.evLoss) || 0,
+      evErroneous: !!d.evErroneous,
       frequency: Number(d.frequency) || 0,
       explanation: d.explanation || null,
       context: d.context || null,
@@ -8657,6 +8666,10 @@
       toCallBB: input && input.toCallBB != null ? input.toCallBB : (d.toCallBB != null ? d.toCallBB : null),
       potBeforeBB: d.potBeforeBB != null ? d.potBeforeBB
         : (input && input.potBeforeBB != null ? input.potBeforeBB : null),
+      betSizeBB: d.betSizeBB != null ? d.betSizeBB
+        : (input && input.betSizeBB != null ? input.betSizeBB : null),
+      heroRemainingBB: d.heroRemainingBB != null ? d.heroRemainingBB
+        : (input && input.heroRemainingBB != null ? input.heroRemainingBB : null),
       spotKind: (input && input.spotKind) || d.spotKind || null,
       vsPosition: d.vsPosition || (input && input.vsPosition) || null,
       initiative: d.initiative || (input && input.initiative) || null,
@@ -8829,7 +8842,13 @@
     }).filter(Boolean);
 
     var totalEvLoss = 0;
-    decisions.forEach(function (d) { totalEvLoss += Number(d.evLoss) || 0; });
+    if (global.GTOEvLoss && typeof global.GTOEvLoss.totalEvLossFromDecisions === 'function') {
+      totalEvLoss = global.GTOEvLoss.totalEvLossFromDecisions(decisions);
+    } else {
+      decisions.forEach(function (d) {
+        if (d && d.evErroneous) totalEvLoss += Number(d.evLoss) || 0;
+      });
+    }
     totalEvLoss = r2(totalEvLoss);
 
     var heroNet = source.result && source.result.heroNet != null
@@ -9431,8 +9450,15 @@
     var hands = (state && state.sessionHands) || [];
     return hands.slice()
       .filter(function (h) {
-        return (Number(h.totalEvLoss) || 0) > 0
-          || (h.decisions || []).some(function (d) { return LEAK_CLASSES[d && d.class]; });
+        if (!h) return false;
+        /* No listar manos «perfectas» (detalle 10/10) aunque totalEvLoss esté stale. */
+        if (h.handScoreMeta && h.handScoreMeta.allOptimal && (Number(h.totalEvLoss) || 0) <= 0.01) {
+          return false;
+        }
+        var hasLeak = (h.decisions || []).some(function (d) {
+          return d && LEAK_CLASSES[d.class] && !d.unscored;
+        });
+        return hasLeak || (Number(h.totalEvLoss) || 0) > 0.05;
       })
       .sort(function (a, b) {
         return (Number(b.totalEvLoss) || 0) - (Number(a.totalEvLoss) || 0);
