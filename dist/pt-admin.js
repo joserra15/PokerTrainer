@@ -1664,23 +1664,57 @@
     return isFinite(bal) ? bal : 0;
   }
 
-  function renderKoinsEditForm(profile, tournaments, communities) {
+  function communityKoinsBalanceMap(communityKoins) {
+    var map = {};
+    (communityKoins || []).forEach(function (row) {
+      if (!row || !row.community_id) return;
+      var bal = Number(row.balance);
+      map[row.community_id] = isFinite(bal) ? bal : 0;
+    });
+    return map;
+  }
+
+  function communityKoinsLabel(id) {
+    if (id === 'mttlab') return 'MTT LAB';
+    if (id === 'pokerforge') return 'PokerForge';
+    return id || 'PokerForge';
+  }
+
+  function renderKoinsEditForm(profile, tournaments, communities, communityKoins) {
     var uid = profile && profile.user_id;
     if (!uid || uid === DEMO_USER_ID) {
       return '<p class="muted-text">No se pueden editar Koins del usuario demo.</p>';
     }
-    var bal = currentKoinsBalance(tournaments);
+    var balMap = communityKoinsBalanceMap(communityKoins);
+    var pfBal = balMap.pokerforge != null ? balMap.pokerforge : currentKoinsBalance(tournaments);
+    if (balMap.pokerforge == null) balMap.pokerforge = pfBal;
     var opts = [{ id: 'pokerforge', label: 'PokerForge' }];
     var seen = { pokerforge: true };
     (communities || []).forEach(function (c) {
       var id = (c && (c.community_id || c.id)) || '';
       if (!id || seen[id] || c.status === 'revoked') return;
       seen[id] = true;
-      opts.push({ id: id, label: id === 'mttlab' ? 'MTT LAB' : id });
+      opts.push({ id: id, label: communityKoinsLabel(id) });
+      if (balMap[id] == null) balMap[id] = 0;
     });
-    if (!seen.mttlab) opts.push({ id: 'mttlab', label: 'MTT LAB' });
-    return '<p class="muted-text">Saldo actual (PokerForge): <strong>' + escapeHtml(formatActivityNumber(bal, 2)) + '</strong> Koins</p>' +
-      '<div class="admin-gift-bonus-form admin-koins-edit-form">' +
+    (communityKoins || []).forEach(function (row) {
+      var id = row && row.community_id;
+      if (!id || seen[id]) return;
+      seen[id] = true;
+      opts.push({ id: id, label: row.label || communityKoinsLabel(id) });
+    });
+    if (!seen.mttlab) {
+      opts.push({ id: 'mttlab', label: 'MTT LAB' });
+      if (balMap.mttlab == null) balMap.mttlab = 0;
+    }
+    var balAttrs = opts.map(function (o) {
+      var b = balMap[o.id];
+      if (b == null) b = 0;
+      return 'data-koins-' + escapeHtml(o.id) + '="' + escapeHtml(String(b)) + '"';
+    }).join(' ');
+    return '<p class="muted-text" id="admin-koins-current-label">Saldo actual (<span id="admin-koins-current-community">PokerForge</span>): <strong id="admin-koins-current-balance">' +
+      escapeHtml(formatActivityNumber(pfBal, 2)) + '</strong> Koins</p>' +
+      '<div class="admin-gift-bonus-form admin-koins-edit-form" ' + balAttrs + '>' +
       '<label class="admin-gift-label" for="admin-koins-community">Comunidad</label>' +
       '<select id="admin-koins-community" class="admin-gift-input">' +
       opts.map(function (o) {
@@ -1694,12 +1728,12 @@
       '</select>' +
       '<label class="admin-gift-label" for="admin-koins-amount">Cantidad</label>' +
       '<input type="number" id="admin-koins-amount" class="admin-gift-input" min="-1000000" max="1000000" step="0.01" value="' +
-      escapeHtml(String(bal)) + '" inputmode="decimal">' +
+      escapeHtml(String(pfBal)) + '" inputmode="decimal">' +
       '<button type="button" class="btn btn-primary btn-sm" data-admin-set-koins data-user-id="' +
       escapeHtml(uid) + '">Guardar Koins</button>' +
       '</div>' +
       '<p class="muted-text admin-gift-note">Actualiza el wallet en la nube y el ranking de la comunidad. ' +
-      'En «Sumar / restar» usa números negativos para restar. Se notifica al usuario en Contacto.</p>';
+      'En «Sumar / restar» usa números negativos para restar. Se notifica al usuario en Contacto de esa comunidad.</p>';
   }
 
   function renderUserDetail(data) {
@@ -1715,6 +1749,7 @@
     var school = (activity && activity.school) || data.school || null;
     var featureUsage = (activity && activity.feature_usage) || data.feature_usage || null;
     var tournaments = data.tournaments || null;
+    var communityKoins = data.community_koins || [];
     var cached = adminUsersCache.filter(function (x) { return x && x.user_id === p.user_id; })[0];
     var pushOn = userHasPush(cached);
     var pushDevices = cached ? (Number(cached.push_devices) || 0) : 0;
@@ -1849,7 +1884,7 @@
       '<div class="admin-detail-section"><h4>Actividad de juego</h4>' + renderActivitySection(activity) + '</div>' +
       '<div class="admin-detail-section"><h4>Escuela de Póker</h4>' + renderSchoolSection(school) + '</div>' +
       '<div class="admin-detail-section"><h4>Torneos</h4>' + renderTournamentUsageSection(tournaments) + '</div>' +
-      '<div class="admin-detail-section"><h4>Editar Koins</h4>' + renderKoinsEditForm(p, tournaments, cms) + '</div>' +
+      '<div class="admin-detail-section"><h4>Editar Koins</h4>' + renderKoinsEditForm(p, tournaments, cms, communityKoins) + '</div>' +
       '<div class="admin-detail-section"><h4>Uso de funciones</h4>' + renderFeatureUsageSection(featureUsage) + '</div>' +
       '<div class="admin-detail-section"><h4>Promoción de registro</h4>' + promoHtml + '</div>' +
       '<div class="admin-detail-section"><h4>Cupo IA este mes</h4>' + quotaHtml + '</div>' +
@@ -1981,6 +2016,37 @@
         setUserKoins(uid, amount, communityId, mode);
       });
     }
+    var koinsCommunity = host.querySelector('#admin-koins-community');
+    if (koinsCommunity) {
+      var syncKoinsCommunityUi = function () {
+        var form = host.querySelector('.admin-koins-edit-form');
+        var cid = String(koinsCommunity.value || 'pokerforge');
+        var balRaw = form ? form.getAttribute('data-koins-' + cid) : null;
+        var bal = balRaw != null && balRaw !== '' ? Number(balRaw) : 0;
+        if (!isFinite(bal)) bal = 0;
+        var labelCommunity = host.querySelector('#admin-koins-current-community');
+        var labelBal = host.querySelector('#admin-koins-current-balance');
+        var amountEl = host.querySelector('#admin-koins-amount');
+        var modeEl = host.querySelector('#admin-koins-mode');
+        if (labelCommunity) labelCommunity.textContent = communityKoinsLabel(cid);
+        if (labelBal) labelBal.textContent = formatActivityNumber(bal, 2);
+        if (amountEl && modeEl && String(modeEl.value || 'set') === 'set') {
+          amountEl.value = String(bal);
+        }
+      };
+      koinsCommunity.addEventListener('change', syncKoinsCommunityUi);
+      var koinsMode = host.querySelector('#admin-koins-mode');
+      if (koinsMode) {
+        koinsMode.addEventListener('change', function () {
+          if (String(koinsMode.value || 'set') === 'add') {
+            var amountEl = host.querySelector('#admin-koins-amount');
+            if (amountEl) amountEl.value = '0';
+          } else {
+            syncKoinsCommunityUi();
+          }
+        });
+      }
+    }
     var pushBtn = host.querySelector('#admin-push-test');
     if (pushBtn) {
       pushBtn.addEventListener('click', function () {
@@ -1995,12 +2061,17 @@
     var title = String(opts.subject || 'PokerForgeAI').slice(0, 80);
     var preview = String(opts.body || '').replace(/\s+/g, ' ').trim().slice(0, 140);
     if (!preview) preview = 'Tienes un mensaje nuevo.';
+    var communityId = String(opts.communityId || opts.community_id || '').toLowerCase().trim();
+    var url = './?source=push&tab=contact';
+    if (communityId && communityId !== 'pokerforge') {
+      url = './?app=' + encodeURIComponent(communityId) + '&source=push&tab=contact';
+    }
     global.PTPush.notifyUsers({
       allUsers: !!opts.allUsers,
       userIds: opts.userIds || [],
       title: title,
       body: preview,
-      url: './?source=push&tab=contact',
+      url: url,
       tag: 'admin-msg',
       campaign: 'admin_message'
     }).catch(function () { /* el mensaje ya se envió; el push no debe bloquear */ });
@@ -2114,7 +2185,8 @@
       notifyAdminMessagePush({
         userIds: [userId],
         subject: 'Ajuste de Koins',
-        body: 'Un administrador ha actualizado tu saldo de Koins. Ábrelo en Contacto.'
+        body: 'Un administrador ha actualizado tu saldo de Koins. Ábrelo en Contacto.',
+        communityId: data.community_id || communityId
       });
     }
     alert(
@@ -2183,7 +2255,15 @@
       host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
       return;
     }
-    renderUserDetail(res.data);
+    var detail = res.data || {};
+    try {
+      var koinsRes = await c.rpc('pt_admin_user_koins_by_community', { p_user_id: userId });
+      if (!koinsRes.error && koinsRes.data && koinsRes.data.communities) {
+        detail.community_koins = koinsRes.data.communities;
+      }
+    } catch (eKoins) { /* detalle usable sin saldos extra */ }
+    if (!requireAdminAccess()) return;
+    renderUserDetail(detail);
   }
 
   function bindUserActions() {

@@ -41,6 +41,10 @@ assert.ok(/function peek/.test(walletSrc), 'wallet.peek');
 assert.ok(/isDefault/.test(walletSrc), 'snapshot default sin persistir');
 assert.ok(/silent:\s*true/.test(walletSrc) || /opts\.silent/.test(walletSrc),
   'merge cloud silent');
+assert.ok(/ensurePersisted/.test(walletSrc), 'ensurePersisted solo al mutar');
+assert.ok(/admin_set_koins/.test(walletSrc), 'merge respeta admin_set_koins');
+assert.ok(/Solo en memoria|no persiste/.test(walletSrc) ||
+  /persistir un 0/.test(walletSrc), 'ensure no inventa dirty');
 
 const storeSrc = read('js/tournament/store.js');
 assert.ok(/mergeFromCloud/.test(storeSrc), 'store.mergeFromCloud');
@@ -118,6 +122,26 @@ assert.ok(Store && W && T, 'modules loaded');
   };
   W.mergeFromCloud(older);
   assert.strictEqual(W.getBalance(), 247, 'local más reciente conserva saldo');
+}
+
+/* --- ensure() no inventa wallet local; admin_set_koins gana al merge --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-admin-koins');
+  assert.strictEqual(W.peek(), null, 'peek vacío antes de ensure');
+  assert.strictEqual(W.getBalance(), 0, 'getBalance en memoria');
+  assert.strictEqual(W.peek(), null, 'ensure no persiste wallet vacío');
+  assert.strictEqual(localStore[W.storageKey()], undefined, 'localStorage sin wallet inventado');
+
+  W.mergeFromCloud({
+    balance: 500,
+    updatedAt: '2026-05-01T12:00:00.000Z',
+    tournamentsPlayed: 0,
+    trainerHands: 0,
+    lessonAwards: {},
+    last: { type: 'admin_set_koins', mode: 'add', delta: 500 }
+  });
+  assert.strictEqual(W.peek().balance, 500, 'merge adopta crédito admin');
 }
 
 /* --- trainerHands monótono: remoto antiguo/bajo no borra progreso local --- */

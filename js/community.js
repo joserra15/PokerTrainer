@@ -504,28 +504,36 @@
     return res.data || { ok: false, allowed: false };
   }
 
+  function isPlatformAdmin() {
+    var user = (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) || global.PT_AUTH_USER;
+    return !!(user && user.isAdmin);
+  }
+
   /**
    * Gate síncrono de navegación (menús + ACCESS_CACHE).
    * No hace RPC: el backend autoriza al cargar datos; aquí solo UX.
+   * Admin es panel de plataforma: los isAdmin pueden abrirlo (goToTab
+   * cambia a PokerForge si hace falta).
    */
   function canOpenTab(tabId) {
     if (global.PT_E2E_MODE) return { ok: true, allowed: true };
     var cfg = config();
+    if (tabId === 'admin') {
+      return isPlatformAdmin()
+        ? { ok: true, allowed: true }
+        : { ok: false, allowed: false, error: 'forbidden' };
+    }
     if (cfg && cfg.menus) {
       if (cfg.menus.hide && cfg.menus.hide.indexOf(tabId) >= 0) {
         return { ok: false, allowed: false, error: 'tab_hidden' };
       }
       if (cfg.menus.show && cfg.menus.show.indexOf(tabId) < 0 &&
-          tabId !== 'home' && tabId !== 'account' && tabId !== 'admin') {
+          tabId !== 'home' && tabId !== 'account') {
         return { ok: false, allowed: false, error: 'tab_hidden' };
       }
     }
-    if (tabId === 'admin' && ACTIVE !== 'pokerforge') {
-      return { ok: false, allowed: false, error: 'forbidden' };
-    }
     if (tabId === 'manager') {
-      var user = (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) || global.PT_AUTH_USER;
-      var admin = !!(user && user.isAdmin);
+      var admin = isPlatformAdmin();
       if (!(isManager() || admin)) {
         return { ok: false, allowed: false, error: 'forbidden' };
       }
@@ -613,7 +621,8 @@
     return true;
   }
 
-  async function switchTo(communityId) {
+  async function switchTo(communityId, opts) {
+    opts = opts || {};
     var next = normalizeId(communityId);
     var ids = accessibleIds();
     if (ids.indexOf(next) < 0 && next !== 'pokerforge') {
@@ -631,7 +640,9 @@
     applyMenus();
     cleanEntryUrl();
     global.dispatchEvent(new CustomEvent('pt-community-switch', { detail: { id: next } }));
-    if (global.goToTab) global.goToTab('home');
+    if (!opts.skipNavigate && global.goToTab) {
+      global.goToTab(opts.tab || 'home');
+    }
     return true;
   }
 

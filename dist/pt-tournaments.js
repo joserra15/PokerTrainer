@@ -8050,12 +8050,20 @@
     var hero = heroIdentity();
     var bal = 0;
     var played = 0;
+    var hasLocalWallet = false;
     try {
-      if (global.PTTournamentWallet && PTTournamentWallet.getBalance) {
-        bal = Number(PTTournamentWallet.getBalance()) || 0;
+      if (global.PTTournamentWallet && PTTournamentWallet.peek) {
+        var peeked = PTTournamentWallet.peek();
+        if (peeked && typeof peeked.balance === 'number') {
+          hasLocalWallet = true;
+          bal = Number(peeked.balance) || 0;
+          played = Number(peeked.tournamentsPlayed) || 0;
+        }
       }
-      if (global.PTTournamentWallet && PTTournamentWallet.getTournamentsPlayed) {
-        played = Number(PTTournamentWallet.getTournamentsPlayed()) || 0;
+      if (!hasLocalWallet && global.PTTournamentWallet && PTTournamentWallet.getBalance) {
+        /* Sin fila local: no inventar 0 en ranking/cloud (pisaría un ajuste de admin). */
+        bal = 0;
+        played = 0;
       }
     } catch (e) { /* */ }
     var row = {
@@ -8073,7 +8081,7 @@
     });
     var list = mergeRows(others, [row]);
     writeBoard(list);
-    if (!opts.skipCloud) {
+    if (!opts.skipCloud && hasLocalWallet) {
       try {
         var c = supabaseClient();
         if (c && c.rpc) {

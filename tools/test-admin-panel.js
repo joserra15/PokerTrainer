@@ -43,6 +43,10 @@ assert.ok(/function renderKoinsEditForm/.test(src) && /data-admin-set-koins/.tes
 assert.ok(/function setUserKoins/.test(src) && /pt_admin_set_user_koins/.test(src), 'RPC setUserKoins');
 assert.ok(/admin-koins-community/.test(src) && /admin-koins-mode/.test(src) && /admin-koins-amount/.test(src), 'campos Koins');
 assert.ok(/p_mode: mode/.test(src) && /p_notify: true/.test(src), 'modo set/add y notificación Koins');
+assert.ok(/pt_admin_user_koins_by_community/.test(src), 'cargan saldos Koins por comunidad');
+assert.ok(/communityId: data\.community_id \|\| communityId/.test(src), 'push Koins con communityId');
+assert.ok(/encodeURIComponent\(communityId\)/.test(src) && /app=/.test(src),
+  'deep link Contacto con app comunidad');
 
 const koinsMig = fs.readFileSync(
   path.join(__dirname, '..', 'supabase/migrations/057_admin_set_user_koins.sql'),
@@ -51,6 +55,14 @@ const koinsMig = fs.readFileSync(
 assert.ok(/pt_admin_set_user_koins/.test(koinsMig), 'migración RPC Koins');
 assert.ok(/pt_community_tournament_koins/.test(koinsMig), 'migración actualiza ranking');
 assert.ok(/tournamentWallet/.test(koinsMig), 'migración actualiza wallet');
+
+const koinsMig60 = fs.readFileSync(
+  path.join(__dirname, '..', 'supabase/migrations/060_admin_koins_contact_community.sql'),
+  'utf8'
+);
+assert.ok(/community_id/.test(koinsMig60) && /notify_community_id/.test(koinsMig60),
+  '060 notifica Contacto en la comunidad correcta');
+assert.ok(/pt_admin_user_koins_by_community/.test(koinsMig60), '060 saldos por comunidad');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');

@@ -103,7 +103,7 @@
   function defaultWallet() {
     return {
       balance: STARTING,
-      updatedAt: new Date().toISOString(),
+      updatedAt: null,
       version: 1,
       trainerHands: 0,
       tournamentsPlayed: 0,
@@ -113,10 +113,17 @@
 
   function ensure() {
     var data = peek();
-    if (!data) {
-      data = defaultWallet();
-      writeRaw(data);
-    }
+    if (data) return data;
+    /* Solo en memoria: persistir un 0 con updatedAt=now pisaba créditos de admin en la nube. */
+    return defaultWallet();
+  }
+
+  function ensurePersisted() {
+    var data = peek();
+    if (data) return data;
+    data = defaultWallet();
+    data.updatedAt = new Date().toISOString();
+    writeRaw(data);
     return data;
   }
 
@@ -129,7 +136,7 @@
   }
 
   function setTournamentsPlayed(n) {
-    var data = ensure();
+    var data = ensurePersisted();
     data.tournamentsPlayed = Math.max(0, Math.floor(Number(n) || 0));
     data.updatedAt = new Date().toISOString();
     writeRaw(data);
@@ -143,7 +150,7 @@
   function setBalance(n, meta) {
     var bal = Math.round((Number(n) || 0) * 100) / 100;
     if (bal < 0) bal = 0;
-    var data = ensure();
+    var data = ensurePersisted();
     data.balance = bal;
     data.updatedAt = new Date().toISOString();
     if (meta) data.last = meta;
@@ -252,6 +259,12 @@
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
 
+    /* Ajuste de admin: adoptar si la nube es igual/más reciente (no dejar que un
+       wallet local vacío inventado gane por updatedAt). */
+    if (remote.last && remote.last.type === 'admin_set_koins' && remoteTs >= localTs) {
+      return applyRemote(remote, local);
+    }
+
     if (remoteTs > localTs) {
       return applyRemote(remote, local);
     }
@@ -307,7 +320,7 @@
   function earnFromLesson(lessonId) {
     var id = String(lessonId || '');
     if (!id) return { ok: false, reason: 'missing_lesson' };
-    var data = ensure();
+    var data = ensurePersisted();
     data.lessonAwards = data.lessonAwards || {};
     if (data.lessonAwards[id]) {
       return { ok: true, added: 0, already: true, balance: data.balance, communityId: communityId() };
@@ -323,7 +336,7 @@
 
   /** +1 Koin cada 25 manos de entrenador. */
   function noteTrainerHand() {
-    var data = ensure();
+    var data = ensurePersisted();
     var n = (Number(data.trainerHands) || 0) + 1;
     data.trainerHands = n;
     data.updatedAt = new Date().toISOString();

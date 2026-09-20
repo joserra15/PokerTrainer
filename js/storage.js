@@ -2500,8 +2500,13 @@
         const localW = local.tournamentWallet;
         const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
         if (localW && !localW.isDefault) {
-          if (!cloudW || !cloudW.updatedAt ||
-              (Date.parse(localW.updatedAt || 0) || 0) >= (Date.parse(cloudW.updatedAt || 0) || 0)) {
+          var cloudIsAdmin = !!(cloudW && cloudW.last && cloudW.last.type === 'admin_set_koins');
+          var localTsW = Date.parse(localW.updatedAt || 0) || 0;
+          var cloudTsW = Date.parse((cloudW && cloudW.updatedAt) || 0) || 0;
+          /* Ajuste admin en nube: no pisarlo con un wallet local inventado/viejo. */
+          if (cloudIsAdmin && cloudTsW >= localTsW) {
+            out[cloudDataKey || key] = cloudW;
+          } else if (!cloudW || !cloudW.updatedAt || localTsW >= cloudTsW) {
             out[cloudDataKey || key] = localW;
           } else {
             out[cloudDataKey || key] = cloudW;

@@ -31203,8 +31203,13 @@ window.PT_NASH_PUSH_JSON = {
         const localW = local.tournamentWallet;
         const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
         if (localW && !localW.isDefault) {
-          if (!cloudW || !cloudW.updatedAt ||
-              (Date.parse(localW.updatedAt || 0) || 0) >= (Date.parse(cloudW.updatedAt || 0) || 0)) {
+          var cloudIsAdmin = !!(cloudW && cloudW.last && cloudW.last.type === 'admin_set_koins');
+          var localTsW = Date.parse(localW.updatedAt || 0) || 0;
+          var cloudTsW = Date.parse((cloudW && cloudW.updatedAt) || 0) || 0;
+          /* Ajuste admin en nube: no pisarlo con un wallet local inventado/viejo. */
+          if (cloudIsAdmin && cloudTsW >= localTsW) {
+            out[cloudDataKey || key] = cloudW;
+          } else if (!cloudW || !cloudW.updatedAt || localTsW >= cloudTsW) {
             out[cloudDataKey || key] = localW;
           } else {
             out[cloudDataKey || key] = cloudW;
@@ -36279,7 +36284,7 @@ window.PT_NASH_PUSH_JSON = {
   function defaultWallet() {
     return {
       balance: STARTING,
-      updatedAt: new Date().toISOString(),
+      updatedAt: null,
       version: 1,
       trainerHands: 0,
       tournamentsPlayed: 0,
@@ -36289,10 +36294,17 @@ window.PT_NASH_PUSH_JSON = {
 
   function ensure() {
     var data = peek();
-    if (!data) {
-      data = defaultWallet();
-      writeRaw(data);
-    }
+    if (data) return data;
+    /* Solo en memoria: persistir un 0 con updatedAt=now pisaba créditos de admin en la nube. */
+    return defaultWallet();
+  }
+
+  function ensurePersisted() {
+    var data = peek();
+    if (data) return data;
+    data = defaultWallet();
+    data.updatedAt = new Date().toISOString();
+    writeRaw(data);
     return data;
   }
 
@@ -36305,7 +36317,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function setTournamentsPlayed(n) {
-    var data = ensure();
+    var data = ensurePersisted();
     data.tournamentsPlayed = Math.max(0, Math.floor(Number(n) || 0));
     data.updatedAt = new Date().toISOString();
     writeRaw(data);
@@ -36319,7 +36331,7 @@ window.PT_NASH_PUSH_JSON = {
   function setBalance(n, meta) {
     var bal = Math.round((Number(n) || 0) * 100) / 100;
     if (bal < 0) bal = 0;
-    var data = ensure();
+    var data = ensurePersisted();
     data.balance = bal;
     data.updatedAt = new Date().toISOString();
     if (meta) data.last = meta;
@@ -36428,6 +36440,12 @@ window.PT_NASH_PUSH_JSON = {
     var localTs = Date.parse(local.updatedAt || 0) || 0;
     var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
 
+    /* Ajuste de admin: adoptar si la nube es igual/más reciente (no dejar que un
+       wallet local vacío inventado gane por updatedAt). */
+    if (remote.last && remote.last.type === 'admin_set_koins' && remoteTs >= localTs) {
+      return applyRemote(remote, local);
+    }
+
     if (remoteTs > localTs) {
       return applyRemote(remote, local);
     }
@@ -36483,7 +36501,7 @@ window.PT_NASH_PUSH_JSON = {
   function earnFromLesson(lessonId) {
     var id = String(lessonId || '');
     if (!id) return { ok: false, reason: 'missing_lesson' };
-    var data = ensure();
+    var data = ensurePersisted();
     data.lessonAwards = data.lessonAwards || {};
     if (data.lessonAwards[id]) {
       return { ok: true, added: 0, already: true, balance: data.balance, communityId: communityId() };
@@ -36499,7 +36517,7 @@ window.PT_NASH_PUSH_JSON = {
 
   /** +1 Koin cada 25 manos de entrenador. */
   function noteTrainerHand() {
-    var data = ensure();
+    var data = ensurePersisted();
     var n = (Number(data.trainerHands) || 0) + 1;
     data.trainerHands = n;
     data.updatedAt = new Date().toISOString();
@@ -43474,6 +43492,20 @@ window.PT_NASH_PUSH_JSON = {
       if (tabId !== 'play') {
         if (PTGuest.maybeGate) PTGuest.maybeGate('tab');
         return;
+      }
+    }
+    /* Admin es panel de plataforma: desde MTT Lab (u otra comunidad) pasar a PokerForge. */
+    if (tabId === 'admin' && window.PTCommunity && typeof window.PTCommunity.id === 'function') {
+      var adminCommunity = window.PTCommunity.id();
+      if (adminCommunity && adminCommunity !== 'pokerforge') {
+        var adminUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
+          || window.PT_AUTH_USER || null;
+        if (adminUser && adminUser.isAdmin && typeof window.PTCommunity.switchTo === 'function') {
+          Promise.resolve(window.PTCommunity.switchTo('pokerforge', { tab: 'admin' })).catch(function () {
+            goToTabUnlocked('home', {});
+          });
+          return;
+        }
       }
     }
     // Gate síncrono: menús + ACCESS_CACHE. Las RPCs autorizan al cargar datos.

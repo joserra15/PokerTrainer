@@ -101,6 +101,13 @@ assert.ok(/PTCommunity\.canOpenTab/.test(app), 'goToTab usa canOpenTab sync');
 assert.ok(/goToTabUnlocked/.test(app), 'goToTabUnlocked');
 assert.ok(/function canOpenTab/.test(commSrc), 'canOpenTab sync');
 assert.ok(/PT_E2E_MODE/.test(commSrc), 'bypass E2E comunidad');
+assert.ok(/tabId === 'admin'[\s\S]*switchTo\('pokerforge'/.test(app),
+  'desde MTT Lab admin cambia a PokerForge');
+assert.ok(/isPlatformAdmin|tabId === 'admin'/.test(commSrc) &&
+  /function canOpenTab[\s\S]*tabId === 'admin'/.test(commSrc),
+  'canOpenTab permite admin a isAdmin');
+assert.ok(/switchTo\(communityId, opts\)/.test(commSrc) || /async function switchTo\(communityId, opts\)/.test(commSrc),
+  'switchTo acepta opts.tab');
 assert.ok(/tabId === 'manager'/.test(app), 'tab manager en app');
 assert.ok(/welcomeFromManager/.test(app), 'home usa bienvenida manager');
 assert.ok(/hideDailySpot/.test(app), 'home oculta spot del día en comunidad');

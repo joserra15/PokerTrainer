@@ -2209,6 +2209,20 @@
         return;
       }
     }
+    /* Admin es panel de plataforma: desde MTT Lab (u otra comunidad) pasar a PokerForge. */
+    if (tabId === 'admin' && window.PTCommunity && typeof window.PTCommunity.id === 'function') {
+      var adminCommunity = window.PTCommunity.id();
+      if (adminCommunity && adminCommunity !== 'pokerforge') {
+        var adminUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
+          || window.PT_AUTH_USER || null;
+        if (adminUser && adminUser.isAdmin && typeof window.PTCommunity.switchTo === 'function') {
+          Promise.resolve(window.PTCommunity.switchTo('pokerforge', { tab: 'admin' })).catch(function () {
+            goToTabUnlocked('home', {});
+          });
+          return;
+        }
+      }
+    }
     // Gate síncrono: menús + ACCESS_CACHE. Las RPCs autorizan al cargar datos.
     if (window.PTCommunity && typeof window.PTCommunity.canOpenTab === 'function' &&
         tabId !== 'home' && tabId !== 'account') {
