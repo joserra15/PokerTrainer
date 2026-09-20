@@ -2056,6 +2056,51 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* Reloj de pensando (rival decidiendo tras acción del héroe). */
+.trn-play-like .seat.thinking .seat-body {
+  outline: 2px solid rgba(125, 180, 220, .75);
+  outline-offset: 3px;
+  border-radius: 12px;
+  box-shadow: 0 0 14px rgba(125, 180, 220, .28);
+}
+
+.trn-play-like .seat-act.is-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-color: rgba(125, 180, 220, .65);
+  color: #d7e8f5;
+  background: rgba(40, 70, 95, .85);
+}
+
+.trn-think-clock {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(215, 232, 245, .35);
+  border-top-color: rgba(215, 232, 245, .95);
+  border-radius: 50%;
+  animation: trn-think-spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes trn-think-spin {
+  to { transform: rotate(360deg); }
+}
+
+.trn-thinking-actions {
+  justify-content: center;
+}
+
+.trn-thinking-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted, #8b97a7);
+  padding: 8px 12px;
+}
+
 .trn-anim-actions .btn-skip-anim {
   background: rgba(255, 255, 255, .07);
   border: 1px solid rgba(255, 255, 255, .18);
@@ -2064,6 +2109,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .trn-play-like .seat-act.is-acting { animation: none; }
+  .trn-think-clock { animation: none; border-top-color: rgba(215, 232, 245, .95); }
 }
 
 

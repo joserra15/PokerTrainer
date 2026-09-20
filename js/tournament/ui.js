@@ -35,8 +35,20 @@
     anim: { frame: null, playing: false, skip: false, seq: 0, timer: null },
     heldFrames: null,
     heldFramesDone: null,
-    assistPrompt: null
+    assistPrompt: null,
+    actionBusy: false,
+    thinkingSeatId: null
   };
+
+  function trnT(key, fallback) {
+    try {
+      if (global.PTI18n && typeof global.PTI18n.t === 'function') {
+        var s = global.PTI18n.t(key);
+        if (s && s !== key) return s;
+      }
+    } catch (e) { /* */ }
+    return fallback;
+  }
 
   function assistFeatureVisible() {
     return !!(global.PTVillainAssistFlags && global.PTVillainAssistFlags.isVisible
@@ -487,21 +499,38 @@ function reducedMotion() {
     if (f.kind === 'reveal') return 2000;
     if (f.kind === 'street') return 560;
     var a = String(f.action || '').toLowerCase();
-    if (a === 'fold') return 300;
-    if (a === 'check') return 380;
-    if (a === 'call') return 420;
-    return 500;
+    if (a === 'fold') return 240;
+    if (a === 'check') return 300;
+    if (a === 'call') return 320;
+    return 400;
   }
 
   /** Mano "de presentación": el estado visible en el fotograma en curso. */
   function animHand(hand) {
     var f = ui.anim && ui.anim.frame;
-    if (!hand || !f) return hand;
+    if (!hand || !f) {
+      if (!hand) return hand;
+      /* Sin fotograma de animación: aún puede haber reloj de pensando. */
+      if (!ui.thinkingSeatId) return hand;
+      return Object.assign({}, hand, {
+        seats: (hand.seats || []).map(function (s) {
+          return Object.assign({}, s, { _thinking: s.id === ui.thinkingSeatId });
+        }),
+        awaitingHero: false,
+        heroOptions: null,
+        _anim: true
+      });
+    }
     var byId = {};
     (f.seats || []).forEach(function (s) { byId[s.id] = s; });
+    var showThinking = !!(ui.thinkingSeatId && !(ui.anim && ui.anim.playing));
     var seats = (hand.seats || []).map(function (s) {
       var fs = byId[s.id];
-      if (!fs) return s;
+      if (!fs) {
+        return Object.assign({}, s, {
+          _thinking: !!(showThinking && s.id === ui.thinkingSeatId)
+        });
+      }
       return {
         id: s.id,
         name: s.name,
@@ -524,7 +553,8 @@ function reducedMotion() {
         folded: fs.folded,
         allIn: fs.allIn,
         lastAction: fs.lastAction,
-        _acting: f.actorId === s.id
+        _acting: f.actorId === s.id,
+        _thinking: !!(showThinking && s.id === ui.thinkingSeatId && f.actorId !== s.id)
       };
     });
     return {
@@ -563,6 +593,19 @@ function reducedMotion() {
     ui.anim.seq += 1;
   }
 
+  function clearThinking() {
+    ui.thinkingSeatId = null;
+  }
+
+  function setThinkingFromHand(hand) {
+    ui.thinkingSeatId = null;
+    if (!hand || hand.stage !== 'playing' || hand.awaitingHero) return;
+    var Live = global.PTTournamentLiveHand;
+    if (!Live || typeof Live.peekNextActor !== 'function') return;
+    var next = Live.peekNextActor(hand);
+    if (next && !next.isHero) ui.thinkingSeatId = next.id;
+  }
+
   /** Saca los fotogramas pendientes del motor y deja el primero listo para pintar. */
   function takeFrames() {
     var hand = ui.state && ui.state._liveHand;
@@ -573,23 +616,27 @@ function reducedMotion() {
     ui.anim.skip = false;
     ui.anim.playing = true;
     ui.anim.frame = frames[0];
+    clearThinking();
     return frames;
   }
 
   function playFrames(frames, onDone) {
     if (!frames || !frames.length) {
       stopAnim();
+      clearThinking();
       if (onDone) onDone();
       return;
     }
     var seq = ui.anim.seq;
     var i = 0;
     ui.anim.pending = onDone || paint;
+    clearThinking();
     function step() {
       if (seq !== ui.anim.seq) return;
       if (ui.anim.skip || i >= frames.length) {
         var done = ui.anim.pending || onDone || paint;
         stopAnim();
+        clearThinking();
         done();
         return;
       }
@@ -1670,6 +1717,7 @@ function reducedMotion() {
       if (s.pos === 'BTN') cls.push('dealer');
       if (s.folded) cls.push('folded');
       if (s._acting) cls.push('acting');
+      if (s._thinking) cls.push('thinking');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
       if (c.left < 22) cls.push('seat-edge-left');
@@ -1678,7 +1726,11 @@ function reducedMotion() {
 
       var last = seatLastAct(hand, s);
       var actHtml = '';
-      if (s.folded || (last && last.action === 'fold')) {
+      if (s._thinking && !s._acting) {
+        actHtml = '<div class="seat-act-wrap"><span class="seat-act is-thinking" role="status">' +
+          '<span class="trn-think-clock" aria-hidden="true"></span>' +
+          esc(trnT('trn.thinking', 'Pensando…')) + '</span></div>';
+      } else if (s.folded || (last && last.action === 'fold')) {
         actHtml = '<div class="seat-act-wrap"><span class="seat-act fold' +
           (s._acting ? ' is-acting' : '') + '">Fold</span></div>';
       } else if (last) {
@@ -1857,6 +1909,12 @@ function reducedMotion() {
       actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions">' +
         '<button type="button" class="btn btn-skip-anim" data-act="skip-anim">Saltar acción</button>' +
         '</div>';
+    } else if (ui.thinkingSeatId || ui.actionBusy) {
+      actions = '<div class="actions actions-grid actions-grid-1 trn-anim-actions trn-thinking-actions" role="status">' +
+        '<span class="trn-thinking-status">' +
+        '<span class="trn-think-clock" aria-hidden="true"></span>' +
+        esc(trnT('trn.rivalThinking', 'El rival está pensando…')) +
+        '</span></div>';
     } else if (hand && hand.stage === 'complete') {
       actions = '';
     } else if (hand && hand.awaitingHero && hand.heroOptions && hand.heroOptions.length) {
@@ -2956,11 +3014,102 @@ function reducedMotion() {
 
   /** Anima lo que acaba de resolver el motor y luego cierra el turno. */
   function afterActionAnimated() {
+    ui.actionBusy = false;
+    clearThinking();
     animateThen(afterAction);
+  }
+
+  /**
+   * Pinta al instante el fotograma del héroe, muestra «pensando» en el rival,
+   * y tras un tick continúa el motor (GTO diferido + villanos).
+   */
+  function heroActImmediate(actionId, amount) {
+    if (ui.actionBusy) return;
+    if (ui.anim && ui.anim.playing) return;
+    if (isBannerBlocking()) return;
+    var Runner = global.PTTournamentRunner;
+    if (!Runner || !ui.state) return;
+
+    ui.actionBusy = true;
+    if (typeof Runner.applyHeroAction === 'function') {
+      Runner.applyHeroAction(ui.state, actionId, amount);
+    } else {
+      /* Fallback si el bundle aún no expone el split. */
+      var actedLegacy = Runner.heroAct(ui.state, actionId, amount);
+      whenReady(actedLegacy, function () {
+        afterActionAnimated();
+      });
+      return;
+    }
+
+    var hand = ui.state._liveHand;
+    var frames = (hand && hand._frames) ? hand._frames.slice() : [];
+    if (hand) hand._frames = [];
+
+    /* Fotograma del héroe visible sin anim.playing → status «pensando», no «Saltar». */
+    if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
+    ui.anim.timer = null;
+    ui.anim.skip = false;
+    ui.anim.playing = false;
+    ui.anim.pending = null;
+    ui.anim.frame = frames.length ? frames[0] : null;
+
+    setThinkingFromHand(hand);
+    paint();
+
+    function continueAfterPaint() {
+      if (!ui.state) {
+        ui.actionBusy = false;
+        clearThinking();
+        return;
+      }
+      setThinkingFromHand(ui.state._liveHand);
+      paint();
+
+      var cont = Runner.continueToHeroOrEnd
+        ? Runner.continueToHeroOrEnd(ui.state)
+        : Runner.heroAct(ui.state, actionId, amount);
+
+      whenReady(cont, function () {
+        var more = (ui.state && ui.state._liveHand && ui.state._liveHand._frames)
+          ? ui.state._liveHand._frames.slice()
+          : [];
+        if (ui.state && ui.state._liveHand) ui.state._liveHand._frames = [];
+
+        if (!more.length) {
+          stopAnim();
+          clearThinking();
+          ui.actionBusy = false;
+          afterAction();
+          return;
+        }
+
+        /* Reproducir solo fotogramas de villanos/streets. */
+        ui.anim.seq += 1;
+        ui.anim.skip = false;
+        ui.anim.playing = true;
+        ui.anim.frame = more[0];
+        clearThinking();
+        playFrames(more, function () {
+          ui.actionBusy = false;
+          afterAction();
+        });
+      });
+    }
+
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () {
+        setTimeout(continueAfterPaint, 0);
+      });
+    } else {
+      setTimeout(continueAfterPaint, 0);
+    }
   }
 
   function afterAction() {
     var state = ui.state;
+    ui.actionBusy = false;
+    clearThinking();
     if (!state) { paint(); return; }
     if (state.status === 'finished') {
       if (!state.congratsShown && shouldShowCongrats(state)) {
@@ -3269,15 +3418,13 @@ function reducedMotion() {
 
     root.querySelectorAll('[data-hero-act]').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        if (ui.actionBusy) return;
         if (ui.anim && ui.anim.playing) return;
         if (isBannerBlocking()) return;
         var id = btn.getAttribute('data-hero-act');
         var amtRaw = btn.getAttribute('data-amount');
         var amt = amtRaw === '' || amtRaw == null ? null : Number(amtRaw);
-        var acted = global.PTTournamentRunner.heroAct(ui.state, id, amt);
-        whenReady(acted, function () {
-          afterActionAnimated();
-        });
+        heroActImmediate(id, amt);
       });
     });
 
