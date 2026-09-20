@@ -5654,7 +5654,8 @@
     if (seat.stack <= 0.001) { seat.stack = 0; seat.allIn = true; }
   }
 
-  function logAct(hand, seat, action, amount) {
+  function logAct(hand, seat, action, amount, meta) {
+    meta = meta || {};
     var entry = {
       id: seat.id,
       name: seat.name,
@@ -5662,13 +5663,15 @@
       amount: amount || 0,
       street: hand.street
     };
+    if (meta.allin || seat.allIn) entry.allin = true;
     hand.log.push(entry);
     /* Persiste en el asiento para que la mesa muestre la última acción
        aunque cambie de street (si no, solo se ve Fold y la acción del héroe). */
     seat.lastAction = {
       action: action,
       amount: amount || 0,
-      street: hand.street
+      street: hand.street,
+      allin: !!entry.allin
     };
   }
 
@@ -5731,7 +5734,7 @@
   function doCall(hand, seat) {
     var tc = toCall(seat, hand);
     putIn(hand, seat, seat.streetInvested + tc);
-    logAct(hand, seat, 'call', tc);
+    logAct(hand, seat, 'call', tc, { allin: !!seat.allIn });
   }
   function doRaiseTo(hand, seat, toAmt) {
     var prev = hand.currentBet;
@@ -5748,7 +5751,7 @@
     if (target <= prev + 0.001) {
       var before = seat.streetInvested;
       putIn(hand, seat, target);
-      logAct(hand, seat, 'call', r2(seat.streetInvested - before));
+      logAct(hand, seat, 'call', r2(seat.streetInvested - before), { allin: !!seat.allIn });
       return;
     }
 
@@ -5761,11 +5764,12 @@
       hand.openerId = seat.id;
       hand.openerPos = seat.pos;
     }
-    /* All-in incompleto: en mesa/log como allin (no «raise»), coherente con TDA. */
+    /* All-in incompleto: en mesa/log como allin (no «raise»), coherente con TDA.
+       All-in completo (shove que alcanza min-raise): se loguea raise/bet con allin. */
     var logAction = seat.allIn && !fullRaise
       ? 'allin'
       : (prev > 0 ? 'raise' : 'bet');
-    logAct(hand, seat, logAction, seat.streetInvested);
+    logAct(hand, seat, logAction, seat.streetInvested, { allin: !!seat.allIn });
 
     /* Raise incompleto (all-in < min-raise): sube currentBet para quien aún
        debe igualar, pero NO reabre a quien ya había actuado (TDA). Tampoco
@@ -8659,6 +8663,26 @@
       delete snap._liveHand._frames;
       if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
       if (snap._liveHand._pendingHeroGrade) delete snap._liveHand._pendingHeroGrade;
+      /* Mano complete sin deltas: reconstruir para no perder busts al Continuar. */
+      try {
+        var live = snap._liveHand;
+        if (live.stage === 'complete' && live.result && live.seats) {
+          var d = live.result.deltas;
+          var empty = !d || typeof d !== 'object' || !Object.keys(d).length;
+          if (empty) {
+            var rebuilt = {};
+            (live.seats || []).forEach(function (s) {
+              if (!s || s.id == null) return;
+              var start = Number(s.startStack);
+              if (!isFinite(start)) {
+                start = (Number(s.stack) || 0) + (Number(s.invested) || 0);
+              }
+              rebuilt[s.id] = Math.round(((Number(s.stack) || 0) - start) * 100) / 100;
+            });
+            live.result.deltas = rebuilt;
+          }
+        }
+      } catch (eDelta) { /* ignore */ }
     }
     /* Job satélite: se re-agenda al resume/beginHand; no persistir. */
     delete snap._satPending;
@@ -10140,6 +10164,39 @@
     return Math.round((Number(x) || 0) * 100) / 100;
   }
 
+  /** Mismo umbral de polvo que la UI de fin de mano / session-bridge. */
+  var BUST_STACK_EPS = 0.02;
+
+  /** True si la mano ya se volcó a stacks/handIndex (idempotencia). */
+  function resultsAlreadyApplied(hand) {
+    return !!(hand && hand.result && hand.result.applied);
+  }
+
+  /**
+   * Reconstruye deltas desde asientos post-settle cuando result.deltas falta o
+   * está vacío (persistencia rota / stub). delta = endStack - startStack.
+   */
+  function rebuildDeltasFromSeats(hand) {
+    var deltas = {};
+    (hand && hand.seats || []).forEach(function (s) {
+      if (!s || s.id == null) return;
+      var start = Number(s.startStack);
+      if (!isFinite(start)) start = (Number(s.stack) || 0) + (Number(s.invested) || 0);
+      deltas[s.id] = r2((Number(s.stack) || 0) - start);
+    });
+    return deltas;
+  }
+
+  function ensureResultDeltas(hand) {
+    if (!hand || !hand.result) return {};
+    var deltas = hand.result.deltas;
+    var keys = deltas && typeof deltas === 'object' ? Object.keys(deltas) : [];
+    if (keys.length) return deltas;
+    deltas = rebuildDeltasFromSeats(hand);
+    hand.result.deltas = deltas;
+    return deltas;
+  }
+
   function create(configOrPreset, opts) {
     opts = opts || {};
     var Cfg = global.PTTournamentConfig;
@@ -10252,13 +10309,27 @@
         ensureSatJob();
         return state._liveHand;
       }
-      if (state._liveHand && !(state._liveHand.stage === 'complete' && state._liveHand.result)) {
+      /* Mano complete ya aplicada: limpiar y repartir. */
+      if (state._liveHand && resultsAlreadyApplied(state._liveHand)) {
+        state._liveHand = null;
+      } else if (state._liveHand && state._liveHand.stage === 'complete' &&
+          state._liveHand.result && !resultsAlreadyApplied(state._liveHand)) {
+        /* Nunca repartir encima de un resultado sin commit. */
+        applyResults(state, state._liveHand);
+        if (state.status !== 'running') return null;
+      } else if (state._liveHand && !(state._liveHand.stage === 'complete' && state._liveHand.result)) {
         state._liveHand = null;
       }
       return beginHand(state);
     }
 
     if (hand && hand.stage === 'complete' && hand.result) {
+      if (resultsAlreadyApplied(hand)) {
+        state._liveHand = null;
+        return redealFresh();
+      }
+      /* Asegurar deltas reconstruibles antes de mostrar el popup / persistir. */
+      ensureResultDeltas(hand);
       ensureSatJob();
       return hand;
     }
@@ -10271,6 +10342,11 @@
       function afterResumeRun() {
         hand = state._liveHand || hand;
         if (hand && hand.stage === 'complete') {
+          if (resultsAlreadyApplied(hand)) {
+            state._liveHand = null;
+            return redealFresh();
+          }
+          ensureResultDeltas(hand);
           ensureSatJob();
           return hand;
         }
@@ -10314,9 +10390,12 @@
   function beginHand(state) {
     if (!state || state.status !== 'running') return null;
     // Si la mano anterior terminó sin heroAct (p.ej. todos fold a BB), aplica resultados.
-    if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result) {
+    if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result &&
+        !resultsAlreadyApplied(state._liveHand)) {
       applyResults(state, state._liveHand);
       if (state.status !== 'running') return null;
+    } else if (state._liveHand && resultsAlreadyApplied(state._liveHand)) {
+      state._liveHand = null;
     }
     /* Ya hay mano en juego: no barajar de nuevo (doble Continuar / race). */
     if (state._liveHand && state._liveHand.stage === 'playing' &&
@@ -10367,14 +10446,33 @@
     return afterRun();
   }
 
-  function applyStackDeltas(state, deltas) {
+  /**
+   * Vuelca el resultado de la mano a players[]. Preferencia:
+   * 1) stack absoluto post-settle del asiento (evita drift vs startStack)
+   * 2) p.stack + delta si no hay asiento
+   * Bust a <= BUST_STACK_EPS (polvo).
+   */
+  function applyStackDeltas(state, deltas, hand) {
     var Seat = global.PTTournamentSeating;
     var busted = [];
-    Object.keys(deltas || {}).forEach(function (pid) {
+    var seatById = {};
+    (hand && hand.seats || []).forEach(function (s) {
+      if (s && s.id != null) seatById[s.id] = s;
+    });
+    var ids = {};
+    Object.keys(deltas || {}).forEach(function (pid) { ids[pid] = true; });
+    Object.keys(seatById).forEach(function (pid) { ids[pid] = true; });
+
+    Object.keys(ids).forEach(function (pid) {
       var p = (state.players || []).find(function (x) { return x.id === pid; });
       if (!p || !p.alive) return;
-      p.stack = Math.max(0, r2((Number(p.stack) || 0) + (Number(deltas[pid]) || 0)));
-      if (p.stack <= 0) {
+      var seat = seatById[pid];
+      if (seat && seat.stack != null && isFinite(Number(seat.stack))) {
+        p.stack = Math.max(0, r2(Number(seat.stack)));
+      } else {
+        p.stack = Math.max(0, r2((Number(p.stack) || 0) + (Number(deltas[pid]) || 0)));
+      }
+      if (p.stack <= BUST_STACK_EPS) {
         Seat.bustPlayer(state, pid);
         busted.push(p);
       }
@@ -10422,6 +10520,11 @@
 
   function applyResults(state, hand) {
     if (!state || !hand || !hand.result) return state;
+    /* Idempotente: no reaplicar ni avanzar handIndex dos veces. */
+    if (resultsAlreadyApplied(hand)) {
+      if (state._liveHand === hand) state._liveHand = null;
+      return state;
+    }
     var St = global.PTTournamentState;
     var Seat = global.PTTournamentSeating;
     var Stats = global.PTTournamentStats;
@@ -10429,7 +10532,10 @@
     var hero = St.hero(state);
     var heroId = hero ? hero.id : 'hero';
 
-    applyStackDeltas(state, hand.result.deltas);
+    var deltas = ensureResultDeltas(hand);
+    applyStackDeltas(state, deltas, hand);
+    hand.result.applied = true;
+    hand.result.deltas = deltas;
     if (Stats && Stats.onHandComplete) Stats.onHandComplete(state, hand, heroId);
 
     state.handIndex = (Number(state.handIndex) || 0) + 1;
@@ -10507,7 +10613,8 @@
         board: (hand.result.board || hand.board || []).slice(),
         holeCards: Object.assign({}, hand.result.holeCards || {}),
         handNames: Object.assign({}, hand.result.handNames || {}),
-        heroNet: hand.result.heroNet
+        heroNet: hand.result.heroNet,
+        applied: true
       }
     });
     if (state.handLog.length > 80) state.handLog = state.handLog.slice(-80);
@@ -10589,8 +10696,11 @@
   /** Aplica la mano completa y reparte la siguiente (o cierra si el torneo acabó). */
   function continueAfterHand(state) {
     if (!state) return state;
-    if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result) {
+    if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result &&
+        !resultsAlreadyApplied(state._liveHand)) {
       applyResults(state, state._liveHand);
+    } else if (state._liveHand && resultsAlreadyApplied(state._liveHand)) {
+      state._liveHand = null;
     }
     if (state.status === 'running') {
       /* Idempotente: si ya se repartió (doble Continuar), no barajar otra vez. */
@@ -10866,6 +10976,8 @@
     heroAct: heroAct,
     continueAfterHand: continueAfterHand,
     applyResults: applyResults,
+    ensureResultDeltas: ensureResultDeltas,
+    rebuildDeltasFromSeats: rebuildDeltasFromSeats,
     finish: finish,
     onBustAsk: onBustAsk,
     simulateRest: simulateRest,
@@ -11789,8 +11901,15 @@ function reducedMotion() {
     if (!state || state.status === 'finished') return state;
     var hand = state._liveHand;
     if (!hand || hand.stage !== 'complete' || !hand.result) return state;
+    if (hand.result.applied) {
+      state._liveHand = null;
+      return state;
+    }
     try {
       var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.ensureResultDeltas === 'function') {
+        Runner.ensureResultDeltas(hand);
+      }
       if (Runner && typeof Runner.applyResults === 'function') {
         Runner.applyResults(state, hand);
         state._liveHand = null;

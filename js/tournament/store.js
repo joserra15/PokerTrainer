@@ -355,6 +355,26 @@
       delete snap._liveHand._frames;
       if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
       if (snap._liveHand._pendingHeroGrade) delete snap._liveHand._pendingHeroGrade;
+      /* Mano complete sin deltas: reconstruir para no perder busts al Continuar. */
+      try {
+        var live = snap._liveHand;
+        if (live.stage === 'complete' && live.result && live.seats) {
+          var d = live.result.deltas;
+          var empty = !d || typeof d !== 'object' || !Object.keys(d).length;
+          if (empty) {
+            var rebuilt = {};
+            (live.seats || []).forEach(function (s) {
+              if (!s || s.id == null) return;
+              var start = Number(s.startStack);
+              if (!isFinite(start)) {
+                start = (Number(s.stack) || 0) + (Number(s.invested) || 0);
+              }
+              rebuilt[s.id] = Math.round(((Number(s.stack) || 0) - start) * 100) / 100;
+            });
+            live.result.deltas = rebuilt;
+          }
+        }
+      } catch (eDelta) { /* ignore */ }
     }
     /* Job satélite: se re-agenda al resume/beginHand; no persistir. */
     delete snap._satPending;
