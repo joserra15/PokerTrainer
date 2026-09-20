@@ -3093,6 +3093,8 @@ function reducedMotion() {
         } else if (act === 'assist-level') {
           if (ui.assistPrompt) {
             ui.assistPrompt.level = btn.getAttribute('data-level') || 'medium';
+            /* Elegir Baja/Media/Alta implica querer la feature: marcar Activar. */
+            ui.assistPrompt.enabled = true;
             paint();
           }
         } else if (act === 'confirm-assist-prompt') {
@@ -3114,8 +3116,11 @@ function reducedMotion() {
           if (ui.state) {
             ui.state.villainAssist = ui.state.villainAssist || { enabled: false, calls: 0 };
             ui.state.villainAssist.level = btn.getAttribute('data-level') || 'medium';
+            /* Cambiar nivel desde Info también activa el análisis profundo. */
+            ui.state.villainAssist.enabled = true;
             if (ui.state._liveHand && ui.state._liveHand.villainAssist) {
               ui.state._liveHand.villainAssist.level = ui.state.villainAssist.level;
+              ui.state._liveHand.villainAssist.enabled = true;
             }
             persistActive();
             paint();
