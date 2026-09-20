@@ -2836,6 +2836,10 @@
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
     initHandStacks(hand);
+    // setupVsRFI corre antes de cartas/stacks: recalcular GTO vs jam con mano real.
+    if (hand.current && hand.current.kind === 'vsRFI' && hand.current.facingAllIn) {
+      hand.current.gto = strategyForNode(hand, hand.current);
+    }
     syncVillainMeta(hand);
     if (force && force.forceDeal) {
       const villainSeatBefore = hand.villain && hand.villain.pos;

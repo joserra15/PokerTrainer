@@ -1089,8 +1089,10 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
 
   assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-08'), 'call')) >= 0,
     't13-08 AKo vs shove: call alineado con teachBack');
-  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-01'), 'fold')) >= 0,
-    't13-01 AJo mid vs shove big: fold alineado con teachBack $EV');
+  assert.strictEqual(grade(spotById('t13-08'), 'call'), 'optima',
+    't13-08 AKo: call es óptima (no fold)');
+  assert.strictEqual(grade(spotById('t13-01'), 'fold'), 'optima',
+    't13-01 AJo mid vs shove big: fold es óptima');
   assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-02'), 'call')) >= 0,
     't13-02 KK vs shove: call');
   assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-06'), 'fold')) >= 0,
