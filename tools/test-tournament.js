@@ -1162,8 +1162,15 @@ FILES.forEach(function (f) { load(g, f); });
     'congrats banner');
   assert.ok(uiSrc.includes('isBannerBlocking') && uiSrc.includes('heldFrames'),
     'banner freezes table action');
+  assert.ok(uiSrc.includes('animPlayed') && uiSrc.includes('trn-popup-settled'),
+    'banner animPlayed / settled avoids CSS restart');
+  assert.ok(uiSrc.includes('removeBannerDom'),
+    'resumeAfterBanner removes sibling without full paint');
   assert.ok(!/trn-blind-up[\s\S]{0,200}dismiss-blind-up/.test(uiSrc),
     'old blind-up OK banner removed from paint path');
+  const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
+  assert.ok(cssSrc.includes('trn-popup-settled') && cssSrc.includes('trn-ft-banner-settled'),
+    'settled banner CSS');
 }
 console.log('OK blind-popup-source');
 
@@ -3338,6 +3345,102 @@ console.log('OK pushfold-freq-100');
       assert.ok(mBubble.fold > 1, 'MTT bubble still overfolds got ' + mBubble.fold);
     }
     console.log('OK hu-wta-no-bubble-and-stats-fallback');
+  }
+
+  // --- Doble continueAfterHand no cambia cartas de hero ---
+  {
+    const state = g.PTTournamentRunner.create('huEasy', { seed: 901, heroName: 'HuCards' });
+    g.PTTournamentRunner.beginHand(state);
+    assert.ok(state._liveHand && state._liveHand.stage === 'playing', 'mano HU repartida');
+    const heroSeat = state._liveHand.seats.find(function (s) { return s.isHero; });
+    assert.ok(heroSeat && heroSeat.cards && heroSeat.cards.length >= 2, 'cartas hero');
+    const cardKey = JSON.stringify(heroSeat.cards);
+    const handRef = state._liveHand;
+    /* Continuar con mano ya en juego (doble click): no debe barajar. */
+    g.PTTournamentRunner.continueAfterHand(state);
+    assert.strictEqual(state._liveHand, handRef, 'mismo objeto mano tras Continuar en playing');
+    assert.strictEqual(
+      JSON.stringify(state._liveHand.seats.find(function (s) { return s.isHero; }).cards),
+      cardKey,
+      'mismas cartas tras Continuar en playing'
+    );
+    g.PTTournamentRunner.continueAfterHand(state);
+    assert.strictEqual(state._liveHand, handRef, 'mismo objeto tras 2º Continuar');
+    assert.strictEqual(
+      JSON.stringify(state._liveHand.seats.find(function (s) { return s.isHero; }).cards),
+      cardKey,
+      'mismas cartas tras doble Continuar'
+    );
+    console.log('OK double-continue-keeps-hero-cards');
+  }
+
+  // --- ensureLiveHand con mano playing + holes no reparte ---
+  {
+    const state = g.PTTournamentRunner.create('huEasy', { seed: 902, heroName: 'KeepDeal' });
+    g.PTTournamentRunner.beginHand(state);
+    assert.ok(state._liveHand && state._liveHand.stage === 'playing', 'playing');
+    const heroSeat = state._liveHand.seats.find(function (s) { return s.isHero; });
+    const cardKey = JSON.stringify(heroSeat.cards);
+    const handRef = state._liveHand;
+    const again = g.PTTournamentRunner.ensureLiveHand(state);
+    assert.strictEqual(again, handRef, 'ensureLiveHand reutiliza la mano');
+    const hero2 = state._liveHand.seats.find(function (s) { return s.isHero; });
+    assert.strictEqual(JSON.stringify(hero2.cards), cardKey, 'mismas cartas tras ensureLiveHand');
+    console.log('OK ensureLiveHand-keeps-playing-holes');
+  }
+
+  // --- ITM: no en WTA (placesPaid<=1); sí en MTT/SNG con placesPaid>1 ---
+  {
+    const runnerSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/runner.js'), 'utf8');
+    assert.ok(/placesPaid\s*>\s*1\s*&&\s*leftNow\s*<=\s*placesPaid/.test(runnerSrc),
+      'ITM condition requires placesPaid > 1');
+
+    const hu = g.PTTournamentRunner.create('huEasy', { seed: 903, heroName: 'ItmHu' });
+    assert.ok((hu.config.placesPaid || 0) <= 1, 'HU WTA placesPaid<=1');
+    let hand = g.PTTournamentRunner.beginHand(hu);
+    let guard = 0;
+    while (hand && hand.stage === 'playing' && guard++ < 80) {
+      if (hand.awaitingHero) {
+        const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
+        g.PTTournamentRunner.heroAct(hu, opt.id === 'check' ? 'check' : opt.id, opt.amount);
+      } else break;
+      hand = hu._liveHand;
+    }
+    if (hand && hand.stage === 'complete' && hand.result) {
+      g.PTTournamentRunner.applyResults(hu, hand);
+    }
+    assert.ok(!hu.itmPending, 'HU/WTA no arma itmPending');
+
+    const mtt = g.PTTournamentRunner.create('sng6', { seed: 904, heroName: 'ItmSng' });
+    mtt.config.placesPaid = 2;
+    let h2 = g.PTTournamentRunner.beginHand(mtt);
+    let g2 = 0;
+    while (h2 && h2.stage === 'playing' && g2++ < 80) {
+      if (h2.awaitingHero) {
+        const opt = (h2.heroOptions && h2.heroOptions[0]) || { id: 'fold' };
+        g.PTTournamentRunner.heroAct(mtt, opt.id === 'check' ? 'check' : opt.id, opt.amount);
+      } else break;
+      h2 = mtt._liveHand;
+    }
+    assert.ok(h2 && h2.stage === 'complete' && h2.result, 'mano SNG complete');
+    /* Dejar hero + 1 rival vivos para cruzar placesPaid=2. */
+    (mtt.players || []).forEach(function (p) {
+      if (p.isHero) return;
+      p.alive = false;
+      p.stack = 0;
+    });
+    const rival = (mtt.players || []).find(function (p) { return !p.isHero; });
+    assert.ok(rival, 'hay rival');
+    rival.alive = true;
+    rival.stack = Math.max(1, Number(rival.stack) || 1000);
+    const heroP = (mtt.players || []).find(function (p) { return p.isHero; });
+    assert.ok(heroP && heroP.alive, 'hero vivo');
+    mtt.itmShown = false;
+    mtt.itmPending = null;
+    g.PTTournamentRunner.applyResults(mtt, h2);
+    assert.ok(mtt.itmShown && mtt.itmPending, 'SNG arma ITM con placesPaid>1 y left<=paid');
+    assert.ok(mtt.itmPending.paid > 1, 'ITM paid > 1');
+    console.log('OK itm-wta-vs-mtt');
   }
 
   console.log('*** test-tournament OK ***');

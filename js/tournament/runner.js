@@ -75,6 +75,28 @@
     return true;
   }
 
+  /** Hole cards ya repartidos: no sustituir la mano (evita flip de cartas de hero). */
+  function handHasIntactHoles(hand) {
+    if (!hand || !Array.isArray(hand.seats) || hand.seats.length < 2) return false;
+    for (var i = 0; i < hand.seats.length; i++) {
+      var c = hand.seats[i] && hand.seats[i].cards;
+      if (!c || c.length < 2 || !c[0] || !c[1]) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Conservar mano en juego con agujeros íntegros.
+   * Stubs rotos (sin acted/boardDeck) sí se descartan y reparten — recovery legacy.
+   */
+  function shouldKeepLiveHand(hand) {
+    if (!hand || hand.stage !== 'playing') return false;
+    if (!handHasIntactHoles(hand)) return false;
+    if (isPlayableLiveHand(hand)) return true;
+    /* Casi íntegra (p.ej. mid-assist sin heroOptions aún): no barajar. */
+    return !!(hand.acted && typeof hand.acted === 'object' && Array.isArray(hand.boardDeck));
+  }
+
   /**
    * Al Continuar un torneo guardado: reanuda la mano viva o reparte la siguiente.
    * No deja la mesa en idle (solo asientos clicables sin botones / sin Repartir).
@@ -93,6 +115,17 @@
       } catch (eSched) { /* */ }
     }
 
+    function redealFresh() {
+      if (shouldKeepLiveHand(state._liveHand)) {
+        ensureSatJob();
+        return state._liveHand;
+      }
+      if (state._liveHand && !(state._liveHand.stage === 'complete' && state._liveHand.result)) {
+        state._liveHand = null;
+      }
+      return beginHand(state);
+    }
+
     if (hand && hand.stage === 'complete' && hand.result) {
       ensureSatJob();
       return hand;
@@ -102,9 +135,9 @@
       try {
         if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
       } catch (eCtx) { /* */ }
-      if (!hand.awaitingHero) {
-        try { Live.runToHeroOrEnd(hand); } catch (eRun) { /* */ }
-        hand = state._liveHand;
+
+      function afterResumeRun() {
+        hand = state._liveHand || hand;
         if (hand && hand.stage === 'complete') {
           ensureSatJob();
           return hand;
@@ -113,17 +146,37 @@
           ensureSatJob();
           return hand;
         }
-      } else if (hand.heroOptions && hand.heroOptions.length) {
+        /* Mid-run (p.ej. assist async aún sin awaitingHero): conservar cartas. */
+        if (shouldKeepLiveHand(hand)) {
+          ensureSatJob();
+          return hand;
+        }
+        return redealFresh();
+      }
+
+      if (!hand.awaitingHero) {
+        var ran = null;
+        try { ran = Live.runToHeroOrEnd(hand); } catch (eRun) { ran = null; }
+        if (ran && typeof ran.then === 'function') {
+          return ran.then(function () {
+            if (!state._liveHand) state._liveHand = hand;
+            return afterResumeRun();
+          });
+        }
+        return afterResumeRun();
+      }
+      if (hand.heroOptions && hand.heroOptions.length) {
+        ensureSatJob();
+        return hand;
+      }
+      if (shouldKeepLiveHand(hand)) {
         ensureSatJob();
         return hand;
       }
     }
 
     /* Stub roto o sin mano: descartar y repartir. */
-    if (state._liveHand && !(state._liveHand.stage === 'complete' && state._liveHand.result)) {
-      state._liveHand = null;
-    }
-    return beginHand(state);
+    return redealFresh();
   }
 
   function beginHand(state) {
@@ -132,6 +185,11 @@
     if (state._liveHand && state._liveHand.stage === 'complete' && state._liveHand.result) {
       applyResults(state, state._liveHand);
       if (state.status !== 'running') return null;
+    }
+    /* Ya hay mano en juego: no barajar de nuevo (doble Continuar / race). */
+    if (state._liveHand && state._liveHand.stage === 'playing' &&
+        isPlayableLiveHand(state._liveHand)) {
+      return state._liveHand;
     }
     var Seat = global.PTTournamentSeating;
     var Live = global.PTTournamentLiveHand;
@@ -158,6 +216,9 @@
     var hero = St.hero(state);
     var hand = Live.start(ordered, blinds, hero ? hero.id : 'hero');
     if (Live.attachTourneyContext) Live.attachTourneyContext(hand, state);
+    /* Enlazar ya: si Continuar llega otra vez durante run async (assist),
+       beginHand/continueAfterHand ven la mano y no barajan de nuevo. */
+    state._liveHand = hand;
     var ran = Live.runToHeroOrEnd(hand);
     function afterRun() {
       state._liveHand = hand;
@@ -256,7 +317,8 @@
         state.finalTableShown = true;
         state.finalTablePending = { players: leftNow, at: Date.now() };
       }
-      if (!state.itmShown && heroNow && heroNow.alive && placesPaid > 0 && leftNow <= placesPaid) {
+      /* HU/Spin WTA (placesPaid<=1): el aviso útil es congrats al ganar, no ITM. */
+      if (!state.itmShown && heroNow && heroNow.alive && placesPaid > 1 && leftNow <= placesPaid) {
         state.itmShown = true;
         state.itmPending = { place: leftNow, paid: placesPaid, at: Date.now() };
       }
@@ -399,6 +461,11 @@
       applyResults(state, state._liveHand);
     }
     if (state.status === 'running') {
+      /* Idempotente: si ya se repartió (doble Continuar), no barajar otra vez. */
+      if (state._liveHand && state._liveHand.stage === 'playing' &&
+          isPlayableLiveHand(state._liveHand)) {
+        return state;
+      }
       var next = beginHand(state);
       if (next && typeof next.then === 'function') {
         return next.then(function () { return state; });
