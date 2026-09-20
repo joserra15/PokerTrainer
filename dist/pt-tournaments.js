@@ -4350,9 +4350,32 @@
     return keys[keys.length - 1];
   }
 
+  function stripMetaFreqs(freqs) {
+    if (!freqs || typeof freqs !== 'object') return null;
+    var out = {};
+    var has = false;
+    Object.keys(freqs).forEach(function (k) {
+      if (k.charAt(0) === '_') return;
+      out[k] = freqs[k];
+      has = true;
+    });
+    return has ? out : null;
+  }
+
+  function reasonFromRaw(raw, freqs) {
+    if (raw && raw.reasonCode != null && String(raw.reasonCode)) {
+      return String(raw.reasonCode);
+    }
+    if (freqs && freqs._reasonCode != null && String(freqs._reasonCode)) {
+      return String(freqs._reasonCode);
+    }
+    return null;
+  }
+
   function normalizeEntry(raw) {
     if (!raw || typeof raw !== 'object') return null;
-    var freqs = raw.action_freqs || raw.freqs || null;
+    var freqsRaw = raw.action_freqs || raw.freqs || null;
+    var freqs = stripMetaFreqs(freqsRaw) || freqsRaw;
     var action = raw.action || null;
     if (!action && freqs) {
       var id = sampleFromFreqs(freqs);
@@ -4361,9 +4384,10 @@
     if (!action || !action.id) return null;
     return {
       action: { id: String(action.id).toLowerCase(), amount: action.amount != null ? action.amount : action.sizeBB },
-      freqs: freqs || null,
+      freqs: stripMetaFreqs(freqsRaw) || freqs || null,
       samples: Number(raw.samples) || 1,
       confidence: Number(raw.confidence) || 0.5,
+      reasonCode: reasonFromRaw(raw, freqsRaw),
       source: raw.source || 'cache'
     };
   }
@@ -4390,10 +4414,11 @@
     try {
       var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
       if (!c || !c.rpc) return false;
-      var freqs = payload.freqs || {};
+      var freqs = Object.assign({}, stripMetaFreqs(payload.freqs) || payload.freqs || {});
       if (payload.action && payload.action.id && !Object.keys(freqs).length) {
         freqs[payload.action.id] = 1;
       }
+      if (payload.reasonCode) freqs._reasonCode = String(payload.reasonCode);
       var res = await c.rpc('pt_villain_assist_cache_put', {
         p_spot_key: key,
         p_schema_version: SCHEMA_VERSION,
@@ -4425,8 +4450,11 @@
   }
 
   async function write(key, payload) {
-    var entry = normalizeEntry(Object.assign({}, payload, { source: payload.source || 'gemini' }));
+    var merged = Object.assign({}, payload, { source: payload.source || 'gemini' });
+    if (payload.reasonCode && !merged.reasonCode) merged.reasonCode = payload.reasonCode;
+    var entry = normalizeEntry(merged);
     if (!entry) return false;
+    if (payload.reasonCode && !entry.reasonCode) entry.reasonCode = String(payload.reasonCode);
     l1Set(key, entry);
     await l3Write(key, entry);
     return true;
@@ -4445,6 +4473,235 @@
     clearL1: clearL1,
     sampleFromFreqs: sampleFromFreqs,
     normalizeEntry: normalizeEntry
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * villain-assist-spot-ev.js — ΔEV spot motor vs assist vía PTTournamentGtoEval.
+ * No inventa freqs: si el solver no scorifica → tagSpot = unscored.
+ */
+(function (global) {
+  'use strict';
+
+  var THRESHOLD_BB = 0.05;
+
+  function actionFamily(id) {
+    var a = String(id || '').toLowerCase();
+    if (a === 'allin') return 'raise';
+    if (a === 'bet') return 'bet';
+    if (a === 'raise') return 'raise';
+    if (a === 'call') return 'call';
+    if (a === 'check') return 'check';
+    if (a === 'fold') return 'fold';
+    return a;
+  }
+
+  function sameActionFamily(a, b) {
+    return actionFamily(a && a.id) === actionFamily(b && b.id);
+  }
+
+  function normalizeAction(action) {
+    if (!action) return null;
+    if (typeof action === 'string') return { id: String(action).toLowerCase() };
+    var id = action.id != null ? String(action.id).toLowerCase() : '';
+    if (!id) return null;
+    var out = { id: id };
+    if (action.amount != null && isFinite(Number(action.amount))) {
+      out.amount = Number(action.amount);
+    }
+    return out;
+  }
+
+  function scoreAction(hand, seat, action) {
+    var G = global.PTTournamentGtoEval;
+    if (!G || typeof G.evaluateHeroAction !== 'function') {
+      return { scored: false, reason: 'no_gto_eval', unscored: true };
+    }
+    var act = normalizeAction(action);
+    if (!act) return { scored: false, reason: 'no_action', unscored: true };
+    try {
+      var graded = G.evaluateHeroAction(hand, seat, act);
+      if (!graded || graded.unscored || graded.class === 'unscored') {
+        return {
+          scored: false,
+          reason: graded && graded.error ? String(graded.error) : 'unscored',
+          unscored: true,
+          graded: graded || null
+        };
+      }
+      var actionEV = graded.actionEV;
+      if (actionEV == null && graded.bestEV != null && graded.evLoss != null) {
+        actionEV = Number(graded.bestEV) - Number(graded.evLoss);
+      }
+      return {
+        scored: true,
+        unscored: false,
+        actionEV: actionEV != null && isFinite(Number(actionEV)) ? Number(actionEV) : null,
+        evLoss: Number(graded.evLoss) || 0,
+        frequency: Number(graded.frequency) || 0,
+        class: graded.class || null,
+        graded: graded
+      };
+    } catch (e) {
+      return { scored: false, reason: String(e && e.message || e), unscored: true };
+    }
+  }
+
+  /**
+   * Compara acción local (motor) vs final (assist) en el mismo spot.
+   * Preferir Δ de actionEV; si falta, Δ de −evLoss (menor pérdida = mejor).
+   */
+  function compareActions(hand, seat, localAction, finalAction) {
+    var local = normalizeAction(localAction);
+    var final = normalizeAction(finalAction);
+    if (!local || !final) {
+      return {
+        scored: false,
+        tagSpot: 'unscored',
+        deltaEvSpotBb: null,
+        evLocal: null,
+        evFinal: null,
+        reason: 'missing_action'
+      };
+    }
+    if (sameActionFamily(local, final)) {
+      return {
+        scored: true,
+        tagSpot: 'agree',
+        deltaEvSpotBb: 0,
+        evLocal: null,
+        evFinal: null,
+        reason: 'same_family'
+      };
+    }
+
+    var sLocal = scoreAction(hand, seat, local);
+    var sFinal = scoreAction(hand, seat, final);
+    if (!sLocal.scored || !sFinal.scored) {
+      return {
+        scored: false,
+        tagSpot: 'unscored',
+        deltaEvSpotBb: null,
+        evLocal: sLocal.actionEV != null ? sLocal.actionEV : null,
+        evFinal: sFinal.actionEV != null ? sFinal.actionEV : null,
+        reason: sLocal.reason || sFinal.reason || 'unscored',
+        localScore: sLocal,
+        finalScore: sFinal
+      };
+    }
+
+    var delta = null;
+    if (sLocal.actionEV != null && sFinal.actionEV != null) {
+      delta = sFinal.actionEV - sLocal.actionEV;
+    } else {
+      /* Menor evLoss = mejor → Δ positivo si final pierde menos. */
+      delta = (Number(sLocal.evLoss) || 0) - (Number(sFinal.evLoss) || 0);
+    }
+    delta = Math.round(delta * 100) / 100;
+
+    var tagSpot = 'differ_neutral';
+    if (delta > THRESHOLD_BB) tagSpot = 'differ_better';
+    else if (delta < -THRESHOLD_BB) tagSpot = 'differ_worse';
+
+    return {
+      scored: true,
+      tagSpot: tagSpot,
+      deltaEvSpotBb: delta,
+      evLocal: sLocal.actionEV != null ? sLocal.actionEV : -(Number(sLocal.evLoss) || 0),
+      evFinal: sFinal.actionEV != null ? sFinal.actionEV : -(Number(sFinal.evLoss) || 0),
+      reason: 'ok',
+      localScore: sLocal,
+      finalScore: sFinal
+    };
+  }
+
+  /**
+   * Re-evalúa desde un snapshot de audit (sin hand/seat vivos).
+   * Reconstruye un hand/seat mínimo compatible con evaluateHeroAction.
+   */
+  function compareFromSnapshot(snap, localAction, finalAction) {
+    snap = snap || {};
+    var bb = Math.max(1, Number(snap.bb) || 1);
+    var potBB = Number(snap.potBB);
+    if (!isFinite(potBB) && snap.pot != null) potBB = Number(snap.pot) / bb;
+    var stackBB = Number(snap.stackBB);
+    if (!isFinite(stackBB) && snap.stack != null) stackBB = Number(snap.stack) / bb;
+    var toCallBB = Number(snap.toCallBB);
+    if (!isFinite(toCallBB) && snap.toCall != null) toCallBB = Number(snap.toCall) / bb;
+    potBB = isFinite(potBB) ? potBB : 0;
+    stackBB = isFinite(stackBB) ? stackBB : 0;
+    toCallBB = isFinite(toCallBB) ? Math.max(0, toCallBB) : 0;
+
+    var hole = (snap.hole || snap.villainHole || []).map(function (c) {
+      return typeof c === 'string' ? c : (c && c.code) || c;
+    }).filter(Boolean);
+    var board = (snap.board || []).map(function (c) {
+      return typeof c === 'string' ? c : (c && c.code) || c;
+    }).filter(Boolean);
+
+    var seat = {
+      id: 'audit_villain',
+      pos: snap.position || snap.pos || 'BTN',
+      cards: hole.map(function (code) { return { code: code }; }),
+      stack: stackBB * bb,
+      streetInvested: 0,
+      invested: 0,
+      folded: false,
+      isHero: false
+    };
+    var currentBet = toCallBB * bb;
+    var hand = {
+      street: snap.street || 'flop',
+      board: board,
+      pot: potBB * bb,
+      bb: bb,
+      currentBet: currentBet,
+      minRaise: bb,
+      seats: [seat],
+      mttPhase: snap.phase || snap.effectivePhase || snap.mttPhase || 'mid',
+      effectivePhase: snap.phase || snap.effectivePhase || snap.mttPhase || 'mid',
+      mttStructureSituation: snap.mttStructureSituation || null,
+      formatHub: snap.formatHub || 'mtt',
+      gameType: snap.gameType || snap.formatHub || 'mtt',
+      kind: snap.kind || null,
+      playersLeft: snap.playersLeft != null ? snap.playersLeft : null,
+      placesPaid: snap.placesPaid != null ? snap.placesPaid : null,
+      playersSeated: snap.playersInPot != null ? snap.playersInPot : 2,
+      tournamentConfig: snap.presetId ? { id: snap.presetId } : null
+    };
+    if (toCallBB > 0) {
+      /* Un agresor fantasma para toCall coherente. */
+      hand.seats.push({
+        id: 'audit_opp',
+        pos: 'BB',
+        cards: [],
+        stack: stackBB * bb,
+        streetInvested: currentBet,
+        invested: currentBet,
+        folded: false,
+        isHero: false
+      });
+      hand.openerId = 'audit_opp';
+    }
+    return compareActions(hand, seat, localAction || snap.localAction, finalAction || snap.finalAction);
+  }
+
+  function auditTagFromDelta(agree, deltaEv) {
+    if (agree) return 'agree';
+    if (deltaEv > THRESHOLD_BB) return 'differ_better';
+    if (deltaEv < -THRESHOLD_BB) return 'differ_worse';
+    return 'differ_neutral';
+  }
+
+  global.PTVillainAssistSpotEv = {
+    THRESHOLD_BB: THRESHOLD_BB,
+    compareActions: compareActions,
+    compareFromSnapshot: compareFromSnapshot,
+    scoreAction: scoreAction,
+    sameActionFamily: sameActionFamily,
+    actionFamily: actionFamily,
+    auditTagFromDelta: auditTagFromDelta,
+    normalizeAction: normalizeAction
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -4659,6 +4916,57 @@
     return 'differ_neutral';
   }
 
+  function cloneAction(action) {
+    if (!action || !action.id) return null;
+    var out = { id: String(action.id).toLowerCase() };
+    if (action.amount != null && isFinite(Number(action.amount))) {
+      out.amount = Number(action.amount);
+    }
+    return out;
+  }
+
+  function cardCodes(cards) {
+    return (cards || []).map(function (c) {
+      return typeof c === 'string' ? c : (c && c.code) || c;
+    }).filter(Boolean);
+  }
+
+  /** Snapshot mínimo de mesa para admin + re-eval spot EV. */
+  function buildTableSnapshot(hand, seat, ctx, local) {
+    var bb = Math.max(1, Number(hand && hand.bb) || 1);
+    return {
+      street: (ctx && ctx.street) || (hand && hand.street) || null,
+      board: (ctx && ctx.board) || cardCodes(hand && hand.board),
+      hole: cardCodes(seat && seat.cards),
+      position: (ctx && ctx.position) || (seat && seat.pos) || null,
+      potBB: ctx && ctx.potBB != null ? Number(ctx.potBB) : null,
+      stackBB: ctx && ctx.stackBB != null ? Number(ctx.stackBB) : null,
+      toCallBB: ctx && ctx.toCallBB != null ? Number(ctx.toCallBB) : null,
+      playersInPot: ctx && ctx.playersInPot != null ? Number(ctx.playersInPot) : null,
+      facingJam: !!(ctx && ctx.facingJam),
+      multiway: !!(ctx && ctx.multiway),
+      phase: (ctx && (ctx.effectivePhase || ctx.mttPhase)) || (hand && hand.mttPhase) || null,
+      mttStructureSituation: (hand && hand.mttStructureSituation) || null,
+      bb: bb,
+      formatHub: (ctx && ctx.formatHub) || (hand && hand.formatHub) || null,
+      handBand: (ctx && ctx.handBand) || (local && local.handBand) || null,
+      role: (ctx && ctx.roleBucket) || (seat && seat.roleId) || null,
+      heroInvolved: ctx && ctx.heroInvolved != null ? !!ctx.heroInvolved : null
+    };
+  }
+
+  function computeSpotEvSafe(hand, seat, localAction, finalAction) {
+    var Spot = global.PTVillainAssistSpotEv;
+    if (!Spot || typeof Spot.compareActions !== 'function') {
+      return { scored: false, tagSpot: 'unscored', deltaEvSpotBb: null, reason: 'no_module' };
+    }
+    try {
+      return Spot.compareActions(hand, seat, localAction, finalAction);
+    } catch (e) {
+      return { scored: false, tagSpot: 'unscored', deltaEvSpotBb: null, reason: String(e && e.message || e) };
+    }
+  }
+
   function recordAudit(payload) {
     try {
       var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
@@ -4672,6 +4980,8 @@
       if (global.PTLog && global.PTLog.event) {
         global.PTLog.event('villain_assist_audit', {
           tag: payload.tag,
+          tagHeuristic: payload.tagHeuristic,
+          tagSpot: payload.tagSpot,
           source: payload.source,
           phase: payload.phase,
           level: payload.level
@@ -4728,6 +5038,8 @@
       }
     }
     if (!action || !action.id) throw new Error('invalid_action');
+    var reasonCode = data.reasonCode != null ? String(data.reasonCode)
+      : (data.result && data.result.reasonCode != null ? String(data.result.reasonCode) : null);
     return {
       action: {
         id: String(action.id).toLowerCase(),
@@ -4735,6 +5047,7 @@
       },
       freqs: freqs || null,
       confidence: data.confidence != null ? Number(data.confidence) : 0.55,
+      reasonCode: reasonCode,
       model: data.model || null,
       promptVersion: PROMPT_VERSION,
       valid: true,
@@ -4911,12 +5224,26 @@
     var finalAction = validateAgainstLocal(hand, seat, merged, localAction);
     var agree = sameActionFamily(localAction, finalAction);
     var deltaEv = estimateEvDelta(localAction, finalAction, local);
-    var tag = auditTag(agree, deltaEv);
+    var tagHeuristic = auditTag(agree, deltaEv);
+    /* tag legacy = heurística (compat admin/RPC); spot EV va aparte. */
+    var tag = tagHeuristic;
+    var remoteAction = cloneAction(remote.action);
+    var reasonCode = remote.reasonCode != null ? String(remote.reasonCode) : null;
+    var confidence = remote.confidence != null ? Number(remote.confidence) : null;
+    var table = buildTableSnapshot(hand, seat, ctx, local);
+    var spot = computeSpotEvSafe(hand, seat, localAction, finalAction);
 
     recordAudit({
       tag: tag,
+      tagHeuristic: tagHeuristic,
       agree: agree,
       deltaEvVillain: deltaEv,
+      tagSpot: spot.tagSpot || 'unscored',
+      deltaEvSpot: spot.deltaEvSpotBb,
+      evLocalSpot: spot.evLocal != null ? spot.evLocal : null,
+      evFinalSpot: spot.evFinal != null ? spot.evFinal : null,
+      spotScored: !!spot.scored,
+      spotReason: spot.reason || null,
       source: source,
       phase: ev.phase,
       level: lvlCfg.id,
@@ -4924,8 +5251,16 @@
       impact: ev.impact,
       presetId: presetId || null,
       spotKey: key,
+      /* Legacy string ids (filas antiguas / queries simples). */
       localAction: localAction && localAction.id,
       finalAction: finalAction && finalAction.id,
+      localActionFull: cloneAction(localAction),
+      remoteAction: remoteAction,
+      finalActionFull: cloneAction(finalAction),
+      localFreqs: local.freqs || null,
+      reasonCode: reasonCode,
+      confidence: confidence,
+      table: table,
       charged: source === 'gemini',
       at: new Date().toISOString()
     });
@@ -4953,6 +5288,9 @@
     computeLocalBundle: computeLocalBundle,
     syntheticFreqsForAssist: syntheticFreqsForAssist,
     buildCtx: buildCtx,
+    buildTableSnapshot: buildTableSnapshot,
+    estimateEvDelta: estimateEvDelta,
+    auditTag: auditTag,
     mergePreferRemote: mergePreferRemote,
     sameActionFamily: sameActionFamily,
     quotaRemaining: quotaRemaining,

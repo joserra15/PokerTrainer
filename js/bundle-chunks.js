@@ -163,6 +163,7 @@
       'js/tournament/villain-assist-complexity.js',
       'js/tournament/villain-assist-flags.js',
       'js/tournament/villain-assist-cache.js',
+      'js/tournament/villain-assist-spot-ev.js',
       'js/tournament/villain-ai-assist.js',
       'js/tournament/live-hand.js',
       'js/tournament/other-tables.js',

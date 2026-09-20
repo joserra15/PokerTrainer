@@ -3603,6 +3603,105 @@
     }
   }
 
+  function formatVaAction(action) {
+    if (!action) return '—';
+    if (typeof action === 'string') return action;
+    var id = action.id || action;
+    var amt = action.amount;
+    if (amt != null && isFinite(Number(amt))) {
+      return String(id) + ' ' + (Math.round(Number(amt) * 10) / 10);
+    }
+    return String(id);
+  }
+
+  function formatVaReason(code) {
+    if (!code) return '—';
+    var map = {
+      mix: 'Mix',
+      value: 'Value',
+      bluff: 'Bluff',
+      fold_equity: 'Fold equity',
+      icm: 'ICM'
+    };
+    var k = String(code).toLowerCase();
+    return map[k] || String(code);
+  }
+
+  function formatVaTable(table, payload) {
+    table = table || {};
+    var incomplete = !(table.street || table.board || table.hole);
+    if (incomplete && payload && (payload.localAction || payload.finalAction)) {
+      return '<span class="muted-text">payload incompleto</span>';
+    }
+    if (incomplete) return '—';
+    var board = Array.isArray(table.board) ? table.board.join(' ') : (table.board || '—');
+    var hole = Array.isArray(table.hole) ? table.hole.join(' ') : (table.hole || '—');
+    var bits = [
+      table.street || '?',
+      table.position || '?',
+      'board ' + board,
+      'hole ' + hole,
+      table.potBB != null ? ('pot ' + table.potBB + 'bb') : null,
+      table.stackBB != null ? ('stack ' + table.stackBB + 'bb') : null,
+      table.toCallBB != null ? ('toCall ' + table.toCallBB + 'bb') : null,
+      table.phase || null,
+      table.facingJam ? 'jam' : null,
+      table.multiway ? 'MW' : (table.playersInPot === 2 ? 'HU' : null),
+      table.handBand || null
+    ].filter(Boolean);
+    return escapeHtml(bits.join(' · '));
+  }
+
+  function renderVaAuditRows(rows) {
+    if (!rows || !rows.length) {
+      return '<p class="muted-text">Sin consultas en el periodo (o falta migración 059).</p>';
+    }
+    var html = '<div class="admin-va-audits-list">';
+    rows.forEach(function (row) {
+      var p = row.payload || {};
+      if (typeof p === 'string') {
+        try { p = JSON.parse(p); } catch (eP) { p = {}; }
+      }
+      var table = p.table || {};
+      var localFull = p.localActionFull || p.localAction;
+      var finalFull = p.finalActionFull || p.finalAction;
+      var remoteFull = p.remoteAction || finalFull;
+      var tagH = p.tagHeuristic || row.tag || '—';
+      var tagS = p.tagSpot || '—';
+      var when = row.created_at ? String(row.created_at).replace('T', ' ').slice(0, 19) : '';
+      var deltaSpot = p.deltaEvSpot != null ? p.deltaEvSpot : '—';
+      html +=
+        '<details class="admin-va-audit-row card-box">' +
+        '<summary>' +
+        '<span class="admin-va-audit-summary">' +
+        escapeHtml(when) + ' · ' +
+        escapeHtml(String(row.phase || table.phase || '?')) + ' · ' +
+        escapeHtml(String(row.source || '?')) + ' · ' +
+        'heurística ' + escapeHtml(String(tagH)) +
+        (tagS && tagS !== '—' ? (' · spot ' + escapeHtml(String(tagS))) : '') +
+        '</span></summary>' +
+        '<div class="admin-va-audit-body">' +
+        '<p><strong>Mesa</strong><br>' + formatVaTable(table, p) + '</p>' +
+        '<p><strong>Motor</strong>: ' + escapeHtml(formatVaAction(localFull)) + '</p>' +
+        '<p><strong>IA</strong>: ' + escapeHtml(formatVaAction(remoteFull)) +
+        (finalFull && formatVaAction(finalFull) !== formatVaAction(remoteFull)
+          ? (' → jugada ' + escapeHtml(formatVaAction(finalFull)))
+          : '') +
+        '</p>' +
+        '<p><strong>Motivo</strong>: ' + escapeHtml(formatVaReason(p.reasonCode)) +
+        (p.confidence != null ? (' · conf ' + escapeHtml(String(p.confidence))) : '') +
+        '</p>' +
+        '<p class="muted-text">ΔEV heurística: ' +
+        escapeHtml(String(row.delta_ev != null ? row.delta_ev : (p.deltaEvVillain != null ? p.deltaEvVillain : '—'))) +
+        ' · ΔEV spot: ' + escapeHtml(String(deltaSpot)) +
+        (p.spotReason ? (' · ' + escapeHtml(String(p.spotReason))) : '') +
+        '</p>' +
+        '</div></details>';
+    });
+    html += '</div>';
+    return html;
+  }
+
   async function loadVillainAssistAdmin() {
     var host = $('#admin-villain-assist-content');
     var errEl = $('#admin-villain-assist-error');
@@ -3614,6 +3713,7 @@
     host.innerHTML = '<p class="muted-text">Cargando…</p>';
     var enabled = false;
     var stats = null;
+    var auditsPack = null;
 
     /* Asegurar flags aunque el chunk torneos no se haya cargado. */
     try {
@@ -3642,8 +3742,16 @@
         var res = await c.rpc('pt_admin_villain_assist_stats', { p_days: 30 });
         if (!res.error) stats = res.data;
         else if (errEl && String(res.error.message || res.error).indexOf('function') >= 0) {
-          errEl.textContent = 'Falta aplicar la migración 058_villain_assist.sql en Supabase.';
+          errEl.textContent = 'Falta aplicar la migración 058/059_villain_assist en Supabase.';
         }
+        var resList = await c.rpc('pt_admin_villain_assist_audits_list', {
+          p_days: 30,
+          p_limit: 40,
+          p_tag: null,
+          p_source: null,
+          p_phase: null
+        });
+        if (!resList.error) auditsPack = resList.data;
       }
     } catch (e2) { /* */ }
 
@@ -3651,6 +3759,11 @@
     if (s && typeof s === 'object' && s.feature_enabled != null) {
       enabled = !!s.feature_enabled;
     }
+    var auditRows = (auditsPack && auditsPack.rows) || [];
+    if (typeof auditRows === 'string') {
+      try { auditRows = JSON.parse(auditRows); } catch (eR) { auditRows = []; }
+    }
+
     host.innerHTML =
       '<div class="card-box admin-villain-assist-controls">' +
       '<h4>Kill-switch</h4>' +
@@ -3662,7 +3775,7 @@
       '<button type="button" class="btn btn-ghost btn-sm" id="admin-va-bump-schema">Invalidar caché L3 (schema++)</button>' +
       '</div></div>' +
       '<div class="card-box">' +
-      '<h4>Métricas (30 días)</h4>' +
+      '<h4>Métricas heurística (30 días)</h4>' +
       '<ul class="admin-usage-bars">' +
       '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Audits totales</span>' +
       '<span class="admin-usage-bar-count">' + escapeHtml(String(s.total || 0)) + '</span></div></li>' +
@@ -3676,7 +3789,7 @@
       '<span class="admin-usage-bar-count">' +
       escapeHtml([s.differ_better || 0, s.differ_worse || 0, s.differ_neutral || 0].join(' / ')) +
       '</span></div></li>' +
-      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">ΔEV medio (differ)</span>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">ΔEV medio heurística (differ)</span>' +
       '<span class="admin-usage-bar-count">' + escapeHtml(String(s.avg_delta_ev_differ != null ? s.avg_delta_ev_differ : 0)) +
       ' bb</span></div></li>' +
       '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Gemini / cache hits</span>' +
@@ -3688,8 +3801,56 @@
       '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Filas caché L3</span>' +
       '<span class="admin-usage-bar-count">' + escapeHtml(String(s.cache_rows || 0)) + '</span></div></li>' +
       '</ul>' +
-      '<p class="muted-text">Si agree ≥ ~70% y ΔEV≈0, la IA aporta poco. ' +
-      'Si differ_better &gt; differ_worse con ΔEV&gt;0 en burbuja/FT/HU, señal de mejora.</p>' +
+      '<p class="muted-text">La heurística compara freqs sintéticas centradas en el motor: casi todo desacuerdo sale «peor». Usa spot EV abajo para valor real.</p>' +
+      '</div>' +
+      '<div class="card-box">' +
+      '<h4>Métricas spot EV (30 días)</h4>' +
+      '<ul class="admin-usage-bars">' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Spot scored</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.spot_scored || 0)) + '</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Spot agree</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.spot_agree || 0)) + '</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">Spot mejor / peor / neutro</span>' +
+      '<span class="admin-usage-bar-count">' +
+      escapeHtml([s.spot_differ_better || 0, s.spot_differ_worse || 0, s.spot_differ_neutral || 0].join(' / ')) +
+      '</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">% unscored</span>' +
+      '<span class="admin-usage-bar-count">' + escapeHtml(String(s.spot_unscored_pct != null ? s.spot_unscored_pct : 0)) +
+      '%</span></div></li>' +
+      '<li><div class="admin-usage-bar-row"><span class="admin-usage-bar-label">ΔEV medio spot (differ)</span>' +
+      '<span class="admin-usage-bar-count">' +
+      escapeHtml(String(s.avg_delta_ev_spot_differ != null ? s.avg_delta_ev_spot_differ : 0)) +
+      ' bb</span></div></li>' +
+      '</ul>' +
+      '<p class="muted-text">Valor si en burbuja/FT/HU spot_mejor &gt; spot_peor con ΔEV spot &gt; 0 y unscored bajo. Requiere migración 059.</p>' +
+      '</div>' +
+      '<div class="card-box">' +
+      '<h4>Consultas recientes</h4>' +
+      '<div class="admin-promo-actions" style="margin-bottom:0.75rem;gap:0.5rem;flex-wrap:wrap;display:flex;">' +
+      '<label class="muted-text">Filtro tag ' +
+      '<select id="admin-va-filter-tag">' +
+      '<option value="">Todos</option>' +
+      '<option value="differ">Solo differ</option>' +
+      '<option value="differ_worse">differ_worse</option>' +
+      '<option value="differ_better">differ_better</option>' +
+      '<option value="agree">agree</option>' +
+      '</select></label>' +
+      '<label class="muted-text">Fuente ' +
+      '<select id="admin-va-filter-source">' +
+      '<option value="">Todas</option>' +
+      '<option value="gemini">Gemini</option>' +
+      '<option value="cache">Cache</option>' +
+      '</select></label>' +
+      '<label class="muted-text">Fase ' +
+      '<select id="admin-va-filter-phase">' +
+      '<option value="">Todas</option>' +
+      '<option value="bubble">bubble</option>' +
+      '<option value="ft">ft</option>' +
+      '<option value="hu">hu</option>' +
+      '</select></label>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="admin-va-filter-apply">Aplicar</button>' +
+      '</div>' +
+      '<div id="admin-va-audits-host">' + renderVaAuditRows(auditRows) + '</div>' +
       '</div>';
 
     var toggle = $('#admin-va-enabled');
@@ -3754,6 +3915,44 @@
         }
       };
     }
+
+    async function applyVaAuditFilters() {
+      var hostAud = $('#admin-va-audits-host');
+      if (!hostAud) return;
+      hostAud.innerHTML = '<p class="muted-text">Cargando…</p>';
+      var tagEl = $('#admin-va-filter-tag');
+      var srcEl = $('#admin-va-filter-source');
+      var phEl = $('#admin-va-filter-phase');
+      try {
+        var cF = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
+        if (!cF || !cF.rpc) {
+          hostAud.innerHTML = '<p class="muted-text">Sin cliente Supabase.</p>';
+          return;
+        }
+        var resF = await cF.rpc('pt_admin_villain_assist_audits_list', {
+          p_days: 30,
+          p_limit: 40,
+          p_tag: tagEl && tagEl.value ? tagEl.value : null,
+          p_source: srcEl && srcEl.value ? srcEl.value : null,
+          p_phase: phEl && phEl.value ? phEl.value : null
+        });
+        if (resF.error) {
+          hostAud.innerHTML = '<p class="muted-text">Error al listar (¿migración 059 aplicada?). ' +
+            escapeHtml(String(resF.error.message || resF.error)) + '</p>';
+          return;
+        }
+        var pack = resF.data || {};
+        var rows = pack.rows || [];
+        if (typeof rows === 'string') {
+          try { rows = JSON.parse(rows); } catch (eJ) { rows = []; }
+        }
+        hostAud.innerHTML = renderVaAuditRows(rows);
+      } catch (eF) {
+        hostAud.innerHTML = '<p class="muted-text">No se pudo cargar el listado.</p>';
+      }
+    }
+    var applyBtn = $('#admin-va-filter-apply');
+    if (applyBtn) applyBtn.onclick = applyVaAuditFilters;
   }
 
   function showAdminUsage(show) {
