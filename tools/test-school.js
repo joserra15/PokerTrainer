@@ -1059,6 +1059,46 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   });
 })();
 
+/* T-13 bubble: teachBack «vs shove» = villain jam; call/fold (no 3-bet shove vs open 2.5). */
+(function assertT13BubbleVsShoveTeachBackAligned() {
+  function spotById(sid) {
+    return Data.getLesson('T-13').spots.filter(function (s) { return s.id === sid; })[0];
+  }
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const lesson = Data.getLesson('T-13');
+  assert.ok(lesson && lesson.spots && lesson.spots.length >= 10, 'T-13 spots');
+
+  const jamIds = ['t13-01', 't13-02', 't13-05', 't13-06', 't13-08', 't13-10'];
+  jamIds.forEach(function (sid) {
+    const spot = spotById(sid);
+    assert.ok(spot, sid + ' existe');
+    assert.ok(/shove/i.test(spot.teachBack), sid + ' teachBack habla de shove');
+    const h = openHand(spot).hand;
+    const ids = (h.current.options || []).map(function (o) { return o.id; });
+    assert.ok(ids.indexOf('fold') >= 0 && ids.indexOf('call') >= 0, sid + ' fold/call');
+    assert.ok(ids.indexOf('allin') < 0 && ids.indexOf('raise') < 0,
+      sid + ' no ofrece 3-bet shove vs open (es vs jam)');
+    assert.ok(h.current.facingAllIn || h.current.toCallBB >= 8, sid + ' toCall de jam');
+    assert.ok(h.villainAction && h.villainAction.type === 'allin', sid + ' villano all-in');
+  });
+
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-08'), 'call')) >= 0,
+    't13-08 AKo vs shove: call alineado con teachBack');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-01'), 'fold')) >= 0,
+    't13-01 AJo mid vs shove big: fold alineado con teachBack $EV');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-02'), 'call')) >= 0,
+    't13-02 KK vs shove: call');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-06'), 'fold')) >= 0,
+    't13-06 T8o vs shove: fold');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-10'), 'fold')) >= 0,
+    't13-10 K7o vs shove: fold');
+})();
+
 /* Spins S-01/S-02: sizing steal ~20 bb (shove vs open min vs 3-bet shove) */
 (function () {
   function spotById(lessonId, sid) {
