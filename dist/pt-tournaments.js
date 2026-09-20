@@ -13546,24 +13546,44 @@ function reducedMotion() {
           : [];
         if (ui.state && ui.state._liveHand) ui.state._liveHand._frames = [];
 
-        if (!more.length) {
-          stopAnim();
-          clearThinking();
-          ui.actionBusy = false;
-          afterAction();
-          return;
+        /* Si el motor ya resolvió, el próximo actor está en el primer fotograma. */
+        if (!ui.thinkingSeatId && more.length) {
+          var f0 = more[0];
+          if (f0 && f0.kind === 'act' && f0.actorId && !f0.isHero) {
+            ui.thinkingSeatId = f0.actorId;
+          }
         }
 
-        /* Reproducir solo fotogramas de villanos/streets. */
-        ui.anim.seq += 1;
-        ui.anim.skip = false;
-        ui.anim.playing = true;
-        ui.anim.frame = more[0];
-        clearThinking();
-        playFrames(more, function () {
-          ui.actionBusy = false;
-          afterAction();
-        });
+        function playRest() {
+          if (!more.length) {
+            stopAnim();
+            clearThinking();
+            ui.actionBusy = false;
+            afterAction();
+            return;
+          }
+          /* Reproducir solo fotogramas de villanos/streets. */
+          ui.anim.seq += 1;
+          ui.anim.skip = false;
+          ui.anim.playing = true;
+          ui.anim.frame = more[0];
+          clearThinking();
+          playFrames(more, function () {
+            ui.actionBusy = false;
+            afterAction();
+          });
+        }
+
+        /* Pausa mínima de «pensando» para que el rival se note aunque el motor sea sync. */
+        var thinkMs = reducedMotion() ? 60 : 280;
+        var shouldDwell = !!(more.length && thinkMs > 0 && typeof setTimeout === 'function'
+          && (ui.thinkingSeatId || ui.actionBusy));
+        if (shouldDwell) {
+          paint();
+          setTimeout(playRest, thinkMs);
+        } else {
+          playRest();
+        }
       });
     }
 
