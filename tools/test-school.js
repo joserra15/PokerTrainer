@@ -160,6 +160,8 @@ const engineScripts = [
   'js/engine/ranges/data.js',
   'js/engine/ranges/extended.js',
   'js/engine/ranges/variants.js',
+  'js/engine/ranges/nash-push-data.js',
+  'js/engine/ranges/jsonLoader.js',
   'js/engine/ranges/pushFold.js',
   'js/engine/ranges/registry.js',
   'js/engine/ranges/weights.js',

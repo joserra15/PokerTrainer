@@ -5470,10 +5470,13 @@ window.PT_NASH_PUSH_JSON = {
     if (nash) {
       const out = {};
       Object.keys(nash).forEach(function (code) {
-        let w = pressureAdjust(nash[code], input, 'call');
-        // 15–25bb: recortar semibluffs / connectors del chart corto.
+        const raw = Number(nash[code]) || 0;
+        let w = raw;
+        // 15–25bb: recortar semibluffs / connectors del chart corto (no premiums ~1.0).
         if (bb > 14 && w > 0 && w < 0.92) w = Math.max(0, w - 0.25);
         if (bb > 18 && w > 0 && w < 0.98) w = Math.max(0, w - 0.15);
+        // ICM/burbuja después: aprieta calls, pero AK/QQ+ siguen pagando.
+        w = pressureAdjust(w, input, 'call');
         out[code] = w;
       });
       return out;
