@@ -370,8 +370,9 @@
     return 'Jugador';
   }
 
-  function toastPopupHtml(kind, title, sub) {
-    return '<div class="trn-center-popup trn-popup-' + kind + '" data-popup="' + kind + '" role="status">' +
+  function toastPopupHtml(kind, title, sub, settled) {
+    var cls = 'trn-center-popup trn-popup-' + kind + (settled ? ' trn-popup-settled' : '');
+    return '<div class="' + cls + '" data-popup="' + kind + '" role="status">' +
       '<div class="trn-center-popup-card">' +
       '<strong>' + title + '</strong>' +
       (sub ? ('<span>' + sub + '</span>') : '') +
@@ -379,9 +380,10 @@
   }
 
   /** Cartel llamativo de mesa final (sin confeti); se oculta solo. */
-  function finalTableBannerHtml(players) {
+  function finalTableBannerHtml(players, settled) {
     var n = Number(players) || 0;
-    return '<div class="trn-ft-banner" data-popup="ft" role="status" aria-live="polite">' +
+    var cls = 'trn-ft-banner' + (settled ? ' trn-ft-banner-settled' : '');
+    return '<div class="' + cls + '" data-popup="ft" role="status" aria-live="polite">' +
       '<div class="trn-ft-banner-card">' +
       '<p class="trn-ft-banner-kicker">Torneo</p>' +
       '<strong class="trn-ft-banner-title">MESA FINAL</strong>' +
@@ -412,10 +414,34 @@
     if (flag === 'congrats') ui.state.congratsPending = null;
   }
 
-  function resumeAfterBanner() {
+  function popupFlagToDataAttr(flag) {
+    if (flag === 'ft') return 'ft';
+    if (flag === 'blind') return 'blind';
+    if (flag === 'itm') return 'itm';
+    if (flag === 'start') return 'start';
+    if (flag === 'congrats') return 'congrats';
+    return flag;
+  }
+
+  function removeBannerDom(flag) {
+    try {
+      if (!ui.root) return;
+      var sel = '[data-popup="' + popupFlagToDataAttr(flag) + '"]';
+      var node = ui.root.querySelector(sel);
+      if (node && node.parentNode) node.parentNode.removeChild(node);
+    } catch (eRm) { /* */ }
+  }
+
+  function markBannerAnimPlayed(pending) {
+    if (pending && typeof pending === 'object') pending.animPlayed = true;
+  }
+
+  function resumeAfterBanner(clearedFlag) {
     if (isBannerBlocking()) {
       ensureBannerTimers();
-      paint();
+      /* Quitar solo el nodo del banner que expiró: un paint() completo
+         reiniciaría la animación CSS de los hermanos aún visibles. */
+      if (clearedFlag) removeBannerDom(clearedFlag);
       return;
     }
     if (ui.heldFrames && ui.heldFrames.length) {
@@ -452,7 +478,7 @@
       ui.popupClearTimers[flag] = setTimeout(function () {
         ui.popupClearTimers[flag] = null;
         clearBannerFlag(flag);
-        resumeAfterBanner();
+        resumeAfterBanner(flag);
       }, delay);
     } catch (e) { /* */ }
   }
@@ -2066,15 +2092,19 @@ function reducedMotion() {
       startBanner = toastPopupHtml(
         'start',
         '¡Comienza el torneo!',
-        'Buena suerte, ' + esc(heroDisplayName(state))
+        'Buena suerte, ' + esc(heroDisplayName(state)),
+        !!state.startBannerPending.animPlayed
       );
+      markBannerAnimPlayed(state.startBannerPending);
     }
     if (state.congratsPending) {
       congratsBanner = toastPopupHtml(
         'congrats',
         esc(state.congratsPending.title || '¡Enhorabuena!'),
-        esc(state.congratsPending.sub || '')
+        esc(state.congratsPending.sub || ''),
+        !!state.congratsPending.animPlayed
       );
+      markBannerAnimPlayed(state.congratsPending);
     }
     if (state.blindUpPending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
       var bu = state.blindUpPending;
@@ -2082,14 +2112,26 @@ function reducedMotion() {
         'blind',
         'Subida de nivel',
         'Nivel ' + esc(String(bu.level)) + ' · ' + esc(String(bu.sb)) + '/' + esc(String(bu.bb)) +
-          (bu.ante ? (' ante ' + esc(String(bu.ante))) : '')
+          (bu.ante ? (' ante ' + esc(String(bu.ante))) : ''),
+        !!bu.animPlayed
       );
+      markBannerAnimPlayed(bu);
     }
     if (state.finalTablePending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
-      ftPopup = finalTableBannerHtml(state.finalTablePending.players);
+      ftPopup = finalTableBannerHtml(
+        state.finalTablePending.players,
+        !!state.finalTablePending.animPlayed
+      );
+      markBannerAnimPlayed(state.finalTablePending);
     }
     if (state.itmPending && !(hand && hand.stage === 'complete') && !state.congratsPending) {
-      itmPopup = toastPopupHtml('itm', '¡En el dinero!', 'Has entrado en premios');
+      itmPopup = toastPopupHtml(
+        'itm',
+        '¡En el dinero!',
+        'Has entrado en premios',
+        !!state.itmPending.animPlayed
+      );
+      markBannerAnimPlayed(state.itmPending);
     }
     ensureBannerTimers();
 
@@ -3301,7 +3343,9 @@ function reducedMotion() {
           if (pid) startFromConfig(pid, {});
           else paint();
         } else if (act === 'continue-hand') {
+          if (ui.actionBusy) return;
           if (ui.state) {
+            ui.actionBusy = true;
             var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
             ui.handDetailOpen = false;
             whenReady(cont, function () {
@@ -3417,7 +3461,9 @@ function reducedMotion() {
           ui.roleModalPlayerId = null;
           paint();
         } else if (act === 'next-hand') {
+          if (ui.actionBusy) return;
           if (ui.state && ui.state.status === 'running') {
+            ui.actionBusy = true;
             var nx = global.PTTournamentRunner.continueAfterHand(ui.state);
             whenReady(nx, function () {
               persistActive();

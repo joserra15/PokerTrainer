@@ -2172,6 +2172,10 @@
 .trn-popup-congrats {
   animation: trn-popup-fade-5s 5s ease forwards;
 }
+.trn-center-popup.trn-popup-settled {
+  animation: none;
+  opacity: 1;
+}
 .trn-center-popup-card {
   position: relative;
   z-index: 2;
@@ -2342,6 +2346,13 @@
   pointer-events: auto;
   background: rgba(4, 10, 18, .55);
   animation: trn-ft-banner-fade 3s ease forwards;
+}
+.trn-ft-banner.trn-ft-banner-settled {
+  animation: none;
+  opacity: 1;
+}
+.trn-ft-banner.trn-ft-banner-settled .trn-ft-banner-card {
+  animation: none;
 }
 .trn-ft-banner-card {
   position: relative;
