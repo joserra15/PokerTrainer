@@ -160,6 +160,8 @@ const engineScripts = [
   'js/engine/ranges/data.js',
   'js/engine/ranges/extended.js',
   'js/engine/ranges/variants.js',
+  'js/engine/ranges/nash-push-data.js',
+  'js/engine/ranges/jsonLoader.js',
   'js/engine/ranges/pushFold.js',
   'js/engine/ranges/registry.js',
   'js/engine/ranges/weights.js',
@@ -1053,6 +1055,79 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
       sid + ' raise alineado con teachBack (no chart push a 25 bb)');
   });
   ['t04-02', 't04-05', 't04-08', 't04-12'].forEach(function (sid) {
+    const spot = lesson.spots.filter(function (s) { return s.id === sid; })[0];
+    assert.ok(spot, sid);
+    assert.ok(['optima', 'aceptable'].indexOf(grade(spot, 'fold')) >= 0, sid + ' fold sigue OK');
+  });
+})();
+
+/* T-13 bubble: teachBack «vs shove» = villain jam; call/fold (no 3-bet shove vs open 2.5). */
+(function assertT13BubbleVsShoveTeachBackAligned() {
+  function spotById(sid) {
+    return Data.getLesson('T-13').spots.filter(function (s) { return s.id === sid; })[0];
+  }
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const lesson = Data.getLesson('T-13');
+  assert.ok(lesson && lesson.spots && lesson.spots.length >= 10, 'T-13 spots');
+
+  const jamIds = ['t13-01', 't13-02', 't13-05', 't13-06', 't13-08', 't13-10'];
+  jamIds.forEach(function (sid) {
+    const spot = spotById(sid);
+    assert.ok(spot, sid + ' existe');
+    assert.ok(/shove/i.test(spot.teachBack), sid + ' teachBack habla de shove');
+    const h = openHand(spot).hand;
+    const ids = (h.current.options || []).map(function (o) { return o.id; });
+    assert.ok(ids.indexOf('fold') >= 0 && ids.indexOf('call') >= 0, sid + ' fold/call');
+    assert.ok(ids.indexOf('allin') < 0 && ids.indexOf('raise') < 0,
+      sid + ' no ofrece 3-bet shove vs open (es vs jam)');
+    assert.ok(h.current.facingAllIn || h.current.toCallBB >= 8, sid + ' toCall de jam');
+    assert.ok(h.villainAction && h.villainAction.type === 'allin', sid + ' villano all-in');
+  });
+
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-08'), 'call')) >= 0,
+    't13-08 AKo vs shove: call alineado con teachBack');
+  assert.strictEqual(grade(spotById('t13-08'), 'call'), 'optima',
+    't13-08 AKo: call es óptima (no fold)');
+  assert.strictEqual(grade(spotById('t13-01'), 'fold'), 'optima',
+    't13-01 AJo mid vs shove big: fold es óptima');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-02'), 'call')) >= 0,
+    't13-02 KK vs shove: call');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-06'), 'fold')) >= 0,
+    't13-06 T8o vs shove: fold');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(spotById('t13-10'), 'fold')) >= 0,
+    't13-10 K7o vs shove: fold');
+})();
+
+/* T-14 big-stack pressure: teachBack open/steal debe premiar raise (no fold por chart polar mid). */
+(function assertT14BigStealTeachBackAligned() {
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const lesson = Data.getLesson('T-14');
+  assert.ok(lesson && lesson.spots && lesson.spots.length >= 12, 'T-14 spots');
+  const openIds = ['t14-01', 't14-03', 't14-06', 't14-07', 't14-11'];
+  openIds.forEach(function (sid) {
+    const spot = lesson.spots.filter(function (s) { return s.id === sid; })[0];
+    assert.ok(spot, sid + ' existe');
+    assert.ok(/steal|open|presión|frecuente|jugabilidad|clara/i.test(spot.teachBack), sid + ' teachBack open');
+    assert.ok(['optima', 'aceptable'].indexOf(grade(spot, 'raise')) >= 0,
+      sid + ' raise alineado con teachBack (chart mid CO incluye la mano)');
+  });
+  const t1403 = lesson.spots.filter(function (s) { return s.id === 't14-03'; })[0];
+  assert.ok(t1403 && t1403.forceDeal && t1403.forceDeal.heroCards, 't14-03 forceDeal');
+  const hc = t1403.forceDeal.heroCards;
+  assert.ok(hc[0] === 'As' && hc[1] === '5s', 't14-03 usa A5s (en raise mid CO; A6s no): ' + hc.join(','));
+  assert.ok(/A5s/.test(t1403.teachBack), 't14-03 teachBack menciona A5s');
+  assert.ok(!/A6s/.test(t1403.teachBack), 't14-03 ya no pide A6s');
+  ['t14-02', 't14-09', 't14-12'].forEach(function (sid) {
     const spot = lesson.spots.filter(function (s) { return s.id === sid; })[0];
     assert.ok(spot, sid);
     assert.ok(['optima', 'aceptable'].indexOf(grade(spot, 'fold')) >= 0, sid + ' fold sigue OK');

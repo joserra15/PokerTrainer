@@ -298,7 +298,7 @@ eq(Flags.isVisible(), false, 'visible off → oculto');
 Flags.setLocalEnabled(true);
 eq(Flags.isVisible(), true, 'visible on');
 
-/* ---------- Caché L1 ---------- */
+/* ---------- Caché L1 + reasonCode ---------- */
 const gCache = loadFiles(['js/tournament/villain-assist-cache.js']);
 const Cache = gCache.PTVillainAssistCache;
 ok(!!Cache, 'cache');
@@ -319,11 +319,34 @@ ok(!!Cache.l1Get(key), 'l1 set/get');
 Cache.clearL1();
 eq(Cache.l1Get(key), null, 'l1 clear');
 
+{
+  const norm = Cache.normalizeEntry({
+    action: { id: 'fold' },
+    freqs: { fold: 0.7, call: 0.3, _reasonCode: 'icm' },
+    confidence: 0.8,
+    source: 'gemini'
+  });
+  eq(norm.reasonCode, 'icm', 'normalizeEntry reasonCode from freqs meta');
+  ok(!norm.freqs._reasonCode, 'meta stripped from playable freqs');
+  eq(norm.confidence, 0.8, 'confidence kept');
+}
+
+/* ---------- Spot EV module ---------- */
+const gSpot = loadFiles(['js/tournament/villain-assist-spot-ev.js']);
+const SpotEv = gSpot.PTVillainAssistSpotEv;
+ok(!!SpotEv, 'PTVillainAssistSpotEv');
+eq(SpotEv.compareActions(null, null, { id: 'call' }, { id: 'call' }).tagSpot, 'agree', 'same family → agree');
+{
+  const miss = SpotEv.compareActions({}, { cards: [] }, { id: 'call' }, { id: 'fold' });
+  eq(miss.tagSpot, 'unscored', 'sin GTO → unscored');
+}
+
 /* ---------- Assist module (sin red) ---------- */
 const gAssist = loadFiles([
   'js/tournament/villain-assist-complexity.js',
   'js/tournament/villain-assist-flags.js',
   'js/tournament/villain-assist-cache.js',
+  'js/tournament/villain-assist-spot-ev.js',
   'js/tournament/villain-ai-assist.js'
 ]);
 const Assist = gAssist.PTVillainAiAssist;
@@ -341,6 +364,18 @@ eq(Assist.mergePreferRemote({ id: 'fold' }, { action: { id: 'explode' } }).id, '
   ok(nutsF.raise >= 0.80, 'nuts sigue sesgado');
   const jamF = Assist.syntheticFreqsForAssist('call', 'air', true);
   ok(Math.abs(jamF.call - jamF.fold) < 0.15, 'jam aire mezcla muy cerrada');
+}
+
+/* Sesgo heurístico: desacuerdo → differ_worse (freqs centradas en motor) */
+{
+  const freqs = Assist.syntheticFreqsForAssist('call', 'bluffcatch', true);
+  const delta = Assist.estimateEvDelta({ id: 'call' }, { id: 'fold' }, { freqs: freqs });
+  const tag = Assist.auditTag(false, delta);
+  ok(delta < -0.05, 'ΔEV heurística negativa en desacuerdo: ' + delta);
+  eq(tag, 'differ_worse', 'desacuerdo → differ_worse heurístico');
+  const agreeDelta = Assist.estimateEvDelta({ id: 'call' }, { id: 'call' }, { freqs: freqs });
+  eq(agreeDelta, 0, 'acuerdo → ΔEV 0');
+  eq(Assist.auditTag(true, agreeDelta), 'agree', 'acuerdo → agree');
 }
 
 gAssist.PTVillainAssistFlags.setLocalEnabled(false);
@@ -391,12 +426,14 @@ gAssist.PTTournamentVillainDecide = {
   ok(chunks.indexOf('villain-ai-assist.js') >= 0, 'bundle assist');
   ok(chunks.indexOf('villain-assist-cache.js') >= 0, 'bundle cache');
   ok(chunks.indexOf('villain-assist-flags.js') >= 0, 'bundle flags');
+  ok(chunks.indexOf('villain-assist-spot-ev.js') >= 0, 'bundle spot-ev');
 
   /* Edge contract: modo villain_action */
   const edge = fs.readFileSync(path.join(ROOT, 'supabase/functions/analyze-hand/index.ts'), 'utf8');
   ok(edge.indexOf("'villain_action'") >= 0 || edge.indexOf('"villain_action"') >= 0, 'edge mode');
   ok(edge.indexOf('VILLAIN_ACTION_PROMPT') >= 0, 'edge prompt');
   ok(/mode === 'villain_action'/.test(edge), 'edge handler');
+  ok(edge.indexOf('reasonCode') >= 0, 'edge returns reasonCode');
 
   /* Migración presente */
   const mig = fs.readFileSync(path.join(ROOT, 'supabase/migrations/058_villain_assist.sql'), 'utf8');
@@ -404,10 +441,18 @@ gAssist.PTTournamentVillainDecide = {
   ok(mig.indexOf('pt_villain_assist_audit') >= 0, 'mig audit');
   ok(mig.indexOf('pt_admin_villain_assist_stats') >= 0, 'mig admin stats');
   ok(mig.indexOf('villain_assist_enabled') >= 0, 'mig flag');
+  const mig59 = fs.readFileSync(path.join(ROOT, 'supabase/migrations/059_villain_assist_eval.sql'), 'utf8');
+  ok(mig59.indexOf('pt_admin_villain_assist_audits_list') >= 0, 'mig 059 list');
+  ok(mig59.indexOf('spot_differ_better') >= 0, 'mig 059 spot stats');
+  ok(mig59.indexOf('avg_delta_ev_spot_differ') >= 0, 'mig 059 avg spot');
 
   /* Admin UI wiring — fuente + dist desplegado (regresión: botón sin handler) */
   const adminJs = fs.readFileSync(path.join(ROOT, 'js/admin-panel.js'), 'utf8');
   ok(adminJs.indexOf('showAdminVillainAssist') >= 0, 'admin panel fn');
+  ok(adminJs.indexOf('pt_admin_villain_assist_audits_list') >= 0, 'admin list RPC');
+  ok(adminJs.indexOf('renderVaAuditRows') >= 0, 'admin audit rows');
+  ok(adminJs.indexOf('Métricas spot EV') >= 0, 'admin spot metrics');
+  ok(adminJs.indexOf('formatVaReason') >= 0, 'admin reason labels');
   const indexHtml = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   ok(indexHtml.indexOf('admin-villain-assist-panel') >= 0, 'admin panel html');
   ok(indexHtml.indexOf('admin-villain-assist-btn') >= 0, 'admin panel btn');
@@ -420,15 +465,115 @@ gAssist.PTTournamentVillainDecide = {
   ok(uiSrc.indexOf('En spots difíciles, los adversarios') < 0, 'ui old descriptive copy gone');
   const adminChunkSrc = fs.readFileSync(path.join(ROOT, 'js/bundle-chunks.js'), 'utf8');
   ok(/admin:\s*\[[^\]]*villain-assist-flags\.js/s.test(adminChunkSrc), 'flags in admin chunk');
+
+  /* Snapshot de mesa para audit */
+  {
+    const snap = Assist.buildTableSnapshot(
+      {
+        street: 'turn', bb: 100, board: ['Ah', '7d', '2c', '9s'],
+        mttPhase: 'bubble', formatHub: 'mtt'
+      },
+      { pos: 'BB', cards: [{ code: 'Qh' }, { code: 'Jd' }], roleId: 'pro' },
+      {
+        street: 'turn', potBB: 12, stackBB: 18, toCallBB: 18, playersInPot: 2,
+        facingJam: true, multiway: false, effectivePhase: 'bubble',
+        handBand: 'bluffcatch', roleBucket: 'pro', position: 'BB', board: ['Ah', '7d', '2c', '9s']
+      },
+      { handBand: 'bluffcatch' }
+    );
+    eq(snap.street, 'turn', 'snap street');
+    eq(snap.hole.join(''), 'QhJd', 'snap hole');
+    eq(snap.facingJam, true, 'snap jam');
+    ok(snap.phase === 'bubble', 'snap phase');
+  }
+
+  /* Audit enriquecido vía decideWithAssist + cache hit con reasonCode */
+  {
+    const audits = [];
+    gAssist.PTSupabase = {
+      getClient: function () {
+        return {
+          rpc: function (name, args) {
+            if (name === 'pt_villain_assist_audit_insert') {
+              audits.push(args && args.p_payload);
+            }
+            return Promise.resolve({ data: null, error: null });
+          }
+        };
+      }
+    };
+    gAssist.PTVillainAssistFlags.setLocalEnabled(true);
+    gAssist.PTEntitlements = {
+      canUseAI: function () { return { ok: true }; },
+      aiQuotaSummary: function () { return { unlimited: true }; }
+    };
+    const CacheA = gAssist.PTVillainAssistCache;
+    CacheA.clearL1();
+    const handOn = {
+      street: 'turn',
+      pot: 1200,
+      bb: 100,
+      currentBet: 1800,
+      board: ['Ah', '7d', '2c', '9s'],
+      seats: [],
+      tournamentConfig: { id: 'mttPro' },
+      villainAssist: { enabled: true, level: 'high', calls: 0, usedThisHand: 0, forcePro: true },
+      mttPhase: 'bubble',
+      effectivePhase: 'bubble',
+      formatHub: 'mtt'
+    };
+    const seatOn = {
+      id: 'v1', stack: 1800, invested: 200, streetInvested: 0, startStack: 3000,
+      pos: 'BB', roleId: 'pro',
+      cards: [{ code: 'Qh' }, { code: 'Jd' }], folded: false
+    };
+    handOn.seats = [
+      { id: 'hero', isHero: true, folded: false, stack: 2000, pos: 'BTN' },
+      seatOn
+    ];
+    gAssist.PTTournamentVillainDecide = {
+      decide: function () { return { id: 'call' }; },
+      profileForSeat: function () { return { id: 'pro', preflopStrict: 0.5 }; },
+      strength01: function () { return 0.32; },
+      handCode: function () { return 'QJo'; }
+    };
+    /* Pre-seed L1 so decideWithAssist no llama red */
+    const ctx = Assist.buildCtx(handOn, seatOn, Assist.computeLocalBundle(handOn, seatOn));
+    const spotKey = CacheA.buildKeyFromCtx(ctx);
+    CacheA.l1Set(spotKey, {
+      action: { id: 'fold' },
+      freqs: { fold: 0.65, call: 0.35, _reasonCode: 'icm' },
+      confidence: 0.72,
+      reasonCode: 'icm',
+      source: 'l1'
+    });
+    const acted = await Assist.decideWithAssist(handOn, seatOn);
+    eq(acted.id, 'fold', 'cache hit aplica fold IA');
+    ok(audits.length >= 1, 'audit insert llamado');
+    const payload = audits[audits.length - 1];
+    ok(payload.table && payload.table.street === 'turn', 'audit table street');
+    ok(payload.localActionFull && payload.localActionFull.id === 'call', 'audit motor call');
+    ok(payload.finalActionFull && payload.finalActionFull.id === 'fold', 'audit IA fold');
+    eq(payload.reasonCode, 'icm', 'audit reasonCode');
+    eq(payload.tagHeuristic, 'differ_worse', 'audit tagHeuristic differ_worse');
+    ok(payload.tagSpot === 'unscored' || payload.tagSpot === 'agree' || String(payload.tagSpot).indexOf('differ') === 0,
+      'audit tagSpot presente: ' + payload.tagSpot);
+  }
+
+  /* Offline harness fixture + script */
+  const fixture = JSON.parse(fs.readFileSync(
+    path.join(ROOT, 'tools/fixtures/villain-assist-audits.json'), 'utf8'));
+  ok(Array.isArray(fixture) && fixture.length >= 2, 'fixture audits');
+  ok(fixture[0].payload.reasonCode === 'icm', 'fixture has reason');
+  ok(fixture[0].payload.table.hole, 'fixture has table');
+  const evalSrc = fs.readFileSync(path.join(ROOT, 'tools/eval-villain-assist-audits.js'), 'utf8');
+  ok(evalSrc.indexOf('heuristicWorseButSpotBetter') >= 0, 'eval harness correlation');
+
   const adminDist = fs.readFileSync(path.join(ROOT, 'dist/pt-admin.js'), 'utf8');
   ok(adminDist.indexOf('showAdminVillainAssist') >= 0, 'dist admin has showAdminVillainAssist');
   ok(adminDist.indexOf('PTVillainAssistFlags') >= 0, 'dist admin has PTVillainAssistFlags');
 
   /* State default assist off */
-  const gState = loadFiles(['js/tournament/config.js', 'js/tournament/names.js', 'js/tournament/seating.js', 'js/tournament/state.js'], {
-    PTTournamentConfig: null
-  });
-  /* seating/config may need more deps — soft check via source */
   const stateSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/state.js'), 'utf8');
   ok(stateSrc.indexOf('villainAssist') >= 0, 'state has villainAssist');
   ok(stateSrc.indexOf('enabled: false') >= 0, 'state default off');

@@ -123,9 +123,32 @@
     return keys[keys.length - 1];
   }
 
+  function stripMetaFreqs(freqs) {
+    if (!freqs || typeof freqs !== 'object') return null;
+    var out = {};
+    var has = false;
+    Object.keys(freqs).forEach(function (k) {
+      if (k.charAt(0) === '_') return;
+      out[k] = freqs[k];
+      has = true;
+    });
+    return has ? out : null;
+  }
+
+  function reasonFromRaw(raw, freqs) {
+    if (raw && raw.reasonCode != null && String(raw.reasonCode)) {
+      return String(raw.reasonCode);
+    }
+    if (freqs && freqs._reasonCode != null && String(freqs._reasonCode)) {
+      return String(freqs._reasonCode);
+    }
+    return null;
+  }
+
   function normalizeEntry(raw) {
     if (!raw || typeof raw !== 'object') return null;
-    var freqs = raw.action_freqs || raw.freqs || null;
+    var freqsRaw = raw.action_freqs || raw.freqs || null;
+    var freqs = stripMetaFreqs(freqsRaw) || freqsRaw;
     var action = raw.action || null;
     if (!action && freqs) {
       var id = sampleFromFreqs(freqs);
@@ -134,9 +157,10 @@
     if (!action || !action.id) return null;
     return {
       action: { id: String(action.id).toLowerCase(), amount: action.amount != null ? action.amount : action.sizeBB },
-      freqs: freqs || null,
+      freqs: stripMetaFreqs(freqsRaw) || freqs || null,
       samples: Number(raw.samples) || 1,
       confidence: Number(raw.confidence) || 0.5,
+      reasonCode: reasonFromRaw(raw, freqsRaw),
       source: raw.source || 'cache'
     };
   }
@@ -163,10 +187,11 @@
     try {
       var c = global.PTSupabase && global.PTSupabase.getClient && global.PTSupabase.getClient();
       if (!c || !c.rpc) return false;
-      var freqs = payload.freqs || {};
+      var freqs = Object.assign({}, stripMetaFreqs(payload.freqs) || payload.freqs || {});
       if (payload.action && payload.action.id && !Object.keys(freqs).length) {
         freqs[payload.action.id] = 1;
       }
+      if (payload.reasonCode) freqs._reasonCode = String(payload.reasonCode);
       var res = await c.rpc('pt_villain_assist_cache_put', {
         p_spot_key: key,
         p_schema_version: SCHEMA_VERSION,
@@ -198,8 +223,11 @@
   }
 
   async function write(key, payload) {
-    var entry = normalizeEntry(Object.assign({}, payload, { source: payload.source || 'gemini' }));
+    var merged = Object.assign({}, payload, { source: payload.source || 'gemini' });
+    if (payload.reasonCode && !merged.reasonCode) merged.reasonCode = payload.reasonCode;
+    var entry = normalizeEntry(merged);
     if (!entry) return false;
+    if (payload.reasonCode && !entry.reasonCode) entry.reasonCode = String(payload.reasonCode);
     l1Set(key, entry);
     await l3Write(key, entry);
     return true;
