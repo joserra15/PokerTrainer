@@ -354,6 +354,7 @@
     if (snap._liveHand) {
       delete snap._liveHand._frames;
       if (snap._liveHand._animQueue) delete snap._liveHand._animQueue;
+      if (snap._liveHand._pendingHeroGrade) delete snap._liveHand._pendingHeroGrade;
     }
     /* Job satélite: se re-agenda al resume/beginHand; no persistir. */
     delete snap._satPending;

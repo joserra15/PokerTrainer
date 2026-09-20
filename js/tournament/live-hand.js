@@ -1145,7 +1145,80 @@
     return run(hand, { maxSteps: 250, stopOnFrame: false });
   }
 
-  function heroAct(hand, actionId, amount) {
+  function continueToHeroOrEnd(hand) {
+    flushPendingHeroGrade(hand);
+    return runToHeroOrEnd(hand);
+  }
+
+  /** Snapshot pre-acción para evaluar GTO después del primer paint. */
+  function capturePendingHeroGrade(hand, seat, action) {
+    var seatById = {};
+    (hand.seats || []).forEach(function (s) {
+      seatById[s.id] = {
+        streetInvested: s.streetInvested,
+        stack: s.stack,
+        invested: s.invested,
+        folded: !!s.folded,
+        allIn: !!s.allIn,
+        lastAction: s.lastAction ? {
+          action: s.lastAction.action,
+          amount: s.lastAction.amount
+        } : null
+      };
+    });
+    return {
+      action: { id: action.id, amount: action.amount },
+      seatId: seat.id,
+      heroOptions: hand.heroOptions,
+      pot: hand.pot,
+      currentBet: hand.currentBet,
+      minRaise: hand.minRaise,
+      openerId: hand.openerId,
+      openerPos: hand.openerPos,
+      lastAggressorId: hand.lastAggressorId,
+      lastRaiseWasFull: hand.lastRaiseWasFull,
+      acted: Object.assign({}, hand.acted || {}),
+      seatById: seatById
+    };
+  }
+
+  /** Evalúa la acción del héroe diferida (estado pre-apply). */
+  function flushPendingHeroGrade(hand) {
+    if (!hand || !hand._pendingHeroGrade) return hand;
+    var p = hand._pendingHeroGrade;
+    hand._pendingHeroGrade = null;
+    try {
+      var GEval = global.PTTournamentGtoEval;
+      if (!GEval || typeof GEval.evaluateHeroAction !== 'function') return hand;
+      var gradeHand = Object.assign({}, hand, {
+        pot: p.pot,
+        currentBet: p.currentBet,
+        minRaise: p.minRaise,
+        openerId: p.openerId,
+        openerPos: p.openerPos,
+        lastAggressorId: p.lastAggressorId,
+        lastRaiseWasFull: p.lastRaiseWasFull,
+        acted: p.acted,
+        heroOptions: p.heroOptions,
+        seats: (hand.seats || []).map(function (s) {
+          var snap = p.seatById && p.seatById[s.id];
+          return snap ? Object.assign({}, s, snap) : s;
+        })
+      });
+      var gradeSeat = gradeHand.seats.find(function (s) { return s.id === p.seatId; });
+      if (!gradeSeat) return hand;
+      var decision = GEval.evaluateHeroAction(gradeHand, gradeSeat, p.action);
+      hand.decisions = hand.decisions || [];
+      if (decision) hand.decisions.push(decision);
+    } catch (eEval) { /* no bloquear la mano */ }
+    return hand;
+  }
+
+  /**
+   * Aplica la acción del héroe y deja su fotograma listo.
+   * No evalúa GTO ni continúa con villanos (la UI pinta primero).
+   */
+  function applyHeroAction(hand, actionId, amount) {
     if (!hand || hand.stage !== 'playing' || !hand.awaitingHero) return hand;
     hand._frames = [];
     var seat = hand.seats.find(function (s) { return s.id === hand._heroSeatId; });
@@ -1158,15 +1231,7 @@
     }
     if (actionId === 'allin') action.amount = seat.streetInvested + seat.stack;
 
-    /* Evaluación GTO de la decisión del héroe (como en Entrenar). */
-    try {
-      var GEval = global.PTTournamentGtoEval;
-      if (GEval && typeof GEval.evaluateHeroAction === 'function') {
-        var decision = GEval.evaluateHeroAction(hand, seat, action);
-        hand.decisions = hand.decisions || [];
-        if (decision) hand.decisions.push(decision);
-      }
-    } catch (eEval) { /* no bloquear la mano */ }
+    hand._pendingHeroGrade = capturePendingHeroGrade(hand, seat, action);
 
     hand.awaitingHero = false;
     hand.heroOptions = null;
@@ -1175,8 +1240,19 @@
     if (global.PTVillainAiAssist && global.PTVillainAiAssist.resetHandCounters) {
       try { global.PTVillainAiAssist.resetHandCounters(hand); } catch (eRh) { /* */ }
     }
-    /* Continúa hasta el próximo turno de héroe o el fin (villanos deciden al actuar). */
-    return runToHeroOrEnd(hand);
+    return hand;
+  }
+
+  /** Próximo asiento que debe actuar (para UI de «pensando»). */
+  function peekNextActor(hand) {
+    if (!hand || hand.stage !== 'playing') return null;
+    return nextToAct(hand);
+  }
+
+  function heroAct(hand, actionId, amount) {
+    applyHeroAction(hand, actionId, amount);
+    /* Compat: tests / callers síncronos — grade + villanos en un solo paso. */
+    return continueToHeroOrEnd(hand);
   }
 
   /**
@@ -1351,6 +1427,10 @@
     run: run,
     runAsync: runAsync,
     runToHeroOrEnd: runToHeroOrEnd,
+    continueToHeroOrEnd: continueToHeroOrEnd,
+    applyHeroAction: applyHeroAction,
+    flushPendingHeroGrade: flushPendingHeroGrade,
+    peekNextActor: peekNextActor,
     heroAct: heroAct,
     simulateTable: simulateTable,
     attachTourneyContext: attachTourneyContext,

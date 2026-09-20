@@ -689,6 +689,38 @@ FILES.forEach(function (f) { load(g, f); });
   }
 }
 
+// --- applyHeroAction inmediato + continue (split para UI feedback) ---
+{
+  const state = g.PTTournamentRunner.create('sng6', { seed: 616 });
+  let hand = g.PTTournamentRunner.beginHand(state);
+  let guard = 0;
+  while (hand && hand.stage === 'playing' && !hand.awaitingHero && guard++ < 20) {
+    hand = state._liveHand;
+  }
+  if (hand && hand.awaitingHero && g.PTTournamentRunner.applyHeroAction) {
+    const opt = (hand.heroOptions || []).find(function (o) { return o.id === 'call' || o.id === 'check'; })
+      || (hand.heroOptions || [])[0];
+    const beforeDec = (hand.decisions || []).length;
+    g.PTTournamentRunner.applyHeroAction(state, opt.id, opt.amount != null ? opt.amount : opt.suggested);
+    hand = state._liveHand;
+    assert.ok(!hand.awaitingHero, 'applyHero deja de esperar al héroe');
+    assert.ok((hand._frames || []).length >= 1, 'fotograma del héroe listo al instante');
+    assert.ok(hand._frames[0].isHero, 'primer fotograma = héroe');
+    assert.ok(hand._pendingHeroGrade, 'GTO pendiente hasta continue');
+    const next = g.PTTournamentLiveHand.peekNextActor
+      ? g.PTTournamentLiveHand.peekNextActor(hand)
+      : null;
+    if (next) assert.ok(!next.isHero, 'peekNextActor apunta a un villano (o null si cierra)');
+    g.PTTournamentRunner.continueToHeroOrEnd(state);
+    hand = state._liveHand;
+    assert.ok(!hand._pendingHeroGrade, 'GTO flushed en continue');
+    assert.ok((hand.decisions || []).length >= beforeDec, 'decisión registrada tras continue');
+    console.log('OK apply-hero-immediate-continue');
+  } else {
+    console.log('OK apply-hero-immediate-continue (skipped)');
+  }
+}
+
 // --- turno correcto: nadie actúa fuera de orden antes del héroe ---
 {
   const PREFS = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];

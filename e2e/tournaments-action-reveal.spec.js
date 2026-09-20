@@ -60,4 +60,74 @@ test.describe('Torneos: revelado de la acción @smoke', () => {
       expect(seen.acting, 'asiento resaltado al actuar').toBeGreaterThan(0);
     }
   });
+
+  test('tras Check/Bet el héroe se ve al instante y aparece pensando', async ({ page }) => {
+    await mockAuthenticatedUser(page, { isAdmin: true, plan: 'coach' });
+    await waitForAppShell(page);
+    await page.evaluate(() => {
+      if (window.PTTournamentWallet && PTTournamentWallet.setBalance) {
+        PTTournamentWallet.setBalance(200, { type: 'e2e_seed' });
+      }
+    });
+    await goTab(page, 'tournaments');
+    await page.waitForSelector('#tab-tournaments .trn-lobby-row', { timeout: 30000 });
+    await page.click('#tab-tournaments .trn-lobby-row');
+
+    await page.waitForSelector('[data-hero-act], .trn-hand-end-modal, [data-act="next-hand"]', {
+      timeout: 40000
+    });
+
+    const heroBtn = page.locator('[data-hero-act]').first();
+    if ((await heroBtn.count()) === 0) {
+      test.skip(true, 'mano sin turno de héroe en este seed');
+      return;
+    }
+
+    await page.evaluate(() => {
+      window.__trnHero = { thinking: false, heroBadge: false, busyGone: false };
+      const host = document.querySelector('#tab-tournaments');
+      const obs = new MutationObserver(() => {
+        if (document.querySelector('.seat.thinking, .seat-act.is-thinking, .trn-thinking-status')) {
+          window.__trnHero.thinking = true;
+        }
+        const heroAct = document.querySelector('.hero-area .seat-act, .hero-area .action-badge-wrap .seat-act');
+        if (heroAct && !heroAct.classList.contains('is-thinking')) {
+          window.__trnHero.heroBadge = true;
+        }
+        if (!document.querySelector('[data-hero-act]') &&
+            (document.querySelector('[data-act="skip-anim"]') ||
+              document.querySelector('.trn-thinking-status') ||
+              document.querySelector('[data-hero-act]') === null)) {
+          window.__trnHero.busyGone = !document.querySelector('[data-hero-act]');
+        }
+      });
+      obs.observe(host, { childList: true, subtree: true });
+    });
+
+    await heroBtn.click();
+
+    /* Feedback inmediato: desaparecen botones de acción del héroe. */
+    await expect(page.locator('[data-hero-act]')).toHaveCount(0, { timeout: 2000 });
+
+    await page.waitForFunction(() => {
+      const h = window.__trnHero || {};
+      return h.heroBadge || h.thinking ||
+        !!document.querySelector('.hero-area .seat-act') ||
+        !!document.querySelector('.trn-thinking-status, .seat.thinking, [data-act="skip-anim"]');
+    }, null, { timeout: 5000 });
+
+    const snap = await page.evaluate(() => ({
+      hero: window.__trnHero,
+      hasHeroBadge: !!document.querySelector('.hero-area .seat-act'),
+      hasThinking: !!document.querySelector('.seat.thinking, .seat-act.is-thinking, .trn-thinking-status'),
+      hasSkip: !!document.querySelector('[data-act="skip-anim"]'),
+      hasHeroBtns: !!document.querySelector('[data-hero-act]')
+    }));
+
+    expect(snap.hasHeroBtns, 'botones de héroe deben desaparecer al instante').toBe(false);
+    expect(
+      snap.hasHeroBadge || snap.hasThinking || snap.hasSkip || snap.hero.heroBadge || snap.hero.thinking,
+      'debe verse badge del héroe, pensando o animación'
+    ).toBe(true);
+  });
 });

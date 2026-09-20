@@ -358,10 +358,7 @@
     return fin || state;
   }
 
-  function heroAct(state, actionId, amount) {
-    if (!state || !state._liveHand) return state;
-    var Live = global.PTTournamentLiveHand;
-    var result = Live.heroAct(state._liveHand, actionId, amount);
+  function bindLiveHand(state, result) {
     function done(hand) {
       state._liveHand = hand;
       /* No aplicar resultados aún: la UI muestra el popup de fin de mano. */
@@ -371,6 +368,28 @@
       return result.then(done);
     }
     return done(result);
+  }
+
+  /** Aplica solo la acción del héroe (fotograma listo; sin villanos ni GTO). */
+  function applyHeroAction(state, actionId, amount) {
+    if (!state || !state._liveHand) return state;
+    var Live = global.PTTournamentLiveHand;
+    Live.applyHeroAction(state._liveHand, actionId, amount);
+    return state;
+  }
+
+  /** Tras el paint del héroe: grade GTO diferido + villanos hasta próximo héroe/fin. */
+  function continueToHeroOrEnd(state) {
+    if (!state || !state._liveHand) return state;
+    var Live = global.PTTournamentLiveHand;
+    var cont = Live.continueToHeroOrEnd || Live.runToHeroOrEnd;
+    return bindLiveHand(state, cont(state._liveHand));
+  }
+
+  function heroAct(state, actionId, amount) {
+    if (!state || !state._liveHand) return state;
+    var Live = global.PTTournamentLiveHand;
+    return bindLiveHand(state, Live.heroAct(state._liveHand, actionId, amount));
   }
 
   /** Aplica la mano completa y reparte la siguiente (o cierra si el torneo acabó). */
@@ -643,6 +662,8 @@
     beginHand: beginHand,
     ensureLiveHand: ensureLiveHand,
     isPlayableLiveHand: isPlayableLiveHand,
+    applyHeroAction: applyHeroAction,
+    continueToHeroOrEnd: continueToHeroOrEnd,
     heroAct: heroAct,
     continueAfterHand: continueAfterHand,
     applyResults: applyResults,
