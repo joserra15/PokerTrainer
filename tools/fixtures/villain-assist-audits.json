@@ -1,0 +1,89 @@
+[
+  {
+    "id": 1,
+    "tag": "differ_worse",
+    "source": "gemini",
+    "phase": "bubble",
+    "payload": {
+      "tag": "differ_worse",
+      "tagHeuristic": "differ_worse",
+      "agree": false,
+      "deltaEvVillain": -0.35,
+      "tagSpot": "differ_better",
+      "deltaEvSpot": 0.42,
+      "spotScored": true,
+      "localAction": "call",
+      "finalAction": "fold",
+      "localActionFull": { "id": "call" },
+      "finalActionFull": { "id": "fold" },
+      "remoteAction": { "id": "fold" },
+      "reasonCode": "icm",
+      "confidence": 0.7,
+      "table": {
+        "street": "turn",
+        "board": ["Ah", "7d", "2c", "9s"],
+        "hole": ["Qh", "Jd"],
+        "position": "BB",
+        "potBB": 12,
+        "stackBB": 18,
+        "toCallBB": 18,
+        "playersInPot": 2,
+        "facingJam": true,
+        "phase": "bubble",
+        "bb": 100,
+        "handBand": "bluffcatch",
+        "formatHub": "mtt"
+      }
+    }
+  },
+  {
+    "id": 2,
+    "tag": "agree",
+    "source": "l3",
+    "phase": "hu",
+    "payload": {
+      "tag": "agree",
+      "tagHeuristic": "agree",
+      "agree": true,
+      "deltaEvVillain": 0,
+      "tagSpot": "agree",
+      "deltaEvSpot": 0,
+      "spotScored": true,
+      "localAction": "raise",
+      "finalAction": "raise",
+      "localActionFull": { "id": "raise", "amount": 600 },
+      "finalActionFull": { "id": "raise", "amount": 600 },
+      "reasonCode": "value",
+      "table": {
+        "street": "preflop",
+        "board": [],
+        "hole": ["As", "Kd"],
+        "position": "BTN",
+        "potBB": 1.5,
+        "stackBB": 25,
+        "toCallBB": 0,
+        "playersInPot": 2,
+        "facingJam": false,
+        "phase": "hu",
+        "bb": 40,
+        "handBand": "value",
+        "formatHub": "mtt"
+      }
+    }
+  },
+  {
+    "id": 3,
+    "tag": "differ_worse",
+    "source": "gemini",
+    "phase": "mid",
+    "payload": {
+      "tag": "differ_worse",
+      "tagHeuristic": "differ_worse",
+      "agree": false,
+      "deltaEvVillain": -0.28,
+      "localAction": "bet",
+      "finalAction": "check",
+      "note": "legacy row without table/spot — incomplete"
+    }
+  }
+]
