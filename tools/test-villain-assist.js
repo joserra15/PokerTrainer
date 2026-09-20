@@ -106,11 +106,20 @@ gComp.PTTournamentVillainDecide = { handCode: function () { return 'AA'; } };
   eq(v.veto, false, 'mezcla cerrada no veto');
 }
 
-eq(Comp.impactMult({ potBB: 3, stackBB: 80, effStackBB: 80, toCallBB: 0 }), 0, 'micro-pote impact 0');
+eq(Comp.impactMult({ potBB: 3, stackBB: 80, effStackBB: 80, toCallBB: 0 }), 0, 'micro-pote dust impact 0');
 ok(Comp.impactMult({ potBB: 20, stackBB: 25, effStackBB: 25, toCallBB: 24, facingJam: true }) >= 1, 'jam impact');
 ok(Comp.impactMult({ potBB: 40, stackBB: 50, effStackBB: 50, committedFrac: 0.4 }) >= 1, 'committed impact');
+/* HU deep facing bet: ya no hard-skip (antes impact 0 mataba Alta en early HU). */
+ok(
+  Comp.impactMult({
+    potBB: 6, stackBB: 97, effStackBB: 97, toCallBB: 4, street: 'flop', mttPhase: 'hu'
+  }) > 0,
+  'HU flop facing bet impact > 0'
+);
 
-eq(Comp.phaseMult('early'), 0.55, 'phase early');
+eq(Comp.phaseMult('early'), 0.80, 'phase early');
+eq(Comp.phaseMult('mid'), 0.95, 'phase mid');
+eq(Comp.phaseMult('late'), 1.05, 'phase late');
 eq(Comp.phaseMult('bubble'), 1.20, 'phase bubble');
 eq(Comp.phaseMult('hu'), 1.25, 'phase hu');
 
@@ -136,6 +145,31 @@ eq(Comp.phaseMult('hu'), 1.25, 'phase hu');
   ok(hi.threshold < lo.threshold, 'alta umbral menor que baja');
 }
 
+/* SNG mid con mezcla sintética band-aware (antes 72/28 + phase 0.75 ⇒ never) */
+{
+  const ctx = {
+    potBB: 24,
+    stackBB: 40,
+    effStackBB: 40,
+    toCallBB: 12,
+    street: 'river',
+    handBand: 'merge',
+    freqs: { call: 0.56, fold: 0.44 },
+    mttPhase: 'mid',
+    committedFrac: 0.15
+  };
+  const hi = Comp.evaluate(ctx, { freqs: ctx.freqs, handBand: 'merge' }, null, { street: 'river' }, 'high');
+  ok(hi.shouldAssist, 'Alta SNG mid river merge con freqs band-aware: score=' + hi.score);
+  const early = Comp.evaluate(
+    Object.assign({}, ctx, { mttPhase: 'early' }),
+    { freqs: ctx.freqs, handBand: 'merge' },
+    null,
+    { street: 'river' },
+    'high'
+  );
+  ok(early.shouldAssist, 'Alta SNG early river merge también elegible: score=' + early.score);
+}
+
 {
   const ev = Comp.evaluate(
     { potBB: 4, stackBB: 100, street: 'flop', handBand: 'merge', freqs: { bet: 0.5, check: 0.5 }, mttPhase: 'hu' },
@@ -144,7 +178,7 @@ eq(Comp.phaseMult('hu'), 1.25, 'phase hu');
     { street: 'flop' },
     'high'
   );
-  eq(ev.shouldAssist, false, 'HU micro-pote no assist aunque Alta');
+  eq(ev.shouldAssist, false, 'HU micro-pote dust no assist aunque Alta');
   eq(ev.reason, 'low_impact', 'reason low_impact');
 }
 
@@ -298,6 +332,16 @@ ok(Assist.sameActionFamily({ id: 'raise' }, { id: 'allin' }), 'raise~allin');
 ok(!Assist.sameActionFamily({ id: 'fold' }, { id: 'call' }), 'fold!=call');
 eq(Assist.mergePreferRemote({ id: 'fold' }, { action: { id: 'call' } }).id, 'call', 'merge remote');
 eq(Assist.mergePreferRemote({ id: 'fold' }, { action: { id: 'explode' } }).id, 'fold', 'merge illegal → local');
+
+/* Freqs sintéticas band-aware: merge no usa 72/28 plano */
+{
+  const mergeF = Assist.syntheticFreqsForAssist('call', 'merge', false);
+  ok(mergeF.call <= 0.60 && mergeF.fold >= 0.40, 'merge mezcla cerrada: ' + JSON.stringify(mergeF));
+  const nutsF = Assist.syntheticFreqsForAssist('raise', 'nuts', false);
+  ok(nutsF.raise >= 0.80, 'nuts sigue sesgado');
+  const jamF = Assist.syntheticFreqsForAssist('call', 'air', true);
+  ok(Math.abs(jamF.call - jamF.fold) < 0.15, 'jam aire mezcla muy cerrada');
+}
 
 gAssist.PTVillainAssistFlags.setLocalEnabled(false);
 gAssist.PTTournamentVillainDecide = {

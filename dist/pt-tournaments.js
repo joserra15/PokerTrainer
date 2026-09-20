@@ -3666,25 +3666,30 @@
 (function (global) {
   'use strict';
 
+  /*
+   * Umbrales calibrados para freqs reales o sintéticas band-aware.
+   * Alta debe disparar en spots ambiguos de mid/late/HU; early sigue más selectivo.
+   * (Antes high=0.50 + phase early/mid 0.55/0.75 + freqs 72/28 ⇒ SNG casi nunca consultaba.)
+   */
   var LEVELS = {
-    low: { id: 'low', threshold: 0.80, capPerHand: 1, capPerTournament: 20 },
-    medium: { id: 'medium', threshold: 0.64, capPerHand: 2, capPerTournament: 40 },
-    high: { id: 'high', threshold: 0.50, capPerHand: 2, capPerTournament: 60 }
+    low: { id: 'low', threshold: 0.72, capPerHand: 1, capPerTournament: 20 },
+    medium: { id: 'medium', threshold: 0.52, capPerHand: 2, capPerTournament: 40 },
+    high: { id: 'high', threshold: 0.40, capPerHand: 2, capPerTournament: 60 }
   };
 
   var PHASE_MULT = {
-    early: 0.55,
-    mid: 0.75,
-    late: 0.90,
-    short: 0.90,
-    push: 0.90,
+    early: 0.80,
+    mid: 0.95,
+    late: 1.05,
+    short: 1.05,
+    push: 1.05,
     bubble: 1.20,
     mincash: 1.20,
     ft: 1.25,
     ft9: 1.25,
     hu: 1.25,
-    spin: 1.05,
-    auto: 0.75
+    spin: 1.10,
+    auto: 0.90
   };
 
   var PRO_PRESETS = { mttPro: 1, sngPro: 1, spinPro: 1, huPro: 1 };
@@ -3918,17 +3923,34 @@
     var committed = Number(ctx.committedFrac);
     if (!isFinite(committed)) committed = 0;
     var facingJam = isFacingJam(ctx);
+    var toCallBB = Number(ctx.toCallBB) || 0;
+    var street = String(ctx.street || '').toLowerCase();
+    var phase = resolvePhase(ctx);
+    var facingBet = toCallBB > 0;
+    var lateStreet = street === 'turn' || street === 'river';
 
     if (isCriticalJamSpot(ctx)) return 1.25;
     if (committed >= 0.35 || facingJam) {
       return 1.15;
     }
-    if (potFrac < 0.08 && spr > 12) return 0;
+    /*
+     * Hard-skip solo en dust extremo (ciegas vs stack profundo).
+     * Antes potFrac<0.08 && spr>12 ⇒ impact 0 mataba casi todo el HU early 100bb
+     * y muchos spots SNG mid; turn/river enfrentando apuesta nunca debe ser 0.
+     */
+    if (potFrac < 0.05 && spr > 18 && !facingBet && !lateStreet) return 0;
+    if (potFrac < 0.08 && spr > 12 && !facingBet && street === 'flop' && phase !== 'hu') {
+      return 0.25;
+    }
+    if (potFrac < 0.08 && spr > 12) {
+      /* HU / facing / calles tardías: impacto bajo pero elegible en Alta. */
+      return facingBet || lateStreet || phase === 'hu' ? 0.45 : 0.30;
+    }
     if (potFrac < 0.15 || spr > 8) {
-      return potFrac < 0.10 ? 0.35 : 0.5;
+      return potFrac < 0.10 ? 0.45 : 0.60;
     }
     if (potFrac >= 0.30 || spr <= 4) return potFrac >= 0.45 || spr <= 2.5 ? 1.15 : 1.0;
-    return 0.8;
+    return 0.85;
   }
 
   function handBandAmbiguity(band) {
@@ -4746,6 +4768,38 @@
     return null;
   }
 
+  /**
+   * Freqs sintéticas cuando el motor solo devuelve la acción muestreada.
+   * 72/28 fija daba mixEntropy≈0.25 y el score casi nunca superaba el umbral
+   * Alta en SNG early/mid/late. Bandas ambiguas → mezcla cerrada; claras → más sesgo.
+   */
+  function syntheticFreqsForAssist(actionId, handBand, facingJam) {
+    var primary = actionFamily(actionId);
+    var secondary = primary === 'fold' ? 'call'
+      : (primary === 'check' ? 'bet' : 'fold');
+    var band = String(handBand || '').toLowerCase();
+    var ambiguous = band === 'merge' || band === 'bluffcatch' || band === 'draw' || band === 'semi';
+    var weak = band === 'air' || band === 'weak' || band === 'bluffcatch';
+    var p;
+    if (facingJam) {
+      p = (weak || ambiguous) ? 0.54 : 0.62;
+    } else if (ambiguous) {
+      p = 0.56;
+    } else if (band === 'value') {
+      p = 0.68;
+    } else if (band === 'nuts') {
+      p = 0.82;
+    } else if (band === 'air' && primary === 'fold') {
+      p = 0.80;
+    } else {
+      p = 0.64;
+    }
+    var freqs = {};
+    freqs[primary] = p;
+    freqs[secondary] = Math.round((1 - p) * 100) / 100;
+    return freqs;
+  }
+
   function computeLocalBundle(hand, seat) {
     var D = global.PTTournamentVillainDecide;
     var action = { id: 'check' };
@@ -4755,31 +4809,18 @@
     var profile = D && D.profileForSeat ? D.profileForSeat(seat, hand) : null;
     var strength = resolveLocalStrength(hand, seat);
     var made = resolveMade(hand, seat);
-    var freqs = {};
-    freqs[actionFamily(action.id)] = 0.72;
-    var alt = actionFamily(action.id) === 'fold' ? 'call'
-      : (actionFamily(action.id) === 'check' ? 'bet' : 'fold');
-    freqs[alt] = 0.28;
-    /*
-     * Ante jam, no fingir 72/28 «seguro»: mezcla más cerrada para que el
-     * score de complejidad refleje la dificultad real del spot.
-     */
+    var handBand = bandFromStrength(strength, made);
     var toCall = Math.max(0, (Number(hand.currentBet) || 0) - (Number(seat.streetInvested) || 0));
     var stack = Number(seat.stack) || 0;
-    if (toCall > 0 && stack > 0 && toCall >= stack * 0.85) {
-      var primary = actionFamily(action.id);
-      var secondary = primary === 'fold' ? 'call' : 'fold';
-      freqs = {};
-      freqs[primary] = 0.58;
-      freqs[secondary] = 0.42;
-    }
+    var facingJam = toCall > 0 && stack > 0 && toCall >= stack * 0.85;
+    var freqs = syntheticFreqsForAssist(action.id, handBand, facingJam);
     return {
       action: action,
       freqs: freqs,
       profile: profile,
       strength: strength,
       made: made,
-      handBand: bandFromStrength(strength, made)
+      handBand: handBand
     };
   }
 
@@ -4803,7 +4844,7 @@
     }
 
     var level = (st.level || 'medium');
-    var lvlCfg = Comp ? Comp.levelConfig(level) : { threshold: 0.64, capPerHand: 2, capPerTournament: 40 };
+    var lvlCfg = Comp ? Comp.levelConfig(level) : { threshold: 0.52, capPerHand: 2, capPerTournament: 40 };
     st.usedThisHand = Number(st.usedThisHand) || 0;
     st.calls = Number(st.calls) || 0;
     if (st.usedThisHand >= lvlCfg.capPerHand) return localAction;
@@ -4910,6 +4951,7 @@
   global.PTVillainAiAssist = {
     decideWithAssist: decideWithAssist,
     computeLocalBundle: computeLocalBundle,
+    syntheticFreqsForAssist: syntheticFreqsForAssist,
     buildCtx: buildCtx,
     mergePreferRemote: mergePreferRemote,
     sameActionFamily: sameActionFamily,
@@ -13419,6 +13461,8 @@ function reducedMotion() {
         } else if (act === 'assist-level') {
           if (ui.assistPrompt) {
             ui.assistPrompt.level = btn.getAttribute('data-level') || 'medium';
+            /* Elegir Baja/Media/Alta implica querer la feature: marcar Activar. */
+            ui.assistPrompt.enabled = true;
             paint();
           }
         } else if (act === 'confirm-assist-prompt') {
@@ -13440,8 +13484,11 @@ function reducedMotion() {
           if (ui.state) {
             ui.state.villainAssist = ui.state.villainAssist || { enabled: false, calls: 0 };
             ui.state.villainAssist.level = btn.getAttribute('data-level') || 'medium';
+            /* Cambiar nivel desde Info también activa el análisis profundo. */
+            ui.state.villainAssist.enabled = true;
             if (ui.state._liveHand && ui.state._liveHand.villainAssist) {
               ui.state._liveHand.villainAssist.level = ui.state.villainAssist.level;
+              ui.state._liveHand.villainAssist.enabled = true;
             }
             persistActive();
             paint();

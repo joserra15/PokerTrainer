@@ -318,6 +318,38 @@
     return null;
   }
 
+  /**
+   * Freqs sintéticas cuando el motor solo devuelve la acción muestreada.
+   * 72/28 fija daba mixEntropy≈0.25 y el score casi nunca superaba el umbral
+   * Alta en SNG early/mid/late. Bandas ambiguas → mezcla cerrada; claras → más sesgo.
+   */
+  function syntheticFreqsForAssist(actionId, handBand, facingJam) {
+    var primary = actionFamily(actionId);
+    var secondary = primary === 'fold' ? 'call'
+      : (primary === 'check' ? 'bet' : 'fold');
+    var band = String(handBand || '').toLowerCase();
+    var ambiguous = band === 'merge' || band === 'bluffcatch' || band === 'draw' || band === 'semi';
+    var weak = band === 'air' || band === 'weak' || band === 'bluffcatch';
+    var p;
+    if (facingJam) {
+      p = (weak || ambiguous) ? 0.54 : 0.62;
+    } else if (ambiguous) {
+      p = 0.56;
+    } else if (band === 'value') {
+      p = 0.68;
+    } else if (band === 'nuts') {
+      p = 0.82;
+    } else if (band === 'air' && primary === 'fold') {
+      p = 0.80;
+    } else {
+      p = 0.64;
+    }
+    var freqs = {};
+    freqs[primary] = p;
+    freqs[secondary] = Math.round((1 - p) * 100) / 100;
+    return freqs;
+  }
+
   function computeLocalBundle(hand, seat) {
     var D = global.PTTournamentVillainDecide;
     var action = { id: 'check' };
@@ -327,31 +359,18 @@
     var profile = D && D.profileForSeat ? D.profileForSeat(seat, hand) : null;
     var strength = resolveLocalStrength(hand, seat);
     var made = resolveMade(hand, seat);
-    var freqs = {};
-    freqs[actionFamily(action.id)] = 0.72;
-    var alt = actionFamily(action.id) === 'fold' ? 'call'
-      : (actionFamily(action.id) === 'check' ? 'bet' : 'fold');
-    freqs[alt] = 0.28;
-    /*
-     * Ante jam, no fingir 72/28 «seguro»: mezcla más cerrada para que el
-     * score de complejidad refleje la dificultad real del spot.
-     */
+    var handBand = bandFromStrength(strength, made);
     var toCall = Math.max(0, (Number(hand.currentBet) || 0) - (Number(seat.streetInvested) || 0));
     var stack = Number(seat.stack) || 0;
-    if (toCall > 0 && stack > 0 && toCall >= stack * 0.85) {
-      var primary = actionFamily(action.id);
-      var secondary = primary === 'fold' ? 'call' : 'fold';
-      freqs = {};
-      freqs[primary] = 0.58;
-      freqs[secondary] = 0.42;
-    }
+    var facingJam = toCall > 0 && stack > 0 && toCall >= stack * 0.85;
+    var freqs = syntheticFreqsForAssist(action.id, handBand, facingJam);
     return {
       action: action,
       freqs: freqs,
       profile: profile,
       strength: strength,
       made: made,
-      handBand: bandFromStrength(strength, made)
+      handBand: handBand
     };
   }
 
@@ -375,7 +394,7 @@
     }
 
     var level = (st.level || 'medium');
-    var lvlCfg = Comp ? Comp.levelConfig(level) : { threshold: 0.64, capPerHand: 2, capPerTournament: 40 };
+    var lvlCfg = Comp ? Comp.levelConfig(level) : { threshold: 0.52, capPerHand: 2, capPerTournament: 40 };
     st.usedThisHand = Number(st.usedThisHand) || 0;
     st.calls = Number(st.calls) || 0;
     if (st.usedThisHand >= lvlCfg.capPerHand) return localAction;
@@ -482,6 +501,7 @@
   global.PTVillainAiAssist = {
     decideWithAssist: decideWithAssist,
     computeLocalBundle: computeLocalBundle,
+    syntheticFreqsForAssist: syntheticFreqsForAssist,
     buildCtx: buildCtx,
     mergePreferRemote: mergePreferRemote,
     sameActionFamily: sameActionFamily,
