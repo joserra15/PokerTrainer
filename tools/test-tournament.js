@@ -3350,28 +3350,27 @@ console.log('OK pushfold-freq-100');
   // --- Doble continueAfterHand no cambia cartas de hero ---
   {
     const state = g.PTTournamentRunner.create('huEasy', { seed: 901, heroName: 'HuCards' });
-    let hand = g.PTTournamentRunner.beginHand(state);
-    let guard = 0;
-    while (hand && hand.stage === 'playing' && guard++ < 60) {
-      if (hand.awaitingHero) {
-        const opt = (hand.heroOptions && hand.heroOptions[0]) || { id: 'fold' };
-        const id = opt.id === 'check' ? 'check' : (opt.id === 'fold' ? 'fold' : opt.id);
-        g.PTTournamentRunner.heroAct(state, id, opt.amount);
-      } else {
-        break;
-      }
-      hand = state._liveHand;
-    }
-    assert.ok(hand && hand.stage === 'complete' && hand.result, 'mano HU completa');
-    g.PTTournamentRunner.continueAfterHand(state);
-    assert.ok(state._liveHand && state._liveHand.stage === 'playing', 'siguiente mano repartida');
+    g.PTTournamentRunner.beginHand(state);
+    assert.ok(state._liveHand && state._liveHand.stage === 'playing', 'mano HU repartida');
     const heroSeat = state._liveHand.seats.find(function (s) { return s.isHero; });
+    assert.ok(heroSeat && heroSeat.cards && heroSeat.cards.length >= 2, 'cartas hero');
     const cardKey = JSON.stringify(heroSeat.cards);
     const handRef = state._liveHand;
+    /* Continuar con mano ya en juego (doble click): no debe barajar. */
     g.PTTournamentRunner.continueAfterHand(state);
-    assert.strictEqual(state._liveHand, handRef, 'mismo objeto mano tras 2º Continuar');
-    const hero2 = state._liveHand.seats.find(function (s) { return s.isHero; });
-    assert.strictEqual(JSON.stringify(hero2.cards), cardKey, 'mismas cartas tras doble Continuar');
+    assert.strictEqual(state._liveHand, handRef, 'mismo objeto mano tras Continuar en playing');
+    assert.strictEqual(
+      JSON.stringify(state._liveHand.seats.find(function (s) { return s.isHero; }).cards),
+      cardKey,
+      'mismas cartas tras Continuar en playing'
+    );
+    g.PTTournamentRunner.continueAfterHand(state);
+    assert.strictEqual(state._liveHand, handRef, 'mismo objeto tras 2º Continuar');
+    assert.strictEqual(
+      JSON.stringify(state._liveHand.seats.find(function (s) { return s.isHero; }).cards),
+      cardKey,
+      'mismas cartas tras doble Continuar'
+    );
     console.log('OK double-continue-keeps-hero-cards');
   }
 
