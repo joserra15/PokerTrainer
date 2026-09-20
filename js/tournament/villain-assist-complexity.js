@@ -5,25 +5,30 @@
 (function (global) {
   'use strict';
 
+  /*
+   * Umbrales calibrados para freqs reales o sintéticas band-aware.
+   * Alta debe disparar en spots ambiguos de mid/late/HU; early sigue más selectivo.
+   * (Antes high=0.50 + phase early/mid 0.55/0.75 + freqs 72/28 ⇒ SNG casi nunca consultaba.)
+   */
   var LEVELS = {
-    low: { id: 'low', threshold: 0.80, capPerHand: 1, capPerTournament: 20 },
-    medium: { id: 'medium', threshold: 0.64, capPerHand: 2, capPerTournament: 40 },
-    high: { id: 'high', threshold: 0.50, capPerHand: 2, capPerTournament: 60 }
+    low: { id: 'low', threshold: 0.72, capPerHand: 1, capPerTournament: 20 },
+    medium: { id: 'medium', threshold: 0.52, capPerHand: 2, capPerTournament: 40 },
+    high: { id: 'high', threshold: 0.40, capPerHand: 2, capPerTournament: 60 }
   };
 
   var PHASE_MULT = {
-    early: 0.55,
-    mid: 0.75,
-    late: 0.90,
-    short: 0.90,
-    push: 0.90,
+    early: 0.80,
+    mid: 0.95,
+    late: 1.05,
+    short: 1.05,
+    push: 1.05,
     bubble: 1.20,
     mincash: 1.20,
     ft: 1.25,
     ft9: 1.25,
     hu: 1.25,
-    spin: 1.05,
-    auto: 0.75
+    spin: 1.10,
+    auto: 0.90
   };
 
   var PRO_PRESETS = { mttPro: 1, sngPro: 1, spinPro: 1, huPro: 1 };
@@ -257,17 +262,34 @@
     var committed = Number(ctx.committedFrac);
     if (!isFinite(committed)) committed = 0;
     var facingJam = isFacingJam(ctx);
+    var toCallBB = Number(ctx.toCallBB) || 0;
+    var street = String(ctx.street || '').toLowerCase();
+    var phase = resolvePhase(ctx);
+    var facingBet = toCallBB > 0;
+    var lateStreet = street === 'turn' || street === 'river';
 
     if (isCriticalJamSpot(ctx)) return 1.25;
     if (committed >= 0.35 || facingJam) {
       return 1.15;
     }
-    if (potFrac < 0.08 && spr > 12) return 0;
+    /*
+     * Hard-skip solo en dust extremo (ciegas vs stack profundo).
+     * Antes potFrac<0.08 && spr>12 ⇒ impact 0 mataba casi todo el HU early 100bb
+     * y muchos spots SNG mid; turn/river enfrentando apuesta nunca debe ser 0.
+     */
+    if (potFrac < 0.05 && spr > 18 && !facingBet && !lateStreet) return 0;
+    if (potFrac < 0.08 && spr > 12 && !facingBet && street === 'flop' && phase !== 'hu') {
+      return 0.25;
+    }
+    if (potFrac < 0.08 && spr > 12) {
+      /* HU / facing / calles tardías: impacto bajo pero elegible en Alta. */
+      return facingBet || lateStreet || phase === 'hu' ? 0.45 : 0.30;
+    }
     if (potFrac < 0.15 || spr > 8) {
-      return potFrac < 0.10 ? 0.35 : 0.5;
+      return potFrac < 0.10 ? 0.45 : 0.60;
     }
     if (potFrac >= 0.30 || spr <= 4) return potFrac >= 0.45 || spr <= 2.5 ? 1.15 : 1.0;
-    return 0.8;
+    return 0.85;
   }
 
   function handBandAmbiguity(band) {
