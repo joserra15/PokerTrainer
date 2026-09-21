@@ -352,7 +352,8 @@
     if (seat.stack <= 0.001) { seat.stack = 0; seat.allIn = true; }
   }
 
-  function logAct(hand, seat, action, amount) {
+  function logAct(hand, seat, action, amount, meta) {
+    meta = meta || {};
     var entry = {
       id: seat.id,
       name: seat.name,
@@ -360,13 +361,15 @@
       amount: amount || 0,
       street: hand.street
     };
+    if (meta.allin || seat.allIn) entry.allin = true;
     hand.log.push(entry);
     /* Persiste en el asiento para que la mesa muestre la última acción
        aunque cambie de street (si no, solo se ve Fold y la acción del héroe). */
     seat.lastAction = {
       action: action,
       amount: amount || 0,
-      street: hand.street
+      street: hand.street,
+      allin: !!entry.allin
     };
   }
 
@@ -429,7 +432,7 @@
   function doCall(hand, seat) {
     var tc = toCall(seat, hand);
     putIn(hand, seat, seat.streetInvested + tc);
-    logAct(hand, seat, 'call', tc);
+    logAct(hand, seat, 'call', tc, { allin: !!seat.allIn });
   }
   function doRaiseTo(hand, seat, toAmt) {
     var prev = hand.currentBet;
@@ -446,7 +449,7 @@
     if (target <= prev + 0.001) {
       var before = seat.streetInvested;
       putIn(hand, seat, target);
-      logAct(hand, seat, 'call', r2(seat.streetInvested - before));
+      logAct(hand, seat, 'call', r2(seat.streetInvested - before), { allin: !!seat.allIn });
       return;
     }
 
@@ -459,11 +462,12 @@
       hand.openerId = seat.id;
       hand.openerPos = seat.pos;
     }
-    /* All-in incompleto: en mesa/log como allin (no «raise»), coherente con TDA. */
+    /* All-in incompleto: en mesa/log como allin (no «raise»), coherente con TDA.
+       All-in completo (shove que alcanza min-raise): se loguea raise/bet con allin. */
     var logAction = seat.allIn && !fullRaise
       ? 'allin'
       : (prev > 0 ? 'raise' : 'bet');
-    logAct(hand, seat, logAction, seat.streetInvested);
+    logAct(hand, seat, logAction, seat.streetInvested, { allin: !!seat.allIn });
 
     /* Raise incompleto (all-in < min-raise): sube currentBet para quien aún
        debe igualar, pero NO reabre a quien ya había actuado (TDA). Tampoco
