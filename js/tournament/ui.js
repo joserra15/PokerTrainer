@@ -178,6 +178,38 @@
     } catch (eRef) { /* */ }
   }
 
+  var _walletPullAt = 0;
+  var _walletPullInFlight = null;
+
+  /** Al abrir lobby: traer wallet nube (créditos admin) antes de confiar en peek local. */
+  function pullTournamentWalletFromCloud() {
+    var now = Date.now();
+    if (_walletPullInFlight) return _walletPullInFlight;
+    if (now - _walletPullAt < 8000) return Promise.resolve({ ok: true, skipped: true });
+    if (!global.PTCloud || typeof global.PTCloud.syncNow !== 'function') {
+      return Promise.resolve({ ok: false, reason: 'no_cloud' });
+    }
+    _walletPullAt = now;
+    _walletPullInFlight = Promise.resolve(global.PTCloud.syncNow()).then(function (res) {
+      _walletPullInFlight = null;
+      return res || { ok: true };
+    }).catch(function () {
+      _walletPullInFlight = null;
+      return { ok: false };
+    });
+    return _walletPullInFlight;
+  }
+
+  function refreshHubAfterWalletPull() {
+    pullTournamentWalletFromCloud().then(function () {
+      try {
+        if (!ui.root || ui.view !== VIEW.hub) return;
+        paint();
+        refreshHubLeaderboard(true);
+      } catch (e) { /* */ }
+    });
+  }
+
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
@@ -859,6 +891,7 @@ function reducedMotion() {
   function setView(v) {
     ui.view = v;
     paint();
+    if (v === VIEW.hub) refreshHubAfterWalletPull();
   }
 
   function persistActive(opts) {
@@ -1351,7 +1384,8 @@ function reducedMotion() {
       '<div class="trn-lobby-list">' + rows + '</div>' +
       (function () {
         var Lb = global.PTTournamentLeaderboard;
-        try { if (Lb && Lb.publishHero) Lb.publishHero(); } catch (eLb) { /* */ }
+        /* skipCloud: no upsert del saldo local stale antes del pull de ranking/admin. */
+        try { if (Lb && Lb.publishHero) Lb.publishHero({ skipCloud: true }); } catch (eLb) { /* */ }
         return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
       })() +
       '<section class="trn-lobby-recent">' +
@@ -3571,6 +3605,7 @@ function reducedMotion() {
     ui.root = rootEl;
     if (!ui.view) ui.view = VIEW.hub;
     paint();
+    if (ui.view === VIEW.hub) refreshHubAfterWalletPull();
   }
 
   global.PTTournamentsUI = {

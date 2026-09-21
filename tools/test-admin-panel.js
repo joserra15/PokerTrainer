@@ -64,6 +64,12 @@ assert.ok(/community_id/.test(koinsMig60) && /notify_community_id/.test(koinsMig
   '060 notifica Contacto en la comunidad correcta');
 assert.ok(/pt_admin_user_koins_by_community/.test(koinsMig60), '060 saldos por comunidad');
 
+const koinsMig61 = fs.readFileSync(
+  path.join(__dirname, '..', 'supabase/migrations/061_admin_koins_credit_at.sql'),
+  'utf8'
+);
+assert.ok(/adminCreditAt/.test(koinsMig61), '061 marca adminCreditAt en wallet');
+
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(/id="tab-admin"|data-tab="admin"|account-admin/.test(html), 'admin en HTML');
 assert.ok(/admin-usage-panel/.test(html), 'panel uso en HTML');
