@@ -914,8 +914,15 @@ function reducedMotion() {
     if (!state || state.status === 'finished') return state;
     var hand = state._liveHand;
     if (!hand || hand.stage !== 'complete' || !hand.result) return state;
+    if (hand.result.applied) {
+      state._liveHand = null;
+      return state;
+    }
     try {
       var Runner = global.PTTournamentRunner;
+      if (Runner && typeof Runner.ensureResultDeltas === 'function') {
+        Runner.ensureResultDeltas(hand);
+      }
       if (Runner && typeof Runner.applyResults === 'function') {
         Runner.applyResults(state, hand);
         state._liveHand = null;
