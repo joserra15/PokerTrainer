@@ -153,7 +153,7 @@
     var data = ensurePersisted();
     data.balance = bal;
     data.updatedAt = new Date().toISOString();
-    if (meta) data.last = meta;
+    if (meta) data.last = Object.assign({ at: data.updatedAt }, meta);
     writeRaw(data);
     return data.balance;
   }
@@ -193,7 +193,7 @@
 
   function toSnapshot(data) {
     if (!data || typeof data.balance !== 'number') return null;
-    return {
+    var snap = {
       balance: data.balance,
       updatedAt: data.updatedAt,
       version: data.version || 1,
@@ -202,6 +202,9 @@
       lessonAwards: data.lessonAwards || {},
       communityId: communityId()
     };
+    if (data.last) snap.last = data.last;
+    if (data.adminCreditAt) snap.adminCreditAt = data.adminCreditAt;
+    return snap;
   }
 
   /**
@@ -226,7 +229,26 @@
     };
   }
 
+  function adminCreditTs(w) {
+    if (!w || typeof w !== 'object') return 0;
+    if (w.adminCreditAt) return Date.parse(w.adminCreditAt) || 0;
+    if (w.last && w.last.type === 'admin_set_koins') {
+      return Date.parse(w.last.at || w.updatedAt || 0) || 0;
+    }
+    return 0;
+  }
+
+  function balanceActivityTs(w) {
+    if (!w || !w.last || typeof w.last !== 'object') return 0;
+    var t = w.last.type;
+    if (t === 'debit' || t === 'credit' || t === 'school_lesson' || t === 'trainer_hands') {
+      return Date.parse(w.last.at || w.updatedAt || 0) || 0;
+    }
+    return 0;
+  }
+
   function applyRemote(remote, local) {
+    var adminAt = adminCreditTs(remote);
     var data = {
       balance: Math.max(0, Number(remote.balance) || 0),
       updatedAt: remote.updatedAt || new Date().toISOString(),
@@ -245,10 +267,36 @@
         (local && local.lessonAwards) || {},
         remote.lessonAwards || {}
       ),
-      last: { type: 'cloud_merge' }
+      last: (remote.last && remote.last.type === 'admin_set_koins')
+        ? remote.last
+        : { type: 'cloud_merge' }
     };
+    if (adminAt) {
+      data.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+    } else if (local && local.adminCreditAt) {
+      data.adminCreditAt = local.adminCreditAt;
+    }
     writeRaw(data, { silent: true });
     return toSnapshot(data);
+  }
+
+  /**
+   * ¿La nube con crédito admin debe ganar al wallet local?
+   * Sí si hay un adminCreditAt más reciente que el ya aplicado, salvo que el
+   * usuario haya movido saldo (debit/credit/…) después de ese crédito.
+   */
+  function shouldAdoptAdminCredit(local, remote) {
+    var remoteAdmin = adminCreditTs(remote);
+    if (!remoteAdmin) return false;
+    var localAdmin = adminCreditTs(local);
+    if (remoteAdmin < localAdmin) return false;
+    if (remoteAdmin === localAdmin &&
+        Math.abs((Number(remote.balance) || 0) - (Number(local.balance) || 0)) < 1e-9) {
+      return false;
+    }
+    var localAct = balanceActivityTs(local);
+    if (localAct > remoteAdmin) return false;
+    return true;
   }
 
   function mergeFromCloud(remote) {
@@ -256,14 +304,12 @@
     var local = peek();
     if (!local) return applyRemote(remote, null);
 
-    var localTs = Date.parse(local.updatedAt || 0) || 0;
-    var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-
-    /* Ajuste de admin: adoptar si la nube es igual/más reciente (no dejar que un
-       wallet local vacío inventado gane por updatedAt). */
-    if (remote.last && remote.last.type === 'admin_set_koins' && remoteTs >= localTs) {
+    if (shouldAdoptAdminCredit(local, remote)) {
       return applyRemote(remote, local);
     }
+
+    var localTs = Date.parse(local.updatedAt || 0) || 0;
+    var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
 
     if (remoteTs > localTs) {
       return applyRemote(remote, local);
@@ -283,14 +329,18 @@
         lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
         last: { type: 'cloud_merge_tie' }
       });
+      if (adminCreditTs(remote) > adminCreditTs(local)) {
+        tied.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+      }
       if (tied.balance !== local.balance ||
           tied.tournamentsPlayed !== local.tournamentsPlayed ||
-          tied.trainerHands !== local.trainerHands) {
+          tied.trainerHands !== local.trainerHands ||
+          tied.adminCreditAt !== local.adminCreditAt) {
         writeRaw(tied, { silent: true });
       }
       return toSnapshot(tied);
     }
-    /* Local más reciente: aún fusionar contadores monótonos. */
+    /* Local más reciente: aún fusionar contadores monótonos + stamp admin visto. */
     var dirtyLocal = false;
     if (remote.tournamentsPlayed != null) {
       var nextPlayed = Math.max(
@@ -311,6 +361,11 @@
         local.trainerHands = nextHands;
         dirtyLocal = true;
       }
+    }
+    var remoteAdminSeen = adminCreditTs(remote);
+    if (remoteAdminSeen > adminCreditTs(local)) {
+      local.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+      dirtyLocal = true;
     }
     if (dirtyLocal) writeRaw(local, { silent: true });
     return toSnapshot(local);
@@ -364,6 +419,8 @@
     setTournamentsPlayed: setTournamentsPlayed,
     noteTournamentPlayed: noteTournamentPlayed,
     communitySuffix: communitySuffix,
-    storageKey: storageKey
+    storageKey: storageKey,
+    adminCreditTs: adminCreditTs,
+    shouldAdoptAdminCredit: shouldAdoptAdminCredit
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

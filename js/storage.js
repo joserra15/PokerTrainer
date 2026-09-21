@@ -139,7 +139,19 @@
     var hKey = 'tournamentHistory' + s;
     var aKey = 'tournamentActive' + s;
     if (snap.tournamentWallet && !snap.tournamentWallet.isDefault) {
-      out[wKey] = snap.tournamentWallet;
+      var localW = snap.tournamentWallet;
+      var cloudW = out[wKey];
+      var preferCloudAdmin = false;
+      try {
+        if (cloudW && global.PTTournamentWallet && PTTournamentWallet.shouldAdoptAdminCredit) {
+          preferCloudAdmin = PTTournamentWallet.shouldAdoptAdminCredit(localW, cloudW);
+        } else if (cloudW && cloudW.last && cloudW.last.type === 'admin_set_koins') {
+          var cloudAdminTs = Date.parse(cloudW.adminCreditAt || cloudW.last.at || cloudW.updatedAt || 0) || 0;
+          var localAdminTs = Date.parse(localW.adminCreditAt || 0) || 0;
+          preferCloudAdmin = cloudAdminTs > localAdminTs;
+        }
+      } catch (eAdW) { /* */ }
+      out[wKey] = preferCloudAdmin ? cloudW : localW;
     }
     var localHist = Array.isArray(snap.tournamentHistory) ? snap.tournamentHistory : [];
     var cloudHist = Array.isArray(out[hKey]) ? out[hKey] : [];
@@ -2500,11 +2512,18 @@
         const localW = local.tournamentWallet;
         const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
         if (localW && !localW.isDefault) {
+          var preferCloudAdmin = false;
+          try {
+            if (cloudW && global.PTTournamentWallet && PTTournamentWallet.shouldAdoptAdminCredit) {
+              preferCloudAdmin = PTTournamentWallet.shouldAdoptAdminCredit(localW, cloudW);
+            }
+          } catch (ePref) { /* */ }
           var cloudIsAdmin = !!(cloudW && cloudW.last && cloudW.last.type === 'admin_set_koins');
           var localTsW = Date.parse(localW.updatedAt || 0) || 0;
           var cloudTsW = Date.parse((cloudW && cloudW.updatedAt) || 0) || 0;
-          /* Ajuste admin en nube: no pisarlo con un wallet local inventado/viejo. */
-          if (cloudIsAdmin && cloudTsW >= localTsW) {
+          if (preferCloudAdmin) {
+            out[cloudDataKey || key] = cloudW;
+          } else if (cloudIsAdmin && cloudTsW >= localTsW) {
             out[cloudDataKey || key] = cloudW;
           } else if (!cloudW || !cloudW.updatedAt || localTsW >= cloudTsW) {
             out[cloudDataKey || key] = localW;

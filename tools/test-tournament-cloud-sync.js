@@ -43,6 +43,7 @@ assert.ok(/silent:\s*true/.test(walletSrc) || /opts\.silent/.test(walletSrc),
   'merge cloud silent');
 assert.ok(/ensurePersisted/.test(walletSrc), 'ensurePersisted solo al mutar');
 assert.ok(/admin_set_koins/.test(walletSrc), 'merge respeta admin_set_koins');
+assert.ok(/adminCreditAt|shouldAdoptAdminCredit/.test(walletSrc), 'autoridad adminCreditAt');
 assert.ok(/Solo en memoria|no persiste/.test(walletSrc) ||
   /persistir un 0/.test(walletSrc), 'ensure no inventa dirty');
 
@@ -56,6 +57,14 @@ const uiSrc = read('js/tournament/ui.js');
 assert.ok(/pt-cloud-synced/.test(uiSrc), 'UI refresca tras sync');
 assert.ok(/flushTournamentCloud|flushPush/.test(uiSrc), 'flush al guardar salida');
 assert.ok(/displayKoins/.test(uiSrc), 'lobby no inventa wallet con getBalance');
+assert.ok(/pullTournamentWalletFromCloud|refreshHubAfterWalletPull/.test(uiSrc),
+  'lobby hace pull de wallet al abrir');
+assert.ok(/publishHero\(\{\s*skipCloud:\s*true\s*\}\)/.test(uiSrc),
+  'lobby no upserta ranking con saldo stale');
+
+const lbSrc = read('js/tournament/leaderboard.js');
+assert.ok(/adoptHeroWalletFromRanking/.test(lbSrc), 'ranking puede adoptar saldo admin al wallet');
+assert.ok(/walletUpdatedAt/.test(lbSrc), 'publishHero no usa Date.now para ganarle al cloud');
 
 const localStore = {};
 const sandbox = {
@@ -142,6 +151,29 @@ assert.ok(Store && W && T, 'modules loaded');
     last: { type: 'admin_set_koins', mode: 'add', delta: 500 }
   });
   assert.strictEqual(W.peek().balance, 500, 'merge adopta crédito admin');
+}
+
+/* --- adminCreditAt gana aunque local updatedAt sea más reciente (manos entrenador) --- */
+{
+  Object.keys(localStore).forEach((k) => delete localStore[k]);
+  Store.setUserId('user-admin-koins-2');
+  W.setBalance(100, { type: 'credit', amount: 100 });
+  for (let i = 0; i < 3; i++) W.noteTrainerHand();
+  assert.ok(W.peek().updatedAt, 'local tiene updatedAt reciente');
+  assert.strictEqual(W.getBalance(), 100, 'saldo local 100');
+  const olderAdmin = '2026-01-01T00:00:00.000Z';
+  /* Admin credit con updatedAt viejo pero adminCreditAt nuevo respecto a lo aplicado. */
+  W.mergeFromCloud({
+    balance: 999,
+    updatedAt: olderAdmin,
+    adminCreditAt: '2099-01-01T00:00:00.000Z',
+    tournamentsPlayed: 0,
+    trainerHands: 0,
+    lessonAwards: {},
+    last: { type: 'admin_set_koins', at: '2099-01-01T00:00:00.000Z', mode: 'set' }
+  });
+  assert.strictEqual(W.getBalance(), 999, 'adminCreditAt adopta saldo admin pese a local más reciente');
+  assert.ok(W.peek().adminCreditAt, 'persiste adminCreditAt');
 }
 
 /* --- trainerHands monótono: remoto antiguo/bajo no borra progreso local --- */
