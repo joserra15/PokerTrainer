@@ -1,7 +1,8 @@
 # Lote 3 — Carruseles educativos
 
-**20 carruseles × 5 slides** (B1–B8, B10–B21; ratio 3:4 ≈ 4:5 Instagram).  
-Lote sprint FOUNDER: **B15–B21** (ver también [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](../07-sprint-founder-oct/CARRUSELES_NUEVOS.md)).
+**30 carruseles × 5 slides** (B1–B8, B10–B31; ratio 3:4 ≈ 4:5 Instagram).  
+Lote sprint FOUNDER: **B15–B21** (ver también [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](../07-sprint-founder-oct/CARRUSELES_NUEVOS.md)).  
+Lote letras grandes: **B22–B31** (ver [`CARRUSELES_B22_B31.md`](CARRUSELES_B22_B31.md)).
 
 Hashtags base: `#pokertips #pokerstrategy #GTO #pokerespañol #pokerforgeai #estudiopoker`
 
@@ -229,6 +230,27 @@ Captions y orden del sprint: [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](.
 
 ---
 
+## Lote letras grandes — B22–B31 (nuevos)
+
+Mismo formato premium que B20 Blockers: título blanco dominante, subtítulo oro, spade AI, marca PokerForgeAI.
+
+| # | Tema | Archivos |
+|---|------|----------|
+| B22 | Range advantage | `edu-b22-01` … `edu-b22-05` |
+| B23 | Nut advantage | `edu-b23-01` … `edu-b23-05` |
+| B24 | Probe bet | `edu-b24-01` … `edu-b24-05` |
+| B25 | Donk bet | `edu-b25-01` … `edu-b25-05` |
+| B26 | Thin value | `edu-b26-01` … `edu-b26-05` |
+| B27 | MDF | `edu-b27-01` … `edu-b27-05` |
+| B28 | Equity realization | `edu-b28-01` … `edu-b28-05` |
+| B29 | Float | `edu-b29-01` … `edu-b29-05` |
+| B30 | 4-bet polarizado | `edu-b30-01` … `edu-b30-05` |
+| B31 | Steal / resteal | `edu-b31-01` … `edu-b31-05` |
+
+Captions, tablas de slides y regeneración HTML fallback: [`CARRUSELES_B22_B31.md`](CARRUSELES_B22_B31.md) · `node tools/instagram-edu-carruseles-b22-b31.js` (no sobrescribe JPG premium sin `--force`).
+
+---
+
 ## Orden sugerido de publicación (1 carrusel / semana educativa)
 
 | Semana | Carrusel | Nivel |
@@ -247,3 +269,4 @@ Captions y orden del sprint: [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](.
 | 12 | B8 ICM | Intermedio |
 | 13 | B10 Spins | Intermedio |
 | Sprint oct | B15 · B21 · B16 · B17 | Sprint FOUNDER |
+| Post-sprint | B22 → B31 | Letras grandes |
