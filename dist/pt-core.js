@@ -28842,7 +28842,19 @@ window.PT_NASH_PUSH_JSON = {
     var hKey = 'tournamentHistory' + s;
     var aKey = 'tournamentActive' + s;
     if (snap.tournamentWallet && !snap.tournamentWallet.isDefault) {
-      out[wKey] = snap.tournamentWallet;
+      var localW = snap.tournamentWallet;
+      var cloudW = out[wKey];
+      var preferCloudAdmin = false;
+      try {
+        if (cloudW && global.PTTournamentWallet && PTTournamentWallet.shouldAdoptAdminCredit) {
+          preferCloudAdmin = PTTournamentWallet.shouldAdoptAdminCredit(localW, cloudW);
+        } else if (cloudW && cloudW.last && cloudW.last.type === 'admin_set_koins') {
+          var cloudAdminTs = Date.parse(cloudW.adminCreditAt || cloudW.last.at || cloudW.updatedAt || 0) || 0;
+          var localAdminTs = Date.parse(localW.adminCreditAt || 0) || 0;
+          preferCloudAdmin = cloudAdminTs > localAdminTs;
+        }
+      } catch (eAdW) { /* */ }
+      out[wKey] = preferCloudAdmin ? cloudW : localW;
     }
     var localHist = Array.isArray(snap.tournamentHistory) ? snap.tournamentHistory : [];
     var cloudHist = Array.isArray(out[hKey]) ? out[hKey] : [];
@@ -31203,11 +31215,18 @@ window.PT_NASH_PUSH_JSON = {
         const localW = local.tournamentWallet;
         const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
         if (localW && !localW.isDefault) {
+          var preferCloudAdmin = false;
+          try {
+            if (cloudW && global.PTTournamentWallet && PTTournamentWallet.shouldAdoptAdminCredit) {
+              preferCloudAdmin = PTTournamentWallet.shouldAdoptAdminCredit(localW, cloudW);
+            }
+          } catch (ePref) { /* */ }
           var cloudIsAdmin = !!(cloudW && cloudW.last && cloudW.last.type === 'admin_set_koins');
           var localTsW = Date.parse(localW.updatedAt || 0) || 0;
           var cloudTsW = Date.parse((cloudW && cloudW.updatedAt) || 0) || 0;
-          /* Ajuste admin en nube: no pisarlo con un wallet local inventado/viejo. */
-          if (cloudIsAdmin && cloudTsW >= localTsW) {
+          if (preferCloudAdmin) {
+            out[cloudDataKey || key] = cloudW;
+          } else if (cloudIsAdmin && cloudTsW >= localTsW) {
             out[cloudDataKey || key] = cloudW;
           } else if (!cloudW || !cloudW.updatedAt || localTsW >= cloudTsW) {
             out[cloudDataKey || key] = localW;
@@ -36334,7 +36353,7 @@ window.PT_NASH_PUSH_JSON = {
     var data = ensurePersisted();
     data.balance = bal;
     data.updatedAt = new Date().toISOString();
-    if (meta) data.last = meta;
+    if (meta) data.last = Object.assign({ at: data.updatedAt }, meta);
     writeRaw(data);
     return data.balance;
   }
@@ -36374,7 +36393,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function toSnapshot(data) {
     if (!data || typeof data.balance !== 'number') return null;
-    return {
+    var snap = {
       balance: data.balance,
       updatedAt: data.updatedAt,
       version: data.version || 1,
@@ -36383,6 +36402,9 @@ window.PT_NASH_PUSH_JSON = {
       lessonAwards: data.lessonAwards || {},
       communityId: communityId()
     };
+    if (data.last) snap.last = data.last;
+    if (data.adminCreditAt) snap.adminCreditAt = data.adminCreditAt;
+    return snap;
   }
 
   /**
@@ -36407,7 +36429,26 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  function adminCreditTs(w) {
+    if (!w || typeof w !== 'object') return 0;
+    if (w.adminCreditAt) return Date.parse(w.adminCreditAt) || 0;
+    if (w.last && w.last.type === 'admin_set_koins') {
+      return Date.parse(w.last.at || w.updatedAt || 0) || 0;
+    }
+    return 0;
+  }
+
+  function balanceActivityTs(w) {
+    if (!w || !w.last || typeof w.last !== 'object') return 0;
+    var t = w.last.type;
+    if (t === 'debit' || t === 'credit' || t === 'school_lesson' || t === 'trainer_hands') {
+      return Date.parse(w.last.at || w.updatedAt || 0) || 0;
+    }
+    return 0;
+  }
+
   function applyRemote(remote, local) {
+    var adminAt = adminCreditTs(remote);
     var data = {
       balance: Math.max(0, Number(remote.balance) || 0),
       updatedAt: remote.updatedAt || new Date().toISOString(),
@@ -36426,10 +36467,36 @@ window.PT_NASH_PUSH_JSON = {
         (local && local.lessonAwards) || {},
         remote.lessonAwards || {}
       ),
-      last: { type: 'cloud_merge' }
+      last: (remote.last && remote.last.type === 'admin_set_koins')
+        ? remote.last
+        : { type: 'cloud_merge' }
     };
+    if (adminAt) {
+      data.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+    } else if (local && local.adminCreditAt) {
+      data.adminCreditAt = local.adminCreditAt;
+    }
     writeRaw(data, { silent: true });
     return toSnapshot(data);
+  }
+
+  /**
+   * ¿La nube con crédito admin debe ganar al wallet local?
+   * Sí si hay un adminCreditAt más reciente que el ya aplicado, salvo que el
+   * usuario haya movido saldo (debit/credit/…) después de ese crédito.
+   */
+  function shouldAdoptAdminCredit(local, remote) {
+    var remoteAdmin = adminCreditTs(remote);
+    if (!remoteAdmin) return false;
+    var localAdmin = adminCreditTs(local);
+    if (remoteAdmin < localAdmin) return false;
+    if (remoteAdmin === localAdmin &&
+        Math.abs((Number(remote.balance) || 0) - (Number(local.balance) || 0)) < 1e-9) {
+      return false;
+    }
+    var localAct = balanceActivityTs(local);
+    if (localAct > remoteAdmin) return false;
+    return true;
   }
 
   function mergeFromCloud(remote) {
@@ -36437,14 +36504,12 @@ window.PT_NASH_PUSH_JSON = {
     var local = peek();
     if (!local) return applyRemote(remote, null);
 
-    var localTs = Date.parse(local.updatedAt || 0) || 0;
-    var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
-
-    /* Ajuste de admin: adoptar si la nube es igual/más reciente (no dejar que un
-       wallet local vacío inventado gane por updatedAt). */
-    if (remote.last && remote.last.type === 'admin_set_koins' && remoteTs >= localTs) {
+    if (shouldAdoptAdminCredit(local, remote)) {
       return applyRemote(remote, local);
     }
+
+    var localTs = Date.parse(local.updatedAt || 0) || 0;
+    var remoteTs = Date.parse(remote.updatedAt || 0) || 0;
 
     if (remoteTs > localTs) {
       return applyRemote(remote, local);
@@ -36464,14 +36529,18 @@ window.PT_NASH_PUSH_JSON = {
         lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
         last: { type: 'cloud_merge_tie' }
       });
+      if (adminCreditTs(remote) > adminCreditTs(local)) {
+        tied.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+      }
       if (tied.balance !== local.balance ||
           tied.tournamentsPlayed !== local.tournamentsPlayed ||
-          tied.trainerHands !== local.trainerHands) {
+          tied.trainerHands !== local.trainerHands ||
+          tied.adminCreditAt !== local.adminCreditAt) {
         writeRaw(tied, { silent: true });
       }
       return toSnapshot(tied);
     }
-    /* Local más reciente: aún fusionar contadores monótonos. */
+    /* Local más reciente: aún fusionar contadores monótonos + stamp admin visto. */
     var dirtyLocal = false;
     if (remote.tournamentsPlayed != null) {
       var nextPlayed = Math.max(
@@ -36492,6 +36561,11 @@ window.PT_NASH_PUSH_JSON = {
         local.trainerHands = nextHands;
         dirtyLocal = true;
       }
+    }
+    var remoteAdminSeen = adminCreditTs(remote);
+    if (remoteAdminSeen > adminCreditTs(local)) {
+      local.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+      dirtyLocal = true;
     }
     if (dirtyLocal) writeRaw(local, { silent: true });
     return toSnapshot(local);
@@ -36545,7 +36619,9 @@ window.PT_NASH_PUSH_JSON = {
     setTournamentsPlayed: setTournamentsPlayed,
     noteTournamentPlayed: noteTournamentPlayed,
     communitySuffix: communitySuffix,
-    storageKey: storageKey
+    storageKey: storageKey,
+    adminCreditTs: adminCreditTs,
+    shouldAdoptAdminCredit: shouldAdoptAdminCredit
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 

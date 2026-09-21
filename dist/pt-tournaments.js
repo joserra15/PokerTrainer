@@ -8055,6 +8055,7 @@
     var bal = 0;
     var played = 0;
     var hasLocalWallet = false;
+    var walletUpdatedAt = null;
     try {
       if (global.PTTournamentWallet && PTTournamentWallet.peek) {
         var peeked = PTTournamentWallet.peek();
@@ -8062,9 +8063,10 @@
           hasLocalWallet = true;
           bal = Number(peeked.balance) || 0;
           played = Number(peeked.tournamentsPlayed) || 0;
+          walletUpdatedAt = peeked.updatedAt || null;
         }
       }
-      if (!hasLocalWallet && global.PTTournamentWallet && PTTournamentWallet.getBalance) {
+      if (!hasLocalWallet) {
         /* Sin fila local: no inventar 0 en ranking/cloud (pisaría un ajuste de admin). */
         bal = 0;
         played = 0;
@@ -8075,7 +8077,8 @@
       name: hero.name,
       koins: bal,
       tournamentsPlayed: played,
-      updatedAt: new Date().toISOString(),
+      /* No usar Date.now(): un stamp fresco hacía ganar al hero local frente al ranking cloud. */
+      updatedAt: walletUpdatedAt || null,
       isHero: true,
       communityId: communityId()
     };
@@ -8101,7 +8104,39 @@
     return list;
   }
 
+  function adoptHeroWalletFromRanking(cloudRow) {
+    if (!cloudRow || !global.PTTournamentWallet || !PTTournamentWallet.mergeFromCloud) return false;
+    var cloudBal = Math.round((Number(cloudRow.koins) || 0) * 100) / 100;
+    var cloudTs = cloudRow.updatedAt || null;
+    var peeked = PTTournamentWallet.peek ? PTTournamentWallet.peek() : null;
+    var localBal = peeked && typeof peeked.balance === 'number' ? Number(peeked.balance) || 0 : null;
+    if (localBal != null && Math.abs(localBal - cloudBal) < 1e-9) return false;
+    var remote = {
+      balance: cloudBal,
+      updatedAt: cloudTs || new Date().toISOString(),
+      tournamentsPlayed: Number(cloudRow.tournamentsPlayed) || 0,
+      trainerHands: peeked ? Number(peeked.trainerHands) || 0 : 0,
+      lessonAwards: (peeked && peeked.lessonAwards) || {},
+      adminCreditAt: cloudTs || new Date().toISOString(),
+      last: { type: 'admin_set_koins', at: cloudTs || new Date().toISOString(), source: 'ranking' }
+    };
+    if (PTTournamentWallet.shouldAdoptAdminCredit && peeked &&
+        !PTTournamentWallet.shouldAdoptAdminCredit(peeked, remote)) {
+      /* Si el ranking es más alto y no hay gasto local posterior, adoptar igual. */
+      var localAct = 0;
+      if (peeked.last && (peeked.last.type === 'debit' || peeked.last.type === 'credit' ||
+          peeked.last.type === 'school_lesson' || peeked.last.type === 'trainer_hands')) {
+        localAct = Date.parse(peeked.last.at || peeked.updatedAt || 0) || 0;
+      }
+      var cloudAt = Date.parse(cloudTs || 0) || 0;
+      if (!(cloudBal > (localBal || 0) && localAct <= cloudAt)) return false;
+    }
+    PTTournamentWallet.mergeFromCloud(remote);
+    return true;
+  }
+
   function applyRemoteMembers(members) {
+    var hero = heroIdentity();
     var rows = (members || []).map(function (m) {
       if (!m) return null;
       var id = m.user_id || m.id;
@@ -8116,6 +8151,12 @@
         isHero: false
       };
     }).filter(Boolean);
+    var heroCloud = rows.filter(function (r) {
+      return r && String(r.id) === String(hero.id);
+    })[0];
+    if (heroCloud) {
+      try { adoptHeroWalletFromRanking(heroCloud); } catch (eAd) { /* */ }
+    }
     var list = mergeRows(publishHero({ skipCloud: true }), rows);
     writeBoard(list);
     return list;
@@ -11173,6 +11214,38 @@
     } catch (eRef) { /* */ }
   }
 
+  var _walletPullAt = 0;
+  var _walletPullInFlight = null;
+
+  /** Al abrir lobby: traer wallet nube (créditos admin) antes de confiar en peek local. */
+  function pullTournamentWalletFromCloud() {
+    var now = Date.now();
+    if (_walletPullInFlight) return _walletPullInFlight;
+    if (now - _walletPullAt < 8000) return Promise.resolve({ ok: true, skipped: true });
+    if (!global.PTCloud || typeof global.PTCloud.syncNow !== 'function') {
+      return Promise.resolve({ ok: false, reason: 'no_cloud' });
+    }
+    _walletPullAt = now;
+    _walletPullInFlight = Promise.resolve(global.PTCloud.syncNow()).then(function (res) {
+      _walletPullInFlight = null;
+      return res || { ok: true };
+    }).catch(function () {
+      _walletPullInFlight = null;
+      return { ok: false };
+    });
+    return _walletPullInFlight;
+  }
+
+  function refreshHubAfterWalletPull() {
+    pullTournamentWalletFromCloud().then(function () {
+      try {
+        if (!ui.root || ui.view !== VIEW.hub) return;
+        paint();
+        refreshHubLeaderboard(true);
+      } catch (e) { /* */ }
+    });
+  }
+
   try {
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
@@ -11854,6 +11927,7 @@ function reducedMotion() {
   function setView(v) {
     ui.view = v;
     paint();
+    if (v === VIEW.hub) refreshHubAfterWalletPull();
   }
 
   function persistActive(opts) {
@@ -12346,7 +12420,8 @@ function reducedMotion() {
       '<div class="trn-lobby-list">' + rows + '</div>' +
       (function () {
         var Lb = global.PTTournamentLeaderboard;
-        try { if (Lb && Lb.publishHero) Lb.publishHero(); } catch (eLb) { /* */ }
+        /* skipCloud: no upsert del saldo local stale antes del pull de ranking/admin. */
+        try { if (Lb && Lb.publishHero) Lb.publishHero({ skipCloud: true }); } catch (eLb) { /* */ }
         return (Lb && Lb.legendHtml ? Lb.legendHtml() : '') + (Lb && Lb.renderHtml ? Lb.renderHtml() : '');
       })() +
       '<section class="trn-lobby-recent">' +
@@ -14566,6 +14641,7 @@ function reducedMotion() {
     ui.root = rootEl;
     if (!ui.view) ui.view = VIEW.hub;
     paint();
+    if (ui.view === VIEW.hub) refreshHubAfterWalletPull();
   }
 
   global.PTTournamentsUI = {
