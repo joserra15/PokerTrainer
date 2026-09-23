@@ -202,7 +202,15 @@
 
     var gameKind = gameKindFromHub(hub, r.gameKind);
     var tournamentType = hub === 'cash' ? 'unknown' : normalizeTournamentType(r.tournamentType);
-    var playersSeated = clamp(r.playersSeated != null ? r.playersSeated : (r.tableMax || 6), 2, 9);
+    // playersSeated=0 (p.ej. asientos no parseados) NO debe clampearse a 2:
+    // eso marcaba fase HU falsa en MTT multi-mesa / PKO.
+    var rawSeated = r.playersSeated != null ? Number(r.playersSeated) : NaN;
+    var seatedKnown = isFinite(rawSeated) && rawSeated > 0;
+    if (!seatedKnown) {
+      rawSeated = r.tableMax != null ? Number(r.tableMax) : 6;
+      if (!isFinite(rawSeated) || rawSeated <= 0) rawSeated = 6;
+    }
+    var playersSeated = clamp(rawSeated, 2, 9);
     var tableMax = tableMaxFromSeated(playersSeated, r.tableMax);
     var phase = 'auto';
     if (T && T.normalizePhase) phase = T.normalizePhase(r.mttPhase || 'auto');
@@ -273,14 +281,17 @@
     if (out.buyIn != null && !isFinite(out.buyIn)) out.buyIn = null;
 
     // HU WTA (2 jugadores, ≤1 pago): chip EV — forzar fase hu (no short/push por stack).
+    // Solo inferir HU por asientos=2 si el conteo era real (no fallback tras parse vacío).
+    var inferHuFromSeats = seatedKnown && playersSeated === 2
+      && (out.placesPaid == null || out.placesPaid <= 1)
+      && (out.playersLeft == null || out.playersLeft === 2);
     if (hub !== 'cash' && T && T.isHeadsUpWta && T.isHeadsUpWta(out)) {
       out.mttPhase = 'hu';
       out.resolvedPhase = 'hu';
       out.mttStructureSituation = out.mttStructureSituation || 'hu';
     } else if (hub !== 'cash' && (phase === 'hu' || out.mttStructureSituation === 'hu'
       || out.kind === 'hu' || out.tournamentKind === 'hu'
-      || (playersSeated === 2 && (out.placesPaid == null || out.placesPaid <= 1)
-        && (out.playersLeft == null || out.playersLeft === 2)))) {
+      || inferHuFromSeats)) {
       out.mttPhase = 'hu';
       out.resolvedPhase = 'hu';
       out.mttStructureSituation = out.mttStructureSituation || 'hu';

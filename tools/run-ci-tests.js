@@ -13,6 +13,7 @@ const STEPS = [
   ['Build JS bundles', ['node', 'tools/build-bundles.js']],
   ['Selftest', ['node', 'tools/selftest.js']],
   ['Test importador ES/EN/Winamax/GGPoker/CoinPoker', ['node', 'tools/testimport.js']],
+  ['Test PKO bounty seats / fase HU falsa', ['node', 'tools/test-pko-bounty-seats-phase.js']],
   ['Test P0 session/onboarding', ['node', 'tools/test-p0-session-onboarding.js']],
   ['Test ForgeCoach adoption', ['node', 'tools/test-forgecoach-adoption.js']],
   ['P1 retention regression', ['node', 'tools/test-p1-retention.js']],
