@@ -2360,6 +2360,46 @@ console.log('OK pushfold-freq-100');
   assert.ok(withHands.leaks.length >= 1, 'leaks from hand decisions');
   assert.ok(withHands.leaks[0].sessionId === 'sess_a', 'leak links to session');
 
+  /* Stubs sin hands (índice local / cloud summary): fugas desde stats.topLeaks. */
+  assert.ok(Stats.topLeaksFromHands, 'topLeaksFromHands exported');
+  const stubOnly = Stats.aggregateWithSessionStats(hist, [
+    {
+      id: 'sess_stub',
+      source: 'tournamentAi',
+      tournamentId: 't_stub',
+      stats: {
+        nHands: 50,
+        nDecisions: 40,
+        accuracy: 70,
+        dist: { optima: 20, aceptable: 5, imprecisa: 5, error: 10 },
+        topLeaks: [
+          { key: 'mtt|RFI|SB|preflop', label: 'RFI · SB · Preflop', count: 8, evLoss: 12.5, sessionId: 'sess_stub' },
+          { key: 'mtt|vsRFI|BB|preflop', label: '3-Bet · BB · Preflop', count: 4, evLoss: 6.2, sessionId: 'sess_stub' }
+        ],
+        netBB: -8,
+        evLossBB: 18
+      }
+      /* sin hands — como getSession tras recarga */
+    }
+  ]);
+  assert.ok(stubOnly.hasHandStats, 'stub stats still count as hand stats');
+  assert.ok(stubOnly.leaks.length >= 1, 'leaks from stats.topLeaks when hands missing');
+  assert.ok(stubOnly.leaks.some(function (l) { return /RFI/.test(l.label || l.key); }),
+    'stub leak includes RFI spot');
+  assert.strictEqual(stubOnly.derived.dist.error, 10, 'dist from stub stats');
+
+  const fromHands = Stats.topLeaksFromHands([
+    {
+      id: 'h1', heroPos: 'SB', formatKey: 'mtt',
+      decisions: [
+        { class: 'error', street: 'preflop', spotKind: 'RFI', spot: 'RFI SB', evLoss: 2.1 },
+        { class: 'imprecisa', street: 'flop', spotKind: 'cbet', spot: 'Cbet', evLoss: 0.4 }
+      ]
+    }
+  ], 5, 'sess_x');
+  assert.ok(fromHands.length >= 1, 'topLeaksFromHands aggregates');
+  assert.strictEqual(fromHands[0].sessionId, 'sess_x', 'topLeaksFromHands keeps sessionId');
+
   const emptyHands = Stats.aggregateWithSessionStats(hist, []);
   assert.strictEqual(emptyHands.n, 3);
   assert.ok(!emptyHands.hasHandStats, 'no hand stats without sessions');
@@ -2370,11 +2410,17 @@ console.log('OK pushfold-freq-100');
     'general stats uses session aggregation');
   assert.ok(uiSrc.includes('Top 5 fugas'), 'general stats shows leaks');
 
+  const bridgeSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/session-bridge.js'), 'utf8');
+  assert.ok(bridgeSrc.includes('topLeaks') && bridgeSrc.includes('topLeaksFromHands'),
+    'session bridge persists topLeaks into stats');
+
   const appSrc = fs.readFileSync(path.join(ROOT, 'js/app.js'), 'utf8');
   assert.ok(appSrc.includes('isTournamentAi') && appSrc.includes('Ver estadísticas de manos'),
     'session detail shows tournament summary + hand stats access');
   assert.ok(appSrc.includes('btn-trn-session-hand-stats') || appSrc.includes('_showHandStats'),
     'toggle hand stats from tournament summary');
+  assert.ok(appSrc.includes('pendingForce.heroPos') && appSrc.includes('rec.heroPos'),
+    'replay restores heroPos for tournament leak drills');
   const css = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(css.includes('trn-ante-label') && css.includes('trn-gstat-grid'), 'ante + gstat css');
   assert.ok(css.includes('trn-gstat-section') && css.includes('trn-gstat-leaks'), 'enriched gstat css');

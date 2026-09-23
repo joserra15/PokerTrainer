@@ -55,7 +55,8 @@
 
   function buildSpotKey(hand, d) {
     var type = spotTypeFromDecision(d, hand);
-    var pos = (hand && (hand.heroPos || hand.displayHeroPos)) || (d && d.pos) || '?';
+    var pos = (hand && (hand.heroPos || hand.displayHeroPos))
+      || (d && (d.pos || (d.input && d.input.position))) || '?';
     var street = (d && d.street) || 'preflop';
     var baseKey = type + '|' + pos + '|' + street;
     var phase = resolvePhase(d, hand);
@@ -86,6 +87,36 @@
     return (TYPE[type] || type) + ' · ' + (pos || '?') + ' · ' + (street || 'preflop');
   }
 
+  /** Escenario reproducible para drill adaptativo / replay (heroPos obligatorio). */
+  function buildScenarioRaw(type, pos, d, hand) {
+    var raw = { type: type || 'RFI', tournament: true };
+    var hero = pos && pos !== '?' ? pos : null;
+    var vs = (d && (d.vsPosition || d.openerPos
+      || (d.input && (d.input.vsPosition || d.input.position)))) || null;
+    var tableMax = Number(hand && (hand.tableMax || hand.playersSeated)) || 0;
+    var hu = tableMax === 2
+      || (hand && (hand.mttPhase === 'hu' || hand.mttStructureSituation === 'hu'))
+      || (d && (d.mttPhase === 'hu' || (d.input && d.input.mttPhase === 'hu')));
+    if (!vs && hu) {
+      if (hero === 'BB') vs = 'SB';
+      else if (hero === 'SB') vs = 'BB';
+    }
+    if (type === 'vsRFI' || type === 'face4bet') {
+      if (hero && vs) raw.key = hero + '_vs_' + vs;
+      if (hero) raw.heroPos = hero;
+    } else if (type === 'face3bet') {
+      if (hero && vs) raw.key = hero + '_vs_' + vs;
+      if (hero) raw.heroPos = hero;
+    } else if (type === 'bbVsSbLimp') {
+      raw.heroPos = 'BB';
+    } else if (type === 'sbLimp') {
+      raw.heroPos = 'SB';
+    } else {
+      if (hero) raw.heroPos = hero;
+    }
+    return raw;
+  }
+
   /**
    * Convierte decisiones imprecisa/error de una mano analizada de torneo
    * en registros compatibles con Store.errors / PTLeaks.
@@ -98,17 +129,19 @@
       if (!d || !LEAK_CLASSES[d.class]) return;
       if (d.unscored) return;
       var type = spotTypeFromDecision(d, hand);
-      var pos = hand.heroPos || d.pos || '?';
+      var pos = hand.heroPos || hand.displayHeroPos || d.pos
+        || (d.input && d.input.position) || '?';
       var street = d.street || 'preflop';
       var phase = resolvePhase(d, hand);
       var bucket = phaseBucket(hand, d, state);
       var spotKey = buildSpotKey(hand, d);
       var cfg = (state && state.config) || {};
+      var vsPos = d.vsPosition || (d.input && d.input.vsPosition) || null;
       out.push({
         id: hand.id + '_trn_' + idx,
         handId: hand.id,
         createdAt: hand.datetime || new Date().toISOString(),
-        scenarioRaw: { type: type, tournament: true },
+        scenarioRaw: buildScenarioRaw(type, pos, d, hand),
         scenario: scenarioLabel(type, pos, street),
         playConfig: {
           formatHub: hand.gameKind === 'spin' ? 'spin' : 'mtt',
@@ -118,8 +151,9 @@
           practiceIntent: 'mixed',
           source: 'tournamentAi'
         },
-        displayHeroPos: pos,
-        heroPos: pos,
+        displayHeroPos: pos !== '?' ? pos : null,
+        heroPos: pos !== '?' ? pos : null,
+        villainPos: vsPos,
         heroCode: hand.heroCode || null,
         heroCards: (hand.heroCards || []).slice(),
         street: street,
@@ -425,6 +459,7 @@
     PHASE_BUCKET_LABELS: PHASE_BUCKET_LABELS,
     phaseBucket: phaseBucket,
     buildSpotKey: buildSpotKey,
+    buildScenarioRaw: buildScenarioRaw,
     errorsFromHand: errorsFromHand,
     errorsFromTournament: errorsFromTournament,
     recordHandErrors: recordHandErrors,

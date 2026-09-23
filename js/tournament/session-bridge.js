@@ -708,9 +708,17 @@
         : (handStats && handStats.nHands)
     });
     if (stats.nHands == null && stats.handsPlayed != null) stats.nHands = stats.handsPlayed;
+    var sessionId = opts.sessionId || ('trn_sess_' + (state.id || Date.now()));
+    /* Persistir Top fugas en el summary (el índice local no guarda hands). */
+    try {
+      var StatsApi = global.PTTournamentStats;
+      if (StatsApi && typeof StatsApi.topLeaksFromHands === 'function') {
+        stats.topLeaks = StatsApi.topLeaksFromHands(hands, 5, sessionId);
+      }
+    } catch (eLeaks) { /* */ }
 
     return {
-      id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
+      id: sessionId,
       createdAt: state.finishedAt || new Date().toISOString(),
       fileName: fileName,
       hero: heroName,
