@@ -7589,31 +7589,136 @@
     return base;
   }
 
+  function bumpLeakMap(map, k, label, evLoss, sessionId) {
+    if (!map[k]) {
+      map[k] = {
+        key: k,
+        label: label || k,
+        count: 0,
+        evLoss: 0,
+        sessionId: sessionId || null
+      };
+    }
+    map[k].count += 1;
+    map[k].evLoss = round2(map[k].evLoss + (Number(evLoss) || 0));
+    if (!map[k].sessionId && sessionId) map[k].sessionId = sessionId;
+    if (label) map[k].label = label;
+  }
+
+  /**
+   * Top fugas desde manos (persistible en session.stats.topLeaks).
+   * El índice local solo guarda el summary de sesión (sin hands); sin esto
+   * «Top 5 fugas» queda vacío tras recargar aunque dist/error sí se vean.
+   */
+  function topLeaksFromHands(hands, limit, sessionId) {
+    var map = {};
+    var LEAK = { imprecisa: true, error: true };
+    (hands || []).forEach(function (h) {
+      (h.decisions || []).forEach(function (d) {
+        if (!d || !LEAK[d.class] || d.unscored) return;
+        var k = sessionSpotKey(h, d);
+        bumpLeakMap(map, k, sessionSpotLabel(h, d, k),
+          Number(d.evLoss) || Number(d.evLossBB) || 0, sessionId || null);
+      });
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; });
+    list.sort(function (a, b) {
+      if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+      return b.count - a.count;
+    });
+    return list.slice(0, limit || 5).map(function (l) {
+      return {
+        key: l.key,
+        label: l.label,
+        count: l.count,
+        evLoss: l.evLoss,
+        sessionId: l.sessionId || sessionId || null
+      };
+    });
+  }
+
+  function mergeStoredTopLeaks(map, session) {
+    var stored = session && session.stats && session.stats.topLeaks;
+    if (!Array.isArray(stored) || !stored.length) return;
+    var sid = session.id || null;
+    stored.forEach(function (l) {
+      if (!l || !l.key) return;
+      var k = l.key;
+      if (!map[k]) {
+        map[k] = {
+          key: k,
+          label: l.label || k,
+          count: 0,
+          evLoss: 0,
+          sessionId: l.sessionId || sid
+        };
+      }
+      map[k].count += Number(l.count) || 0;
+      map[k].evLoss = round2(map[k].evLoss + (Number(l.evLoss) || 0));
+      if (!map[k].sessionId) map[k].sessionId = l.sessionId || sid;
+      if (l.label) map[k].label = l.label;
+    });
+  }
+
+  function leaksFromStoreTournamentErrors(limit, sessionIds) {
+    var Store = global.Store;
+    if (!Store || typeof Store.getErrors !== 'function') return [];
+    var idSet = null;
+    if (sessionIds && sessionIds.length) {
+      idSet = {};
+      sessionIds.forEach(function (id) { if (id) idSet[String(id)] = true; });
+    }
+    var map = {};
+    var errs = [];
+    try { errs = Store.getErrors() || []; } catch (e) { errs = []; }
+    errs.forEach(function (err) {
+      if (!err || (err.class !== 'imprecisa' && err.class !== 'error')) return;
+      if (err.source !== 'tournamentAi' && !err.tournament) return;
+      if (idSet && err.tournamentId && !idSet[String(err.tournamentId)]
+        && err.sessionId && !idSet[String(err.sessionId)]) {
+        /* Si hay filtro de ids y el error no enlaza, aún contar si no hay sessionId. */
+      }
+      var k = err.spotKey
+        || ((err.spot || (err.scenarioRaw && err.scenarioRaw.type) || 'spot')
+          + '|' + (err.displayHeroPos || err.heroPos || '?')
+          + '|' + (err.street || 'preflop'));
+      bumpLeakMap(map, k, err.scenario || k, Number(err.evLoss) || 0,
+        err.sessionId || null);
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; });
+    list.sort(function (a, b) {
+      if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+      return b.count - a.count;
+    });
+    return list.slice(0, limit || 5);
+  }
+
   function leaksFromSessions(sessions, limit) {
     var map = {};
     var LEAK = { imprecisa: true, error: true };
     (sessions || []).forEach(function (session) {
-      if (!session || !session.hands) return;
-      session.hands.forEach(function (h) {
-        (h.decisions || []).forEach(function (d) {
-          if (!d || !LEAK[d.class]) return;
-          var k = sessionSpotKey(h, d);
-          if (!map[k]) {
-            map[k] = {
-              key: k,
-              label: sessionSpotLabel(h, d, k),
-              count: 0,
-              evLoss: 0,
-              sessionId: session.id || null
-            };
-          }
-          map[k].count += 1;
-          map[k].evLoss = round2(map[k].evLoss + (Number(d.evLoss) || Number(d.evLossBB) || 0));
-          if (!map[k].sessionId && session.id) map[k].sessionId = session.id;
+      if (!session) return;
+      var fromHands = 0;
+      if (session.hands && session.hands.length) {
+        session.hands.forEach(function (h) {
+          (h.decisions || []).forEach(function (d) {
+            if (!d || !LEAK[d.class] || d.unscored) return;
+            var k = sessionSpotKey(h, d);
+            bumpLeakMap(map, k, sessionSpotLabel(h, d, k),
+              Number(d.evLoss) || Number(d.evLossBB) || 0, session.id || null);
+            fromHands += 1;
+          });
         });
-      });
+      }
+      /* Stub de índice / cloud summary: hands vacías pero dist/topLeaks en stats. */
+      if (!fromHands) mergeStoredTopLeaks(map, session);
     });
     var list = Object.keys(map).map(function (k) { return map[k]; });
+    if (!list.length) {
+      return leaksFromStoreTournamentErrors(limit, (sessions || []).map(function (s) {
+        return s && (s.tournamentId || s.id);
+      }).filter(Boolean));
+    }
     list.sort(function (a, b) {
       if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
       return b.count - a.count;
@@ -7701,6 +7806,8 @@
     resolveLinkedSessions: resolveLinkedSessions,
     handTotalsFromSessions: handTotalsFromSessions,
     derivedFromSessions: derivedFromSessions,
+    sessionSpotKey: sessionSpotKey,
+    topLeaksFromHands: topLeaksFromHands,
     leaksFromSessions: leaksFromSessions,
     aggregateWithSessionStats: aggregateWithSessionStats
   };
@@ -9713,9 +9820,17 @@
         : (handStats && handStats.nHands)
     });
     if (stats.nHands == null && stats.handsPlayed != null) stats.nHands = stats.handsPlayed;
+    var sessionId = opts.sessionId || ('trn_sess_' + (state.id || Date.now()));
+    /* Persistir Top fugas en el summary (el índice local no guarda hands). */
+    try {
+      var StatsApi = global.PTTournamentStats;
+      if (StatsApi && typeof StatsApi.topLeaksFromHands === 'function') {
+        stats.topLeaks = StatsApi.topLeaksFromHands(hands, 5, sessionId);
+      }
+    } catch (eLeaks) { /* */ }
 
     return {
-      id: opts.sessionId || ('trn_sess_' + (state.id || Date.now())),
+      id: sessionId,
       createdAt: state.finishedAt || new Date().toISOString(),
       fileName: fileName,
       hero: heroName,
@@ -9819,7 +9934,8 @@
 
   function buildSpotKey(hand, d) {
     var type = spotTypeFromDecision(d, hand);
-    var pos = (hand && (hand.heroPos || hand.displayHeroPos)) || (d && d.pos) || '?';
+    var pos = (hand && (hand.heroPos || hand.displayHeroPos))
+      || (d && (d.pos || (d.input && d.input.position))) || '?';
     var street = (d && d.street) || 'preflop';
     var baseKey = type + '|' + pos + '|' + street;
     var phase = resolvePhase(d, hand);
@@ -9850,6 +9966,36 @@
     return (TYPE[type] || type) + ' · ' + (pos || '?') + ' · ' + (street || 'preflop');
   }
 
+  /** Escenario reproducible para drill adaptativo / replay (heroPos obligatorio). */
+  function buildScenarioRaw(type, pos, d, hand) {
+    var raw = { type: type || 'RFI', tournament: true };
+    var hero = pos && pos !== '?' ? pos : null;
+    var vs = (d && (d.vsPosition || d.openerPos
+      || (d.input && (d.input.vsPosition || d.input.position)))) || null;
+    var tableMax = Number(hand && (hand.tableMax || hand.playersSeated)) || 0;
+    var hu = tableMax === 2
+      || (hand && (hand.mttPhase === 'hu' || hand.mttStructureSituation === 'hu'))
+      || (d && (d.mttPhase === 'hu' || (d.input && d.input.mttPhase === 'hu')));
+    if (!vs && hu) {
+      if (hero === 'BB') vs = 'SB';
+      else if (hero === 'SB') vs = 'BB';
+    }
+    if (type === 'vsRFI' || type === 'face4bet') {
+      if (hero && vs) raw.key = hero + '_vs_' + vs;
+      if (hero) raw.heroPos = hero;
+    } else if (type === 'face3bet') {
+      if (hero && vs) raw.key = hero + '_vs_' + vs;
+      if (hero) raw.heroPos = hero;
+    } else if (type === 'bbVsSbLimp') {
+      raw.heroPos = 'BB';
+    } else if (type === 'sbLimp') {
+      raw.heroPos = 'SB';
+    } else {
+      if (hero) raw.heroPos = hero;
+    }
+    return raw;
+  }
+
   /**
    * Convierte decisiones imprecisa/error de una mano analizada de torneo
    * en registros compatibles con Store.errors / PTLeaks.
@@ -9862,17 +10008,19 @@
       if (!d || !LEAK_CLASSES[d.class]) return;
       if (d.unscored) return;
       var type = spotTypeFromDecision(d, hand);
-      var pos = hand.heroPos || d.pos || '?';
+      var pos = hand.heroPos || hand.displayHeroPos || d.pos
+        || (d.input && d.input.position) || '?';
       var street = d.street || 'preflop';
       var phase = resolvePhase(d, hand);
       var bucket = phaseBucket(hand, d, state);
       var spotKey = buildSpotKey(hand, d);
       var cfg = (state && state.config) || {};
+      var vsPos = d.vsPosition || (d.input && d.input.vsPosition) || null;
       out.push({
         id: hand.id + '_trn_' + idx,
         handId: hand.id,
         createdAt: hand.datetime || new Date().toISOString(),
-        scenarioRaw: { type: type, tournament: true },
+        scenarioRaw: buildScenarioRaw(type, pos, d, hand),
         scenario: scenarioLabel(type, pos, street),
         playConfig: {
           formatHub: hand.gameKind === 'spin' ? 'spin' : 'mtt',
@@ -9882,8 +10030,9 @@
           practiceIntent: 'mixed',
           source: 'tournamentAi'
         },
-        displayHeroPos: pos,
-        heroPos: pos,
+        displayHeroPos: pos !== '?' ? pos : null,
+        heroPos: pos !== '?' ? pos : null,
+        villainPos: vsPos,
         heroCode: hand.heroCode || null,
         heroCards: (hand.heroCards || []).slice(),
         street: street,
@@ -10189,6 +10338,7 @@
     PHASE_BUCKET_LABELS: PHASE_BUCKET_LABELS,
     phaseBucket: phaseBucket,
     buildSpotKey: buildSpotKey,
+    buildScenarioRaw: buildScenarioRaw,
     errorsFromHand: errorsFromHand,
     errorsFromTournament: errorsFromTournament,
     recordHandErrors: recordHandErrors,

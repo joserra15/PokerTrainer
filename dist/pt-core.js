@@ -23484,7 +23484,10 @@ window.PT_NASH_PUSH_JSON = {
       seed: seed,
       scenario: scenario,
       playConfig: cfg || null,
-      displayHeroPos: dealt.displayHeroPos || null,
+      displayHeroPos: dealt.displayHeroPos
+        || (force && (force.displayHeroPos || force.heroPos))
+        || (scenario && scenario.heroPos)
+        || null,
       hero: { cards: [], code: null, pos: null },
       villain: { cards: null, rangeStr: null, pos: null, profileId: null, profileLabel: null, profileShort: null },
       table: initTableState(holeCards),
@@ -23916,9 +23919,17 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function setupRFI(hand) {
-    const pos = scenarioHeroPos(hand);
+    let pos = scenarioHeroPos(hand) || hand.displayHeroPos || null;
+    if (!pos) {
+      const cfg = hand.playConfig;
+      const hu = cfg && global.PTPlayConfig && global.PTPlayConfig.isHuPhase
+        && global.PTPlayConfig.isHuPhase(cfg);
+      pos = hu ? 'SB' : 'BTN';
+    }
     hand.hero.pos = pos;
     const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
+    if (hand.scenario && !hand.scenario.heroPos) hand.scenario.heroPos = pos;
+    if (!hand.displayHeroPos) hand.displayHeroPos = displayPos;
     const openSize = openSizeForPos(hand, pos);
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));
@@ -44587,8 +44598,21 @@ window.PT_NASH_PUSH_JSON = {
     delete pendingForce.forceScript;
     replayPlayConfig = (snap && snap.playConfig) || rec.playConfig || playSessionConfig || null;
 
-    const disp = (snap && snap.displayHeroPos) || rec.displayHeroPos;
-    if (disp && !pendingForce.heroPos) pendingForce.displayHeroPos = disp;
+    /* Torneos IA / fugas antiguas: scenarioRaw a veces solo traía { type } sin heroPos
+       → «Eres undefined» y el asiento SB tapa las cartas del héroe en mesa HU. */
+    const disp = (snap && snap.displayHeroPos) || rec.displayHeroPos || rec.heroPos
+      || pendingForce.heroPos || null;
+    if (disp) {
+      if (!pendingForce.heroPos) pendingForce.heroPos = disp;
+      pendingForce.displayHeroPos = pendingForce.displayHeroPos || disp;
+    }
+    if ((pendingForce.type === 'vsRFI' || pendingForce.type === 'face4bet'
+      || pendingForce.type === 'face3bet') && !pendingForce.key && pendingForce.heroPos) {
+      const vs = rec.villainPos
+        || (snap && snap.villainPos)
+        || (pendingForce.heroPos === 'BB' ? 'SB' : 'BB');
+      pendingForce.key = pendingForce.heroPos + '_vs_' + vs;
+    }
 
     // Manos de análisis / cartas forzadas / replay histórico: restaurar deal y guion.
     // Importante: un forceDeal vacío (sin heroCards) NO debe tapar el fallback.
@@ -44847,13 +44871,25 @@ window.PT_NASH_PUSH_JSON = {
 
   function scenarioFromError(err) {
     const s = err.scenario || (err.scenarioRaw);
-    if (err.scenarioRaw) return err.scenarioRaw;
+    if (err.scenarioRaw && typeof err.scenarioRaw === 'object') {
+      const raw = Object.assign({}, err.scenarioRaw);
+      const pos = err.displayHeroPos || err.heroPos || raw.heroPos || null;
+      if (pos && !raw.heroPos) raw.heroPos = pos;
+      if ((raw.type === 'vsRFI' || raw.type === 'face4bet' || raw.type === 'face3bet')
+        && !raw.key && pos) {
+        const vs = err.villainPos || (pos === 'BB' ? 'SB' : 'BB');
+        raw.key = pos + '_vs_' + vs;
+      }
+      if (raw.type) return raw;
+    }
     // reconstruye desde label
     if (typeof s === 'string') {
       if (s.startsWith('RFI')) return { type: 'RFI', heroPos: s.split(' ')[1] };
       const parts = s.split(' '); // "BB vs UTG"
       if (parts.length === 3) return { type: 'vsRFI', key: parts.join('_') };
     }
+    const pos2 = err.displayHeroPos || err.heroPos || null;
+    if (pos2) return { type: 'RFI', heroPos: pos2, tournament: !!err.tournament };
     return null;
   }
 

@@ -2789,7 +2789,10 @@
       seed: seed,
       scenario: scenario,
       playConfig: cfg || null,
-      displayHeroPos: dealt.displayHeroPos || null,
+      displayHeroPos: dealt.displayHeroPos
+        || (force && (force.displayHeroPos || force.heroPos))
+        || (scenario && scenario.heroPos)
+        || null,
       hero: { cards: [], code: null, pos: null },
       villain: { cards: null, rangeStr: null, pos: null, profileId: null, profileLabel: null, profileShort: null },
       table: initTableState(holeCards),
@@ -3221,9 +3224,17 @@
   }
 
   function setupRFI(hand) {
-    const pos = scenarioHeroPos(hand);
+    let pos = scenarioHeroPos(hand) || hand.displayHeroPos || null;
+    if (!pos) {
+      const cfg = hand.playConfig;
+      const hu = cfg && global.PTPlayConfig && global.PTPlayConfig.isHuPhase
+        && global.PTPlayConfig.isHuPhase(cfg);
+      pos = hu ? 'SB' : 'BTN';
+    }
     hand.hero.pos = pos;
     const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
+    if (hand.scenario && !hand.scenario.heroPos) hand.scenario.heroPos = pos;
+    if (!hand.displayHeroPos) hand.displayHeroPos = displayPos;
     const openSize = openSizeForPos(hand, pos);
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));

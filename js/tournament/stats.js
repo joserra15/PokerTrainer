@@ -403,31 +403,136 @@
     return base;
   }
 
+  function bumpLeakMap(map, k, label, evLoss, sessionId) {
+    if (!map[k]) {
+      map[k] = {
+        key: k,
+        label: label || k,
+        count: 0,
+        evLoss: 0,
+        sessionId: sessionId || null
+      };
+    }
+    map[k].count += 1;
+    map[k].evLoss = round2(map[k].evLoss + (Number(evLoss) || 0));
+    if (!map[k].sessionId && sessionId) map[k].sessionId = sessionId;
+    if (label) map[k].label = label;
+  }
+
+  /**
+   * Top fugas desde manos (persistible en session.stats.topLeaks).
+   * El índice local solo guarda el summary de sesión (sin hands); sin esto
+   * «Top 5 fugas» queda vacío tras recargar aunque dist/error sí se vean.
+   */
+  function topLeaksFromHands(hands, limit, sessionId) {
+    var map = {};
+    var LEAK = { imprecisa: true, error: true };
+    (hands || []).forEach(function (h) {
+      (h.decisions || []).forEach(function (d) {
+        if (!d || !LEAK[d.class] || d.unscored) return;
+        var k = sessionSpotKey(h, d);
+        bumpLeakMap(map, k, sessionSpotLabel(h, d, k),
+          Number(d.evLoss) || Number(d.evLossBB) || 0, sessionId || null);
+      });
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; });
+    list.sort(function (a, b) {
+      if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+      return b.count - a.count;
+    });
+    return list.slice(0, limit || 5).map(function (l) {
+      return {
+        key: l.key,
+        label: l.label,
+        count: l.count,
+        evLoss: l.evLoss,
+        sessionId: l.sessionId || sessionId || null
+      };
+    });
+  }
+
+  function mergeStoredTopLeaks(map, session) {
+    var stored = session && session.stats && session.stats.topLeaks;
+    if (!Array.isArray(stored) || !stored.length) return;
+    var sid = session.id || null;
+    stored.forEach(function (l) {
+      if (!l || !l.key) return;
+      var k = l.key;
+      if (!map[k]) {
+        map[k] = {
+          key: k,
+          label: l.label || k,
+          count: 0,
+          evLoss: 0,
+          sessionId: l.sessionId || sid
+        };
+      }
+      map[k].count += Number(l.count) || 0;
+      map[k].evLoss = round2(map[k].evLoss + (Number(l.evLoss) || 0));
+      if (!map[k].sessionId) map[k].sessionId = l.sessionId || sid;
+      if (l.label) map[k].label = l.label;
+    });
+  }
+
+  function leaksFromStoreTournamentErrors(limit, sessionIds) {
+    var Store = global.Store;
+    if (!Store || typeof Store.getErrors !== 'function') return [];
+    var idSet = null;
+    if (sessionIds && sessionIds.length) {
+      idSet = {};
+      sessionIds.forEach(function (id) { if (id) idSet[String(id)] = true; });
+    }
+    var map = {};
+    var errs = [];
+    try { errs = Store.getErrors() || []; } catch (e) { errs = []; }
+    errs.forEach(function (err) {
+      if (!err || (err.class !== 'imprecisa' && err.class !== 'error')) return;
+      if (err.source !== 'tournamentAi' && !err.tournament) return;
+      if (idSet && err.tournamentId && !idSet[String(err.tournamentId)]
+        && err.sessionId && !idSet[String(err.sessionId)]) {
+        /* Si hay filtro de ids y el error no enlaza, aún contar si no hay sessionId. */
+      }
+      var k = err.spotKey
+        || ((err.spot || (err.scenarioRaw && err.scenarioRaw.type) || 'spot')
+          + '|' + (err.displayHeroPos || err.heroPos || '?')
+          + '|' + (err.street || 'preflop'));
+      bumpLeakMap(map, k, err.scenario || k, Number(err.evLoss) || 0,
+        err.sessionId || null);
+    });
+    var list = Object.keys(map).map(function (k) { return map[k]; });
+    list.sort(function (a, b) {
+      if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
+      return b.count - a.count;
+    });
+    return list.slice(0, limit || 5);
+  }
+
   function leaksFromSessions(sessions, limit) {
     var map = {};
     var LEAK = { imprecisa: true, error: true };
     (sessions || []).forEach(function (session) {
-      if (!session || !session.hands) return;
-      session.hands.forEach(function (h) {
-        (h.decisions || []).forEach(function (d) {
-          if (!d || !LEAK[d.class]) return;
-          var k = sessionSpotKey(h, d);
-          if (!map[k]) {
-            map[k] = {
-              key: k,
-              label: sessionSpotLabel(h, d, k),
-              count: 0,
-              evLoss: 0,
-              sessionId: session.id || null
-            };
-          }
-          map[k].count += 1;
-          map[k].evLoss = round2(map[k].evLoss + (Number(d.evLoss) || Number(d.evLossBB) || 0));
-          if (!map[k].sessionId && session.id) map[k].sessionId = session.id;
+      if (!session) return;
+      var fromHands = 0;
+      if (session.hands && session.hands.length) {
+        session.hands.forEach(function (h) {
+          (h.decisions || []).forEach(function (d) {
+            if (!d || !LEAK[d.class] || d.unscored) return;
+            var k = sessionSpotKey(h, d);
+            bumpLeakMap(map, k, sessionSpotLabel(h, d, k),
+              Number(d.evLoss) || Number(d.evLossBB) || 0, session.id || null);
+            fromHands += 1;
+          });
         });
-      });
+      }
+      /* Stub de índice / cloud summary: hands vacías pero dist/topLeaks en stats. */
+      if (!fromHands) mergeStoredTopLeaks(map, session);
     });
     var list = Object.keys(map).map(function (k) { return map[k]; });
+    if (!list.length) {
+      return leaksFromStoreTournamentErrors(limit, (sessions || []).map(function (s) {
+        return s && (s.tournamentId || s.id);
+      }).filter(Boolean));
+    }
     list.sort(function (a, b) {
       if (b.evLoss !== a.evLoss) return b.evLoss - a.evLoss;
       return b.count - a.count;
@@ -515,6 +620,8 @@
     resolveLinkedSessions: resolveLinkedSessions,
     handTotalsFromSessions: handTotalsFromSessions,
     derivedFromSessions: derivedFromSessions,
+    sessionSpotKey: sessionSpotKey,
+    topLeaksFromHands: topLeaksFromHands,
     leaksFromSessions: leaksFromSessions,
     aggregateWithSessionStats: aggregateWithSessionStats
   };

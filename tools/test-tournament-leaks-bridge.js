@@ -126,7 +126,46 @@ function makeHand(overrides) {
   assert.ok(errs.every(function (e) { return e.spotKey; }), 'spotKey');
   assert.ok(errs[0].id.indexOf('trn_t1_h1_trn_') === 0, 'stable id prefix');
   assert.strictEqual(errs[0].playConfig.formatHub, 'mtt', 'playConfig mtt');
+  assert.ok(errs.every(function (e) {
+    return e.scenarioRaw && e.scenarioRaw.heroPos === 'BTN';
+  }), 'scenarioRaw includes heroPos for replay');
   console.log('OK errorsFromHand');
+}
+
+// --- HU: scenarioRaw con heroPos SB (evita «Eres undefined» / cartas tapadas) ---
+{
+  const huHand = makeHand({
+    id: 'trn_hu_1',
+    heroPos: 'SB',
+    tableMax: 2,
+    playersLeft: 2,
+    placesPaid: 1,
+    mttPhase: 'hu',
+    decisions: [
+      {
+        street: 'preflop',
+        chosen: 'fold',
+        action: 'fold',
+        label: 'Fold',
+        class: 'error',
+        evLoss: 1.5,
+        best: 'raise',
+        spotKind: 'RFI',
+        mttPhase: 'hu',
+        unscored: false
+      }
+    ]
+  });
+  const huErrs = LB.errorsFromHand(huHand, { id: 'thu', config: { kind: 'mtt', seatsPerTable: 2, placesPaid: 1 } });
+  assert.strictEqual(huErrs.length, 1, '1 HU leak');
+  assert.strictEqual(huErrs[0].scenarioRaw.type, 'RFI', 'HU RFI type');
+  assert.strictEqual(huErrs[0].scenarioRaw.heroPos, 'SB', 'HU RFI heroPos SB');
+  assert.strictEqual(huErrs[0].heroPos, 'SB', 'error heroPos SB');
+  assert.strictEqual(huErrs[0].playConfig.mttPhase, 'hu', 'playConfig hu phase');
+  const raw = LB.buildScenarioRaw('vsRFI', 'BB', { vsPosition: 'SB', mttPhase: 'hu' }, huHand);
+  assert.strictEqual(raw.key, 'BB_vs_SB', 'HU vsRFI key');
+  assert.strictEqual(raw.heroPos, 'BB', 'HU vsRFI heroPos');
+  console.log('OK hu-scenarioRaw');
 }
 
 // --- phaseBucket: early / bubble / ft ---
