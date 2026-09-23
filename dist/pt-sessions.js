@@ -1313,7 +1313,8 @@
         }
         if (U.applyTournamentResultToHand(hand, ln)) continue;
         if ((m = ln.match(/Seat #(\d+) is the button/))) { hand.buttonSeat = +m[1]; continue; }
-        if ((m = ln.match(/^Seat (\d+):\s*(.+?)\s*\((?:[€$£])?([\d.,]+) in chips\)/))) {
+        // PKO/Mystery: "(123 in chips, €1.20 bounty)" — no exigir ')' justo tras chips.
+        if ((m = ln.match(/^Seat (\d+):\s*(.+?)\s*\((?:[€$£])?([\d.,]+)\s+in chips\b/i))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) });
           continue;
         }
@@ -1399,7 +1400,8 @@
         }
         if (U.applyTournamentResultToHand(hand, ln)) continue;
         if ((m = ln.match(/El asiento n\.º (\d+) es el botón/))) { hand.buttonSeat = +m[1]; continue; }
-        if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\)/))) {
+        // PKO/Mystery ES: "(123 en fichas, 1,20 € bounty)" — no exigir ')' justo tras fichas.
+        if ((m = ln.match(/^Asiento (\d+):\s*(.+?)\s*\(([\d.,]+)\s*€?\s*en fichas\b/i))) {
           hand.seats.push({ seat: +m[1], name: m[2], stack: num(m[3]) }); continue;
         }
         if ((m = ln.match(/^(.+?): pone la ante ([\d.,]+)/i)) || (m = ln.match(/^(.+?): posts the ante ([\d.,]+)/i))) {

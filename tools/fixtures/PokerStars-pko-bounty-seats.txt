@@ -1,0 +1,89 @@
+Transcript sample for PKO bounty seat parse + phase regression
+
+PokerStars Hand #262180243321: Tournament #4034320632, €0.00+€0.45+€0.05 EUR Hold'em No Limit - Level XX (600/1200) - 2026/09/23 23:09:21 CET [2026/09/23 17:09:21 ET]
+Table '4034320632 7' 6-max Seat #1 is the button
+Seat 1: Romanito30 (210492 in chips, €3.20 bounty)
+Seat 2: KazeDj (39661 in chips, €0.66 bounty)
+Seat 3: AcquaeX (15466 in chips, €0.69 bounty)
+Seat 4: sergioperfil (51964 in chips, €1.06 bounty)
+Seat 5: XXXLAURENT (82673 in chips, €1.41 bounty)
+Romanito30: posts the ante 180
+KazeDj: posts the ante 180
+AcquaeX: posts the ante 180
+sergioperfil: posts the ante 180
+XXXLAURENT: posts the ante 180
+KazeDj: posts small blind 600
+AcquaeX: posts big blind 1200
+*** HOLE CARDS ***
+Dealt to KazeDj [4s 4h]
+sergioperfil: calls 1200
+XXXLAURENT: calls 1200
+Romanito30: raises 3600 to 4800
+KazeDj: calls 4200
+AcquaeX: folds
+sergioperfil: raises 4800 to 9600
+XXXLAURENT: calls 8400
+Romanito30: calls 4800
+KazeDj: calls 4800
+*** FLOP *** [Ad 9h 4d]
+KazeDj: checks
+sergioperfil: bets 1200
+XXXLAURENT: calls 1200
+Romanito30: calls 1200
+KazeDj: raises 22650 to 23850
+sergioperfil: calls 22650
+XXXLAURENT: folds
+Romanito30: folds
+*** TURN *** [Ad 9h 4d] [5d]
+KazeDj: bets 6031 and is all-in
+sergioperfil: calls 6031
+*** RIVER *** [Ad 9h 4d 5d] [Qh]
+*** SHOW DOWN ***
+KazeDj: shows [4s 4h] (three of a kind, Fours)
+sergioperfil: shows [Ah As] (three of a kind, Aces)
+sergioperfil collected 102662 from pot
+sergioperfil wins €0.45 for eliminating KazeDj and their own bounty increases by €0.21 to €1.27
+KazeDj finished the tournament in 16th place
+*** SUMMARY ***
+Total pot 102662 | Rake 0
+Board [Ad 9h 4d 5d Qh]
+Seat 1: Romanito30 (button) folded on the Flop
+Seat 2: KazeDj (small blind) showed [4s 4h] and lost with three of a kind, Fours
+Seat 3: AcquaeX (big blind) folded before Flop
+Seat 4: sergioperfil showed [Ah As] and won (102662) with three of a kind, Aces
+Seat 5: XXXLAURENT folded on the Flop
+
+PokerStars Hand #262179552064: Tournament #4034329939, €0.90+€0.10 EUR Hold'em No Limit - Level VI (100/200) - 2026/09/23 22:17:21 CET [2026/09/23 16:17:21 ET]
+Table '4034329939 1' 9-max Seat #5 is the button
+Seat 1: luckygo75 (2569 in chips)
+Seat 2: castors18 (3580 in chips)
+Seat 4: carrraca (2873 in chips)
+Seat 5: KazeDj (1084 in chips)
+Seat 7: aparca (3394 in chips)
+aparca: posts small blind 100
+luckygo75: posts big blind 200
+*** HOLE CARDS ***
+Dealt to KazeDj [2c 2d]
+castors18: folds
+carrraca: raises 1000 to 1200
+KazeDj: calls 1084 and is all-in
+aparca: folds
+luckygo75: folds
+Uncalled bet (116) returned to carrraca
+*** FLOP *** [Qd Ah 4s]
+*** TURN *** [Qd Ah 4s] [8c]
+*** RIVER *** [Qd Ah 4s 8c] [Jc]
+*** SHOW DOWN ***
+carrraca: shows [Ad Qc] (two pair, Aces and Queens)
+KazeDj: shows [2c 2d] (a pair of Deuces)
+carrraca collected 2468 from pot
+KazeDj finished the tournament in 5th place
+*** SUMMARY ***
+Total pot 2468 | Rake 0
+Board [Qd Ah 4s 8c Jc]
+Seat 1: luckygo75 (big blind) folded before Flop
+Seat 2: castors18 folded before Flop (didn't bet)
+Seat 4: carrraca showed [Ad Qc] and won (2468) with two pair, Aces and Queens
+Seat 5: KazeDj (button) showed [2c 2d] and lost with a pair of Deuces
+Seat 7: aparca (small blind) folded before Flop
+
