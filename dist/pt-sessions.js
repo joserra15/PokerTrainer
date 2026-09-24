@@ -135,10 +135,17 @@
       const currency = (m[1] === '€' || m[1] === 'â‚¬') ? '€' : (m[1] === '£' ? '£' : '$');
       return { buyIn: num(m[2]), fee: num(m[4]), currency: currency };
     }
-    // Buy-in: $25
-    m = t.match(/(?:Buy[\s-]?[Ii]n|BI)[:\s]*((?:[€$£]|â‚¬)?)([\d.,]+)/i);
+    // Winamax MTT: "0.22€ + 0.03€" / "buyIn: 0.22€ + 0.03€" (divisa tras el importe)
+    m = t.match(/([\d.,]+)\s*((?:[€$£]|â‚¬))\s*\+\s*([\d.,]+)\s*((?:[€$£]|â‚¬)?)/);
     if (m) {
-      const currency = (m[1] === '€' || m[1] === 'â‚¬') ? '€' : (m[1] === '£' ? '£' : (m[1] === '$' ? '$' : null));
+      const currency = (m[2] === '€' || m[2] === 'â‚¬') ? '€' : (m[2] === '£' ? '£' : '$');
+      return { buyIn: num(m[1]), fee: num(m[3]), currency: currency };
+    }
+    // Buy-in: $25 / buyIn: 0.22€
+    m = t.match(/(?:Buy[\s-]?[Ii]n|BI)[:\s]*((?:[€$£]|â‚¬)?)([\d.,]+)\s*((?:[€$£]|â‚¬))?/i);
+    if (m) {
+      const curTok = m[1] || m[3] || '';
+      const currency = (curTok === '€' || curTok === 'â‚¬') ? '€' : (curTok === '£' ? '£' : (curTok === '$' ? '$' : null));
       return { buyIn: num(m[2]), fee: 0, currency: currency };
     }
     // Tournament #…, $25 …
@@ -1571,11 +1578,34 @@
   // Tras el número puede ir €, â‚¬ (mojibake) u otros restos de encoding
   const CUR = '[^0-9./\\s)]*';
 
-  const BLOCK_SPLIT = /(?=^Winamax Poker - )/m;
-  const BLOCK_TEST = /^Winamax Poker - /;
+  // Algunos exports MTT (p. ej. Monster Stack) usan "Winamax Poker -Tournament"
+  // sin espacio tras el guion; Expresso/cash suelen llevar espacio.
+  const BLOCK_SPLIT = /(?=^Winamax Poker -\s*)/m;
+  const BLOCK_TEST = /^Winamax Poker -\s*/;
 
   function countHandBlocks(text) {
-    return (text.match(/^Winamax Poker - /gm) || []).length;
+    return (text.match(/^Winamax Poker -\s*/gm) || []).length;
+  }
+
+  /**
+   * Stakes Winamax entre paréntesis:
+   * - cash / sin ante: (sb/bb) o (0.02€/0.05€)
+   * - MTT con ante: (ante/sb/bb) p. ej. (1600/7000/14000)
+   */
+  function applyWinamaxStakes(hand, ln) {
+    const m = ln.match(new RegExp(
+      '\\(([\\d.,]+)' + CUR + '\\/([\\d.,]+)' + CUR + '(?:\\/([\\d.,]+)' + CUR + ')?\\)'
+    ));
+    if (!m) return false;
+    if (m[3] != null) {
+      hand.ante = num(m[1]);
+      hand.sb = num(m[2]);
+      hand.bb = num(m[3]);
+    } else {
+      hand.sb = num(m[1]);
+      hand.bb = num(m[2]);
+    }
+    return true;
   }
 
   function parseAction(ln) {
@@ -1622,11 +1652,10 @@
 
       if (/^Escape to Pot:/i.test(ln)) continue;
 
-      if ((m = ln.match(new RegExp('^Winamax Poker - .+ - HandId: #([\\d-]+) - Holdem no limit \\(([\\d.,]+)' + CUR + '\\/([\\d.,]+)' + CUR + '\\) - (.+)', 'i')))) {
+      if ((m = ln.match(/^Winamax Poker -\s*.+ - HandId: #([\d-]+) - Holdem no limit \(.+\) - (.+)/i))) {
         hand.id = (m[1].split('-').pop() || m[1]);
-        hand.sb = num(m[2]);
-        hand.bb = num(m[3]);
-        hand.datetime = m[4].replace(' UTC', '').trim();
+        applyWinamaxStakes(hand, ln);
+        hand.datetime = m[2].replace(' UTC', '').trim();
         headerText += ' ' + ln;
         hand.isTournament = /tournament|spin|sit\s*&?\s*go|expresso/i.test(ln);
         hand.isCash = !hand.isTournament;
@@ -1634,7 +1663,7 @@
         continue;
       }
       // Tournament / Expresso sin stakes €/€ en la misma forma
-      if ((m = ln.match(/^Winamax Poker - .+ - HandId: #([\d-]+) - (.+)/i))) {
+      if ((m = ln.match(/^Winamax Poker -\s*.+ - HandId: #([\d-]+) - (.+)/i))) {
         if (!hand.id) {
           hand.id = (m[1].split('-').pop() || m[1]);
           headerText += ' ' + ln;
@@ -1642,9 +1671,12 @@
           hand.isCash = !hand.isTournament;
           if (/Holdem|Hold'em/i.test(ln)) hand.variant = 'nlhe';
           const lvl = U.parseTournamentBlinds(ln);
-          if (lvl) { hand.sb = lvl.sb; hand.bb = lvl.bb; }
-          const cash = ln.match(new RegExp('\\(([\\d.,]+)' + CUR + '\\/([\\d.,]+)' + CUR + '\\)'));
-          if (cash) { hand.sb = num(cash[1]); hand.bb = num(cash[2]); }
+          if (lvl) {
+            hand.sb = lvl.sb;
+            hand.bb = lvl.bb;
+            if (lvl.ante) hand.ante = lvl.ante;
+          }
+          applyWinamaxStakes(hand, ln);
           const dt = ln.match(/(\d{4}\/\d{2}\/\d{2}\s+\d{1,2}:\d{2}:\d{2})/);
           if (dt) hand.datetime = dt[1];
         }
@@ -2850,7 +2882,7 @@
   }
 
   function splitHandBlocks(text) {
-    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker - |CoinPoker Hand #))/m)
+    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker -\s*|CoinPoker Hand #))/m)
       .filter(function (b) {
         var t = b.trim();
         // Poker Hand # = GGPoker; PokerStars Hand # = PokerStars EN
@@ -3034,7 +3066,7 @@
     });
   }
 
-  const BLOCK_TEST_WM = /^Winamax Poker - /;
+  const BLOCK_TEST_WM = /^Winamax Poker -\s*/;
   const BLOCK_TEST_GG = /^Poker Hand #/;
   const BLOCK_TEST_CP = /^CoinPoker Hand #/;
 

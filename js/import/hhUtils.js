@@ -134,10 +134,17 @@
       const currency = (m[1] === '€' || m[1] === 'â‚¬') ? '€' : (m[1] === '£' ? '£' : '$');
       return { buyIn: num(m[2]), fee: num(m[4]), currency: currency };
     }
-    // Buy-in: $25
-    m = t.match(/(?:Buy[\s-]?[Ii]n|BI)[:\s]*((?:[€$£]|â‚¬)?)([\d.,]+)/i);
+    // Winamax MTT: "0.22€ + 0.03€" / "buyIn: 0.22€ + 0.03€" (divisa tras el importe)
+    m = t.match(/([\d.,]+)\s*((?:[€$£]|â‚¬))\s*\+\s*([\d.,]+)\s*((?:[€$£]|â‚¬)?)/);
     if (m) {
-      const currency = (m[1] === '€' || m[1] === 'â‚¬') ? '€' : (m[1] === '£' ? '£' : (m[1] === '$' ? '$' : null));
+      const currency = (m[2] === '€' || m[2] === 'â‚¬') ? '€' : (m[2] === '£' ? '£' : '$');
+      return { buyIn: num(m[1]), fee: num(m[3]), currency: currency };
+    }
+    // Buy-in: $25 / buyIn: 0.22€
+    m = t.match(/(?:Buy[\s-]?[Ii]n|BI)[:\s]*((?:[€$£]|â‚¬)?)([\d.,]+)\s*((?:[€$£]|â‚¬))?/i);
+    if (m) {
+      const curTok = m[1] || m[3] || '';
+      const currency = (curTok === '€' || curTok === 'â‚¬') ? '€' : (curTok === '£' ? '£' : (curTok === '$' ? '$' : null));
       return { buyIn: num(m[2]), fee: 0, currency: currency };
     }
     // Tournament #…, $25 …
