@@ -426,4 +426,35 @@ runFile('tools/fixtures/GGPoker-sample.txt', 'GGPoker');
   console.log('chunkParsedSession OK');
 })();
 
+// Winamax Monster Stack MTT: cabecera sin espacio tras "-" y blinds (ante/sb/bb)
+(function () {
+  const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'Winamax-monster-stack-sample.txt'), 'utf8');
+  const meta = Importer.detectSessionFormat(txt);
+  assert(meta && meta.platform === 'winamax', 'Monster Stack detectado Winamax');
+  assert(meta.handBlocks === 4, 'Monster Stack 4 bloques got ' + meta.handBlocks);
+  const parsed = Importer.parseSession(txt, 'Winamax-monster-stack-sample.txt');
+  assert(parsed.hands.length === 4, 'Monster Stack 4 manos got ' + parsed.hands.length
+    + ' discarded=' + JSON.stringify(parsed.discardedByReason));
+  assert(parsed.hero === 'Sete10JN', 'Monster Stack héroe Sete10JN got ' + parsed.hero);
+  assert(parsed.hands.every((h) => h.gameKind === 'mtt'), 'Monster Stack todas MTT');
+  // Formato antiguo: "Winamax Poker -Tournament" + (1600/7000/14000) = ante/sb/bb
+  const oldFmt = parsed.hands[0];
+  assert(oldFmt.ante === 1600, 'old ante 1600 got ' + oldFmt.ante);
+  assert(oldFmt.sb === 7000, 'old sb 7000 got ' + oldFmt.sb);
+  assert(oldFmt.bb === 14000, 'old bb 14000 got ' + oldFmt.bb);
+  assert(oldFmt.buyIn === 0.22, 'old buyIn 0.22 got ' + oldFmt.buyIn);
+  assert(oldFmt.buyInFee === 0.03, 'old fee 0.03 got ' + oldFmt.buyInFee);
+  // Formato nuevo: "Winamax Poker - Tournament \"Monster Stack\" buyIn: …" + (5000/20000/40000)
+  const newFmt = parsed.hands[2];
+  assert(newFmt.ante === 5000, 'new ante 5000 got ' + newFmt.ante);
+  assert(newFmt.sb === 20000, 'new sb 20000 got ' + newFmt.sb);
+  assert(newFmt.bb === 40000, 'new bb 40000 got ' + newFmt.bb);
+  assert(newFmt.buyIn === 0.22 && newFmt.buyInFee === 0.03, 'new buyIn+fee');
+  const session = Importer.buildSession(parsed, 'Winamax-monster-stack-sample.txt');
+  assert(session.hands.length === 4, 'Monster Stack sesión 4 manos');
+  assert(session.context.gameKind === 'mtt', 'Monster Stack context mtt');
+  assert(session.stats.formatKey === 'mtt6', 'Monster Stack formatKey mtt6 got ' + session.stats.formatKey);
+  console.log('Winamax Monster Stack MTT OK');
+})();
+
 console.log('*** IMPORTADOR OK (cash/spins/MTT + P2 + P3 + CoinPoker) ***');

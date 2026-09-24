@@ -65,7 +65,7 @@
   }
 
   function splitHandBlocks(text) {
-    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker - |CoinPoker Hand #))/m)
+    return text.split(/(?=^(?:Mano n\.º |PokerStars (?:Zoom )?Hand #|Poker Hand #|Winamax Poker -\s*|CoinPoker Hand #))/m)
       .filter(function (b) {
         var t = b.trim();
         // Poker Hand # = GGPoker; PokerStars Hand # = PokerStars EN
@@ -249,7 +249,7 @@
     });
   }
 
-  const BLOCK_TEST_WM = /^Winamax Poker - /;
+  const BLOCK_TEST_WM = /^Winamax Poker -\s*/;
   const BLOCK_TEST_GG = /^Poker Hand #/;
   const BLOCK_TEST_CP = /^CoinPoker Hand #/;
 

@@ -1,0 +1,176 @@
+Winamax Poker -Tournament  0.22€ + 0.03€ level: 16 - HandId: #5038027639281942529-247-1790205783 - Holdem no limit (1600/7000/14000) - 2026/09/23 23:23:03 UTC
+Table: 'Monster Stack(1173007218)#0000' 6-max (real money) Seat #4 is the button
+Seat 1: Gus4040 (547679)
+Seat 2: Anaisabelgan (1280707)
+Seat 3: RafaSori (727658)
+Seat 4: Eden50240 (296952)
+Seat 5: Thesky10 (857494)
+Seat 6: Sete10JN (816933)
+*** ANTE/BLINDS ***
+Thesky10 posts ante 1600
+Sete10JN posts ante 1600
+Gus4040 posts ante 1600
+Anaisabelgan posts ante 1600
+RafaSori posts ante 1600
+Eden50240 posts ante 1600
+Thesky10 posts small blind 7000
+Sete10JN posts big blind 14000
+Dealt to Sete10JN [Ad 8h]
+*** PRE-FLOP *** 
+Gus4040 folds
+Anaisabelgan raises 14000 to 28000
+RafaSori folds
+Eden50240 folds
+Thesky10 calls 21000
+Sete10JN calls 14000
+*** FLOP *** [8d Th 9c]
+Thesky10 checks
+Sete10JN checks
+Anaisabelgan bets 32760
+Thesky10 folds
+Sete10JN calls 32760
+*** TURN *** [8d Th 9c][Jc]
+Sete10JN checks
+Anaisabelgan checks
+*** RIVER *** [8d Th 9c Jc][As]
+Sete10JN bets 79560
+Anaisabelgan calls 79560
+*** SHOW DOWN ***
+Anaisabelgan shows [2d Ah] (One pair : Aces)
+Sete10JN shows [Ad 8h] (Two pairs : Aces and 8)
+Sete10JN collected 318240 from pot
+*** SUMMARY ***
+Total pot 318240 | No rake
+Board: [8d Th 9c Jc As]
+Seat 2: Anaisabelgan showed [2d Ah] and lost with One pair : Aces
+Seat 6: Sete10JN (big blind) showed [Ad 8h] and won 318240 with Two pairs : Aces and 8
+
+
+Winamax Poker -Tournament 0.22€ + 0.03€ level: 16 - HandId: #5038027639281942529-248-1790205876 - Holdem no limit (1600/7000/14000) - 2026/09/23 23:24:36 UTC
+Table: 'Monster Stack(1173007218)#0000' 6-max (real money) Seat #5 is the button
+Seat 1: Gus4040 (546079)
+Seat 2: Anaisabelgan (1138787)
+Seat 3: RafaSori (726058)
+Seat 4: Eden50240 (295352)
+Seat 5: Thesky10 (827894)
+Seat 6: Sete10JN (993253)
+*** ANTE/BLINDS ***
+Sete10JN posts ante 1600
+Gus4040 posts ante 1600
+Anaisabelgan posts ante 1600
+RafaSori posts ante 1600
+Eden50240 posts ante 1600
+Thesky10 posts ante 1600
+Sete10JN posts small blind 7000
+Gus4040 posts big blind 14000
+Dealt to Sete10JN [5c Kc]
+*** PRE-FLOP *** 
+Anaisabelgan raises 14000 to 28000
+RafaSori folds
+Eden50240 folds
+Thesky10 calls 28000
+Sete10JN folds
+Gus4040 calls 14000
+*** FLOP *** [Ts 4s 9s]
+Gus4040 checks
+Anaisabelgan bets 35210
+Thesky10 raises 98840 to 134050
+Gus4040 folds
+Anaisabelgan calls 98840
+*** TURN *** [Ts 4s 9s][Tc]
+Anaisabelgan checks
+Thesky10 bets 368700
+Anaisabelgan calls 368700
+*** RIVER *** [Ts 4s 9s Tc][5d]
+Anaisabelgan checks
+Thesky10 bets 295544 and is all-in
+Anaisabelgan calls 295544
+*** SHOW DOWN ***
+Thesky10 shows [2c 2d] (Two pairs : Tens and 2)
+Anaisabelgan shows [Th Ad] (Trips of Tens)
+Anaisabelgan collected 1697188 from pot
+*** SUMMARY ***
+Total pot 1697188 | No rake
+Board: [Ts 4s 9s Tc 5d]
+Seat 2: Anaisabelgan showed [Th Ad] and won 1697188 with Trips of Tens
+Seat 5: Thesky10 (button) showed [2c 2d] and lost with Two pairs : Tens and 2
+
+
+Winamax Poker - Tournament "Monster Stack" buyIn: 0.22€ + 0.03€ level: 22 - HandId: #5038027639281942529-321-1790208963 - Holdem no limit (5000/20000/40000) - 2026/09/24 00:16:03 UTC
+Table: 'Monster Stack(1173007218)#0000' 6-max (real money) Seat #3 is the button
+Seat 1: Efiral (2503718)
+Seat 2: Thulsa doom (1017962)
+Seat 3: Aaron_MS96 (206558)
+Seat 4: AA-NOBODY-KK (946886)
+Seat 5: Sete10JN (4704391)
+Seat 6: bloublou5454 (1026962)
+*** ANTE/BLINDS ***
+AA-NOBODY-KK posts ante 5000
+Sete10JN posts ante 5000
+Efiral posts ante 5000
+Thulsa doom posts ante 5000
+Aaron_MS96 posts ante 5000
+bloublou5454 posts ante 5000
+AA-NOBODY-KK posts small blind 20000
+Sete10JN posts big blind 40000
+Dealt to Sete10JN [7d 2h]
+*** PRE-FLOP *** 
+bloublou5454 folds
+Efiral folds
+Thulsa doom folds
+Aaron_MS96 folds
+AA-NOBODY-KK calls 20000
+Sete10JN checks
+*** FLOP *** [Ks 9c 7h]
+AA-NOBODY-KK bets 40000
+Sete10JN raises 40500 to 80500
+AA-NOBODY-KK calls 40500
+*** TURN *** [Ks 9c 7h][Qs]
+AA-NOBODY-KK checks
+Sete10JN bets 94850
+AA-NOBODY-KK folds
+Sete10JN collected 365850 from pot
+*** SUMMARY ***
+Total pot 365850 | No rake
+Board: [Ks 9c 7h Qs]
+Seat 5: Sete10JN (big blind) won 365850
+
+
+Winamax Poker - Tournament "Monster Stack" buyIn: 0.22€ + 0.03€ level: 22 - HandId: #5038027639281942529-322-1790209012 - Holdem no limit (5000/20000/40000) - 2026/09/24 00:16:52 UTC
+Table: 'Monster Stack(1173007218)#0000' 6-max (real money) Seat #4 is the button
+Seat 1: Efiral (2498718)
+Seat 2: Thulsa doom (1012962)
+Seat 3: Aaron_MS96 (201558)
+Seat 4: AA-NOBODY-KK (821386)
+Seat 5: Sete10JN (4849891)
+Seat 6: bloublou5454 (1021962)
+*** ANTE/BLINDS ***
+Sete10JN posts ante 5000
+bloublou5454 posts ante 5000
+Efiral posts ante 5000
+Thulsa doom posts ante 5000
+Aaron_MS96 posts ante 5000
+AA-NOBODY-KK posts ante 5000
+Sete10JN posts small blind 20000
+bloublou5454 posts big blind 40000
+Dealt to Sete10JN [As 5c]
+*** PRE-FLOP *** 
+Efiral folds
+Thulsa doom folds
+Aaron_MS96 raises 156558 to 196558 and is all-in
+AA-NOBODY-KK folds
+Sete10JN raises 4648333 to 4844891 and is all-in
+bloublou5454 folds
+*** FLOP *** [3d 4h Td]
+*** TURN *** [3d 4h Td][3s]
+*** RIVER *** [3d 4h Td 3s][5h]
+*** SHOW DOWN ***
+Aaron_MS96 shows [4s 4d] (Full of 4 and 3)
+Sete10JN shows [As 5c] (Two pairs : 5 and 3)
+Sete10JN collected 4648333 from side pot 1
+Aaron_MS96 collected 463116 from main pot
+*** SUMMARY ***
+Total pot 5111449 | No rake
+Board: [3d 4h Td 3s 5h]
+Seat 3: Aaron_MS96 showed [4s 4d] and won 463116 with Full of 4 and 3
+Seat 5: Sete10JN (small blind) showed [As 5c] and won 4648333 with Two pairs : 5 and 3
