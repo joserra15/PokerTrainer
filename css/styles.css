@@ -3147,7 +3147,16 @@ body.age-gate-open {
     justify-content: flex-end; align-items: center;
     margin-top: 96px;
   }
-  .session-replay-table .table-felt > .board-area { margin-top: 40px; }
+  /* Revisión: bote + board centrados en el canal libre entre los laterales,
+     no pegados al héroe (ahí el arco inferior de asientos ya no estorba). */
+  .session-replay-table .table-felt > .board-area {
+    margin-top: 0;
+    justify-content: center;
+  }
+  /* Con el pod en horizontal los asientos de los laterales son anchos: se
+     anclan al borde interior para no montarse en el rail. */
+  .review-play-like .seat.seat-edge-left { transform: translate(-4%, -50%); }
+  .review-play-like .seat.seat-edge-right { transform: translate(-96%, -50%); }
 }
 .villain-action-bar { display: none; min-height: 0; margin-bottom: 6px; justify-content: center; }
 .villain-action-bar.is-visible { display: flex; }
@@ -3170,26 +3179,47 @@ body.age-gate-open {
 .pot-chips .chip + .chip { margin-left: -10px; }
 .board { display: flex; gap: 7px; justify-content: center; min-height: 64px; }
 .spot-context { margin-top: 10px; font-size: 13px; color: #dfe7ef; max-width: 460px; }
-.session-replay-table .table-felt { min-height: 420px; }
+/* La mesa del paso a paso es lo que se lee de un vistazo, así que ocupa casi
+   todo el alto disponible en vez de quedarse en una franja. */
+.session-replay-table .table-felt { min-height: min(68vh, 560px); }
 .session-street-log { font-size: 13px; color: #dfe7ef; margin: 10px 0 6px; line-height: 1.5; }
 .session-street-act { white-space: nowrap; }
 .session-spot-head { margin: 8px 0 10px; }
 .session-spot-head strong { font-size: 15px; color: var(--gold); }
 .session-spot-head .spot-context { margin-top: 6px; }
 
-/* Paso a paso: presencia de mesa tipo torneo (sin roles/clicks). */
+/* Paso a paso: presencia de mesa tipo torneo (sin roles/clicks). Las cartas
+   del rival son el dato de la revisión, así que van al tamaño de las del board
+   y el pod se apoya a su lado en horizontal para no robar alto al centro. */
 .review-play-like .table-felt:not(.table-9max) .seat-cards .card {
-  width: 30px;
-  height: 42px;
+  width: 34px;
+  height: 47px;
 }
 .review-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
-  width: 36px;
-  height: 50px;
-  font-size: 16px;
+  width: 42px;
+  height: 58px;
+  font-size: 18px;
 }
+.review-play-like .table-felt.table-9max .seat-cards .card {
+  width: 28px;
+  height: 39px;
+}
+.review-play-like .table-felt.table-9max .seat-cards.showdown .card {
+  width: 34px;
+  height: 47px;
+  font-size: 15px;
+}
+/* Pod horizontal: cartas a la izquierda y la etiqueta al lado, como en las
+   salas. Ocupa menos alto, así que el canal central del board queda libre. */
 .review-play-like .seat .seat-body {
-  gap: 2px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
+.seat-meta { display: flex; flex-direction: column; align-items: center; }
+.review-play-like .seat-cards { margin-bottom: 0; }
+.review-play-like .seat-folded-mark { min-height: 0; }
 .review-play-like .hero-area .seat-bet {
   position: relative;
   left: auto;
@@ -4425,16 +4455,46 @@ body.paywall-open { overflow: hidden; }
   .tl-player { min-width: 110px; }
   .review-head { flex-direction: column; align-items: flex-start; gap: 8px; }
   .review-head .big-cards .card { width: 28px; height: 40px; font-size: 12px; }
-  .session-replay-table .table-felt { min-height: 380px; }
-  .review-play-like .table-felt:not(.table-9max) .seat-cards .card {
-    width: 28px;
-    height: 40px;
+  /* En móvil la mesa del paso a paso va a sangre y casi al alto de pantalla:
+     con 380px de alto las cartas del rival no se leían. */
+  .session-replay-table {
+    padding: 0;
+    width: 100vw;
+    max-width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
   }
-  .review-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
+  .session-replay-table .table-felt {
+    min-height: min(80svh, 660px);
+    border-radius: 44% / 30%;
+    padding: 12px 8px 10px;
+  }
+  .session-replay-table .board-area {
+    padding-top: 0;
+    max-width: 88%;
+  }
+  .review-play-like .table-felt:not(.table-9max) .seat-cards .card {
     width: 32px;
     height: 44px;
+  }
+  .review-play-like .table-felt:not(.table-9max) .seat-cards.showdown .card {
+    width: 38px;
+    height: 53px;
+    font-size: 16px;
+  }
+  .review-play-like .table-felt.table-9max .seat-cards .card {
+    width: 25px;
+    height: 35px;
+  }
+  .review-play-like .table-felt.table-9max .seat-cards.showdown .card {
+    width: 30px;
+    height: 42px;
     font-size: 13px;
   }
+  .review-play-like .seat { max-width: none; }
+  .review-play-like .seat .seat-body { column-gap: 5px; }
+  .review-play-like .board .card { width: 40px; height: 56px; font-size: 17px; }
+  .review-play-like .hero-cards .card { width: 52px; height: 72px; font-size: 21px; }
   .import-row input[type=file] { width: 100%; }
 
   /* Estadísticas — gráficas legibles en móvil (excepto carrusel rediseñado) */
