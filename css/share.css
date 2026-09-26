@@ -346,8 +346,20 @@ body {
 .seat-cards {
   display: flex; gap: 3px; justify-content: center; margin-bottom: 4px;
 }
-.seat-cards .card { width: 22px; height: 30px; font-size: 0; }
-.seat-cards.showdown .card { width: 26px; height: 36px; font-size: 12px; }
+.seat-cards .card { width: 26px; height: 36px; font-size: 0; }
+.seat-cards.showdown .card { width: 32px; height: 44px; font-size: 14px; }
+/* Pod horizontal (cartas + etiqueta al lado), igual que en la app: deja el
+   canal central de la mesa para bote y comunitarias. */
+.review-play-like .seat .seat-body {
+  display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 7px;
+}
+.seat-meta { display: flex; flex-direction: column; align-items: center; }
+.review-play-like .seat-cards { margin-bottom: 0; }
+.review-play-like .seat-folded-mark { min-height: 0; }
+.review-play-like .table-felt.table-9max .seat-cards .card { width: 22px; height: 30px; }
+.review-play-like .table-felt.table-9max .seat-cards.showdown .card {
+  width: 26px; height: 36px; font-size: 12px;
+}
 
 .board-area { text-align: center; z-index: 2; position: relative; }
 .board .card { box-shadow: 0 4px 10px rgba(0,0,0,.5); }
@@ -367,7 +379,11 @@ body {
 }
 .pot-chips .chip-ico { width: 18px; height: 18px; }
 .board { display: flex; gap: 6px; justify-content: center; min-height: 56px; }
-.session-replay-table .table-felt { min-height: 420px; }
+.session-replay-table .table-felt { min-height: min(62vh, 520px); }
+.session-replay-table .table-felt > .board-area {
+  flex: 1; display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+}
 
 .hero-area { text-align: center; z-index: 3; position: relative; flex-shrink: 0; }
 .hero-label {
@@ -473,7 +489,14 @@ body {
   .share-invite .btn { width: 100%; }
   .seat { min-width: 56px; padding: 4px 6px; }
   .seat .seat-pos { font-size: 10px; }
-  .seat-cards .card { width: 18px; height: 26px; }
+  .seat-cards .card { width: 22px; height: 30px; }
+  .seat-cards.showdown .card { width: 28px; height: 39px; font-size: 12px; }
+  .session-replay-table .table-felt { min-height: min(64svh, 480px); border-radius: 44% / 30%; }
+  .review-play-like .seat .seat-body { gap: 5px; }
+  .review-play-like .table-felt.table-9max .seat-cards .card { width: 19px; height: 26px; }
+  .review-play-like .table-felt.table-9max .seat-cards.showdown .card {
+    width: 23px; height: 32px; font-size: 10px;
+  }
   .review-head .big-cards .card { width: 28px; height: 40px; font-size: 12px; }
   .big-cards .card { width: 40px; height: 56px; font-size: 16px; }
 }

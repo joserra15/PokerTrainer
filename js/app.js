@@ -145,6 +145,35 @@
     { top: 57, left: 98 },
     { top: 80, left: 86 }
   ];
+  /* Paso a paso / repetición: los asientos se reparten en columnas pegadas a
+   * los laterales (como en las salas móviles) en vez de repartirse por el arco
+   * superior. Así el canal central queda libre para bote + comunitarias, que
+   * es lo que hay que leer en una revisión, y las cartas pueden ser grandes. */
+  const SEAT_COORDS_REVIEW_3 = [
+    { top: 97, left: 50 },
+    { top: 18, left: 16 },
+    { top: 18, left: 84 }
+  ];
+  const SEAT_COORDS_REVIEW = [
+    { top: 97, left: 50 },
+    { top: 70, left: 10 },
+    { top: 29, left: 6 },
+    { top: 9, left: 50 },
+    { top: 29, left: 94 },
+    { top: 70, left: 90 }
+  ];
+  /* 9-max: tres asientos por lateral y dos arriba; el centro sigue libre. */
+  const SEAT_COORDS_REVIEW_9 = [
+    { top: 97, left: 50 },
+    { top: 84, left: 13 },
+    { top: 62, left: 5 },
+    { top: 29, left: 6 },
+    { top: 9, left: 32 },
+    { top: 9, left: 68 },
+    { top: 29, left: 94 },
+    { top: 62, left: 95 },
+    { top: 84, left: 87 }
+  ];
 
   let hand = null;
   let pendingForce = null;       // escenario forzado (repaso de errores)
@@ -10472,8 +10501,7 @@
 
   function renderShowdownTableHTML(h) {
     const layout = sessionTableLayout(h);
-    const mobile = isMobileLayout();
-    const coords = sessionSeatCoords(layout, mobile);
+    const coords = sessionSeatCoords(layout);
     const posList = sessionPosList(layout);
     const posRing = ringFromHeroPos(h.heroPos, posList);
     const board = h.board || [];
@@ -10513,8 +10541,10 @@
       seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         <div class="seat-body">
           ${holeHtml}
-          <div class="seat-pos">${pos}</div>
-          ${role ? `<div class="seat-role">${role}</div>` : ''}
+          <div class="seat-meta">
+            <div class="seat-pos">${pos}</div>
+            ${role ? `<div class="seat-role">${role}</div>` : ''}
+          </div>
         </div>
       </div>`;
     });
@@ -10611,10 +10641,12 @@
     return POS;
   }
 
-  function sessionSeatCoords(layout, mobile) {
-    if (layout === '9') return mobile ? SEAT_COORDS_MOBILE_9 : SEAT_COORDS_9;
-    if (layout === '3') return mobile ? SEAT_COORDS_MOBILE_3 : SEAT_COORDS_3;
-    return mobile ? SEAT_COORDS_MOBILE : SEAT_COORDS;
+  /* La mesa de revisión no tiene botones ni HUD, así que usa su propio anillo
+     (columnas laterales) tanto en móvil como en escritorio. */
+  function sessionSeatCoords(layout) {
+    if (layout === '9') return SEAT_COORDS_REVIEW_9;
+    if (layout === '3') return SEAT_COORDS_REVIEW_3;
+    return SEAT_COORDS_REVIEW;
   }
 
   function ringFromHeroPos(heroPos, list) {
@@ -10779,7 +10811,7 @@
     state = state || computeSessionReplayState(h, decisionIdx);
     const layout = sessionTableLayout(h);
     const mobile = isMobileLayout();
-    const coords = sessionSeatCoords(layout, mobile);
+    const coords = sessionSeatCoords(layout);
     const posList = sessionPosList(layout);
     const posRing = ringFromHeroPos(h.heroPos, posList);
     const board = boardForStreet(h, d.street);
@@ -10835,8 +10867,10 @@
       seatsHtml += `<div class="${cls.join(' ')}" style="top:${c.top}%;left:${c.left}%">
         <div class="seat-body">
           ${holeHtml}
-          <div class="seat-pos">${pos}</div>
-          ${role ? `<div class="seat-role">${role}</div>` : ''}
+          <div class="seat-meta">
+            <div class="seat-pos">${pos}</div>
+            ${role ? `<div class="seat-role">${role}</div>` : ''}
+          </div>
         </div>
         ${betHtml}
       </div>`;
