@@ -129,7 +129,8 @@ vm.createContext(sandbox);
 vm.runInContext(billingCfgSrc, sandbox, { filename: 'billing-config.js' });
 vm.runInContext(pricingViewSrc, sandbox, { filename: 'pricing-view.js' });
 assert.ok(sandbox.PTPricing, 'PTPricing expuesto');
-assert.ok(sandbox.PT_BILLING.purchasesPaused, 'compras pausadas (oferta FOUNDER activa)');
+assert.strictEqual(sandbox.PT_BILLING.purchasesPaused, false, 'compras abiertas');
+assert.ok(sandbox.PTBillingPromo.founderSeatsOpen(), 'plazas FOUNDER abiertas');
 
 // Simula la carrera real: landing se ejecuta antes que i18n.
 vm.runInContext(landingSrc, sandbox, { filename: 'landing.js' });
@@ -150,13 +151,14 @@ assert.ok(limitsHtml.indexOf('Plan gratis y FOUNDER') >= 0, 'limits muestra tít
 assert.ok(pricingHtml.indexOf('plan.free') < 0, 'pricing no muestra plan.free');
 assert.ok(pricingHtml.indexOf('plan.cta') < 0, 'pricing no muestra plan.cta');
 assert.ok(pricingHtml.indexOf('Gratis') >= 0, 'pricing muestra Gratis');
-assert.ok(pricingHtml.indexOf('Probar ahora') >= 0, 'pricing muestra CTA free traducido');
-assert.ok(pricingHtml.indexOf('Compra próximamente') >= 0, 'Study/Coach muestran CTA pausado');
+assert.ok(pricingHtml.indexOf('Probar ahora') >= 0, 'pricing muestra CTA free/login traducido');
+assert.ok(pricingHtml.indexOf('landing-price-cta') >= 0, 'Study/Coach invitan a login/contratar');
+assert.ok(pricingHtml.indexOf('Compra próximamente') < 0, 'sin CTA de compras pausadas');
 assert.ok(pricingHtml.indexOf('data-founder-request="study"') >= 0 || pricingHtml.indexOf('FOUNDER Study') >= 0,
   'Study muestra CTA solicitud FOUNDER');
 assert.ok(pricingHtml.indexOf('data-founder-request="coach"') >= 0 || pricingHtml.indexOf('FOUNDER Coach') >= 0,
   'Coach muestra CTA solicitud FOUNDER');
-assert.ok(pricingHtml.indexOf('disabled') >= 0, 'botones de compra deshabilitados');
+assert.ok(!/\sdisabled\b/.test(pricingHtml), 'botones de contratar habilitados');
 assert.ok(pricingHtml.indexOf('plan.free.f1') < 0, 'features free traducidas');
 assert.ok(pricingHtml.indexOf('15 manos entrenador') >= 0, 'feature free f1 visible');
 assert.ok(pricingHtml.indexOf('price.') < 0, 'pricing no muestra claves price.*');

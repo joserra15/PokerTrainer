@@ -19,8 +19,22 @@
     return f && typeof f === 'object' ? f : {};
   }
 
-  function purchasesPaused() {
-    return !!billing().purchasesPaused;
+  function todayYmd() {
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  function founderSeatsOpen() {
+    var promo = global.PTBillingPromo;
+    if (promo && typeof promo.founderSeatsOpen === 'function') {
+      return !!promo.founderSeatsOpen();
+    }
+    var f = founderCfg();
+    if (!f || f.seatsOpen === false) return false;
+    if (!f.closeDate) return true;
+    return todayYmd() <= String(f.closeDate);
   }
 
   function esc(s) {
@@ -48,10 +62,16 @@
     return plans[planId] || null;
   }
 
-  /** true cuando el plan tiene tarifa FOUNDER configurada y la oferta sigue viva. */
-  function hasFounderPricing(planId) {
+  /**
+   * true cuando el plan tiene tarifa FOUNDER y (plazas abiertas o el usuario ya es founder).
+   * @param {string} planId
+   * @param {{owned?: boolean}} [opts]
+   */
+  function hasFounderPricing(planId, opts) {
     var p = planCfg(planId);
-    return !!(p && p.founderMonthly && purchasesPaused());
+    if (!p || !p.founderMonthly) return false;
+    if (opts && opts.owned) return true;
+    return founderSeatsOpen();
   }
 
   function amount(value, period) {
@@ -118,7 +138,7 @@
     if (!p) return '';
     opts = opts || {};
 
-    if (!hasFounderPricing(planId)) {
+    if (!hasFounderPricing(planId, opts)) {
       var plain = '<div class="price-block price-block-plain">' +
         '<div class="price-main">' + amount(p.monthly, perMonth()) + '</div>';
       if (p.yearlyPerMonth && p.yearly) {
@@ -162,6 +182,7 @@
   global.PTPricing = {
     planPrices: planCfg,
     hasFounderPricing: hasFounderPricing,
+    founderSeatsOpen: founderSeatsOpen,
     planPriceHtml: planPriceHtml,
     freePriceHtml: freePriceHtml
   };

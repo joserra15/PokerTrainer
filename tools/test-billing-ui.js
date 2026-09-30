@@ -53,12 +53,16 @@ function makeEl(id) {
 const bodyClass = new Set();
 const founderCfg = {
   enabled: false,
-  purchasesPaused: true,
+  purchasesPaused: false,
   trial: { days: 10, plan: 'pro' },
   founder: {
-    launchLabel: 'próximamente',
+    seatsOpen: true,
+    launchLabel: 'octubre',
+    closeDate: '2099-10-31',
+    closeLabel: '31 de octubre',
     discount: '40%',
     seatsNote: 'Plazas limitadas por petición',
+    urgencyNote: 'FOUNDER solo está abierto en octubre. El 31 de octubre se cierra para siempre.',
     priorityNote: 'Solicita plaza FOUNDER Study o Coach.'
   }
 };
@@ -95,12 +99,15 @@ vm.runInContext(billingSrc, sandbox, { filename: 'billing.js' });
 
 const B = sandbox.window.PTBilling;
 assert.ok(B && B.showPaywall, 'PTBilling.showPaywall');
-assert.ok(B.purchasesPaused && B.purchasesPaused(), 'purchasesPaused activo');
+assert.ok(B.purchasesPaused && !B.purchasesPaused(), 'purchasesPaused desactivado');
+assert.ok(B.founderSeatsOpen && B.founderSeatsOpen(), 'plazas FOUNDER abiertas');
 B.showPaywall('trainer_limit');
 assert.ok(!docEls['paywall-modal'].classList.contains('hidden'), 'modal visible');
 assert.ok(bodyClass.has('paywall-open'), 'body paywall-open');
-assert.ok(/plan|manos|Gratis|FOUNDER|próximas semanas|plazas limitadas/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
+assert.ok(/plan|manos|Gratis|FOUNDER|octubre|plazas limitadas/i.test(docEls['paywall-body'].innerHTML + docEls['paywall-title'].textContent),
   'mensaje paywall');
+assert.ok(/para siempre|31 de octubre|solo octubre/i.test(docEls['paywall-body'].innerHTML),
+  'paywall urgencia FOUNDER octubre');
 
 B.showPaywall('ai_limit');
 assert.ok(/ForgeCoach|IA|FOUNDER|consultas/i.test(docEls['paywall-body'].innerHTML), 'ai_limit menciona IA/FOUNDER');
@@ -111,6 +118,7 @@ if (trial) {
   assert.strictEqual(trial.days, 10);
 }
 
-assert.ok(/purchasesPaused|founder/.test(billingCfgEx), 'billing-config.example documenta pause/FOUNDER');
+assert.ok(/purchasesPaused|founder|seatsOpen/.test(billingCfgEx), 'billing-config.example documenta pause/FOUNDER');
+assert.ok(!/SUMMER26/.test(billingCfgEx), 'billing-config.example sin SUMMER26');
 
 console.log('*** billing-ui OK (paywall markers + no price leak) ***');

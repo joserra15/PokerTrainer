@@ -1993,7 +1993,7 @@
       if (cfg && cfg.billing && cfg.billing.hidePricing) hidePricing = true;
     }
     var Promo = window.PTBillingPromo;
-    var paused = !!(Promo && Promo.purchasesPaused && Promo.purchasesPaused());
+    var seatsOpen = !!(Promo && Promo.founderSeatsOpen && Promo.founderSeatsOpen());
     var Ent = window.PTEntitlements;
     /* No pintar hasta saber entitlements (evita flash Founder→oculto).
        Durante un refresh en vuelo NO borrar un FOUNDER ya visible: si no,
@@ -2005,7 +2005,7 @@
     var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
     var onboardingOpen = !!(window.PTOnboarding && PTOnboarding.shouldShow && PTOnboarding.shouldShow());
-    if (!paused || hidePricing || isFounder || onboardingOpen || !Promo || !Promo.homePromoHtml) {
+    if (!seatsOpen || hidePricing || isFounder || onboardingOpen || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';
       host.classList.add('hidden');
       return;
@@ -5491,42 +5491,26 @@
         id: 'pro', title: plans.pro ? plans.pro.label : 'Study',
         priceHtml: pricingPriceHtml('pro', plans.pro ? plans.pro.monthly : '14,99', ent.is_founder_study),
         featured: false,
-        features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
-          ? [
-            'FOUNDER Study · plazas limitadas',
-            'Entrenador e import ilimitados',
-            '20 manos en análisis',
-            '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
-            'Sync, estadísticas y repaso'
-          ]
-          : [
-            'Prueba 10 días (una vez por cuenta)',
-            'Entrenador e import ilimitados',
-            '20 manos en análisis',
-            '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
-            'Sync, estadísticas y repaso'
-          ],
+        features: [
+          'Prueba 10 días (una vez por cuenta)',
+          'Entrenador e import ilimitados',
+          '20 manos en análisis',
+          '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
+          'Sync, estadísticas y repaso'
+        ],
         cta: 'pro'
       },
       {
         id: 'premium', title: plans.premium ? plans.premium.label : 'Coach',
         priceHtml: pricingPriceHtml('premium', plans.premium ? plans.premium.monthly : '34,99', ent.is_founder_coach),
         featured: false,
-        features: (window.PTBilling && window.PTBilling.purchasesPaused && window.PTBilling.purchasesPaused())
-          ? [
-            'FOUNDER Coach · plazas limitadas',
-            'Todo Study',
-            '100 manos en análisis',
-            '150 consultas ForgeCoach/mes',
-            'Soporte prioritario'
-          ]
-          : [
-            'Todo Study',
-            '100 manos en análisis',
-            '150 consultas ForgeCoach/mes',
-            'Informes y preguntas sobre manos, análisis y sesiones',
-            'Soporte prioritario'
-          ],
+        features: [
+          'Todo Study',
+          '100 manos en análisis',
+          '150 consultas ForgeCoach/mes',
+          'Informes y preguntas sobre manos, análisis y sesiones',
+          'Soporte prioritario'
+        ],
         cta: 'premium'
       }
     ];
@@ -5534,6 +5518,8 @@
     const Billing = window.PTBilling;
     const billingOn = !!(Billing && Billing.enabled && Billing.enabled());
     const paused = !!(Billing && Billing.purchasesPaused && Billing.purchasesPaused());
+    const seatsOpen = !!(window.PTBillingPromo && window.PTBillingPromo.founderSeatsOpen &&
+      window.PTBillingPromo.founderSeatsOpen());
     const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
     const curInterval = ent.billing_interval === 'year' ? 'year'
@@ -5546,6 +5532,23 @@
       premium: plans.premium ? plans.premium.label : 'Coach'
     };
 
+    function founderRequestBlock(planKey) {
+      if (!seatsOpen) return '';
+      var already = planKey === 'coach' ? !!ent.is_founder_coach : !!ent.is_founder_study;
+      if (already) return '';
+      var label = planKey === 'coach' ? 'FOUNDER Coach' : 'FOUNDER Study';
+      var btn = (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
+        ? window.PTFounderRequest.requestButtonHtml(planKey, 'btn-block')
+        : '<button type="button" class="btn btn-primary btn-block" data-founder-request="' + planKey +
+          '">Solicitar plaza ' + label + '</button>';
+      var closeLabel = (founder && founder.closeLabel) || '31 de octubre';
+      return btn +
+        '<p class="muted-text pricing-cta-note"><strong>Solo octubre · cierra el ' +
+        escapeHtml(closeLabel) + ' para siempre</strong>. ' + escapeHtml(label) + ' · ' +
+        escapeHtml((founder && founder.discount) || '40%') +
+        ' dto. Se envía un mensaje a soporte automáticamente.</p>';
+    }
+
     grid.innerHTML = cards.map(function (c) {
       const isCurrent = ent.plan === c.id;
       let btns = '';
@@ -5553,26 +5556,16 @@
         if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
         } else if (c.id === 'pro') {
-          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas">' +
             'Compra próximamente</button>';
-          btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
-            ? window.PTFounderRequest.requestButtonHtml('study', 'btn-block')
-            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
-          btns += '<p class="muted-text pricing-cta-note"><strong>Plazas limitadas por petición</strong>. FOUNDER Study · ' +
-            escapeHtml((founder && founder.discount) || '40%') +
-            ' dto. Se envía un mensaje a soporte automáticamente.</p>';
+          btns += founderRequestBlock('study');
         } else if (c.id === 'premium') {
-          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas hasta FOUNDER">' +
+          btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true" title="Compras cerradas">' +
             'Compra próximamente</button>';
-          btns += (window.PTFounderRequest && window.PTFounderRequest.requestButtonHtml)
-            ? window.PTFounderRequest.requestButtonHtml('coach', 'btn-block')
-            : '<button type="button" class="btn btn-primary btn-block" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
-          btns += '<p class="muted-text pricing-cta-note"><strong>Plazas limitadas por petición</strong>. FOUNDER Coach · ' +
-            escapeHtml((founder && founder.discount) || '40%') +
-            ' dto. Se envía un mensaje a soporte automáticamente.</p>';
+          btns += founderRequestBlock('coach');
         }
       } else if (!isPaidSub) {
-        // Usuario Gratis: alta normal por checkout.
+        // Usuario Gratis: alta normal por checkout + pedir plaza FOUNDER si sigue abierta.
         if (c.cta && !isCurrent) {
           if (c.id === 'pro' && billingOn) {
             const trial = window.PTBilling && PTBilling.trialInfo ? PTBilling.trialInfo() : null;
@@ -5580,6 +5573,13 @@
             btns = '<button type="button" class="btn btn-primary" data-checkout="pro" data-interval="month">' +
               escapeHtml(trialLbl) + '</button>';
             btns += '<button type="button" class="btn btn-ghost" data-checkout="pro" data-interval="year">Anual</button>';
+            btns += founderRequestBlock('study');
+          } else if (c.id === 'premium') {
+            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+            if (billingOn) {
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+            }
+            btns += founderRequestBlock('coach');
           } else {
             btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
             if (billingOn) {
@@ -5588,6 +5588,8 @@
           }
         } else if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
+          if (c.id === 'pro') btns += founderRequestBlock('study');
+          if (c.id === 'premium') btns += founderRequestBlock('coach');
         }
       } else if (c.id === 'free') {
         // Bajar a Gratis = cancelar suscripción.
@@ -5615,7 +5617,7 @@
       } else if (paused) {
         btns = '<button type="button" class="btn btn-ghost" disabled aria-disabled="true">Cambios de plan cerrados</button>';
       }
-      var featured = paused ? (c.id === 'pro') : isCurrent;
+      var featured = (seatsOpen && !isPaidSub) ? (c.id === 'pro') : isCurrent;
       return '<div class="pricing-card' + (featured ? ' featured' : '') + '">' +
         '<h3>' + escapeHtml(c.title) + '</h3>' +
         '<div class="pricing-price">' + c.priceHtml + '</div>' +
@@ -5675,12 +5677,18 @@
     const changeNote = $('#pricing-change-note');
     if (changeNote) {
       if (paused && !isPaidSub) {
-        changeNote.innerHTML = 'Compras cerradas hasta el <strong>FOUNDER</strong> (' +
-          escapeHtml((founder && founder.launchLabel) || 'próximamente') +
-          '). <strong>' + escapeHtml((founder && founder.seatsNote) || 'Plazas limitadas por petición') +
+        changeNote.innerHTML = 'Compras cerradas. <strong>' +
+          escapeHtml((founder && founder.seatsNote) || 'Plazas limitadas por petición') +
           '</strong>. ' + escapeHtml((founder && founder.priorityNote) ||
             'Solicita plaza FOUNDER Study o Coach; revisamos cada petición.') +
           ' Usa el botón en cada plan.';
+        changeNote.classList.remove('hidden');
+      } else if (seatsOpen && !isPaidSub) {
+        changeNote.innerHTML = '<strong>FOUNDER</strong> solo está abierto en <strong>octubre</strong>. El <strong>' +
+          escapeHtml((founder && founder.closeLabel) || '31 de octubre') +
+          '</strong> se cierra <strong>para siempre</strong>. Contrata Study/Coach a precio de lista o solicita plaza FOUNDER (−' +
+          escapeHtml(String((founder && founder.discount) || '40%').replace(/^−|^-/, '')) +
+          ' de por vida si te aprueban).';
         changeNote.classList.remove('hidden');
       } else if (isPaidSub) {
         changeNote.innerHTML = 'Gestiona tu suscripción (cambio de plan, facturación anual o cancelación) en el portal seguro de Stripe. Pulsa <strong>«Actualiza la suscripción»</strong> dentro del portal.';

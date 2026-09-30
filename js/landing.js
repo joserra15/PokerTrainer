@@ -312,6 +312,8 @@
     var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
     var trialLabel = trial.label || 'Prueba Study 10 días';
     var paused = !!(global.PT_BILLING && global.PT_BILLING.purchasesPaused);
+    var seatsOpen = !!(global.PTBillingPromo && global.PTBillingPromo.founderSeatsOpen &&
+      global.PTBillingPromo.founderSeatsOpen());
     var founder = (global.PT_BILLING && global.PT_BILLING.founder) || {};
     var cards = [
       {
@@ -347,13 +349,13 @@
           : t('plan.cta'),
         ctaLogin: !paused,
         disabled: paused,
-        founderPlan: paused ? 'study' : null
+        founderPlan: seatsOpen ? 'study' : null
       },
       {
         id: 'premium',
         title: plans.premium ? plans.premium.label : 'Coach',
         priceHtml: priceHtml('premium', plans.premium ? plans.premium.monthly : '34,99'), featured: false,
-        features: paused
+        features: seatsOpen
           ? [
             t('plan.coach.invite'),
             t('plan.coach.f1'),
@@ -373,7 +375,7 @@
           : t('plan.cta'),
         ctaLogin: !paused,
         disabled: paused,
-        founderPlan: paused ? 'coach' : null
+        founderPlan: seatsOpen ? 'coach' : null
       }
     ];
     grid.innerHTML = cards.map(function (c) {
@@ -382,11 +384,12 @@
       var disabledAttr = c.disabled ? ' disabled aria-disabled="true"' : '';
       var note = '';
       var founderBtn = '';
-      if (paused && c.founderPlan) {
+      if (seatsOpen && c.founderPlan) {
         note = '<p class="muted-text landing-price-note">' +
           escapeHtml(t('plan.founder.note', {
             discount: founder.discount || '40%',
-            seats: founder.seatsNote || 'plazas limitadas'
+            seats: founder.seatsNote || 'plazas limitadas',
+            close: founder.closeLabel || '31 de octubre'
           })) + '</p>';
         if (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml) {
           founderBtn = global.PTFounderRequest.requestButtonHtml(c.founderPlan, 'btn-block landing-founder-cta');
