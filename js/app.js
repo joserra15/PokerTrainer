@@ -2004,8 +2004,12 @@
     }
     var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
-    var onboardingOpen = !!(window.PTOnboarding && PTOnboarding.shouldShow && PTOnboarding.shouldShow());
-    if (!seatsOpen || hidePricing || isFounder || onboardingOpen || !Promo || !Promo.homePromoHtml) {
+    var founderRequested = !!(ent && (
+      ent.founder_study_requested_at ||
+      ent.founder_coach_requested_at ||
+      ent.founder_requested_at
+    ));
+    if (!seatsOpen || hidePricing || isFounder || founderRequested || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';
       host.classList.add('hidden');
       return;
@@ -2063,6 +2067,7 @@
 
     if (!decisions) {
       statsEl.innerHTML = emptyStateHtml({
+        className: 'home-first-block',
         title: 'Tu primer bloque',
         body: 'Haz 10 manos con avisador o abre la sesión de ejemplo para ver fugas reales.',
         actions: [
@@ -2190,6 +2195,18 @@
 
     const cta = $('#home-cta-play');
     if (cta) cta.addEventListener('click', () => goToTab('play', { setup: true }));
+
+    if (!document._ptGoTabAttrBound) {
+      document._ptGoTabAttrBound = true;
+      document.addEventListener('click', function (e) {
+        var el = e.target && e.target.closest ? e.target.closest('[data-go-tab]') : null;
+        if (!el) return;
+        var tab = el.getAttribute('data-go-tab');
+        if (!tab) return;
+        e.preventDefault();
+        goToTab(tab);
+      });
+    }
 
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
@@ -7667,7 +7684,8 @@
     var title = opts.title || '';
     var body = opts.body || '';
     var actions = opts.actions || [];
-    var html = '<div class="empty empty-state" role="status">';
+    var extraClass = opts.className ? (' ' + String(opts.className).trim()) : '';
+    var html = '<div class="empty empty-state' + extraClass + '" role="status">';
     if (title) html += '<p class="empty-state-title">' + escapeHtml(title) + '</p>';
     if (body) html += '<p class="empty-state-body muted-text">' + escapeHtml(body) + '</p>';
     if (actions.length) {

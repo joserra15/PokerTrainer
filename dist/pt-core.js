@@ -33352,9 +33352,56 @@ window.PT_NASH_PUSH_JSON = {
       '</div>';
   }
 
+  function isHomeHost(host) {
+    return !!(host && host.id === 'home-usage');
+  }
+
+  function founderEligible(ent) {
+    var Promo = global.PTBillingPromo;
+    if (!Promo || !Promo.founderSeatsOpen || !Promo.founderSeatsOpen()) return false;
+    if (!ent) return false;
+    if (ent.is_founder || ent.is_founder_study || ent.is_founder_coach) return false;
+    if (ent.founder_study_requested_at || ent.founder_coach_requested_at || ent.founder_requested_at) {
+      return false;
+    }
+    return true;
+  }
+
+  function homeHeaderHtml(ent) {
+    var label = (ent && (ent.plan_label || ent.plan)) || 'Gratis';
+    return '<div class="usage-widget-head">' +
+      '<p class="usage-widget-title">Límites de tu plan</p>' +
+      '<span class="usage-plan-badge">' + escapeHtml(label) + '</span>' +
+      '</div>';
+  }
+
+  function footHtml(ent, home) {
+    var html = '<div class="usage-foot-wrap">';
+    html += '<p class="usage-foot muted-text"><a href="#" data-go-pricing>Mejorar plan</a> para quitar límites.</p>';
+    if (home && founderEligible(ent)) {
+      html += '<p class="usage-foot usage-foot-founder muted-text">' +
+        '<a href="#" data-go-pricing data-founder-hint>FOUNDER −40% para siempre</a>' +
+        '</p>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function bindPricingLinks(host) {
+    host.querySelectorAll('[data-go-pricing]').forEach(function (link) {
+      link.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (global.dispatchEvent) {
+          global.dispatchEvent(new CustomEvent('pt-go-tab', { detail: { tab: 'pricing' } }));
+        }
+      });
+    });
+  }
+
   function renderWidget(host, ent) {
     if (!host) return;
     var Ent = global.PTEntitlements;
+    var home = isHomeHost(host);
     ent = ent || (Ent && Ent.get ? Ent.get() : null);
     if (!ent) {
       host.innerHTML = '';
@@ -33362,7 +33409,9 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     if (Ent && Ent.unlimited(ent) && !ent.is_admin && !(Ent.isAdmin && Ent.isAdmin())) {
-      host.innerHTML = '<div class="usage-widget usage-unlimited muted-text">Plan ' + escapeHtml(ent.plan_label || ent.plan) + ' · entrenador e imports sin límite</div>';
+      host.innerHTML = '<div class="usage-widget' + (home ? ' usage-widget--home' : '') +
+        ' usage-unlimited muted-text">Plan ' + escapeHtml(ent.plan_label || ent.plan) +
+        ' · entrenador e imports sin límite</div>';
       var aiSummary = Ent.aiQuotaSummary ? Ent.aiQuotaSummary(ent) : null;
       if (aiSummary && !aiSummary.unlimited) {
         host.innerHTML += '<div class="usage-widget" style="margin-top:8px"><p class="muted-text" style="margin:0;font-size:12px">' + escapeHtml(aiSummary.label) + '</p></div>';
@@ -33371,14 +33420,17 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     if ((ent.is_admin || (Ent.isAdmin && Ent.isAdmin())) && Ent.aiQuotaSummary) {
-      host.innerHTML = '<div class="usage-widget usage-unlimited muted-text">' + escapeHtml(Ent.aiQuotaSummary(ent).label) + '</div>';
+      host.innerHTML = '<div class="usage-widget' + (home ? ' usage-widget--home' : '') +
+        ' usage-unlimited muted-text">' + escapeHtml(Ent.aiQuotaSummary(ent).label) + '</div>';
       host.classList.remove('hidden');
       return;
     }
     var C = global.PTCommunity;
     if (C && C.aiCommunityId && C.aiCommunityId() && Ent && Ent.aiQuotaSummary) {
       var cSum = Ent.aiQuotaSummary(ent);
-      host.innerHTML = '<div class="usage-widget"><p class="muted-text" style="margin:0 0 6px;font-size:12px">' +
+      host.innerHTML = '<div class="usage-widget' + (home ? ' usage-widget--home' : '') + '">' +
+        (home ? homeHeaderHtml(ent) : '') +
+        '<p class="muted-text" style="margin:0 0 6px;font-size:12px">' +
         escapeHtml(cSum.label || 'ForgeCoach comunidad') + '</p>' +
         barRow('ForgeCoach (comunidad)', cSum.used || 0, cSum.limit || 40) +
         '</div>';
@@ -33427,16 +33479,14 @@ window.PT_NASH_PUSH_JSON = {
       host.classList.add('hidden');
       return;
     }
-    host.innerHTML = '<div class="usage-widget">' + rows +
-      '<p class="usage-foot muted-text"><a href="#" data-go-pricing>Mejorar plan</a> para quitar límites.</p></div>';
+    var widgetClass = 'usage-widget' + (home ? ' usage-widget--home' : '');
+    host.innerHTML = '<div class="' + widgetClass + '">' +
+      (home ? homeHeaderHtml(ent) : '') +
+      (home ? '<div class="usage-rows">' + rows + '</div>' : rows) +
+      footHtml(ent, home) +
+      '</div>';
     host.classList.remove('hidden');
-    var link = host.querySelector('[data-go-pricing]');
-    if (link) {
-      link.addEventListener('click', function (e) {
-        e.preventDefault();
-        if (global.dispatchEvent) global.dispatchEvent(new CustomEvent('pt-go-tab', { detail: { tab: 'pricing' } }));
-      });
-    }
+    bindPricingLinks(host);
   }
 
   async function refreshHost(host) {
@@ -43406,8 +43456,12 @@ window.PT_NASH_PUSH_JSON = {
     }
     var ent = Ent && Ent.get ? Ent.get() : null;
     var isFounder = !!(ent && (ent.is_founder || ent.is_founder_study || ent.is_founder_coach));
-    var onboardingOpen = !!(window.PTOnboarding && PTOnboarding.shouldShow && PTOnboarding.shouldShow());
-    if (!seatsOpen || hidePricing || isFounder || onboardingOpen || !Promo || !Promo.homePromoHtml) {
+    var founderRequested = !!(ent && (
+      ent.founder_study_requested_at ||
+      ent.founder_coach_requested_at ||
+      ent.founder_requested_at
+    ));
+    if (!seatsOpen || hidePricing || isFounder || founderRequested || !Promo || !Promo.homePromoHtml) {
       host.innerHTML = '';
       host.classList.add('hidden');
       return;
@@ -43465,6 +43519,7 @@ window.PT_NASH_PUSH_JSON = {
 
     if (!decisions) {
       statsEl.innerHTML = emptyStateHtml({
+        className: 'home-first-block',
         title: 'Tu primer bloque',
         body: 'Haz 10 manos con avisador o abre la sesión de ejemplo para ver fugas reales.',
         actions: [
@@ -43592,6 +43647,18 @@ window.PT_NASH_PUSH_JSON = {
 
     const cta = $('#home-cta-play');
     if (cta) cta.addEventListener('click', () => goToTab('play', { setup: true }));
+
+    if (!document._ptGoTabAttrBound) {
+      document._ptGoTabAttrBound = true;
+      document.addEventListener('click', function (e) {
+        var el = e.target && e.target.closest ? e.target.closest('[data-go-tab]') : null;
+        if (!el) return;
+        var tab = el.getAttribute('data-go-tab');
+        if (!tab) return;
+        e.preventDefault();
+        goToTab(tab);
+      });
+    }
 
     window.addEventListener('pt-auth-bootstrap', () => renderHome());
     window.addEventListener('pt-auth-ready', () => renderHome());
@@ -49069,7 +49136,8 @@ window.PT_NASH_PUSH_JSON = {
     var title = opts.title || '';
     var body = opts.body || '';
     var actions = opts.actions || [];
-    var html = '<div class="empty empty-state" role="status">';
+    var extraClass = opts.className ? (' ' + String(opts.className).trim()) : '';
+    var html = '<div class="empty empty-state' + extraClass + '" role="status">';
     if (title) html += '<p class="empty-state-title">' + escapeHtml(title) + '</p>';
     if (body) html += '<p class="empty-state-body muted-text">' + escapeHtml(body) + '</p>';
     if (actions.length) {
