@@ -2,7 +2,7 @@
  * pricing-view.js — Bloque de precios compartido por la landing sin registro
  * (js/landing.js) y la pestaña Planes de la app (js/app.js).
  *
- * Muestra la tarifa habitual tachada y, debajo y en grande, el precio FOUNDER
+ * Muestra la tarifa habitual y, debajo y en grande, el precio FOUNDER
  * mensual y anual (con su equivalente por mes), más el aviso de precio
  * bloqueado para siempre. Los importes salen de PT_BILLING.plans; los textos
  * pasan por PTI18n cuando está cargado y caen a español si no lo está.
@@ -79,8 +79,8 @@
       (period ? '<small>' + esc(period) + '</small>' : '') + '</span>';
   }
 
-  function strike(value, period) {
-    return '<s class="price-strike">' + esc(value) + '&nbsp;€' + esc(period || '') + '</s>';
+  function usualAmount(value, period) {
+    return '<span class="price-usual-amount">' + esc(value) + '&nbsp;€' + esc(period || '') + '</span>';
   }
 
   function perMonth() {
@@ -94,14 +94,14 @@
   function usualBlockHtml(p) {
     var rows = '<span class="price-usual-row">' +
       '<span class="price-usual-term">' + esc(tr('price.monthly', 'Pagando mensual')) + '</span>' +
-      strike(p.monthly, perMonth()) +
+      usualAmount(p.monthly, perMonth()) +
       '</span>';
     if (p.yearlyPerMonth && p.yearly) {
       rows += '<span class="price-usual-row">' +
         '<span class="price-usual-term">' + esc(tr('price.annual', 'Pagando anual')) + '</span>' +
         '<span class="price-usual-values">' +
-        strike(p.yearlyPerMonth, perMonth()) +
-        ' (' + strike(p.yearly, perYear()) + ')</span>' +
+        usualAmount(p.yearlyPerMonth, perMonth()) +
+        ' (' + usualAmount(p.yearly, perYear()) + ')</span>' +
         '</span>';
     }
     return '<div class="price-usual">' +
@@ -172,7 +172,7 @@
       '</div>';
   }
 
-  /** Bloque del plan Gratis: un solo importe, sin tarifa tachada. */
+  /** Bloque del plan Gratis: un solo importe. */
   function freePriceHtml() {
     return '<div class="price-block price-block-plain">' +
       '<div class="price-main">' + amount('0', perMonth()) + '</div>' +

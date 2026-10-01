@@ -1,4 +1,4 @@
-/* Precios FOUNDER: tarifa habitual tachada + precio FOUNDER destacado en la
+/* Precios FOUNDER: tarifa habitual + precio FOUNDER destacado en la
    landing sin registro y en la pestaña Planes. */
 'use strict';
 const fs = require('fs');
@@ -59,14 +59,14 @@ Object.keys(TABLE).forEach(function (planId) {
     assert.ok(out.indexOf(n) >= 0, planId + ' muestra ' + n);
   });
   const [monthly, yearlyPerMonth, yearly, fMonthly, fYearlyPerMonth, fYearly] = TABLE[planId];
-  // La tarifa habitual va tachada; la FOUNDER, en el importe grande.
+  // La tarifa habitual se muestra sin tachar; la FOUNDER, en el importe grande.
   [monthly, yearlyPerMonth, yearly].forEach(function (n) {
-    assert.ok(out.indexOf('<s class="price-strike">' + n) >= 0, planId + ' tacha ' + n);
+    assert.ok(out.indexOf('<span class="price-usual-amount">' + n) >= 0, planId + ' muestra habitual ' + n);
   });
   [fMonthly, fYearlyPerMonth].forEach(function (n) {
     assert.ok(out.indexOf('<span class="price-amount">' + n) >= 0, planId + ' destaca ' + n);
   });
-  assert.ok(out.indexOf('<s class="price-strike">' + fMonthly) < 0, planId + ' no tacha el precio FOUNDER');
+  assert.ok(out.indexOf('<s ') < 0 && out.indexOf('price-strike') < 0, planId + ' sin precios tachados');
   assert.ok(out.indexOf(fYearly + '&nbsp;€/año') >= 0 || out.indexOf(fYearly + ' €/año') >= 0,
     planId + ' muestra el total anual FOUNDER');
   assert.ok(out.indexOf('Hazte <strong>FOUNDER</strong> y lo tendrás por') >= 0, planId + ' reclamo FOUNDER');
@@ -86,7 +86,7 @@ assert.strictEqual(sb.PT_BILLING.purchasesPaused, false, 'compras abiertas por d
 assert.ok(sb.PTBillingPromo.founderSeatsOpen(), 'plazas FOUNDER abiertas');
 const openPurchases = sb.PTPricing.planPriceHtml('pro');
 assert.ok(openPurchases.indexOf('FOUNDER') >= 0, 'con compras abiertas y seatsOpen se anuncia FOUNDER');
-assert.ok(openPurchases.indexOf('price-strike') >= 0, 'con seatsOpen hay precio tachado');
+assert.ok(openPurchases.indexOf('price-usual-amount') >= 0, 'con seatsOpen hay precio habitual');
 
 // Sin plazas FOUNDER: solo la tarifa habitual (aunque purchasesPaused sea false).
 sb.PT_BILLING.founder.seatsOpen = false;
@@ -95,7 +95,7 @@ const closed = sb.PTPricing.planPriceHtml('pro');
 assert.ok(closed.indexOf('FOUNDER') < 0, 'sin seatsOpen no se anuncia FOUNDER');
 assert.ok(closed.indexOf('14,99') >= 0 && closed.indexOf('9,92') >= 0 && closed.indexOf('119') >= 0,
   'sin seatsOpen se ven mensual y anual');
-assert.ok(closed.indexOf('price-strike') < 0, 'sin seatsOpen no hay precio tachado');
+assert.ok(closed.indexOf('price-usual-amount') < 0, 'sin seatsOpen no hay bloque habitual FOUNDER');
 
 // Tras closeDate tampoco hay oferta (auto-cierre).
 sb.PT_BILLING.founder.seatsOpen = true;
@@ -157,6 +157,16 @@ assert.ok(/NO borrar un FOUNDER|!host\.innerHTML/.test(appSrc),
 assert.ok(/markFounderPricingTabBadge|founderNavBadgeHtml/.test(appSrc),
   'app marca badge en tab Planes');
 assert.ok(/founderRequestBlock|data-checkout/.test(appSrc), 'Planes dual CTA Stripe + FOUNDER');
+assert.ok(!/Prueba 10 días/.test(appSrc), 'Planes sin bullet de prueba 10 días');
+assert.ok(!/Probar Study 10 días|trialLbl|trial\.label/.test(appSrc),
+  'Planes sin botón de prueba 10 días');
+assert.ok(/data-checkout="' \+ c\.cta \+ '" data-interval="month">Mensual/.test(appSrc),
+  'Planes CTA mensual unificado Study/Coach');
+assert.ok(/if \(c\.id === 'pro'\) btns \+= founderRequestBlock\('study'\)/.test(appSrc),
+  'Planes Study pide plaza FOUNDER tras Mensual/Anual');
+assert.ok(/Bono de consultas ForgeCoach/.test(appSrc), 'Planes titula bonos como ForgeCoach');
+assert.ok(!/Bono de consultas IA/.test(appSrc), 'Planes sin título Bono de consultas IA');
+assert.ok(/Bono ForgeCoach:/.test(appSrc), 'resumen de plan usa Bono ForgeCoach');
 
 const entSrc = fs.readFileSync(path.join(__dirname, '..', 'js/entitlements.js'), 'utf8');
 assert.ok(!/async function refresh\(\)\s*\{\s*state = null/.test(entSrc),
@@ -187,7 +197,7 @@ assert.strictEqual(promoSb.PTBillingPromo.founderNavBadgeHtml(), '', 'sin seatsO
     const hits = i18nSrc.split("'" + key + "'").length - 1;
     assert.strictEqual(hits, 2, 'i18n define ' + key + ' en es y en');
   });
-['.price-block', '.price-strike', '.price-founder-option', '.price-amount', '.price-forever']
+['.price-block', '.price-usual-amount', '.price-founder-option', '.price-amount', '.price-forever']
   .forEach(function (sel) {
     assert.ok(css.indexOf(sel) >= 0, 'styles.css define ' + sel);
   });

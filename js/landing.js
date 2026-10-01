@@ -309,12 +309,17 @@
     if (!grid) return;
     if (!i18nReady()) return;
     var plans = (global.PT_BILLING && global.PT_BILLING.plans) || {};
-    var trial = (global.PT_BILLING && global.PT_BILLING.trial) || {};
-    var trialLabel = trial.label || 'Prueba Study 10 días';
     var paused = !!(global.PT_BILLING && global.PT_BILLING.purchasesPaused);
     var seatsOpen = !!(global.PTBillingPromo && global.PTBillingPromo.founderSeatsOpen &&
       global.PTBillingPromo.founderSeatsOpen());
     var founder = (global.PT_BILLING && global.PT_BILLING.founder) || {};
+    var studyFeatures = [
+      t('plan.study.f2'),
+      t('plan.study.f3'),
+      t('plan.study.f4'),
+      t('plan.study.f5')
+    ];
+    if (paused) studyFeatures.unshift(t('plan.study.beta'));
     var cards = [
       {
         id: 'free',
@@ -329,21 +334,7 @@
         id: 'pro',
         title: plans.pro ? plans.pro.label : 'Study',
         priceHtml: priceHtml('pro', plans.pro ? plans.pro.monthly : '14,99'), featured: true,
-        features: paused
-          ? [
-            t('plan.study.beta'),
-            t('plan.study.f2'),
-            t('plan.study.f3'),
-            t('plan.study.f4'),
-            t('plan.study.f5')
-          ]
-          : [
-            t('plan.study.f1', { trial: trialLabel }),
-            t('plan.study.f2'),
-            t('plan.study.f3'),
-            t('plan.study.f4'),
-            t('plan.study.f5')
-          ],
+        features: studyFeatures,
         ctaLabel: paused
           ? t('plan.cta.invite')
           : t('plan.cta'),
