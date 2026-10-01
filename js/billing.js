@@ -26,34 +26,51 @@
     return f && typeof f === 'object' ? f : null;
   }
 
+  function founderSeatsOpen() {
+    if (global.PTBillingPromo && typeof global.PTBillingPromo.founderSeatsOpen === 'function') {
+      return !!global.PTBillingPromo.founderSeatsOpen();
+    }
+    var f = founderInfo();
+    if (!f || f.seatsOpen === false) return false;
+    if (!f.closeDate) return true;
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    var today = d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+    return today <= String(f.closeDate);
+  }
+
   function founderLaunchLabel() {
     var f = founderInfo();
-    return (f && f.launchLabel) || 'próximas semanas';
+    return (f && f.launchLabel) || 'octubre';
   }
 
   function purchasesPausedShortMsg() {
-    return 'Las compras están cerradas hasta el lanzamiento FOUNDER (' + founderLaunchLabel() + ').';
+    return 'Las compras están temporalmente cerradas.';
   }
 
   function paywallFounderHtml() {
     var f = founderInfo() || {};
+    if (!founderSeatsOpen()) return '';
     var studyBtn = (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml)
       ? global.PTFounderRequest.requestButtonHtml('study', 'btn-sm')
       : '<button type="button" class="btn btn-primary btn-sm" data-founder-request="study">Solicitar plaza FOUNDER Study</button>';
     var coachBtn = (global.PTFounderRequest && global.PTFounderRequest.requestButtonHtml)
       ? global.PTFounderRequest.requestButtonHtml('coach', 'btn-sm')
       : '<button type="button" class="btn btn-primary btn-sm" data-founder-request="coach">Solicitar plaza FOUNDER Coach</button>';
+    var closeLabel = f.closeLabel || '31 de octubre';
     return '<div class="paywall-founder" role="note">' +
-      '<p><strong>Beta abierta · compras pausadas</strong></p>' +
+      '<p><strong>FOUNDER · solo octubre</strong></p>' +
       '<ul class="paywall-founder-list">' +
-      '<li>Puedes usar el plan <strong>Gratis</strong> con sus límites.</li>' +
-      '<li>Study/Coach y bonos IA <strong>no se pueden comprar</strong> ahora.</li>' +
-      '<li>Si tienes un <strong>código promocional</strong> de acceso, regístrate con él o escríbenos en Contacto.</li>' +
-      '<li><strong>Plazas FOUNDER limitadas</strong> (Study o Coach).</li>' +
+      '<li>Puedes <strong>contratar Study o Coach</strong> ahora a precio de lista.</li>' +
+      '<li><strong>FOUNDER</strong> (−' + escapeHtml(String(f.discount || '40%').replace(/^−|^-/, '')) +
+      ') solo está abierto en octubre; el <strong>' + escapeHtml(closeLabel) +
+      '</strong> se cierra <strong>para siempre</strong>.</li>' +
+      '<li><strong>Plazas limitadas</strong> · solicita Study o Coach abajo.</li>' +
       '</ul>' +
-      '<p class="paywall-founder-launch"><strong>FOUNDER</strong> en ' + escapeHtml(f.launchLabel || founderLaunchLabel()) +
-      ' · ' + escapeHtml(f.discount || '40%') + ' dto. para siempre · <strong>' +
-      escapeHtml(f.seatsNote || 'Plazas limitadas') + '</strong>.</p>' +
+      '<p class="paywall-founder-launch">' +
+      escapeHtml(f.urgencyNote || ('FOUNDER solo está abierto en octubre. El ' + closeLabel + ' se cierra para siempre.')) +
+      '</p>' +
       '<p class="muted-text">' + escapeHtml(f.priorityNote ||
         'Solicita tu plaza FOUNDER Study o Coach en Planes; revisamos cada solicitud en soporte.') + '</p>' +
       '<p class="paywall-founder-cta-wrap">' + studyBtn + ' ' + coachBtn + '</p>' +
@@ -298,6 +315,7 @@
     var toPricing = document.getElementById('paywall-to-pricing');
     var msg = customMsg || MESSAGES[reason] || 'Esta función requiere un plan superior.';
     var paused = purchasesPaused();
+    var seatsOpen = founderSeatsOpen();
     if (title) {
       if (reason === 'ai_plan' || reason === 'ai_limit') title.textContent = 'ForgeCoach';
       else if (paused) title.textContent = 'Límite del plan Gratis';
@@ -305,14 +323,14 @@
     }
     if (body) {
       body.innerHTML = '<p>' + escapeHtml(msg) + '</p>';
-      if (paused) {
+      if (seatsOpen) {
         body.innerHTML += paywallFounderHtml();
       } else if (reason === 'ai_plan' || reason === 'ai_limit') {
         body.innerHTML += '<p class="muted-text" style="margin-top:10px">También puedes comprar un <strong>bono de consultas IA</strong> (válido 12 meses) en Planes.</p>';
       }
     }
     if (toPricing) {
-      toPricing.textContent = paused ? 'Ver planes y FOUNDER' : 'Ver planes';
+      toPricing.textContent = seatsOpen ? 'Ver planes y FOUNDER' : 'Ver planes';
     }
     modal.classList.remove('hidden');
     document.body.classList.add('paywall-open');
@@ -505,6 +523,7 @@
     enabled: enabled,
     purchasesPaused: purchasesPaused,
     purchasesOpen: purchasesOpen,
+    founderSeatsOpen: founderSeatsOpen,
     founderInfo: founderInfo,
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,

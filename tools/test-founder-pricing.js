@@ -81,13 +81,33 @@ const owned = sb.PTPricing.planPriceHtml('pro', { owned: true });
 assert.ok(owned.indexOf('Tu precio FOUNDER es') >= 0, 'founder concedido ve su precio');
 assert.ok(owned.indexOf('8,99') >= 0 && owned.indexOf('5,95') >= 0, 'founder concedido ve los importes');
 
-// Con las compras abiertas no se anuncia FOUNDER: solo la tarifa habitual.
-sb.PT_BILLING.purchasesPaused = false;
-const open = sb.PTPricing.planPriceHtml('pro');
-assert.ok(open.indexOf('FOUNDER') < 0, 'sin pausa no se anuncia FOUNDER');
-assert.ok(open.indexOf('14,99') >= 0 && open.indexOf('9,92') >= 0 && open.indexOf('119') >= 0,
-  'sin pausa se ven mensual y anual');
-assert.ok(open.indexOf('price-strike') < 0, 'sin pausa no hay precio tachado');
+// Compras abiertas + plazas FOUNDER abiertas: sigue anunciándose FOUNDER.
+assert.strictEqual(sb.PT_BILLING.purchasesPaused, false, 'compras abiertas por defecto');
+assert.ok(sb.PTBillingPromo.founderSeatsOpen(), 'plazas FOUNDER abiertas');
+const openPurchases = sb.PTPricing.planPriceHtml('pro');
+assert.ok(openPurchases.indexOf('FOUNDER') >= 0, 'con compras abiertas y seatsOpen se anuncia FOUNDER');
+assert.ok(openPurchases.indexOf('price-strike') >= 0, 'con seatsOpen hay precio tachado');
+
+// Sin plazas FOUNDER: solo la tarifa habitual (aunque purchasesPaused sea false).
+sb.PT_BILLING.founder.seatsOpen = false;
+assert.ok(!sb.PTBillingPromo.founderSeatsOpen(), 'seatsOpen false cierra plazas');
+const closed = sb.PTPricing.planPriceHtml('pro');
+assert.ok(closed.indexOf('FOUNDER') < 0, 'sin seatsOpen no se anuncia FOUNDER');
+assert.ok(closed.indexOf('14,99') >= 0 && closed.indexOf('9,92') >= 0 && closed.indexOf('119') >= 0,
+  'sin seatsOpen se ven mensual y anual');
+assert.ok(closed.indexOf('price-strike') < 0, 'sin seatsOpen no hay precio tachado');
+
+// Tras closeDate tampoco hay oferta (auto-cierre).
+sb.PT_BILLING.founder.seatsOpen = true;
+sb.PT_BILLING.founder.closeDate = '2020-01-01';
+assert.ok(!sb.PTBillingPromo.founderSeatsOpen(), 'closeDate pasado cierra plazas');
+assert.ok(sb.PTPricing.planPriceHtml('pro').indexOf('FOUNDER') < 0, 'tras closeDate no se anuncia FOUNDER');
+
+// Founder concedido (owned) sigue viendo su precio aunque las plazas estén cerradas.
+const ownedAfterClose = sb.PTPricing.planPriceHtml('pro', { owned: true });
+assert.ok(ownedAfterClose.indexOf('Tu precio FOUNDER es') >= 0, 'owned ve FOUNDER tras cierre');
+sb.PT_BILLING.founder.closeDate = '2026-10-31';
+sb.PT_BILLING.founder.seatsOpen = true;
 
 // --- Cableado de las dos superficies ----------------------------------------
 assert.ok(/js\/pricing-view\.js/.test(html), 'index.html carga pricing-view.js');
@@ -112,10 +132,15 @@ assert.ok(/id="landing-promo-pill"/.test(html), 'host landing-promo-pill tras he
 assert.ok(/landing-founder-promo-host hidden/.test(html) || /id="landing-promo-pill"[^>]*\bhidden\b/.test(html),
   'landing promo empieza oculto (evita flash post-login)');
 assert.ok(/id="home-founder-promo"/.test(html), 'host home-founder-promo en Inicio');
-assert.ok(/1 de octubre/i.test(billingCfgSrc) && /2026-10-01/.test(billingCfgSrc), 'config: lanzamiento 1 de octubre');
+assert.ok(/31 de octubre/i.test(billingCfgSrc) && /2026-10-31/.test(billingCfgSrc), 'config: cierre 31 de octubre');
+assert.ok(/2026-10-01/.test(billingCfgSrc), 'config: launchDate 1 de octubre');
+assert.ok(/seatsOpen/.test(billingCfgSrc), 'config: seatsOpen');
+assert.ok(/para siempre/i.test(billingCfgSrc) && /urgencia|solo octubre|cierra/i.test(billingCfgSrc),
+  'config: urgencia cierre octubre');
+assert.ok(!/SUMMER26/.test(billingCfgSrc), 'config sin SUMMER26');
 assert.ok(/ctaPlanes/.test(billingCfgSrc), 'config: ctaPlanes');
-assert.ok(/founderStripHtml|homePromoHtml|founderNavBadgeHtml/.test(billingCfgSrc),
-  'PTBillingPromo strip/home/nav helpers');
+assert.ok(/founderStripHtml|homePromoHtml|founderNavBadgeHtml|founderSeatsOpen/.test(billingCfgSrc),
+  'PTBillingPromo strip/home/nav/seats helpers');
 assert.ok(/founder-promo-title|founder-promo-brand/.test(billingCfgSrc),
   'strip Founder con título/marca visibles');
 assert.ok(/pillHost\.innerHTML/.test(landingSrc) && /shouldShowLandingPromo|PT_AUTH_BOOT_DONE|pt_auth_v1/.test(landingSrc),
@@ -131,6 +156,7 @@ assert.ok(/NO borrar un FOUNDER|!host\.innerHTML/.test(appSrc),
   'no borra FOUNDER visible mientras entitlements refrescan');
 assert.ok(/markFounderPricingTabBadge|founderNavBadgeHtml/.test(appSrc),
   'app marca badge en tab Planes');
+assert.ok(/founderRequestBlock|data-checkout/.test(appSrc), 'Planes dual CTA Stripe + FOUNDER');
 
 const entSrc = fs.readFileSync(path.join(__dirname, '..', 'js/entitlements.js'), 'utf8');
 assert.ok(!/async function refresh\(\)\s*\{\s*state = null/.test(entSrc),
@@ -147,11 +173,13 @@ assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-strip') >= 0,
   'pillHtml es la banda Founder');
 assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-title') >= 0,
   'pillHtml incluye título de oferta');
+assert.ok(/octubre|31 de octubre|para siempre/i.test(promoSb.PTBillingPromo.pillHtml()),
+  'pillHtml urgencia octubre');
 assert.ok(promoSb.PTBillingPromo.founderNavBadgeHtml().indexOf('−40%') >= 0,
   'nav badge −40%');
-promoSb.PT_BILLING.purchasesPaused = false;
-assert.strictEqual(promoSb.PTBillingPromo.homePromoHtml(), '', 'sin pausa no hay promo home');
-assert.strictEqual(promoSb.PTBillingPromo.founderNavBadgeHtml(), '', 'sin pausa no hay badge');
+promoSb.PT_BILLING.founder.seatsOpen = false;
+assert.strictEqual(promoSb.PTBillingPromo.homePromoHtml(), '', 'sin seatsOpen no hay promo home');
+assert.strictEqual(promoSb.PTBillingPromo.founderNavBadgeHtml(), '', 'sin seatsOpen no hay badge');
 
 // --- i18n y estilos ----------------------------------------------------------
 ['price.usual', 'price.monthly', 'price.annual', 'price.founder.lead', 'price.forever']

@@ -1,18 +1,16 @@
 # Billing — Epic 3
 
-## Estado comercial (beta → FOUNDER)
+## Estado comercial (octubre 2026 → FOUNDER)
 
-Con `PT_BILLING.purchasesPaused: true` (activo en cliente):
+Con `PT_BILLING.purchasesPaused: false` (activo en cliente):
 
-- Los planes se muestran en landing y en la pestaña Planes, pero **los botones de compra/trial/bonos quedan deshabilitados**.
-- El paywall explica la beta y anuncia **FOUNDER** (40 % dto. para siempre, **plazas limitadas**, lanzamiento el **1 de octubre**).
-- **Publicidad de descubrimiento** (mientras compras pausadas):
-  - Landing sin login: banda `#landing-promo-pill` tras el hero + banner en `#landing-pricing` + badge `−40%` en nav Planes.
-  - App logueada: `#home-founder-promo` en Inicio (CTA «Ir a Planes») + badge en la tab Planes.
-  - Se oculta en comunidades gated (`hidePricing` / `community-shell`) y si el usuario ya es founder.
-- `startCheckout` / `startBonusCheckout` rechazan cobros aunque alguien force la API del cliente.
-- Para reabrir cobros: `purchasesPaused: false` y cupón Stripe FOUNDER.
-- Botones **Solicitar plaza FOUNDER Study / Coach** (landing + Planes + paywall + cuenta): `pt_request_founder_seat(p_plan)` (migraciones `037`/`038`) crea hilo `Solicitud de Founder Study|Coach`. Admin marca `is_founder_study` / `is_founder_coach`.
+- **Checkout Stripe** (Study/Coach, trial, bonos) habilitado en Planes; la landing invita a iniciar sesión para contratar.
+- **FOUNDER** se controla aparte con `founder.seatsOpen` + `closeDate` (`2026-10-31`). Helper `PTBillingPromo.founderSeatsOpen()`: plazas pedibles solo en octubre; el 1 de noviembre se apaga solo.
+- Mientras las plazas están abiertas: precios FOUNDER (−40 % para siempre), banda `#landing-promo-pill`, banner en Planes, badge `−40%`, `#home-founder-promo` y botones **Solicitar plaza FOUNDER Study / Coach** (además de los CTAs Stripe).
+- Urgencia de copy: FOUNDER solo en octubre; el **31 de octubre** se cierra **para siempre**.
+- Se oculta en comunidades gated (`hidePricing` / `community-shell`) y si el usuario ya es founder.
+- Botones **Solicitar plaza**: `pt_request_founder_seat(p_plan)` (migraciones `037`/`038`) crea hilo `Solicitud de Founder Study|Coach`. Admin marca `is_founder_study` / `is_founder_coach`.
+- Para cerrar plazas antes de tiempo: `founder.seatsOpen: false`. Para pausar cobros otra vez: `purchasesPaused: true`.
 
 ## Proveedor: Stripe
 
@@ -83,11 +81,9 @@ supabase secrets set STRIPE_PRICE_PRO_YEARLY=price_...
 supabase secrets set STRIPE_PRICE_PREMIUM_MONTHLY=price_...
 supabase secrets set STRIPE_PRICE_PREMIUM_YEARLY=price_...
 supabase secrets set PT_SITE_URL=https://www.pokerforgeai.com
-supabase secrets set STRIPE_PROMO_COUPON_ID=wrv35N6u
-supabase secrets set STRIPE_PROMO_CODE_ID=promo_...
 ```
 
-Promoción **SUMMER26** (Live): cupón `wrv35N6u`, 50 % dto. una vez. El usuario lo introduce en Checkout (`allow_promotion_codes`). Debe existir un **Promotion Code** con texto `SUMMER26` vinculado al cupón (no basta con el cupón solo).
+Checkout sigue con `allow_promotion_codes` por si hace falta un cupón operativo; el cliente **no anuncia** códigos de verano. Desactivar en Stripe Dashboard cualquier Promotion Code antiguo (p. ej. SUMMER26) que no deba usarse.
 
 ### 3. Webhook en Stripe
 

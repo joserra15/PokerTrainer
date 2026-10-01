@@ -4,7 +4,7 @@
 window.PT_BILLING = {
   enabled: false,
   /** Si true: no hay checkout ni compra de bonos; planes visibles a título informativo. */
-  purchasesPaused: true,
+  purchasesPaused: false,
   functionsUrl: 'https://YOUR_PROJECT.supabase.co/functions/v1',
   trial: {
     plan: 'pro',
@@ -39,25 +39,20 @@ window.PT_BILLING = {
   },
   founder: {
     code: 'FOUNDER',
+    seatsOpen: true,
     launchDate: '2026-10-01',
-    launchLabel: '1 de octubre',
+    launchLabel: 'octubre',
+    closeDate: '2026-10-31',
+    closeLabel: '31 de octubre',
     discount: '40%',
     seatsNote: 'Plazas limitadas',
     priorityNote: 'Solicita tu plaza FOUNDER Study o FOUNDER Coach en Planes: plazas limitadas; revisamos cada solicitud en soporte.',
-    kicker: 'FOUNDER · plazas limitadas',
-    title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento para siempre · plazas limitadas',
-    note: 'Lanzamiento el 1 de octubre. Compras cerradas hasta entonces. Solicita tu plaza en el menú Planes; el administrador confirmará según disponibilidad.',
+    kicker: 'FOUNDER · solo octubre',
+    title: 'FOUNDER Study y FOUNDER Coach · 40% de descuento para siempre · solo abierto en octubre',
+    note: 'FOUNDER solo está abierto en octubre. El 31 de octubre se cierra para siempre. Puedes contratar Study o Coach ahora a precio de lista, o solicitar plaza FOUNDER (−40 % de por vida si te aprueban).',
+    urgencyNote: 'FOUNDER solo está abierto en octubre. El 31 de octubre se cierra para siempre.',
     ctaPlanes: 'Solicita tu plaza en Planes',
     priceLock: 'Si entras como FOUNDER conservas ese precio para siempre mientras mantengas la suscripción activa.'
-  },
-  promo: {
-    // Cupón Stripe de verano desactivado mientras las compras estén pausadas.
-    active: false,
-    code: 'SUMMER26',
-    couponId: 'wrv35N6u',
-    discount: '50%',
-    kicker: 'Promoción de verano',
-    note: 'Válido una sola vez por compra. Si lo usas en una suscripción, el descuento aplica solo al primer mes. Introduce el código en el checkout de Stripe.'
   }
 };
 
@@ -73,10 +68,19 @@ window.PT_BILLING = {
   function purchasesPaused() {
     return billing().purchasesPaused !== false && !!billing().purchasesPaused;
   }
-  function promoCfg() {
-    if (purchasesPaused()) return null;
-    var b = billing();
-    return b.promo && b.promo.active !== false && b.promo.code ? b.promo : null;
+  function todayYmd() {
+    var d = new Date();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+  /** Plazas FOUNDER pedibles: flag seatsOpen y fecha ≤ closeDate. */
+  function founderSeatsOpen() {
+    var f = founderCfg();
+    if (!f || f.seatsOpen === false) return false;
+    var close = f.closeDate;
+    if (!close) return true;
+    return todayYmd() <= String(close);
   }
   function esc(s) {
     return String(s || '')
@@ -84,11 +88,12 @@ window.PT_BILLING = {
   }
   function founderBannerHtml() {
     var f = founderCfg();
-    if (!f || !purchasesPaused()) return '';
+    if (!f || !founderSeatsOpen()) return '';
     return '<div class="promo-banner founder-banner" role="note">' +
-      '<p class="promo-banner-kicker">' + esc(f.kicker || 'FOUNDER · plazas limitadas') + '</p>' +
+      '<p class="promo-banner-kicker">' + esc(f.kicker || 'FOUNDER · solo octubre') + '</p>' +
       '<p class="promo-banner-title"><strong>' + esc(f.title || ('Plan FOUNDER · ' + (f.discount || '40%') + ' dto. para siempre')) + '</strong></p>' +
-      '<p class="promo-banner-note muted-text"><strong>Lanzamiento en ' + esc(f.launchLabel || 'próximas semanas') +
+      '<p class="promo-banner-note muted-text"><strong>' +
+      esc(f.urgencyNote || ('FOUNDER solo está abierto en octubre. El ' + (f.closeLabel || '31 de octubre') + ' se cierra para siempre.')) +
       '</strong> · <strong>' + esc(f.seatsNote || 'Plazas limitadas') + '</strong>. ' +
       esc(f.priorityNote || '') +
       '</p>' +
@@ -97,12 +102,13 @@ window.PT_BILLING = {
   }
   function founderStripHtml(opts) {
     var f = founderCfg();
-    if (!f || !purchasesPaused()) return '';
+    if (!f || !founderSeatsOpen()) return '';
     opts = opts || {};
     var href = opts.href || '#landing-pricing';
     var cta = opts.cta || f.ctaPlanes || 'Solicita tu plaza en Planes';
     var ctaAttr = opts.ctaAttr || '';
     var discount = String(f.discount || '40%').replace(/^−|^-/, '');
+    var closeLabel = f.closeLabel || '31 de octubre';
     var ctaTag = opts.button
       ? ('<button type="button" class="btn btn-primary founder-promo-cta"' + ctaAttr + '>' + esc(cta) + '</button>')
       : ('<a class="btn btn-primary founder-promo-cta" href="' + esc(href) + '"' + ctaAttr + '>' + esc(cta) + '</a>');
@@ -115,8 +121,8 @@ window.PT_BILLING = {
       '<span class="founder-promo-badge">−' + esc(discount) + '</span>' +
       '</p>' +
       '<p class="founder-promo-title">' + esc(discount) + ' de descuento para siempre</p>' +
-      '<p class="founder-promo-lead">Lanzamiento en <strong>' + esc(f.launchLabel || 'próximas semanas') +
-      '</strong> · ' + esc(f.seatsNote || 'Plazas limitadas') +
+      '<p class="founder-promo-lead">Solo abierto en <strong>octubre</strong> · se cierra el <strong>' +
+      esc(closeLabel) + '</strong> para siempre · ' + esc(f.seatsNote || 'Plazas limitadas') +
       ' · Study y Coach</p>' +
       '</div>' + ctaTag +
       '</div></aside>';
@@ -125,13 +131,14 @@ window.PT_BILLING = {
     return founderStripHtml({ href: '#landing-pricing' });
   }
   function founderNavBadgeHtml() {
-    if (!purchasesPaused()) return '';
+    if (!founderSeatsOpen()) return '';
     return '<span class="founder-nav-badge" aria-hidden="true">−40%</span>';
   }
   global.PTBillingPromo = {
-    active: function () { return !!promoCfg() || purchasesPaused(); },
-    config: promoCfg,
+    active: function () { return founderSeatsOpen(); },
+    config: function () { return null; },
     purchasesPaused: purchasesPaused,
+    founderSeatsOpen: founderSeatsOpen,
     founder: founderCfg,
     founderBannerHtml: founderBannerHtml,
     founderStripHtml: founderStripHtml,
@@ -144,23 +151,10 @@ window.PT_BILLING = {
       });
     },
     pillHtml: function () {
-      if (purchasesPaused()) return founderPillHtml();
-      var p = promoCfg();
-      if (!p) return '';
-      return '<p class="landing-promo-pill" role="note">' +
-        '<strong>' + esc(p.discount || '50%') + ' dto.</strong> con código ' +
-        '<code class="promo-code">' + esc(p.code) + '</code> · ' +
-        '<a href="#landing-pricing">Ver condiciones</a></p>';
+      return founderSeatsOpen() ? founderPillHtml() : '';
     },
     bannerHtml: function () {
-      if (purchasesPaused()) return founderBannerHtml();
-      var p = promoCfg();
-      if (!p) return '';
-      return '<div class="promo-banner" role="note">' +
-        '<p class="promo-banner-kicker">' + esc(p.kicker || 'Oferta') + '</p>' +
-        '<p class="promo-banner-title"><strong>' + esc(p.discount || '50%') + ' de descuento</strong> en cualquier compra con el código <code class="promo-code">' + esc(p.code) + '</code></p>' +
-        '<p class="promo-banner-note muted-text">' + esc(p.note) + '</p>' +
-        '</div>';
+      return founderSeatsOpen() ? founderBannerHtml() : '';
     }
   };
 })(window);

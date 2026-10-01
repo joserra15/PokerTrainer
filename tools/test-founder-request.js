@@ -29,15 +29,19 @@ assert.ok(/normalizePlan/.test(founderSrc), 'normalizePlan');
 assert.ok(/data-founder-request/.test(founderSrc), 'data attr');
 assert.ok(/p_plan/.test(founderSrc), 'RPC client p_plan');
 
-assert.ok(/1 de octubre/.test(billingCfg) && /2026-10-01/.test(billingCfg), 'billing-config 1 de octubre');
+assert.ok(/2026-10-01/.test(billingCfg) && /2026-10-31/.test(billingCfg), 'billing-config ventana octubre');
+assert.ok(/seatsOpen/.test(billingCfg), 'billing-config seatsOpen');
+assert.ok(/31 de octubre/.test(billingCfg) && /para siempre/i.test(billingCfg), 'billing-config urgencia cierre');
 assert.ok(/Plazas limitadas/.test(billingCfg), 'plazas limitadas');
-assert.ok(/1 de octubre/.test(html), 'HTML 1 de octubre');
+assert.ok(!/SUMMER26/.test(billingCfg), 'billing-config sin SUMMER26');
+assert.ok(/31 de octubre/.test(html) && /para siempre/i.test(html), 'HTML cierre FOUNDER octubre');
 assert.ok(!/15 de noviembre/.test(html), 'HTML sin 15 de noviembre');
 
 assert.ok(/data-founder-request="study"/.test(landingSrc) || /founderPlan.*study/.test(landingSrc), 'landing Study');
-assert.ok(/founderPlan: paused \? 'coach'/.test(landingSrc), 'landing Coach founder CTA');
-assert.ok(/requestButtonHtml\('study'/.test(appSrc), 'planes Study CTA');
-assert.ok(/requestButtonHtml\('coach'/.test(appSrc), 'planes Coach CTA');
+assert.ok(/founderPlan: seatsOpen \? 'coach'/.test(landingSrc), 'landing Coach founder CTA');
+assert.ok(/founderRequestBlock\('study'\)/.test(appSrc) || /requestButtonHtml\('study'/.test(appSrc), 'planes Study CTA');
+assert.ok(/founderRequestBlock\('coach'\)/.test(appSrc) || /requestButtonHtml\('coach'/.test(appSrc), 'planes Coach CTA');
+assert.ok(/data-checkout/.test(appSrc), 'planes CTAs Stripe');
 
 assert.ok(/is_founder_study/.test(adminSrc) && /is_founder_coach/.test(adminSrc), 'admin dual flags');
 assert.ok(/req_study/.test(adminSrc) && /req_coach/.test(adminSrc), 'admin filters');
