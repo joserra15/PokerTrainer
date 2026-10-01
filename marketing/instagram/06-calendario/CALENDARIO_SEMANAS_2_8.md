@@ -1,8 +1,11 @@
 # Calendario Instagram PokerForgeAI — Semanas 2 a 8
 
-> **Sprint lanzamiento FOUNDER (22 sep – 5 oct):** usa el overlay  
+> **FOUNDER todo octubre (1–31):** plan feed/reels/stories/vídeo →  
+> [`../07-sprint-founder-oct/CALENDARIO_OCTUBRE_FOUNDER.md`](../07-sprint-founder-oct/CALENDARIO_OCTUBRE_FOUNDER.md)  
+> (10 días gratis Study/Coach · activación manual · −40 % forever · cierra 31 oct).  
+> **Sprint lanzamiento (22 sep – 5 oct):**  
 > [`../07-sprint-founder-oct/CALENDARIO_14_DIAS.md`](../07-sprint-founder-oct/CALENDARIO_14_DIAS.md)  
-> (Torneos IA · Reto IA Pro · FOUNDER 1 oct). Este calendario 2–8 sigue válido fuera de esa ventana.
+> (Torneos IA · Reto IA Pro · FOUNDER 1 oct). Este calendario 2–8 sigue válido fuera de esa ventana; en octubre prioriza el calendario FOUNDER.
 
 Cadencia: **4–5 posts/semana** (3 reels + 1 carrusel + stories diarias).  
 Regla: **máx. 1 CTA de producto cada 3 publicaciones**.  
@@ -350,7 +353,7 @@ Comenta PAGAR o TIRAR 👇
 | Lun | Reel | Repost del reel con MÁS comentarios (Parte 2 + respuesta GTO) |
 | Mié | Carrusel | Planes: Gratis vs Study vs Coach (sin saturar) |
 | Vie | Reel | B8 ICM burbuja intro |
-| Sáb | Stories | Countdown FOUNDER 40% · plazas limitadas |
+| Sáb | Stories | Countdown FOUNDER · 10 días gratis · cierra 31 oct |
 | Dom | Reel | Compilación top 3 semana (montaje clips) |
 
 ### Caption Mié planes
@@ -360,7 +363,7 @@ Sube cuando el cupo se quede corto.
 
 Gratis: 15 manos/día · 1 import/mes · 3 ForgeCoach
 Study: ilimitado entrenar/import · ~14,99€/mes
-FOUNDER: 40% dto. (plazas limitadas)
+FOUNDER: 10 días gratis + −40% (solo octubre · DM FOUNDER)
 
 5 manos ya → link en bio
 #pokertraining #pokerforgeai
