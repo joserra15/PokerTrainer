@@ -523,7 +523,7 @@ body.guest-mode .play-setup-extras { display: none !important; }
 }
 .landing-founder-promo-host.hidden,
 .home-founder-promo-host.hidden { display: none; }
-.home-founder-promo-host { margin: 0 0 16px; }
+.home-founder-promo-host { margin: 4px 0 8px; }
 /* FOUNDER y upsell anual coexisten en columna; el host no debe colapsar. */
 .home-founder-promo-host:not(.hidden),
 .annual-upsell-host:not(.hidden) {
@@ -5763,6 +5763,58 @@ body.admin-invite-open { overflow: hidden; }
 .usage-row-static strong { white-space: nowrap; flex-shrink: 0; }
 .usage-foot { font-size: 12px; margin: 10px 0 0; }
 .usage-foot a { color: var(--gold); }
+.usage-foot-wrap { margin-top: 10px; }
+.usage-foot-wrap .usage-foot { margin-top: 6px; }
+.usage-foot-wrap .usage-foot:first-child { margin-top: 0; }
+.usage-widget-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 14px;
+}
+.usage-widget-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+.usage-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: rgba(245, 196, 81, .12);
+  border: 1px solid rgba(245, 196, 81, .28);
+}
+.usage-widget--home {
+  border-radius: 14px;
+  padding: 16px 18px;
+  border-color: rgba(255, 255, 255, .1);
+  background: var(--panel, var(--card));
+}
+.usage-widget--home .usage-rows {
+  display: grid;
+  gap: 12px;
+}
+.usage-widget--home .usage-row { margin-bottom: 0; }
+.usage-foot-founder a {
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+@media (min-width: 720px) {
+  .usage-widget--home .usage-rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 24px;
+  }
+}
 
 .study-disclaimer {
   display: flex;
@@ -7926,7 +7978,7 @@ html.pwa-standalone body {
 
 .history-cutoff-note { margin-bottom: 10px; font-size: 13px; }
 
-#home-usage { max-width: 520px; margin: 0 auto 20px; }
+#home-usage { max-width: none; width: 100%; margin: 0 0 20px; }
 #play-usage { margin-bottom: 10px; }
 
 /* ===== Análisis de manos ===== */
@@ -8516,12 +8568,34 @@ body.community-gated #app-shell { display: none !important; }
   gap: 8px;
   justify-content: center;
 }
-.home-stats .empty-state {
+.home-stats-strip .empty-state {
   grid-column: 1 / -1;
   padding: 18px 12px;
   border: 1px dashed var(--border, #2a3544);
   border-radius: 10px;
   background: rgba(255,255,255,0.02);
+}
+.home-stats-strip .home-first-block {
+  max-width: 760px;
+  width: 100%;
+  margin-inline: auto;
+  padding: 28px 24px;
+  box-sizing: border-box;
+}
+.home-stats-strip .home-first-block .empty-state-title {
+  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+  font-weight: 700;
+}
+.home-stats-strip .home-first-block .empty-state-body {
+  max-width: 42rem;
+  margin-bottom: 18px;
+}
+.home-stats-strip .home-first-block .empty-state-actions {
+  gap: 12px;
+}
+.home-stats-strip .home-first-block .empty-state-actions .btn {
+  min-width: 160px;
+  justify-content: center;
 }
 .app-toast-host {
   position: fixed;

@@ -146,7 +146,7 @@ window.PT_BILLING = {
     homePromoHtml: function () {
       return founderStripHtml({
         button: true,
-        cta: 'Ir a Planes',
+        cta: 'Ver FOUNDER en Planes',
         ctaAttr: ' data-go-tab="pricing"'
       });
     },

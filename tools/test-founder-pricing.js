@@ -154,9 +154,24 @@ assert.ok(/isLoaded/.test(appSrc) && /pt-entitlements-updated/.test(appSrc),
   'home promo espera entitlements y se remonta al actualizar');
 assert.ok(/NO borrar un FOUNDER|!host\.innerHTML/.test(appSrc),
   'no borra FOUNDER visible mientras entitlements refrescan');
+assert.ok(/founder_study_requested_at|founderRequested/.test(appSrc),
+  'home promo oculta si ya solicitó plaza FOUNDER');
+assert.ok(/!seatsOpen \|\| hidePricing \|\| isFounder \|\| founderRequested/.test(appSrc),
+  'home promo: gates seats/pricing/founder/solicitado (sin onboarding)');
+assert.ok(!/onboardingOpen/.test(appSrc),
+  'home promo ya no usa onboardingOpen');
+assert.ok(/data-go-tab/.test(appSrc) && /_ptGoTabAttrBound/.test(appSrc),
+  'Inicio enlaza data-go-tab hacia goToTab');
 assert.ok(/markFounderPricingTabBadge|founderNavBadgeHtml/.test(appSrc),
   'app marca badge en tab Planes');
 assert.ok(/founderRequestBlock|data-checkout/.test(appSrc), 'Planes dual CTA Stripe + FOUNDER');
+assert.ok(/home-hero[\s\S]*?home-founder-promo[\s\S]*?home-onboarding[\s\S]*?home-stats/.test(html),
+  'Inicio: FOUNDER debajo del hero y antes de onboarding/stats');
+assert.ok(/\.home-stats-strip \.empty-state/.test(css),
+  'CSS empty state de Inicio usa .home-stats-strip');
+assert.ok(/\.home-first-block/.test(css) && /home-first-block/.test(appSrc),
+  'primer bloque de Inicio con clase dedicada');
+assert.ok(/usage-widget--home/.test(css), 'CSS widget de límites en Inicio');
 assert.ok(!/Prueba 10 días/.test(appSrc), 'Planes sin bullet de prueba 10 días');
 assert.ok(!/Probar Study 10 días|trialLbl|trial\.label/.test(appSrc),
   'Planes sin botón de prueba 10 días');
@@ -177,8 +192,10 @@ assert.ok(/\.founder-promo-title/.test(css) && /\.founder-promo-brand/.test(css)
   'CSS título y marca Founder');
 
 const promoSb = loadPricing(billingCfgSrc);
-assert.ok(promoSb.PTBillingPromo.homePromoHtml().indexOf('Ir a Planes') >= 0,
-  'homePromoHtml CTA Ir a Planes');
+assert.ok(promoSb.PTBillingPromo.homePromoHtml().indexOf('Ver FOUNDER en Planes') >= 0,
+  'homePromoHtml CTA Ver FOUNDER en Planes');
+assert.ok(promoSb.PTBillingPromo.homePromoHtml().indexOf('data-go-tab="pricing"') >= 0,
+  'homePromoHtml lleva data-go-tab pricing');
 assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-strip') >= 0,
   'pillHtml es la banda Founder');
 assert.ok(promoSb.PTBillingPromo.pillHtml().indexOf('founder-promo-title') >= 0,
