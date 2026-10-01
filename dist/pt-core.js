@@ -46894,7 +46894,6 @@ window.PT_NASH_PUSH_JSON = {
         priceHtml: pricingPriceHtml('pro', plans.pro ? plans.pro.monthly : '14,99', ent.is_founder_study),
         featured: false,
         features: [
-          'Prueba 10 días (una vez por cuenta)',
           'Entrenador e import ilimitados',
           '20 manos en análisis',
           '40 consultas ForgeCoach/mes (añadir manos, análisis y preguntas)',
@@ -46969,25 +46968,12 @@ window.PT_NASH_PUSH_JSON = {
       } else if (!isPaidSub) {
         // Usuario Gratis: alta normal por checkout + pedir plaza FOUNDER si sigue abierta.
         if (c.cta && !isCurrent) {
-          if (c.id === 'pro' && billingOn) {
-            const trial = window.PTBilling && PTBilling.trialInfo ? PTBilling.trialInfo() : null;
-            const trialLbl = trial ? trial.label : 'Probar Study 10 días';
-            btns = '<button type="button" class="btn btn-primary" data-checkout="pro" data-interval="month">' +
-              escapeHtml(trialLbl) + '</button>';
-            btns += '<button type="button" class="btn btn-ghost" data-checkout="pro" data-interval="year">Anual</button>';
-            btns += founderRequestBlock('study');
-          } else if (c.id === 'premium') {
-            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-            if (billingOn) {
-              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
-            }
-            btns += founderRequestBlock('coach');
-          } else {
-            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-            if (billingOn) {
-              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
-            }
+          btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+          if (billingOn) {
+            btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
           }
+          if (c.id === 'pro') btns += founderRequestBlock('study');
+          if (c.id === 'premium') btns += founderRequestBlock('coach');
         } else if (isCurrent) {
           btns = '<span class="muted-text">Plan actual</span>';
           if (c.id === 'pro') btns += founderRequestBlock('study');
