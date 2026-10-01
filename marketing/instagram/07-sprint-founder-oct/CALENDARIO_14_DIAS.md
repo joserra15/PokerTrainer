@@ -114,22 +114,23 @@ Link en bio
 ### Dom 28 — Soft FOUNDER
 
 **Assets:** `assets/founder/founder-teaser-1oct.jpg`  
-**Hook:** 1 oct · −40% para siempre
+**Hook:** 1 oct · 10 días gratis + −40% para siempre
 
 **Caption:**
 ```
 1 de octubre · plan FOUNDER
 
-−40% para siempre · plazas limitadas
+10 días gratis del plan que elijas (Study o Coach).
+Luego −40% para siempre · plazas limitadas
 Study desde 8,99€/mes · Coach desde 20,99€/mes
 
 FOUNDER Coach desbloquea Torneos Pro (MTT 108, Spin, SNG).
 
-Solicita plaza → link en bio
+Solicita plaza → link en bio · DM FOUNDER
 #pokerforgeai #pokertraining #pokerespañol
 ```
 
-**Story:** Countdown sticker “faltan 3 días” + precios.
+**Story:** Countdown sticker “faltan 3 días” + “10 días gratis”.
 
 ---
 
@@ -163,26 +164,28 @@ Solicita plaza → link en bio
 **Guión reel 20–25s:**
 ```
 [0–3] “FOUNDER · 1 de octubre”
-[3–10] Study 8,99 · Coach 20,99 · −40% para siempre
-[10–16] “Coach = Torneos Pro + más ForgeCoach”
-[16–22] CTA “Solicitar plaza” + endcard
+[3–8] “10 días gratis · Study o Coach · tú eliges”
+[8–14] Study 8,99 · Coach 20,99 · −40% para siempre
+[14–18] “Coach = Torneos Pro + más ForgeCoach”
+[18–24] CTA “DM FOUNDER / Solicitar plaza” + endcard
 ```
 
 **Caption:**
 ```
-FOUNDER ya está aquí 🎯
+FOUNDER ya está aquí
+
+Solicita plaza → 10 días gratis del plan que elijas (Study o Coach).
+Activación manual. Si te quedas: −40% para siempre.
 
 Study FOUNDER → 8,99€/mes (hab. 14,99)
 Coach FOUNDER → 20,99€/mes (hab. 34,99)
-−40% para siempre · plazas limitadas
+Plazas limitadas · solo octubre
 
-FOUNDER Coach = Torneos Pro (MTT/Spin/SNG) + ForgeCoach.
-
-Solicita tu plaza → link en bio
+Link en bio · o DM: FOUNDER
 #pokerforgeai #pokertraining #FOUNDER #pokerespañol
 ```
 
-**Stories (ráfaga):** precios · plazas · Torneos Pro · CTA solicitar.
+**Stories (ráfaga):** precios · 10 días gratis · plazas · Torneos Pro · CTA.
 
 ---
 
@@ -197,11 +200,11 @@ Las manos del torneo que más EV quemaron → banco de errores.
 
 Repites el spot. No el ego.
 
-FOUNDER sigue abierto (plazas limitadas) → link en bio
+FOUNDER abierto: 10 días gratis Study o Coach → link en bio
 #pokertraining #GTO #pokerforgeai #mtt
 ```
 
-**Story:** Reminder FOUNDER + still errores.
+**Story:** Reminder FOUNDER + “10 días gratis” + still errores.
 
 ---
 
@@ -215,13 +218,13 @@ Empieza gratis. Sube cuando el cupo se quede corto.
 Gratis → 15 manos/día · Spin Fácil
 Study → ilimitado entrenar/import
 Coach → Torneos Pro (MTT 108…) + más ForgeCoach
-FOUNDER → −40% para siempre
+FOUNDER → 10 días gratis + −40% para siempre (solo octubre)
 
-Solicita plaza → link en bio
+Solicita plaza → link en bio · DM FOUNDER
 #pokertraining #pokerforgeai #pokerespañol
 ```
 
-**Story:** Comparativa rápida Study vs Coach.
+**Story:** Comparativa rápida Study vs Coach + “10 días gratis”.
 
 ---
 
@@ -255,14 +258,14 @@ Lo más fuerte de estas 2 semanas:
 
 1) Torneo entero con coach al lado
 2) Reto: ¿batas a la IA Pro?
-3) FOUNDER −40% · plazas limitadas
+3) FOUNDER: 10 días gratis + −40% · plazas limitadas
 
 ¿Cuál pruebas primero? Comenta 1, 2 o 3.
-Link en bio
+Link en bio · DM FOUNDER
 #pokerforgeai #mtt #pokertips #estudiopoker
 ```
 
-**Story:** Urgencia plazas + poll “¿Ya pediste plaza?”.
+**Story:** Urgencia plazas + poll “¿Ya pediste los 10 días?”.
 
 ---
 
@@ -270,6 +273,7 @@ Link en bio
 
 1. Pregunta (poll / quiz)  
 2. Behind the scenes (1 still b-roll + texto)  
-3. CTA suave cada 3ª: “5 manos gratis · link”  
+3. CTA suave cada 3ª: “5 manos gratis · link” **o** “10 días FOUNDER · DM FOUNDER”  
 4. **28 sep – 3 oct:** countdown FOUNDER  
-5. **24–29 sep y 1–5 oct:** stickers reto “¿Cashas Pro MTT?”
+5. **24–29 sep y 1–5 oct:** stickers reto “¿Cashas Pro MTT?”  
+6. **Octubre completo (post 5 oct):** seguir [`CALENDARIO_OCTUBRE_FOUNDER.md`](CALENDARIO_OCTUBRE_FOUNDER.md)
