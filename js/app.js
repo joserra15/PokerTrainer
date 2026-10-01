@@ -5462,7 +5462,7 @@
         } else if (ent.limits.ai_reports_per_month != null) {
           line += ' · IA mes: ' + (Number(ent.usage.ai_reports_month) || 0) + '/' + ent.limits.ai_reports_per_month;
           if (ent.bonus && Number(ent.bonus.balance) > 0) {
-            line += ' · Bono IA: ' + ent.bonus.balance;
+            line += ' · Bono ForgeCoach: ' + ent.bonus.balance;
           }
         }
       }
@@ -5736,7 +5736,7 @@
         escapeHtml((founder && founder.launchLabel) || 'próximamente') + ').</p>'
       : '';
     host.innerHTML = '<div class="pricing-bonus-panel card-box">' +
-      '<h3>Bono de consultas IA</h3>' +
+      '<h3>Bono de consultas ForgeCoach</h3>' +
       '<p class="muted-text">Precio para tu plan <strong>' + escapeHtml(tierLabel) + '</strong>. ' +
       'Los bonos tienen <strong>mejores precios en los planes superiores</strong> (Study y Coach). ' +
       'Válido 12 meses. Se consumen después de las consultas incluidas en tu plan.</p>' +

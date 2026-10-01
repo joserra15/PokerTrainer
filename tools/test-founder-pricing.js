@@ -164,6 +164,9 @@ assert.ok(/data-checkout="' \+ c\.cta \+ '" data-interval="month">Mensual/.test(
   'Planes CTA mensual unificado Study/Coach');
 assert.ok(/if \(c\.id === 'pro'\) btns \+= founderRequestBlock\('study'\)/.test(appSrc),
   'Planes Study pide plaza FOUNDER tras Mensual/Anual');
+assert.ok(/Bono de consultas ForgeCoach/.test(appSrc), 'Planes titula bonos como ForgeCoach');
+assert.ok(!/Bono de consultas IA/.test(appSrc), 'Planes sin título Bono de consultas IA');
+assert.ok(/Bono ForgeCoach:/.test(appSrc), 'resumen de plan usa Bono ForgeCoach');
 
 const entSrc = fs.readFileSync(path.join(__dirname, '..', 'js/entitlements.js'), 'utf8');
 assert.ok(!/async function refresh\(\)\s*\{\s*state = null/.test(entSrc),
