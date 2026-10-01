@@ -163,15 +163,17 @@ assert.ok(pricingHtml.indexOf('plan.free.f1') < 0, 'features free traducidas');
 assert.ok(pricingHtml.indexOf('15 manos entrenador') >= 0, 'feature free f1 visible');
 assert.ok(pricingHtml.indexOf('price.') < 0, 'pricing no muestra claves price.*');
 
-// La landing sin registro muestra la tabla completa: habitual tachado + FOUNDER.
+// La landing sin registro muestra la tabla completa: habitual + FOUNDER.
 ['14,99', '9,92', '119', '8,99', '5,95', '71,40',
   '34,99', '23,25', '279', '20,99', '13,95', '167,40'].forEach(function (n) {
   assert.ok(pricingHtml.indexOf(n) >= 0, 'landing muestra el precio ' + n);
 });
-assert.ok(/<s class="price-strike">14,99/.test(pricingHtml), 'tarifa habitual Study tachada');
-assert.ok(/<s class="price-strike">34,99/.test(pricingHtml), 'tarifa habitual Coach tachada');
+assert.ok(/<span class="price-usual-amount">14,99/.test(pricingHtml), 'tarifa habitual Study visible');
+assert.ok(/<span class="price-usual-amount">34,99/.test(pricingHtml), 'tarifa habitual Coach visible');
+assert.ok(pricingHtml.indexOf('<s ') < 0 && pricingHtml.indexOf('price-strike') < 0, 'sin precios tachados');
 assert.ok(pricingHtml.indexOf('Hazte <strong>FOUNDER</strong> y lo tendrás por') >= 0, 'reclamo Hazte FOUNDER');
 assert.ok(pricingHtml.indexOf('Para siempre') >= 0, 'aviso de precio para siempre');
 assert.ok(pricingHtml.indexOf('Pagando anual') >= 0, 'equivalencia mensual del pago anual');
+assert.ok(!/Prueba Study 10|prueba 10 d[ií]as/i.test(pricingHtml), 'Study sin copy de prueba 10 días');
 
 console.log('OK test-landing-i18n');

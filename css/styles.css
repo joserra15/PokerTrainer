@@ -923,10 +923,8 @@ body.guest-mode .play-setup-extras { display: none !important; }
   font-weight: 600;
   color: var(--muted);
 }
-.price-block .price-strike {
+.price-block .price-usual-amount {
   color: var(--muted);
-  text-decoration-thickness: 2px;
-  text-decoration-color: rgba(240,83,59,.85);
   white-space: nowrap;
 }
 .price-usual {
