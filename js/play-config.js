@@ -53,6 +53,36 @@
 
   const SQUEEZE_COMBOS = buildValidSqueezeCombos();
 
+  /**
+   * Cold 4-bet: opener → 3-bettor → héroe en orden preflop.
+   * Inválido p.ej. CO abre + SB 3-betea con héroe en BTN (BTN habla antes que SB).
+   */
+  function isValidCold4betCombo(combo) {
+    if (!combo || !combo.heroPos || !combo.openerPos || !combo.threeBettorPos) return false;
+    const o = preflopOrderIndex(combo.openerPos);
+    const t = preflopOrderIndex(combo.threeBettorPos);
+    const h = preflopOrderIndex(combo.heroPos);
+    return o >= 0 && t >= 0 && h >= 0 && o < t && t < h;
+  }
+
+  function buildValidCold4betCombos() {
+    const out = [];
+    PREFLOP_ORDER_6.forEach(function (heroPos) {
+      const hi = preflopOrderIndex(heroPos);
+      PREFLOP_ORDER_6.forEach(function (openerPos) {
+        PREFLOP_ORDER_6.forEach(function (threeBettorPos) {
+          if (preflopOrderIndex(openerPos) < preflopOrderIndex(threeBettorPos)
+              && preflopOrderIndex(threeBettorPos) < hi) {
+            out.push({ heroPos: heroPos, openerPos: openerPos, threeBettorPos: threeBettorPos });
+          }
+        });
+      });
+    });
+    return out;
+  }
+
+  const COLD4BET_COMBOS = buildValidCold4betCombos();
+
   const ISO_COMBOS = [
     { heroPos: 'CO', limperPos: 'UTG' },
     { heroPos: 'CO', limperPos: 'HJ' },
@@ -1231,9 +1261,9 @@
         if (hu || !spin) pool.push({ type: 'sbLimp', heroPos: 'SB' });
       } else if (type === 'cold4bet') {
         if (!spin && !hu) {
-          pool.push({ type: 'cold4bet', heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' });
-          pool.push({ type: 'cold4bet', heroPos: 'BTN', openerPos: 'CO', threeBettorPos: 'SB' });
-          pool.push({ type: 'cold4bet', heroPos: 'BB', openerPos: 'BTN', threeBettorPos: 'SB' });
+          COLD4BET_COMBOS.forEach(function (c) {
+            pool.push(Object.assign({ type: 'cold4bet' }, c));
+          });
         }
       } else if (type === 'srp3way') {
         if (hu) return;
@@ -1394,7 +1424,8 @@
     resolveHandConfig,
     VILLAIN_TYPES, normalizeVillainType,
     STANDARD_RAKE, estimateRakeBB, potAfterRakeBB, loadRakePrefs, saveRakePrefs,
-    PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos, STACK_DEPTH_BB, stackDepthToBB,
+    PREFLOP_ORDER_6, isValidSqueezeCombo, buildValidSqueezeCombos,
+    isValidCold4betCombo, buildValidCold4betCombos, STACK_DEPTH_BB, stackDepthToBB,
     POS_9, PREFLOP_ACTION_9, DEAL_ORDER_9, POS_SPIN, DEAL_ORDER_SPIN, RFI_POS_SPIN,
     sampleHeroWeights, sampleHeroHand, sampleVillainWeights, sampleRfiDefenderWeights,
     sampleFace4betVillainWeights, face4betVillainRangeStr, sampleLimpWeights,
@@ -1403,6 +1434,6 @@
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
     is9Max, isMtt, isSpin, isHuPhase,
     POS_HU, DEAL_ORDER_HU, RFI_POS_HU, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
-    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
+    vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, COLD4BET_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
   };
 })(window);
