@@ -148,6 +148,7 @@ const STEPS = [
   ['Test vs3bet MTT/Spin por fase+stack', ['node', 'tools/test-vs3bet-tournament-phase.js']],
   ['Test showdown empate (net/popup)', ['node', 'tools/test-showdown-tie.js']],
   ['Test modo completo/rápido de mesa', ['node', 'tools/test-action-mode.js']],
+  ['Test cold 4-bet orden preflop (BTN vs SB)', ['node', 'tools/test-cold4bet-order.js']],
   ['Test vs3bet/4bet interactivos (sin autoHero)', ['node', 'tools/test-face3bet-interactive.js']],
   ['Test squeeze MTT villano activo (sin fold fantasma)', ['node', 'tools/test-trainer-villain-fold-seat.js']],
   ['Test acciones fantasma sobre FOLD + burbuja stack', ['node', 'tools/test-ghost-fold-actions.js']],

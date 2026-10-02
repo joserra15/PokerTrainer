@@ -4328,9 +4328,22 @@
 
   function setupCold4betInitial(hand) {
     const s = hand.scenario;
-    const hero = s.heroPos || 'CO';
-    const opener = s.openerPos || 'UTG';
-    const tb = s.threeBettorPos || 'HJ';
+    const PC = global.PTPlayConfig;
+    let hero = s.heroPos || 'CO';
+    let opener = s.openerPos || 'UTG';
+    let tb = s.threeBettorPos || 'HJ';
+    // Corregir combos ilegales (p.ej. CO abre + SB 3-betea con héroe en BTN).
+    if (PC && PC.isValidCold4betCombo && !PC.isValidCold4betCombo({ heroPos: hero, openerPos: opener, threeBettorPos: tb })) {
+      const fallback = (PC.COLD4BET_COMBOS || []).find(function (c) { return c.heroPos === hero; })
+        || (PC.COLD4BET_COMBOS && PC.COLD4BET_COMBOS[0])
+        || { heroPos: 'CO', openerPos: 'UTG', threeBettorPos: 'HJ' };
+      hero = fallback.heroPos;
+      opener = fallback.openerPos;
+      tb = fallback.threeBettorPos;
+      s.heroPos = hero;
+      s.openerPos = opener;
+      s.threeBettorPos = tb;
+    }
     hand.hero.pos = hero;
     hand.villain.pos = tb;
     ensureOpenerOpenHand(hand, opener);
@@ -4354,7 +4367,8 @@
     setVillainAct(hand, 'raise', threeBetSize);
     seedLineAction(hand, opener, 'open', openSize);
     seedLineAction(hand, villainTableSeat(hand) || tb, 'raise', threeBetSize);
-    markPreflopFoldsForFacingAction(hand, opener, [tb]);
+    // Villain = 3-bettor; el abridor debe quedar vivo (extraInPot) para no borrar su open.
+    markPreflopFoldsForFacingAction(hand, tb, [opener]);
     const freqs = strategyForNode(hand, { street: 'preflop', kind: 'cold4bet', potBB: hand.potBB, toCallBB: hand.toCallBB });
     hand.current = {
       street: 'preflop', kind: 'cold4bet', potBB: hand.potBB, toCallBB: hand.toCallBB,
