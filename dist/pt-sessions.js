@@ -3466,6 +3466,28 @@
     });
   }
 
+  function attachDualVerdictFields(d, evalResult) {
+    if (!d || !evalResult) return d;
+    const ev = evalResult.evaluation || {};
+    const gtoEv = evalResult.evaluationGto || null;
+    const exEv = evalResult.evaluationExploit || null;
+    d.classGto = ev.classGto || (gtoEv && gtoEv.class) || d.class;
+    d.classExploit = ev.classExploit || (exEv && exEv.class) || d.class;
+    d.freqGto = ev.freqGto != null ? ev.freqGto : (gtoEv && gtoEv.frequency);
+    d.freqExploit = ev.freqExploit != null ? ev.freqExploit : (exEv && exEv.frequency);
+    d.bestGto = ev.bestGto || (gtoEv && gtoEv.best) || null;
+    d.bestExploit = ev.bestExploit || (exEv && exEv.best) || null;
+    d.gtoBaseline = evalResult.gtoStrategy || d.gtoBaseline || null;
+    d.exploitStrategy = evalResult.exploitStrategy || null;
+    d.exploitApplied = !!evalResult.exploitApplied;
+    d.exploitReasons = evalResult.exploitReasons || [];
+    d.explainDelta = evalResult.explainDelta || [];
+    d.lineSignals = evalResult.lineSignals || [];
+    d.scoreMode = evalResult.scoreMode || d.scoreMode || 'gto';
+    d.villainType = evalResult.villainType || d.villainType || null;
+    return d;
+  }
+
   function recomputeDecisionGto(hand, d, chosenOverride) {
     if (!GTO || !GTO.evaluateSpot) return d;
     const evalResult = GTO.evaluateSpot(buildEvalInputFromDecision(hand, d, chosenOverride));
@@ -3474,6 +3496,7 @@
     d.optionBreakdown = evalResult.optionBreakdown;
     d.best = ev.best;
     d.class = ev.class;
+    attachDualVerdictFields(d, evalResult);
     d.evLoss = ev.evLoss;
     d.evLossEuro = ev.evLossEuro;
     d.evErroneous = ev.evErroneous;
@@ -4021,7 +4044,7 @@
           const evalResult = GTO.evaluateSpot(evalInput);
           const ev = evalResult.evaluation;
           const raiseBB = a.type === 'raise' ? r2(a.to / hand.bb) : 0;
-          decisions.push({
+          const decPre = {
             street: 'preflop', spot: spotLabel(facing, heroPos, openerPos),
             spotKind, facing, vsPosition: openerPos, vsRfiKey,
             actionType: a.type, chosen, class: ev.class, best: ev.best,
@@ -4038,7 +4061,9 @@
             betSizeBB: raiseBB,
             options: opts,
             context: preflopContext(facing, heroPos, openerPos, toCallBB)
-          });
+          };
+          attachDualVerdictFields(decPre, evalResult);
+          decisions.push(decPre);
         }
       }
 
@@ -4197,7 +4222,7 @@
           : (global.GTOBoardTextureShift && global.GTOBoardTextureShift.isNutStraight(heroCards, boardSoFar)
             ? 'Escalera (nuts)'
             : info.ev.name);
-        decisions.push({
+        const decPost = {
           street: st, spot: `${cap(st)} · ${handName}`,
           spotKind: 'postflop', facing: 'postflop',
           actionType, chosen, betSizeBB, class: ev.class, best: ev.best,
@@ -4239,7 +4264,9 @@
             }
             return ctx;
           })()
-        });
+        };
+        attachDualVerdictFields(decPost, evalResult);
+        decisions.push(decPost);
         pendingVillainAudit = null;
       }
 

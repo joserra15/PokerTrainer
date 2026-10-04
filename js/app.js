@@ -4451,7 +4451,9 @@
   function renderHandDecisionsSummary(decisions, matrixSource) {
     if (!decisions || !decisions.length) return '';
     let html = '<div class="card-box" style="margin-top:14px"><h3>' +
-      (decisions.some((x) => x && x.exploitApplied) ? 'Evaluación de la mano (explotativa)' : 'Evaluación GTO de la mano') +
+      (decisions.some((x) => x && (x.exploitApplied || x.classExploit))
+        ? 'Evaluación GTO + explotativa'
+        : 'Evaluación GTO de la mano') +
       '</h3>';
     decisions.forEach((d, i) => {
       html += `<div class="dec-review">
@@ -4470,7 +4472,7 @@
       } else if (d.gto) {
         html += renderGtoBars(d.gto, { exploit: !!d.exploitApplied });
       }
-      html += renderExploitDeltaNote(d);
+      html += renderDualVerdictNote(d);
       // Mostrar siempre con matrixSource: el click carga el chunk ranges bajo demanda.
       if (matrixSource) {
         html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, matrixSource)}</div>`;
@@ -5868,17 +5870,68 @@
     return html + '</div>';
   }
 
-  function renderExploitDeltaNote(d) {
-    if (!d || !d.exploitApplied) return '';
-    let html = '<div class="exploit-delta-note muted-text" style="margin-top:6px;font-size:12px">';
-    html += '<strong>Vs ' + escapeHtml(d.villainType || 'rival') + ':</strong> ';
+  function pct1(x) {
+    if (x == null || isNaN(Number(x))) return null;
+    return Math.round(Number(x) * 1000) / 10;
+  }
+
+  function renderDualVerdictNote(d) {
+    if (!d) return '';
+    const gtoCls = d.classGto || null;
+    const exCls = d.classExploit || null;
+    const gtoF = pct1(d.freqGto);
+    const exF = pct1(d.freqExploit);
+    const hasDual = !!(gtoCls || exCls || d.exploitApplied || (d.explainDelta && d.explainDelta.length)
+      || (d.lineSignals && d.lineSignals.length));
+    if (!hasDual) return '';
+    let html = '<div class="exploit-delta-note dual-verdict-note muted-text" style="margin-top:6px;font-size:12px">';
+    if (gtoCls || exCls) {
+      html += '<div class="dual-verdict-row" style="margin-bottom:4px">';
+      if (gtoCls) {
+        html += '<span class="verdict ' + escapeHtml(gtoCls) + '">GTO: '
+          + escapeHtml(verdictWord(gtoCls))
+          + (gtoF != null ? ' (' + gtoF + '%)' : '')
+          + '</span>';
+      }
+      if (gtoCls && exCls) html += ' <span style="opacity:.5">·</span> ';
+      if (exCls) {
+        html += '<span class="verdict ' + escapeHtml(exCls) + '">Explotativo: '
+          + escapeHtml(verdictWord(exCls))
+          + (exF != null ? ' (' + exF + '%)' : '')
+          + '</span>';
+      }
+      html += '</div>';
+    }
     const reasons = (d.exploitReasons || []).slice(0, 2);
-    if (reasons.length) html += escapeHtml(reasons.join(' '));
-    else html += 'Mix desviado del GTO según leaks típicos del arquetipo.';
-    if (d.gtoBaseline) {
+    if (reasons.length || d.villainType) {
+      html += '<div>';
+      if (d.villainType) html += '<strong>Vs ' + escapeHtml(d.villainType) + ':</strong> ';
+      if (reasons.length) html += escapeHtml(reasons.join(' '));
+      else if (d.exploitApplied) html += 'Mix desviado del GTO según leaks / línea.';
+      html += '</div>';
+    }
+    const deltas = (d.explainDelta || []).slice(0, 3);
+    if (deltas.length) {
+      html += '<ul style="margin:4px 0 0 16px;padding:0">';
+      deltas.forEach(function (row) {
+        const g = pct1(row.gtoFreq);
+        const e = pct1(row.exploitFreq);
+        html += '<li>' + escapeHtml(actionName(row.action))
+          + ': GTO ' + (g != null ? g + '%' : '—')
+          + ' → exploit ' + (e != null ? e + '%' : '—');
+        if (row.reason) html += ' <span style="opacity:.8">(' + escapeHtml(row.reason) + ')</span>';
+        html += '</li>';
+      });
+      html += '</ul>';
+    }
+    if (d.gtoBaseline && d.exploitApplied) {
       html += renderGtoBars(d.gtoBaseline, { title: 'Referencia GTO (sin explotación):' });
     }
     return html + '</div>';
+  }
+
+  function renderExploitDeltaNote(d) {
+    return renderDualVerdictNote(d);
   }
 
   function finishHand() {

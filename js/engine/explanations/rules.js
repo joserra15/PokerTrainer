@@ -172,14 +172,28 @@
     return `${ctx} ${hand} en [${board}]: elegiste ${ACTION_NAMES[chosen] || chosen} (${chPct}%), GTO prefiere ${ACTION_NAMES[best] || best} (${bestPct}%). EV loss ${evaluation.evLoss}bb (${evaluation.evLossTier}).`;
   }
 
+  function dualSuffix(evaluation) {
+    if (!evaluation) return '';
+    const g = evaluation.classGto;
+    const e = evaluation.classExploit;
+    if (!g || !e || g === e) return '';
+    const gPct = evaluation.freqGto != null ? pct(evaluation.freqGto) : null;
+    const ePct = evaluation.freqExploit != null ? pct(evaluation.freqExploit) : null;
+    return ' Dual: GTO ' + g + (gPct != null ? ' (' + gPct + '%)' : '')
+      + ' · explotativo ' + e + (ePct != null ? ' (' + ePct + '%)' : '') + '.';
+  }
+
   function generate(input, spotKey, strategy, evaluation) {
     if (!evaluation || !evaluation.chosenAction) {
       return spotContext(input, spotKey);
     }
+    let text;
     if ((input.street || spotKey.street) === 'preflop' || ['RFI', 'vsRFI', 'squeeze', 'isoLimp', 'face3bet', 'face4bet', 'cold3bet', 'cold4bet', 'bbVsSbLimp', 'sbLimp'].indexOf(input.spotKind) >= 0) {
-      return preflopExplain(input, evaluation, strategy);
+      text = preflopExplain(input, evaluation, strategy);
+    } else {
+      text = postflopExplain(input, spotKey, evaluation, strategy);
     }
-    return postflopExplain(input, spotKey, evaluation, strategy);
+    return text + dualSuffix(evaluation);
   }
 
   global.GTOExplanations = { generate };

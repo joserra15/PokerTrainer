@@ -1869,7 +1869,22 @@
       /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
       icmEnabled: huWta ? false : true,
       villainType: villainType(hand, heroSeat),
-      scoreMode: 'gto',
+      /* Dual verdict siempre; primario exploit solo con arquetipo tipificado. */
+      scoreMode: (function () {
+        var vt = villainType(hand, heroSeat);
+        if (vt && vt !== 'pro' && vt !== 'tag' && vt !== 'random') return 'exploit';
+        return 'gto';
+      })(),
+      priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
+      passiveLine: !!(hand._priorStreetCheckCheck),
+      heroLine: (function () {
+        try {
+          if (global.PTTournamentVillainDecide && global.PTTournamentVillainDecide.heroLinePressure) {
+            return global.PTTournamentVillainDecide.heroLinePressure(hand);
+          }
+        } catch (eHl) { /* ignore */ }
+        return null;
+      })(),
       multiway: aliveCount >= 3,
       aliveCount: aliveCount,
       phaseNote: facingShove
@@ -1886,13 +1901,29 @@
     if (!evalResult) return { class: 'unscored', evLoss: 0, frequency: 0 };
     var ev = evalResult.evaluation || evalResult;
     var freqs = evalResult.strategy || evalResult.gto || {};
+    var gtoEv = evalResult.evaluationGto || null;
+    var exEv = evalResult.evaluationExploit || null;
     return {
       class: mapClass(ev.class || ev.grade || 'unscored'),
+      classGto: mapClass((ev.classGto || (gtoEv && gtoEv.class) || ev.class || 'unscored')),
+      classExploit: mapClass((ev.classExploit || (exEv && exEv.class) || ev.class || 'unscored')),
+      freqGto: Number(ev.freqGto != null ? ev.freqGto : (gtoEv && gtoEv.frequency)) || 0,
+      freqExploit: Number(ev.freqExploit != null ? ev.freqExploit : (exEv && exEv.frequency)) || 0,
       evLoss: Number(ev.evLoss != null ? ev.evLoss : ev.evErroneous) || 0,
       frequency: Number(ev.frequency != null ? ev.frequency : freqs[chosen]) || 0,
       best: ev.best || null,
+      bestGto: ev.bestGto || (gtoEv && gtoEv.best) || null,
+      bestExploit: ev.bestExploit || (exEv && exEv.best) || null,
       explanation: evalResult.explanation || ev.explanation || null,
-      strategy: freqs
+      strategy: freqs,
+      gtoStrategy: evalResult.gtoStrategy || null,
+      exploitStrategy: evalResult.exploitStrategy || null,
+      exploitApplied: !!evalResult.exploitApplied,
+      exploitReasons: evalResult.exploitReasons || [],
+      explainDelta: evalResult.explainDelta || [],
+      lineSignals: evalResult.lineSignals || [],
+      scoreMode: evalResult.scoreMode || 'gto',
+      villainType: evalResult.villainType || null
     };
   }
 
@@ -1966,12 +1997,26 @@
       }
       base.unscored = graded.class === 'unscored';
       base.class = graded.class;
+      base.classGto = graded.classGto || graded.class;
+      base.classExploit = graded.classExploit || graded.class;
+      base.freqGto = graded.freqGto;
+      base.freqExploit = graded.freqExploit;
+      base.bestGto = graded.bestGto || null;
+      base.bestExploit = graded.bestExploit || null;
       base.evLoss = graded.evLoss;
       base.frequency = graded.frequency;
       base.best = graded.best;
       base.explanation = graded.explanation;
       base.strategy = graded.strategy;
       base.gto = graded.strategy;
+      base.gtoBaseline = graded.gtoStrategy || null;
+      base.exploitStrategy = graded.exploitStrategy || null;
+      base.exploitApplied = !!graded.exploitApplied;
+      base.exploitReasons = graded.exploitReasons || [];
+      base.explainDelta = graded.explainDelta || [];
+      base.lineSignals = graded.lineSignals || [];
+      base.scoreMode = graded.scoreMode || input.scoreMode || 'gto';
+      base.villainType = graded.villainType || input.villainType || null;
       /* Misma rejilla que paso a paso / LocalSolver (incluye residuales visibles).
          Reconstruir solo desde strategy colapsaba a CHECK 100% en torneos. */
       base.optionBreakdown = (result.optionBreakdown && result.optionBreakdown.length)
@@ -2766,17 +2811,30 @@
     var aggStreets = {};
     var checkCount = 0;
     var betRaiseCount = 0;
+    var maxBetRatio = 0;
+    var checkRaiseHero = false;
+    var bb = Math.max(1, Number(hand.bb) || 1);
     (hand.log || []).forEach(function (e) {
       if (!e || (e.street !== 'flop' && e.street !== 'turn' && e.street !== 'river')) return;
       var isHero = heroId != null
         ? e.id === heroId
         : !!(hand.seats || []).find(function (s) { return s && s.id === e.id && s.isHero; });
       if (!isHero) return;
-      if (e.action === 'bet' || e.action === 'raise') {
+      if (e.action === 'bet' || e.action === 'raise' || e.action === 'allin') {
         aggStreets[e.street] = true;
         betRaiseCount += 1;
+        var amt = Number(e.amount) || 0;
+        var pot = Number(e.pot) || Number(hand.pot) || 0;
+        if (amt > 0 && pot > 0) {
+          var ratio = (amt / bb) / Math.max(pot / bb, 0.1);
+          if (ratio > maxBetRatio) maxBetRatio = ratio;
+        }
       } else if (e.action === 'check') {
         checkCount += 1;
+      } else if (e.action === 'checkraise' || e.action === 'check-raise') {
+        checkRaiseHero = true;
+        aggStreets[e.street] = true;
+        betRaiseCount += 1;
       }
     });
     var multiStreetAgg = Object.keys(aggStreets).length;
@@ -2789,7 +2847,10 @@
       passive: checkCount >= 2 && betRaiseCount === 0,
       /* Check-check previo + lead actual (delayed c-bet / river stab). */
       delayedLead: !priorAgg && checkCount >= 1,
-      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2
+      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2 || checkRaiseHero,
+      polarSize: maxBetRatio >= 0.75,
+      checkRaiseHero: checkRaiseHero,
+      barrelCount: betRaiseCount
     };
   }
 
@@ -3757,7 +3818,8 @@
     handCode: handCode,
     mapRoleId: mapRoleId,
     blindPressureFlags: blindPressureFlags,
-    rangeCtx: rangeCtx
+    rangeCtx: rangeCtx,
+    heroLinePressure: heroLinePressure
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 

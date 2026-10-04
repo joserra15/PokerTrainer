@@ -14140,14 +14140,28 @@ window.PT_NASH_PUSH_JSON = {
     return `${ctx} ${hand} en [${board}]: elegiste ${ACTION_NAMES[chosen] || chosen} (${chPct}%), GTO prefiere ${ACTION_NAMES[best] || best} (${bestPct}%). EV loss ${evaluation.evLoss}bb (${evaluation.evLossTier}).`;
   }
 
+  function dualSuffix(evaluation) {
+    if (!evaluation) return '';
+    const g = evaluation.classGto;
+    const e = evaluation.classExploit;
+    if (!g || !e || g === e) return '';
+    const gPct = evaluation.freqGto != null ? pct(evaluation.freqGto) : null;
+    const ePct = evaluation.freqExploit != null ? pct(evaluation.freqExploit) : null;
+    return ' Dual: GTO ' + g + (gPct != null ? ' (' + gPct + '%)' : '')
+      + ' · explotativo ' + e + (ePct != null ? ' (' + ePct + '%)' : '') + '.';
+  }
+
   function generate(input, spotKey, strategy, evaluation) {
     if (!evaluation || !evaluation.chosenAction) {
       return spotContext(input, spotKey);
     }
+    let text;
     if ((input.street || spotKey.street) === 'preflop' || ['RFI', 'vsRFI', 'squeeze', 'isoLimp', 'face3bet', 'face4bet', 'cold3bet', 'cold4bet', 'bbVsSbLimp', 'sbLimp'].indexOf(input.spotKind) >= 0) {
-      return preflopExplain(input, evaluation, strategy);
+      text = preflopExplain(input, evaluation, strategy);
+    } else {
+      text = postflopExplain(input, spotKey, evaluation, strategy);
     }
-    return postflopExplain(input, spotKey, evaluation, strategy);
+    return text + dualSuffix(evaluation);
   }
 
   global.GTOExplanations = { generate };
@@ -14311,6 +14325,66 @@ window.PT_NASH_PUSH_JSON = {
     return chosen;
   }
 
+  /** Clasificación + reconcile (sin scoring/ICM annotate completo). */
+  function classifyAgainstStrategy(strategy, chosenAction, enriched) {
+    const cls = Classifier.classify(strategy, chosenAction, enriched.availableActions);
+    const evResult = EvLoss.computeEvLoss(
+      enriched.street || 'preflop', cls.cls, chosenAction,
+      enriched.handCode, strategy, enriched.potBB, enriched
+    );
+    const BoardCl = global.GTOBoardCluster;
+    const tex = BoardCl && enriched.board ? BoardCl.boardTexture(enriched.board) : null;
+    let blockerScore = null;
+    if (global.GTOBlockers && enriched.heroCards && enriched.board) {
+      try {
+        blockerScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
+      } catch (eBlk) { blockerScore = null; }
+    }
+    const reconciled = Classifier.reconcileWithEv(
+      cls.cls, chosenAction, cls.best, evResult,
+      {
+        freq: cls.freq,
+        maxFreq: cls.maxFreq,
+        legalStrategy: cls.legalStrategy,
+        equity: enriched.heroEquity,
+        band: enriched.handRank && enriched.handRank.band,
+        madeHandInfo: enriched.madeHandInfo,
+        madeCategory: enriched.madeHandInfo && (
+          (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
+          || enriched.madeHandInfo.category
+        ),
+        priorAggressorBet: enriched.priorAggressorBet,
+        delayedCbet: enriched.delayedCbet,
+        villainLastAction: enriched.villainLastAction,
+        street: enriched.street,
+        initiative: enriched.initiative,
+        foldEquity: (evResult.mathParams && evResult.mathParams.foldEquityPct != null)
+          ? evResult.mathParams.foldEquityPct / 100
+          : enriched.foldEquity,
+        blockerScore: blockerScore,
+        boardPaired: !!(tex && tex.paired),
+        boardDry: !!(tex && !tex.wet && !tex.paired),
+        betSizeBB: enriched.betSizeBB,
+        potBB: enriched.potBB
+      }
+    );
+    let finalCls = reconciled.cls;
+    if (finalCls === 'error' && cls.maxFreq > 0 && cls.freq >= cls.maxFreq - 0.08) {
+      finalCls = 'optima';
+    } else if (finalCls === 'error' && cls.freq >= 0.15) {
+      finalCls = 'imprecisa';
+    }
+    return {
+      class: finalCls,
+      best: reconciled.best,
+      frequency: cls.freq,
+      maxFreq: cls.maxFreq,
+      legalStrategy: cls.legalStrategy,
+      cls: cls,
+      evResult: evResult
+    };
+  }
+
   function evaluateSpot(input) {
     const enriched = enrichInput(input);
     enriched.spotKind = resolveSpotKind(enriched);
@@ -14323,7 +14397,6 @@ window.PT_NASH_PUSH_JSON = {
       )
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
 
-    const gtoStrategy = strategy;
     // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain
     const DC = global.GTODecisionContext;
     const facing = (enriched.toCallBB || 0) > 0;
@@ -14361,12 +14434,20 @@ window.PT_NASH_PUSH_JSON = {
       strategy = Classifier.filterStrategy(strategy, enriched.availableActions);
     }
 
-    let exploitMeta = null;
+    /* Snapshot GTO post-ICM (antes de exploit). */
+    const gtoStrategy = Object.assign({}, strategy);
     const Exploit = global.GTOHeroExploitAdjust;
-    if (Exploit && enriched.scoreMode === 'exploit') {
-      exploitMeta = Exploit.adjustStrategy(strategy, enriched);
-      strategy = exploitMeta.strategy;
+    let exploitMeta = null;
+    if (Exploit && typeof Exploit.adjustStrategy === 'function') {
+      exploitMeta = Exploit.adjustStrategy(gtoStrategy, enriched);
     }
+    const exploitStrategy = (exploitMeta && exploitMeta.strategy)
+      ? Object.assign({}, exploitMeta.strategy)
+      : Object.assign({}, gtoStrategy);
+    /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat). */
+    const useExploitPrimary = !!(Exploit && Exploit.shouldApply(enriched)
+      && exploitMeta && exploitMeta.archetypeApplied);
+    strategy = useExploitPrimary ? exploitStrategy : gtoStrategy;
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
@@ -14424,6 +14505,7 @@ window.PT_NASH_PUSH_JSON = {
     const result = {
       strategy,
       gtoStrategy: gtoStrategy,
+      exploitStrategy: exploitStrategy,
       rawStrategy,
       spotKey,
       boardType,
@@ -14431,12 +14513,15 @@ window.PT_NASH_PUSH_JSON = {
       heroEquity: enriched.heroEquity,
       explanation: null,
       evaluation: null,
+      evaluationGto: null,
+      evaluationExploit: null,
       optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions),
       scoreMode: enriched.scoreMode || 'gto',
-      villainType: enriched.villainType || null,
+      villainType: enriched.villainType || (exploitMeta && exploitMeta.villainType) || null,
       exploitApplied: !!(exploitMeta && exploitMeta.applied),
       exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
       explainDelta: (exploitMeta && exploitMeta.explainDelta) || [],
+      lineSignals: (exploitMeta && exploitMeta.lineSignals) || [],
       drivers: driversMeta.drivers || [],
       topDrivers: driversMeta.topDrivers || [],
       conceptTags: driversMeta.conceptTags || [],
@@ -14444,56 +14529,24 @@ window.PT_NASH_PUSH_JSON = {
     };
 
     if (chosenAction != null) {
-      const cls = Classifier.classify(strategy, chosenAction, enriched.availableActions);
-      const evResult = EvLoss.computeEvLoss(
-        enriched.street || 'preflop', cls.cls, chosenAction,
-        enriched.handCode, strategy, enriched.potBB, enriched
-      );
-      const Board = global.GTOBoardCluster;
-      const tex = Board && enriched.board ? Board.boardTexture(enriched.board) : null;
-      let blockerScore = null;
-      if (global.GTOBlockers && enriched.heroCards && enriched.board) {
-        try {
-          blockerScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
-        } catch (eBlk) { blockerScore = null; }
-      }
-      const reconciled = Classifier.reconcileWithEv(
-        cls.cls, chosenAction, cls.best, evResult,
-        {
-          freq: cls.freq,
-          maxFreq: cls.maxFreq,
-          legalStrategy: cls.legalStrategy,
-          equity: enriched.heroEquity,
-          band: enriched.handRank && enriched.handRank.band,
-          madeHandInfo: enriched.madeHandInfo,
-          madeCategory: enriched.madeHandInfo && (
-            (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
-            || enriched.madeHandInfo.category
-          ),
-          priorAggressorBet: enriched.priorAggressorBet,
-          delayedCbet: enriched.delayedCbet,
-          villainLastAction: enriched.villainLastAction,
-          street: enriched.street,
-          initiative: enriched.initiative,
-          foldEquity: (evResult.mathParams && evResult.mathParams.foldEquityPct != null)
-            ? evResult.mathParams.foldEquityPct / 100
-            : enriched.foldEquity,
-          blockerScore: blockerScore,
-          boardPaired: !!(tex && tex.paired),
-          boardDry: !!(tex && !tex.wet && !tex.paired),
-          betSizeBB: enriched.betSizeBB,
-          potBB: enriched.potBB
-        }
-      );
-      const finalCls0 = reconciled.cls;
-      let finalCls = finalCls0;
-      const finalBest = reconciled.best;
-      /* Cinturón: si la freq clasificada lidera la mezcla, no permitir Error. */
-      if (finalCls === 'error' && cls.maxFreq > 0 && cls.freq >= cls.maxFreq - 0.08) {
-        finalCls = 'optima';
-      } else if (finalCls === 'error' && cls.freq >= 0.15) {
-        finalCls = 'imprecisa';
-      }
+      const gradedPrimary = classifyAgainstStrategy(strategy, chosenAction, enriched);
+      const gradedGto = classifyAgainstStrategy(gtoStrategy, chosenAction, enriched);
+      const gradedExploit = classifyAgainstStrategy(exploitStrategy, chosenAction, enriched);
+      result.evaluationGto = {
+        class: gradedGto.class,
+        best: gradedGto.best,
+        frequency: gradedGto.frequency
+      };
+      result.evaluationExploit = {
+        class: gradedExploit.class,
+        best: gradedExploit.best,
+        frequency: gradedExploit.frequency
+      };
+
+      const cls = gradedPrimary.cls;
+      const evResult = gradedPrimary.evResult;
+      let finalCls = gradedPrimary.class;
+      const finalBest = gradedPrimary.best;
       const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction }));
 
       let evLoss = evResult.evLoss;
@@ -14502,8 +14555,6 @@ window.PT_NASH_PUSH_JSON = {
       let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
-      // Si el reconciliador ya suavizó a aceptable/óptima (p.ej. overbet con nueces),
-      // no inventar una fuga «suboptimal_ev» por un hueco EV residual.
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
         let gapLoss = EvLoss.round2(evGap);
@@ -14528,7 +14579,6 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
 
-      // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
       const Icm = global.GTOIcmEv;
       let icmMult = 1;
       const chipEvLoss = evLoss;
@@ -14564,6 +14614,12 @@ window.PT_NASH_PUSH_JSON = {
         class: finalCls,
         best: finalBest,
         frequency: cls.freq,
+        classGto: gradedGto.class,
+        classExploit: gradedExploit.class,
+        freqGto: gradedGto.frequency,
+        freqExploit: gradedExploit.frequency,
+        bestGto: gradedGto.best,
+        bestExploit: gradedExploit.best,
         confidence: Scoring.confidence(strategy, chosenAction),
         confidenceTier: confTier.tier,
         confidenceLabel: confTier.label,
@@ -15345,8 +15401,9 @@ window.PT_NASH_PUSH_JSON = {
 })(window);
 
 /*
- * heroExploitAdjust.js — Desvía la estrategia GTO del héroe vs un arquetipo conocido.
- * No es un segundo solver: repondera frecuencias según leaks típicos de población.
+ * heroExploitAdjust.js — Desvía la estrategia GTO del héroe vs arquetipo + línea.
+ * No es un segundo solver: repondera frecuencias según leaks de población y
+ * señales de línea/rango (delayed, polar, multi-barrel, rango capped).
  */
 (function (global) {
   'use strict';
@@ -15362,13 +15419,18 @@ window.PT_NASH_PUSH_JSON = {
     maniac_call: 'Vs maniac: call/raise con catchers — bluff rate altísimo.',
     maniac_bluff: 'Vs maniac: casi cero faroles — no foldea.',
     tag_respect: 'Vs TAG: ajuste mínimo — cerca de GTO.',
-    pro_gto: 'Vs Pro: juega el mix GTO.'
+    pro_gto: 'Vs Pro: juega el mix GTO.',
+    line_passive_value: 'Vs línea pasiva: más value — el rango rival está capped.',
+    line_passive_bluff: 'Vs línea pasiva: menos farol puro — pagan más de lo debido.',
+    line_polar_fe: 'Línea polar/delayed: farol con FE representable.',
+    line_multi_barrel: 'Vs multi-barrel: más call-down — rango diluido en bluffs.',
+    line_capped_bluff: 'Rango rival capped: más bluff polar en river.',
+    line_value_heavy: 'Rango rival value-heavy: menos farol — FE baja.'
   };
 
   /** Multiplicadores por acción/categoría según arquetipo. */
   const ADJUST = {
     fish: {
-      // Value up, bluffs down
       valueBet: 1.55,
       thinBet: 1.7,
       bluffBet: 0.35,
@@ -15486,12 +15548,53 @@ window.PT_NASH_PUSH_JSON = {
     return a === 'bet' || a === 'raise' || a === 'overbet' || /^bet_/.test(a) || a === 'allin';
   }
 
-  function isPassiveContinue(a) {
-    return a === 'call' || a === 'check';
-  }
-
   function facingAggression(input) {
     return !!(input && (input.toCallBB || 0) > 0);
+  }
+
+  function betRatio(input) {
+    const pot = Number(input && (input.potBeforeBB != null ? input.potBeforeBB : input.potBB)) || 0;
+    const size = Number(input && (input.betSizeBB != null ? input.betSizeBB : input.toCallBB)) || 0;
+    if (pot <= 0 || size <= 0) return 0;
+    return size / pot;
+  }
+
+  /** Señales de línea / rango para exploit-lite y justificación. */
+  function collectLineSignals(input) {
+    const signals = [];
+    if (!input) return signals;
+    const delayed = !!(input.delayedCbet || (input.priorAggressorBet === false
+      && (input.villainLastAction === 'check' || input.villainLastAction === 'call')));
+    const passive = !!(input.passiveLine || input.linePassive || delayed
+      || input.priorStreetCheckCheck || (input.heroLine && input.heroLine.passive)
+      || (input.heroLine && input.heroLine.delayedLead));
+    const ratio = betRatio(input);
+    const polar = ratio >= 0.75 || !!(input.facingNode === 'overbet' || input.facingNode === 'shove'
+      || input.riverShove || (input.heroLine && input.heroLine.polarSize));
+    const multi = !!(input.heroLine && (input.heroLine.multiStreetAgg >= 2 || input.heroLine.aggressive));
+    const tags = (input.villainRangeTags || input.rangeTags || []);
+    const tagStr = Array.isArray(tags) ? tags.join(' ') : String(tags || '');
+    const capped = /capped|station|passive|check/.test(tagStr)
+      || !!(input.villainRangeCapped);
+    const valueHeavy = /value|polar_value|nut/.test(tagStr) || !!(input.villainRangeValueHeavy);
+
+    if (passive) signals.push('passive');
+    if (delayed) signals.push('delayed');
+    if (polar) signals.push('polar');
+    if (multi) signals.push('multiBarrel');
+    if (capped) signals.push('capped');
+    if (valueHeavy) signals.push('valueHeavy');
+    return signals;
+  }
+
+  function pushExplain(explain, action, before, m, reasonKey) {
+    if (!reasonKey || Math.abs(m - 1) <= 0.08 || !(before > 0.02)) return;
+    explain.push({
+      action: action,
+      gtoFreq: before,
+      mult: m,
+      reason: REASONS[reasonKey] || reasonKey
+    });
   }
 
   function applyMults(strategy, input, typeId) {
@@ -15535,7 +15638,6 @@ window.PT_NASH_PUSH_JSON = {
           reasonKey = tier === 'air' ? adj.reasonBluff : adj.reasonValue;
         }
       } else {
-        // Lead / check-or-bet
         if (isBetAction(action)) {
           if (tier === 'strong') {
             m = adj.valueBet;
@@ -15548,14 +15650,12 @@ window.PT_NASH_PUSH_JSON = {
             reasonKey = adj.reasonBluff;
           }
         } else if (action === 'check') {
-          // Complementary: if we cut bluffs, check rises; if we boost value, check falls.
           if (tier === 'strong' || tier === 'medium') m = 2 - Math.min(adj.thinBet, 1.8);
           else m = 2 - Math.min(adj.bluffBet, 1.6);
           reasonKey = tier === 'air' ? adj.reasonBluff : adj.reasonValue;
         }
       }
 
-      // Prefer mid value sizes vs fish (boost bet_66 over overbet-ish)
       if (typeId === 'fish' && (action === 'bet_100' || action === 'bet_150' || action === 'allin') &&
           (tier === 'medium' || tier === 'strong') && street !== 'preflop') {
         m *= 0.85;
@@ -15567,21 +15667,13 @@ window.PT_NASH_PUSH_JSON = {
 
       const before = out[action] || 0;
       out[action] = before * m;
-      if (reasonKey && Math.abs(m - 1) > 0.08 && before > 0.02) {
-        explain.push({
-          action: action,
-          gtoFreq: before,
-          mult: m,
-          reason: REASONS[reasonKey] || reasonKey
-        });
-      }
+      pushExplain(explain, action, before, m, reasonKey);
     });
 
     const normalized = normalize(out);
     explain.forEach(function (row) {
       row.exploitFreq = normalized[row.action] || 0;
     });
-    // Deduplicate reasons for UI
     const seen = {};
     const uniqueReasons = [];
     explain.forEach(function (row) {
@@ -15601,35 +15693,145 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
-   * @param {object} gtoStrategy freqs
-   * @param {object} input spot input (needs scoreMode, villainType)
-   * @returns {{ strategy, gtoStrategy, explainDelta, reasons, villainType, applied }}
+   * Exploit-lite por línea/rango (techos bajos). Se puede apilar sobre arquetipo.
+   * scale&lt;1 reduce la magnitud (p.ej. 0.55 sin tipo fijo).
+   */
+  function applyLineLite(strategy, input, signals, scale) {
+    const s = clamp(scale == null ? 1 : scale, 0.2, 1);
+    const tier = heroTier(input);
+    const facing = facingAggression(input);
+    const street = (input && input.street) || 'preflop';
+    if (street === 'preflop' || !signals || !signals.length) {
+      return { strategy: normalize(strategy), explainDelta: [], reasons: [], lineSignals: signals || [] };
+    }
+    const has = function (k) { return signals.indexOf(k) >= 0; };
+    const out = Object.assign({}, strategy);
+    const explain = [];
+    const reasons = [];
+
+    Object.keys(out).forEach(function (action) {
+      let m = 1;
+      let reasonKey = null;
+      const before = out[action] || 0;
+
+      if (!facing) {
+        if (has('passive') || has('capped')) {
+          if (isBetAction(action) && (tier === 'strong' || tier === 'medium')) {
+            m *= 1 + 0.28 * s;
+            reasonKey = 'line_passive_value';
+          } else if (isBetAction(action) && tier === 'air' && !has('polar')) {
+            m *= 1 - 0.35 * s;
+            reasonKey = 'line_passive_bluff';
+          } else if (action === 'check' && (tier === 'strong' || tier === 'medium')) {
+            m *= 1 - 0.2 * s;
+            reasonKey = 'line_passive_value';
+          }
+        }
+        if ((has('delayed') || has('passive')) && has('polar') && isBetAction(action) && tier === 'air') {
+          m *= 1 + 0.22 * s;
+          reasonKey = 'line_polar_fe';
+        }
+        if (has('capped') && isBetAction(action) && tier === 'air' && street === 'river') {
+          m *= 1 + 0.25 * s;
+          reasonKey = 'line_capped_bluff';
+        }
+        if (has('valueHeavy') && isBetAction(action) && tier === 'air') {
+          m *= 1 - 0.4 * s;
+          reasonKey = 'line_value_heavy';
+        }
+      } else if (has('multiBarrel')) {
+        if (action === 'call' && (tier === 'medium' || tier === 'weak')) {
+          m *= 1 + 0.3 * s;
+          reasonKey = 'line_multi_barrel';
+        } else if (action === 'fold' && (tier === 'medium' || tier === 'weak')) {
+          m *= 1 - 0.22 * s;
+          reasonKey = 'line_multi_barrel';
+        }
+      }
+
+      out[action] = before * m;
+      pushExplain(explain, action, before, m, reasonKey);
+      if (reasonKey && reasons.indexOf(REASONS[reasonKey]) < 0) reasons.push(REASONS[reasonKey]);
+    });
+
+    const normalized = normalize(out);
+    explain.forEach(function (row) {
+      row.exploitFreq = normalized[row.action] || 0;
+    });
+    return {
+      strategy: normalized,
+      explainDelta: explain,
+      reasons: reasons,
+      lineSignals: signals
+    };
+  }
+
+  function maxFreqDelta(a, b) {
+    let max = 0;
+    const keys = {};
+    Object.keys(a || {}).forEach(function (k) { keys[k] = 1; });
+    Object.keys(b || {}).forEach(function (k) { keys[k] = 1; });
+    Object.keys(keys).forEach(function (k) {
+      max = Math.max(max, Math.abs((a[k] || 0) - (b[k] || 0)));
+    });
+    return max;
+  }
+
+  /**
+   * Calcula mix explotativo (arquetipo y/o línea) sin mutar el GTO de entrada.
+   * @returns {{ strategy, gtoStrategy, explainDelta, reasons, villainType, applied, lineSignals, tier? }}
    */
   function adjustStrategy(gtoStrategy, input) {
     const gto = normalize(gtoStrategy || {});
     const typeId = resolveType(input);
     const mode = input && input.scoreMode === 'exploit' ? 'exploit' : 'gto';
+    const signals = collectLineSignals(input);
+    let strategy = gto;
+    let explain = [];
+    let reasons = [];
+    let tier = heroTier(input);
+    let archetypeApplied = false;
 
-    if (mode !== 'exploit' || !typeId || typeId === 'pro') {
-      return {
-        strategy: gto,
-        gtoStrategy: gto,
-        explainDelta: [],
-        reasons: typeId === 'pro' ? [REASONS.pro_gto] : [],
-        villainType: typeId,
-        applied: false
-      };
+    if (mode === 'exploit' && typeId && typeId !== 'pro') {
+      const adj = applyMults(gto, input, typeId);
+      strategy = adj.strategy;
+      explain = adj.explainDelta.slice();
+      reasons = adj.reasons.slice();
+      tier = adj.tier;
+      archetypeApplied = true;
+    } else if (mode === 'exploit' && typeId === 'pro') {
+      reasons = [REASONS.pro_gto];
     }
 
-    const adj = applyMults(gto, input, typeId);
+    /* Línea: full scale con arquetipo; lite (0.55) sin tipo fijo / en modo gto (dual). */
+    const lineScale = archetypeApplied ? 0.85 : 0.55;
+    if (signals.length && (archetypeApplied || mode === 'gto' || !typeId || typeId === 'pro')) {
+      const lineAdj = applyLineLite(strategy, input, signals, lineScale);
+      strategy = lineAdj.strategy;
+      explain = explain.concat(lineAdj.explainDelta || []);
+      (lineAdj.reasons || []).forEach(function (r) {
+        if (reasons.indexOf(r) < 0) reasons.push(r);
+      });
+    }
+
+    const material = maxFreqDelta(gto, strategy) >= 0.04;
+    /* Arquetipo tipificado cuenta como applied aunque el delta sea mínimo (TAG≈GTO). */
+    const applied = archetypeApplied || material;
+    explain.forEach(function (row) {
+      if (row.exploitFreq == null) row.exploitFreq = strategy[row.action] || 0;
+      if (row.gtoFreq == null) row.gtoFreq = gto[row.action] || 0;
+    });
+
     return {
-      strategy: adj.strategy,
+      strategy: applied ? strategy : gto,
       gtoStrategy: gto,
-      explainDelta: adj.explainDelta,
-      reasons: adj.reasons,
+      explainDelta: material ? explain : [],
+      reasons: reasons,
       villainType: typeId,
-      applied: true,
-      tier: adj.tier
+      applied: applied,
+      lineSignals: signals,
+      tier: tier,
+      archetypeApplied: archetypeApplied
     };
   }
 
@@ -15644,9 +15846,10 @@ window.PT_NASH_PUSH_JSON = {
     shouldApply: shouldApply,
     resolveType: resolveType,
     heroTier: heroTier,
-    normalize: normalize
+    collectLineSignals: collectLineSignals,
+    applyLineLite: applyLineLite
   };
-})(typeof window !== 'undefined' ? window : globalThis);
+})(typeof window !== 'undefined' ? window : global);
 
 /*
  * villainFormatAdjust.js — Multiplicadores de freqs/sizings del villano pro
@@ -16361,7 +16564,7 @@ window.PT_NASH_PUSH_JSON = {
       out.call = (out.call || 0) + dBoost * 0.75;
       out.raise = (out.raise || 0) + dBoost * 0.25;
     }
-    if (ctx.heroLine && ctx.heroLine.aggressive) {
+    if (ctx.heroLine && (ctx.heroLine.aggressive || ctx.heroLine.polarSize || ctx.heroLine.checkRaiseHero)) {
       out = adjustFacingForLinePressure(out, ctx);
     }
     let sum = (out.fold || 0) + (out.call || 0) + (out.raise || 0);
@@ -22057,6 +22260,60 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /** Contexto de spot para line policy / format adjust / sizing del villano. */
+  /** Resumen de línea del héroe (paridad con torneo heroLinePressure). */
+  function heroLineFromTrainerHand(hand) {
+    const aggStreets = {};
+    let checkCount = 0;
+    let betRaiseCount = 0;
+    let maxBetRatio = 0;
+    let checkRaiseHero = false;
+    const curStreet = hand.stage || hand.street;
+    const consume = function (street, action, betRatio) {
+      if (street !== 'flop' && street !== 'turn' && street !== 'river') return;
+      if (action === 'bet' || action === 'raise' || action === 'allin' || action === 'overbet') {
+        aggStreets[street] = true;
+        betRaiseCount += 1;
+        if (betRatio != null && betRatio > maxBetRatio) maxBetRatio = betRatio;
+      } else if (action === 'check') {
+        checkCount += 1;
+      } else if (action === 'checkraise' || action === 'check-raise') {
+        checkRaiseHero = true;
+        aggStreets[street] = true;
+        betRaiseCount += 1;
+      }
+    };
+    (hand.actionLine || []).forEach(function (e) {
+      if (!e) return;
+      const heroPos = hand.hero && hand.hero.pos;
+      const isHero = !!(e.isHero || e.actor === 'hero' || e.who === 'hero' || e.seat === 'hero'
+        || (heroPos && (e.pos === heroPos || e.position === heroPos)));
+      if (!isHero) return;
+      const ratio = e.betBB != null && e.potBB ? (Number(e.betBB) / Math.max(Number(e.potBB), 0.1)) : null;
+      consume(e.street, e.action || e.type, ratio);
+    });
+    (hand.decisions || []).forEach(function (d) {
+      if (!d) return;
+      const act = d.action || d.chosen;
+      const pot = Number(d.potBeforeBB || d.potBB) || 0;
+      const size = Number(d.betSizeBB || d.toCallBB) || 0;
+      consume(d.street, act, pot > 0 && size > 0 ? size / pot : null);
+    });
+    if (hand._priorStreetCheckCheck) checkCount = Math.max(checkCount, 2);
+    const multiStreetAgg = Object.keys(aggStreets).length;
+    const priorAgg = Object.keys(aggStreets).some(function (st) { return st !== curStreet; });
+    return {
+      multiStreetAgg: multiStreetAgg,
+      betRaiseCount: betRaiseCount,
+      checkCount: checkCount,
+      passive: checkCount >= 2 && betRaiseCount === 0,
+      delayedLead: !priorAgg && checkCount >= 1,
+      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2,
+      polarSize: maxBetRatio >= 0.75,
+      checkRaiseHero: checkRaiseHero,
+      barrelCount: betRaiseCount
+    };
+  }
+
   function buildVillainSpotCtx(hand, extra) {
     extra = extra || {};
     const cfg = hand.playConfig || {};
@@ -22101,6 +22358,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!heroProfile && Ex && Ex.profileFromStats && heroStats) {
       heroProfile = Ex.profileFromStats(heroStats);
     }
+    const heroLine = extra.heroLine || hand.heroLine || heroLineFromTrainerHand(hand);
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
@@ -22139,6 +22397,7 @@ window.PT_NASH_PUSH_JSON = {
       proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
       heroProfile: heroProfile,
       heroSessionStats: heroStats,
+      heroLine: heroLine,
       hub: hub
     }, extra);
   }
@@ -22889,6 +23148,7 @@ window.PT_NASH_PUSH_JSON = {
     const isAgg = !!hand.heroIsAggressor;
     const priorAggressorBet = isAgg ? heroLedOnPriorStreets(hand, node.street) : false;
     const delayedCbet = !!(isAgg && !priorAggressorBet && node.street !== 'flop' && node.street !== 'preflop');
+    const heroLine = heroLineFromTrainerHand(hand);
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
@@ -22899,6 +23159,9 @@ window.PT_NASH_PUSH_JSON = {
       inPosition: hand.heroInPosition,
       priorAggressorBet,
       delayedCbet,
+      priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
+      passiveLine: !!(hand._priorStreetCheckCheck || (heroLine && heroLine.passive)),
+      heroLine: heroLine,
       villainRange: villainRangeAtNode(hand, node),
       madeHandInfo: node.info,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
@@ -24529,13 +24792,23 @@ window.PT_NASH_PUSH_JSON = {
       label: labelFor(node, actionId),
       class: ev.class,
       best: ev.best,
+      classGto: ev.classGto || (evalResult.evaluationGto && evalResult.evaluationGto.class) || ev.class,
+      classExploit: ev.classExploit || (evalResult.evaluationExploit && evalResult.evaluationExploit.class) || ev.class,
+      freqGto: ev.freqGto != null ? ev.freqGto
+        : (evalResult.evaluationGto && evalResult.evaluationGto.frequency),
+      freqExploit: ev.freqExploit != null ? ev.freqExploit
+        : (evalResult.evaluationExploit && evalResult.evaluationExploit.frequency),
+      bestGto: ev.bestGto || (evalResult.evaluationGto && evalResult.evaluationGto.best) || null,
+      bestExploit: ev.bestExploit || (evalResult.evaluationExploit && evalResult.evaluationExploit.best) || null,
       gto: evalResult.strategy,
       gtoBaseline: evalResult.gtoStrategy || null,
+      exploitStrategy: evalResult.exploitStrategy || null,
       scoreMode: evalResult.scoreMode || 'gto',
       villainType: evalResult.villainType || null,
       exploitApplied: !!evalResult.exploitApplied,
       exploitReasons: evalResult.exploitReasons || [],
       explainDelta: evalResult.explainDelta || [],
+      lineSignals: evalResult.lineSignals || [],
       optionBreakdown: evalResult.optionBreakdown,
       evLoss: ev.evLoss,
       evErroneous: ev.evErroneous,
@@ -41476,8 +41749,8 @@ window.PT_NASH_PUSH_JSON = {
       return '<div class="card-box hand-end-decisions"><p class="muted">Sin decisiones del héroe en esta mano.</p></div>';
     }
     var html = '<div class="card-box hand-end-decisions"><h3>' +
-      (decisions.some(function (x) { return x && (x.exploitApplied || x.scoreMode === 'exploit'); })
-        ? 'Evaluación de la mano (explotativa)'
+      (decisions.some(function (x) { return x && (x.exploitApplied || x.classExploit || x.scoreMode === 'exploit'); })
+        ? 'Evaluación GTO + explotativa'
         : 'Evaluación GTO de la mano') +
       '</h3>';
     decisions.forEach(function (d) {
@@ -41498,6 +41771,25 @@ window.PT_NASH_PUSH_JSON = {
         html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
       }
       html += '</div>';
+      if (d.classGto || d.classExploit) {
+        var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
+        var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
+        html += '<div class="dual-verdict-note muted" style="margin-top:4px;font-size:12px">';
+        if (d.classGto) {
+          html += '<span class="verdict ' + esc(d.classGto) + '">GTO: ' + esc(verdictWord(d.classGto))
+            + (gtoPct != null ? ' (' + gtoPct + '%)' : '') + '</span>';
+        }
+        if (d.classGto && d.classExploit) html += ' · ';
+        if (d.classExploit) {
+          html += '<span class="verdict ' + esc(d.classExploit) + '">Explotativo: '
+            + esc(verdictWord(d.classExploit))
+            + (exPct != null ? ' (' + exPct + '%)' : '') + '</span>';
+        }
+        if (d.exploitReasons && d.exploitReasons.length) {
+          html += '<div style="margin-top:2px">' + esc(d.exploitReasons.slice(0, 2).join(' ')) + '</div>';
+        }
+        html += '</div>';
+      }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
@@ -46262,7 +46554,9 @@ window.PT_NASH_PUSH_JSON = {
   function renderHandDecisionsSummary(decisions, matrixSource) {
     if (!decisions || !decisions.length) return '';
     let html = '<div class="card-box" style="margin-top:14px"><h3>' +
-      (decisions.some((x) => x && x.exploitApplied) ? 'Evaluación de la mano (explotativa)' : 'Evaluación GTO de la mano') +
+      (decisions.some((x) => x && (x.exploitApplied || x.classExploit))
+        ? 'Evaluación GTO + explotativa'
+        : 'Evaluación GTO de la mano') +
       '</h3>';
     decisions.forEach((d, i) => {
       html += `<div class="dec-review">
@@ -46281,7 +46575,7 @@ window.PT_NASH_PUSH_JSON = {
       } else if (d.gto) {
         html += renderGtoBars(d.gto, { exploit: !!d.exploitApplied });
       }
-      html += renderExploitDeltaNote(d);
+      html += renderDualVerdictNote(d);
       // Mostrar siempre con matrixSource: el click carga el chunk ranges bajo demanda.
       if (matrixSource) {
         html += `<div class="dec-matrix-row">${matrixStreetBtn(d.street, i, matrixSource)}</div>`;
@@ -47679,17 +47973,68 @@ window.PT_NASH_PUSH_JSON = {
     return html + '</div>';
   }
 
-  function renderExploitDeltaNote(d) {
-    if (!d || !d.exploitApplied) return '';
-    let html = '<div class="exploit-delta-note muted-text" style="margin-top:6px;font-size:12px">';
-    html += '<strong>Vs ' + escapeHtml(d.villainType || 'rival') + ':</strong> ';
+  function pct1(x) {
+    if (x == null || isNaN(Number(x))) return null;
+    return Math.round(Number(x) * 1000) / 10;
+  }
+
+  function renderDualVerdictNote(d) {
+    if (!d) return '';
+    const gtoCls = d.classGto || null;
+    const exCls = d.classExploit || null;
+    const gtoF = pct1(d.freqGto);
+    const exF = pct1(d.freqExploit);
+    const hasDual = !!(gtoCls || exCls || d.exploitApplied || (d.explainDelta && d.explainDelta.length)
+      || (d.lineSignals && d.lineSignals.length));
+    if (!hasDual) return '';
+    let html = '<div class="exploit-delta-note dual-verdict-note muted-text" style="margin-top:6px;font-size:12px">';
+    if (gtoCls || exCls) {
+      html += '<div class="dual-verdict-row" style="margin-bottom:4px">';
+      if (gtoCls) {
+        html += '<span class="verdict ' + escapeHtml(gtoCls) + '">GTO: '
+          + escapeHtml(verdictWord(gtoCls))
+          + (gtoF != null ? ' (' + gtoF + '%)' : '')
+          + '</span>';
+      }
+      if (gtoCls && exCls) html += ' <span style="opacity:.5">·</span> ';
+      if (exCls) {
+        html += '<span class="verdict ' + escapeHtml(exCls) + '">Explotativo: '
+          + escapeHtml(verdictWord(exCls))
+          + (exF != null ? ' (' + exF + '%)' : '')
+          + '</span>';
+      }
+      html += '</div>';
+    }
     const reasons = (d.exploitReasons || []).slice(0, 2);
-    if (reasons.length) html += escapeHtml(reasons.join(' '));
-    else html += 'Mix desviado del GTO según leaks típicos del arquetipo.';
-    if (d.gtoBaseline) {
+    if (reasons.length || d.villainType) {
+      html += '<div>';
+      if (d.villainType) html += '<strong>Vs ' + escapeHtml(d.villainType) + ':</strong> ';
+      if (reasons.length) html += escapeHtml(reasons.join(' '));
+      else if (d.exploitApplied) html += 'Mix desviado del GTO según leaks / línea.';
+      html += '</div>';
+    }
+    const deltas = (d.explainDelta || []).slice(0, 3);
+    if (deltas.length) {
+      html += '<ul style="margin:4px 0 0 16px;padding:0">';
+      deltas.forEach(function (row) {
+        const g = pct1(row.gtoFreq);
+        const e = pct1(row.exploitFreq);
+        html += '<li>' + escapeHtml(actionName(row.action))
+          + ': GTO ' + (g != null ? g + '%' : '—')
+          + ' → exploit ' + (e != null ? e + '%' : '—');
+        if (row.reason) html += ' <span style="opacity:.8">(' + escapeHtml(row.reason) + ')</span>';
+        html += '</li>';
+      });
+      html += '</ul>';
+    }
+    if (d.gtoBaseline && d.exploitApplied) {
       html += renderGtoBars(d.gtoBaseline, { title: 'Referencia GTO (sin explotación):' });
     }
     return html + '</div>';
+  }
+
+  function renderExploitDeltaNote(d) {
+    return renderDualVerdictNote(d);
   }
 
   function finishHand() {
