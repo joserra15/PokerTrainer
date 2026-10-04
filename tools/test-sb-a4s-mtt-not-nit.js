@@ -87,6 +87,14 @@ const cfg = {
   practiceStreet: 'preflop',
   villainLevel: 'pro'
 };
+const openHand = Engine.newHand({
+  type: 'RFI',
+  heroPos: 'SB',
+  seed: 7,
+  forceDeal: { heroCards: ['Ah', '4h'] }
+}, cfg);
+assert.ok(openHand.current.gto && openHand.current.gto.raise > openHand.current.gto.fold,
+  'node.gto tras deal ya favorece raise (got ' + JSON.stringify(openHand.current.gto) + ')');
 const open = Engine.act(Engine.newHand({
   type: 'RFI',
   heroPos: 'SB',

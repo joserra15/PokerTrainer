@@ -2867,7 +2867,7 @@
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
     initHandStacks(hand);
-    // setupVsRFI corre antes de cartas/stacks: recalcular GTO vs jam con mano real.
+    // setupVsRFI / setupRFI corren antes de cartas: recalcular GTO con mano real.
     if (hand.current && hand.current.kind === 'vsRFI' && hand.current.facingAllIn) {
       hand.current.gto = strategyForNode(hand, hand.current);
     }
@@ -2883,6 +2883,13 @@
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
     applyAnteToHand(hand);
+    // Tras forceDeal/ante: refrescar GTO preflop con código de mano real.
+    if (hand.current && hand.hero && hand.hero.code
+      && (hand.current.kind === 'RFI' || hand.current.kind === 'sbLimp'
+        || hand.current.kind === 'vsRFI' || hand.current.kind === 'face3bet'
+        || hand.current.kind === 'face4bet')) {
+      hand.current.gto = strategyForNode(hand, hand.current);
+    }
     if (hand._autoGoFlop) {
       delete hand._autoGoFlop;
       goFlop(hand);
