@@ -42345,13 +42345,16 @@ window.PT_NASH_PUSH_JSON = {
   /* Coordenadas para óvalo horizontal en móvil (más aire en laterales).
    * Arco superior: HJ/CO separados del centro; BTN más bajo a la derecha.
    * Lateral izquierdo: UTG más alto y BB más bajo para no montar fold+cartas. */
+  /* Mid-right a top:42 dejaba la pastilla bet-above (p. ej. «10.00 bb») en la
+   * misma banda Y que el bote en 360px; en CI el solape pasaba de 120px².
+   * Bajarlo a ~60 + bet-below (laterales bajos) deja el canal central libre. */
   const SEAT_COORDS_MOBILE = [
     { top: 94, left: 50 },
     { top: 78, left: 5 },
-    { top: 30, left: 3 },
+    { top: 28, left: 3 },
     { top: 8, left: 28 },
     { top: 8, left: 72 },
-    { top: 42, left: 96 }
+    { top: 60, left: 96 }
   ];
   const SEAT_COORDS_MOBILE_3 = [
     { top: 94, left: 50 },
@@ -46176,12 +46179,12 @@ window.PT_NASH_PUSH_JSON = {
       let placement = seatBetPlacement(c);
       // En móvil las fichas deben alejarse del bote: arco superior → arriba;
       // laterales → vertical en la columna del asiento (abajo si está bajo,
-      // arriba si está alto). Antes el lateral apuntaba al centro y el arco
-      // superior colgaba bet-below sobre el bote (E2E «fichas tapa bote»).
+      // arriba si está alto). Umbral 50: el mid-right móvil vive ~60% para
+      // no compartir banda Y con el bote (E2E «fichas tapa bote»).
       if (mobile) {
         if (c.top < 22) placement = 'bet-above';
         else if (placement === 'bet-left' || placement === 'bet-right') {
-          placement = c.top > 50 ? 'bet-below' : 'bet-above';
+          placement = c.top >= 50 ? 'bet-below' : 'bet-above';
         }
       }
       // Arco superior: burbuja bajo las cartas. En móvil, si las fichas van
@@ -53159,7 +53162,7 @@ window.PT_NASH_PUSH_JSON = {
       if (mobile) {
         if (c.top < 22) placement = 'bet-above';
         else if (placement === 'bet-left' || placement === 'bet-right') {
-          placement = c.top > 50 ? 'bet-below' : 'bet-above';
+          placement = c.top >= 50 ? 'bet-below' : 'bet-above';
         }
       }
       const actBelowCards = c.top < 20 || (mobile && !!actHtml && placement === 'bet-above');
