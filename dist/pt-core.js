@@ -456,6 +456,8 @@
   }
 
   function phaseFromStackBB(stackBB, hub) {
+    /* Nota: push/fold charts usan ≤14bb en GTOPushFold.isPushPhase;
+       aquí la etiqueta de fase UI sigue ≤12 salvo que se pida push explícito. */
     const bb = Number(stackBB) || 100;
     if (hub === 'spin') {
       if (bb <= 12) return 'push';
@@ -5550,21 +5552,71 @@ window.PT_NASH_PUSH_JSON = {
     return pos === 'SB' ? STEAL_SHOVE_SB : STEAL_SHOVE_BTN;
   }
 
-  /** Steal ~15–25 bb: premium → shove; medio GTO → open min; resto fold. */
+  /** Steal light jam (SB/BTN first-in ~14–22bb con ante/presión). */
+  const STEAL_JAM_LIGHT_SB = setFrom([
+    'A9o', 'A8o', 'A7o', 'KTo', 'K9s', 'QTs', 'QJo', 'QTo', 'JTs', 'T9s',
+    '98s', '87s', '76s', 'A5s', 'A4s', 'KJo', 'Q9s', 'J9s',
+    /* Presión SB first-in ~14–20bb: basura con FE (no deep ≥40bb). */
+    'Q3o', 'Q4o', 'Q5o', 'Q8o', 'J4o', 'J5o', 'J8o', 'T6s', '96s', 'K8o'
+  ]);
+  const STEAL_JAM_LIGHT_BTN = setFrom([
+    'A9o', 'A8o', 'A7o', 'K9o', 'Q9o', 'J9o', 'T9o', '87s', '76s', '65s',
+    '97s', '86s', 'T8s', 'J8s', 'KTo', 'QTo'
+  ]);
+
+  function stealJamLightSet(pos) {
+    if (pos === 'SB') return STEAL_JAM_LIGHT_SB;
+    if (pos === 'BTN') return STEAL_JAM_LIGHT_BTN;
+    return null;
+  }
+
+  /** Steal ~15–25 bb: premium → shove; medio GTO → open min; light → mix jam; resto fold. */
   function stealOpenStrategy(input) {
     const code = input.handCode;
     const pos = input.position || input.heroPos || 'BTN';
     const shoveSet = stealShoveSet(pos);
     const ctx = input.rangeContext || null;
+    const stack = Number(input.effStack || input.stackDepth || input.stackBB
+      || (ctx && ctx.stackBB)) || 20;
+    const ante = Number(input.anteBB || (ctx && ctx.anteBB)) || 0;
+    const shortSteal = stack <= 22;
     if (shoveSet[code]) {
+      /* ~22–25bb: open-min es la línea principal (ATo HU/MTT open no debe ser Error).
+         Jam pesado solo en steal corto ≤18bb; 18–20bb mezcla. */
+      if (stack > 20) {
+        return { fold: 0.10, raise: 0.78, allin: 0.12, call: 0 };
+      }
+      if (stack > 18) {
+        return { fold: 0.10, raise: 0.40, allin: 0.50, call: 0 };
+      }
       return { fold: 0.1, raise: 0.05, allin: 0.85, call: 0 };
     }
+    const light = stealJamLightSet(pos);
+    if (shortSteal && light && light[code] && (ante > 0 || stack <= 18 || pos === 'SB')) {
+      /* Jam light con ante/presión: open-min sigue mayoritario, jam deja de ser ~1%. */
+      return { fold: 0.18, raise: 0.52, allin: 0.30, call: 0 };
+    }
     const tier = openRangeTier(code, pos, ctx);
-    if (tier === 'raise') return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
+    if (tier === 'raise') {
+      if (shortSteal && stack <= 18 && (pos === 'SB' || pos === 'BTN')) {
+        return { fold: 0.10, raise: 0.62, allin: 0.28, call: 0 };
+      }
+      return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
+    }
     // En steal el mix se ejecuta como open (no como coin-flip fold/raise).
-    if (tier === 'mix') return { fold: 0.28, raise: 0.67, allin: 0.05, call: 0 };
+    if (tier === 'mix') {
+      if (shortSteal && (pos === 'SB' || pos === 'BTN')) {
+        return { fold: 0.22, raise: 0.55, allin: 0.23, call: 0 };
+      }
+      return { fold: 0.28, raise: 0.67, allin: 0.05, call: 0 };
+    }
     const extra = stealOpenExtraSet(pos);
-    if (extra && extra[code]) return { fold: 0.22, raise: 0.73, allin: 0.05, call: 0 };
+    if (extra && extra[code]) {
+      if (shortSteal && pos === 'SB' && ante > 0) {
+        return { fold: 0.20, raise: 0.55, allin: 0.25, call: 0 };
+      }
+      return { fold: 0.22, raise: 0.73, allin: 0.05, call: 0 };
+    }
     return { fold: 0.96, raise: 0.03, allin: 0.01, call: 0 };
   }
 
@@ -5690,12 +5742,11 @@ window.PT_NASH_PUSH_JSON = {
       || null;
     // Cash nunca es push/fold aunque mttPhase venga mal etiquetado (p.ej. análisis).
     if (hub === 'cash') return false;
-    if (!Tax) {
-      const bb = Number(config && (config.stackBB || config.effStack)) || 100;
-      return bb <= 12;
-    }
+    const bb = Number(config && (config.stackBB || config.effStack || config.stackDepth)) || 100;
+    /* Push efectivo ≤14bb (tabla Nash llega a 14); steal cubre 14–25. */
+    if (!Tax) return bb <= 14;
     const phase = Tax.resolvePhase(config);
-    return phase === 'push' || (Number(config && config.stackBB) || 100) <= 12;
+    return phase === 'push' || bb <= 14;
   }
 
   global.GTOPushFold = {
@@ -8107,10 +8158,35 @@ window.PT_NASH_PUSH_JSON = {
 
   function estimateFoldEquity(input, freqs) {
     const tier = input.madeHandInfo ? input.madeHandInfo.tier : (input.handRank ? input.handRank.tier : 'medium');
-    if (tier === 'air') return 0.32;
-    if (tier === 'weak') return 0.22;
-    if (tier === 'strong') return 0.12;
-    return 0.2;
+    let fe = 0.2;
+    if (tier === 'air') fe = 0.32;
+    else if (tier === 'weak') fe = 0.22;
+    else if (tier === 'strong') fe = 0.12;
+
+    const street = input.street || 'preflop';
+    const inPosition = input.inPosition !== false;
+    /* Delayed solo si el agresor no barreó (no confundir con caller prior=false). */
+    const delayed = input.delayedCbet === true
+      || (input.initiative === 'aggressor' && input.priorAggressorBet === false);
+    const Probe = global.GTOProbeEV;
+    if (Probe && Probe.cbetFoldEquityBoost && input.initiative === 'aggressor') {
+      fe += Probe.cbetFoldEquityBoost(input) || 0;
+    } else if (street === 'river' && delayed && (input.toCallBB || 0) <= 0) {
+      fe += inPosition ? 0.10 : 0.08;
+    } else if (street === 'river' && input.initiative === 'aggressor' && !delayed && tier === 'air') {
+      fe -= 0.08;
+    }
+
+    const pot = Math.max(input.potBeforeBB != null ? input.potBeforeBB : (input.potBB || 1), 0.1);
+    const size = input.betSizeBB || 0;
+    if (size > 0) {
+      const ratio = size / pot;
+      if (ratio >= 1.0) fe += 0.06;
+      else if (ratio >= 0.66) fe += 0.03;
+    }
+    if (input.villainLastAction === 'check') fe += 0.04;
+
+    return Math.max(0.08, Math.min(0.62, fe));
   }
 
   /**
@@ -10179,6 +10255,17 @@ window.PT_NASH_PUSH_JSON = {
       });
     }
 
+    /* Board paired + aire: raise polar representando boat/trips (no solo fold 98%). */
+    const airish = !strongShowdown && !nuts && eqEffective < potOdds + 0.05;
+    if (airish && pairInfo.paired && (node === 'shove' || node === 'overbet' || node === 'large')) {
+      const raiseBoat = node === 'shove' ? 0.12 : 0.16;
+      return wrap({
+        fold: clamp(0.72 + (potOdds - eqEffective) * 0.15, 0.62, 0.86),
+        call: clamp(0.10 - (potOdds - eqEffective) * 0.05, 0.02, 0.16),
+        raise: raiseBoat
+      });
+    }
+
     if (node === 'shove' || toCall >= 50) {
       if (deval.vulnerable || eqEffective < potOdds + 0.08) {
         return wrap({
@@ -10378,7 +10465,12 @@ window.PT_NASH_PUSH_JSON = {
 
     if (band === 'air' || band === 'bluffcatch') {
       if (street === 'river' && polarization > 0.45) {
-        return withOver({ s33: 0.32, s66: 0.34, s100: 0.22 }, 0.14);
+        const delayedPolar = !isTrueBarrelLine(input) || input.delayedCbet === true;
+        const overW = delayedPolar ? 0.22 : 0.14;
+        const split = delayedPolar
+          ? { s33: 0.18, s66: 0.28, s100: 0.32 }
+          : { s33: 0.32, s66: 0.34, s100: 0.22 };
+        return withOver(split, overW);
       }
       base = { s33: 0.52, s66: 0.32, s100: 0.16 };
       return Object.assign({ sOver: 0 }, base);
@@ -10474,6 +10566,20 @@ window.PT_NASH_PUSH_JSON = {
       if (band === 'nuts' || band === 'value') return inPosition ? 0.62 : 0.50;
       if (band === 'merge') return inPosition ? 0.36 : 0.26;
       return inPosition ? 0.28 : 0.18;
+    }
+    if (street === 'river') {
+      if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
+      if (band === 'air' && !isTrueBarrelLine(input)) {
+        // Delayed river stab tras check-check: piso material (no spew).
+        const dry = !texture.wet;
+        const highBoard = texture.category === 'ACE_HIGH' || texture.category === 'HIGH_BOARD'
+          || texture.category === 'KING_HIGH';
+        if (dry || highBoard || texture.paired) {
+          return inPosition ? 0.20 : 0.16;
+        }
+        return inPosition ? 0.14 : 0.10;
+      }
+      return 0;
     }
     if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
     return 0;
@@ -10627,7 +10733,11 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     betTotal *= (band === 'nuts' && street === 'river') ? 1.0 : (streetScale[street] || 1);
-    if (street === 'river' && band === 'air') betTotal = Math.min(betTotal, 0.14);
+    const delayedAirRiver = street === 'river' && band === 'air' && !isTrueBarrelLine(input);
+    if (street === 'river' && band === 'air') {
+      /* Delayed: techo más alto (polar stab); true barrel sigue capped bajo. */
+      betTotal = Math.min(betTotal, delayedAirRiver ? 0.40 : 0.14);
+    }
 
     if (band === 'bluffcatch' && street === 'river') betTotal = Math.min(betTotal, 0.15);
 
@@ -10653,7 +10763,12 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'river') {
-      betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.08);
+      if (!isTrueBarrelLine(input)) {
+        // Delayed river tras check-check: polar stab creíble (techo anti-spew 0.40).
+        betTotal = Math.min(betTotal, inPosition ? 0.36 : 0.28);
+      } else {
+        betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.08);
+      }
     }
     if (!isContinuationBetSpot(input) && input.initiative === 'caller') {
       // Caps escalados por calle: si el tope fijo se aplica DESPUÉS de streetScale,
@@ -11183,13 +11298,20 @@ window.PT_NASH_PUSH_JSON = {
         call = clamp(1 - fold - raise, 0.04, 0.32);
       }
     } else {
+      /* Air: en paired river se puede representar boat/trips → raise polar más frecuente. */
+      const pairedAirBoost = (street === 'river' && texture.paired) ? 0.14 : 0;
       raise = street === 'river'
-        ? clamp(0.04 + (texture.scaryRiver ? 0.05 : 0) + (eqEdge < -0.15 ? 0.04 : 0), 0.03, rb.max)
+        ? clamp(0.04 + (texture.scaryRiver ? 0.05 : 0) + pairedAirBoost
+          + (eqEdge < -0.15 ? 0.04 : 0), 0.03, Math.max(rb.max, pairedAirBoost ? 0.22 : rb.max))
         : (street === 'turn' ? 0.10 : 0.13);
       call = street === 'river'
         ? clamp(0.03 + (eqEdge > 0.05 ? 0.06 : 0), 0.02, 0.10)
         : clamp(0.06 + Math.max(0, eqEdge) * 0.2, 0.04, 0.14);
       fold = clamp(1 - raise - call, 0.55, 0.92);
+      if (street === 'river' && texture.paired) {
+        raise = Math.max(raise, 0.12);
+        fold = clamp(1 - raise - call, 0.50, 0.88);
+      }
     }
 
     if (street === 'turn' && band !== 'nuts' && band !== 'value' && band !== 'air') {
@@ -11205,9 +11327,12 @@ window.PT_NASH_PUSH_JSON = {
 
     if (!inPosition && (texture.paired || texture.wet || texture.scaryRiver)
       && band !== 'nuts' && band !== 'value') {
-      raise *= 0.55;
-      fold = clamp(fold + 0.05, 0, 0.85);
-      call = Math.max(0.04, 1 - fold - raise);
+      /* Air en paired: no castigar el bluff-raise que representa full. */
+      if (!(band === 'air' && texture.paired && street === 'river')) {
+        raise *= 0.55;
+        fold = clamp(fold + 0.05, 0, 0.85);
+        call = Math.max(0.04, 1 - fold - raise);
+      }
     }
 
     let freqs = normalize({ fold, call, raise });
@@ -11811,9 +11936,14 @@ window.PT_NASH_PUSH_JSON = {
       f.bet = street === 'river' ? 0.48 : 0.55;
     }
     f.bet = (f.bet || 0) * (STREET_PROBE_SCALE[street] || 1);
-    if (texture.paired) f.bet *= street === 'river' ? (tier === 'air' ? 0.32 : 0.55) : 0.88;
+    const delayedLegacy = input.delayedCbet === true || input.priorAggressorBet === false;
+    if (texture.paired) {
+      /* Paired river: air polar (represent boat) no se castiga tan fuerte. */
+      if (street === 'river' && tier === 'air') f.bet *= delayedLegacy ? 0.85 : 0.55;
+      else f.bet *= street === 'river' ? 0.55 : 0.88;
+    }
     if (street === 'river' && tier === 'air' && input.initiative === 'aggressor' && input.inPosition) {
-      f.bet = Math.min(f.bet, 0.09);
+      f.bet = Math.min(f.bet, delayedLegacy ? 0.28 : 0.09);
     }
     const pot = input.potBB || 1;
     if (pot >= 8 && street === 'river') f.bet *= 0.72;
@@ -12575,6 +12705,22 @@ window.PT_NASH_PUSH_JSON = {
     const valueAggro = chosen === 'raise' || chosen === 'bet'
       || chosen === 'overbet' || chosen === 'allin'
       || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
+    /* Farol polar creíble (river): delayed/check-check + FE/blockers/sizing — espejo de value. */
+    const bandAirish = opts.band === 'air' || opts.band === 'bluffcatch'
+      || (opts.madeHandInfo && (opts.madeHandInfo.tier === 'air' || opts.madeHandInfo.tier === 'weak'));
+    const delayedLead = opts.delayedCbet === true
+      || (opts.priorAggressorBet === false && opts.villainLastAction === 'check'
+        && (opts.initiative === 'aggressor' || opts.band === 'air'));
+    let goodBluffSignals = 0;
+    if (delayedLead) goodBluffSignals += 2;
+    if ((opts.foldEquity != null ? opts.foldEquity : 0) >= 0.30) goodBluffSignals++;
+    if ((opts.blockerScore != null ? opts.blockerScore : 0) >= 0.28) goodBluffSignals++;
+    if (opts.boardPaired || opts.boardDry) goodBluffSignals++;
+    if (chosen === 'overbet' || (opts.betSizeBB > 0 && opts.potBB > 0
+      && opts.betSizeBB >= opts.potBB * 0.75)) goodBluffSignals++;
+    /* Solo river con lead delayed + al menos otra señal (FE/blockers/texture/sizing). */
+    const goodBluffAggro = !!(valueAggro && bandAirish && delayedLead
+      && opts.street === 'river' && goodBluffSignals >= 3);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }
@@ -12584,7 +12730,7 @@ window.PT_NASH_PUSH_JSON = {
     // Solo promover chosen a "best"/óptima si es competitiva en la mezcla GTO.
     // Sin maxFreq conocido, no promover residuales (~5–12%) por empate EV.
     // Call ~16% vs fold ~70% con ΔEV≈0 (heurística FE) no debe ser óptima.
-    const chosenTrusted = strongValueAggro || chosen === freqBest || (maxFreq > 0
+    const chosenTrusted = strongValueAggro || goodBluffAggro || chosen === freqBest || (maxFreq > 0
       ? evBestTrustedInMix(chosen, freqBest, maxFreq, freq, false)
       : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
@@ -12622,7 +12768,7 @@ window.PT_NASH_PUSH_JSON = {
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
-        cls = (freq >= 0.05 || strongValueAggro) ? 'aceptable' : cls;
+        cls = (freq >= 0.05 || strongValueAggro || goodBluffAggro) ? 'aceptable' : cls;
       }
       if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && chosenTrusted) {
         best = chosen;
@@ -12651,8 +12797,8 @@ window.PT_NASH_PUSH_JSON = {
           // fuga de 1bb o más nunca puede seguir siendo "Óptima": la ficha ya
           // enseña el EV perdido al lado del veredicto.
           if ((freq < 0.40 || evLoss >= 1) && cls === 'optima') cls = 'aceptable';
-        } else if (!(valueAggro && strongValueAggro)) {
-          // Raise/bet con nuts, color o top dos fuertes: no degradar a error por ΔEV heurístico.
+        } else if (!(valueAggro && (strongValueAggro || goodBluffAggro))) {
+          // Raise/bet con nuts/value o farol polar creíble: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
         } else if (cls === 'optima' && freq < 0.15) {
           cls = 'aceptable';
@@ -12672,6 +12818,10 @@ window.PT_NASH_PUSH_JSON = {
     if (valueAggro && strongValueAggro && (cls === 'error' || cls === 'imprecisa')) {
       const passiveMix = (freqBest === 'check' || freqBest === 'fold') && maxFreq >= 0.85 && freq < 0.05;
       if (!passiveMix) cls = 'aceptable';
+    }
+    if (valueAggro && goodBluffAggro && cls === 'error') {
+      /* Farol polar: como mucho imprecisa; aceptable solo con peso material en la mezcla. */
+      cls = freq >= 0.12 ? 'aceptable' : 'imprecisa';
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
@@ -13751,9 +13901,26 @@ window.PT_NASH_PUSH_JSON = {
       if (action !== 'overbet' && betSize > pot * 2.5) {
         errors.push({ type: 'overbet_absurda', msg: 'Sizing excesivo respecto al bote.' });
       }
-      if (tier === 'air' && (freqs.bet || 0) < 0.15 && (freqs.raise || 0) < 0.15
-        && (freqs.overbet || 0) < 0.15) {
-        errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
+      if (tier === 'air') {
+        /* Sumar bet_* + raise/overbet/allin: mirar keys sueltas marcaba casi todo farol river. */
+        let aggroFreq = (freqs.bet || 0) + (freqs.raise || 0) + (freqs.overbet || 0) + (freqs.allin || 0);
+        Object.keys(freqs).forEach(function (k) {
+          if (k.indexOf('bet_') === 0) aggroFreq += freqs[k] || 0;
+        });
+        const street = input.street || 'preflop';
+        const delayedOk = (input.delayedCbet === true
+          || (input.initiative === 'aggressor' && input.priorAggressorBet === false))
+          && input.villainLastAction === 'check';
+        const feOk = (input.foldEquity != null ? input.foldEquity : 0) >= 0.30;
+        const blkOk = Block && input.heroCards && input.board
+          ? (Block.computeBlockerScore(input.heroCards, input.board) || 0) >= 0.28
+          : false;
+        /* Solo river delayed polar con FE/blockers y masa mínima en la mezcla. */
+        const polarLeadOk = street === 'river' && delayedOk && (feOk || blkOk) && toCall <= 0
+          && aggroFreq >= 0.12;
+        if (aggroFreq < 0.15 && !polarLeadOk) {
+          errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
+        }
       }
       if (!dustJam && tier === 'strong' && betSize < pot * 0.2
         && (action === 'bet' || action.startsWith('bet_'))) {
@@ -13763,7 +13930,8 @@ window.PT_NASH_PUSH_JSON = {
       if (!dustJam && action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
-      if (tier === 'air' || tier === 'weak') {
+      /* Solo faroles FACING polarización rival (pagamos apuesta); no leads propios tras checks. */
+      if ((tier === 'air' || tier === 'weak') && toCall > 0) {
         const polarized = input.villainBetRatio >= 0.6 || input.facingNode === 'shove';
         const lowBlockers = Block && input.heroCards && input.board
           ? (Block.computeBlockerScore(input.heroCards, input.board) || 0) < 0.15 : true;
@@ -14281,6 +14449,14 @@ window.PT_NASH_PUSH_JSON = {
         enriched.street || 'preflop', cls.cls, chosenAction,
         enriched.handCode, strategy, enriched.potBB, enriched
       );
+      const Board = global.GTOBoardCluster;
+      const tex = Board && enriched.board ? Board.boardTexture(enriched.board) : null;
+      let blockerScore = null;
+      if (global.GTOBlockers && enriched.heroCards && enriched.board) {
+        try {
+          blockerScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
+        } catch (eBlk) { blockerScore = null; }
+      }
       const reconciled = Classifier.reconcileWithEv(
         cls.cls, chosenAction, cls.best, evResult,
         {
@@ -14293,7 +14469,20 @@ window.PT_NASH_PUSH_JSON = {
           madeCategory: enriched.madeHandInfo && (
             (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
             || enriched.madeHandInfo.category
-          )
+          ),
+          priorAggressorBet: enriched.priorAggressorBet,
+          delayedCbet: enriched.delayedCbet,
+          villainLastAction: enriched.villainLastAction,
+          street: enriched.street,
+          initiative: enriched.initiative,
+          foldEquity: (evResult.mathParams && evResult.mathParams.foldEquityPct != null)
+            ? evResult.mathParams.foldEquityPct / 100
+            : enriched.foldEquity,
+          blockerScore: blockerScore,
+          boardPaired: !!(tex && tex.paired),
+          boardDry: !!(tex && !tex.wet && !tex.paired),
+          betSizeBB: enriched.betSizeBB,
+          potBB: enriched.potBB
         }
       );
       const finalCls0 = reconciled.cls;
@@ -14890,6 +15079,11 @@ window.PT_NASH_PUSH_JSON = {
     const p = profile.postflop;
     let bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult * mwFace.bluff, 0.02, 0.48);
     let valueRaise = clamp(0.22 * p.raiseFreqMult * mwFace.raise, 0.06, 0.5);
+    const betRatio = opts.betRatio != null ? opts.betRatio
+      : (opts.villainBetRatio != null ? opts.villainBetRatio : potOdds);
+    const polarSize = betRatio >= 0.75 || opts.facingNode === 'overbet' || opts.facingNode === 'shove';
+    const passiveLine = !!(opts.passiveLine || opts.delayedHeroLead || opts.linePassive);
+    const boardPaired = !!(opts.boardPaired || (opts.texture && opts.texture.paired));
 
     if (street === 'river') {
       bluffRaise = clamp(bluffRaise * 0.45, 0.01, 0.18);
@@ -14897,14 +15091,28 @@ window.PT_NASH_PUSH_JSON = {
         if (!canAggressWithoutTrash(strength, opts, profile)) return 'fold';
         return r < bluffRaise ? 'raise' : 'fold';
       }
+      /* Tras check-check + overbet/polar: mid-strength foldea más (respeta farol creíble). */
+      if (passiveLine && polarSize && strength < 0.62 && strength > 0.35 && !opts.neverFold) {
+        const foldShare = clamp(0.72 * p.foldMult, 0.48, 0.88);
+        if (r < foldShare) return 'fold';
+        return r < foldShare + valueRaise * 0.25 ? 'raise' : 'call';
+      }
+      /* Raise polar en board paired: bluff-catchers medios foldean más. */
+      if (boardPaired && polarSize && strength < 0.58 && strength > 0.32 && !opts.neverFold) {
+        if (r < clamp(0.48 * p.foldMult, 0.28, 0.72)) return 'fold';
+      }
     }
 
     if (strength > 0.72) return r < valueRaise ? 'raise' : 'call';
     if (strength > potOdds + 0.08) {
-      return r < clamp(0.82 * p.callMult * mwFace.call, 0.28, 0.96) ? 'call' : 'fold';
+      let callP = clamp(0.82 * p.callMult * mwFace.call, 0.28, 0.96);
+      if (street === 'river' && passiveLine && polarSize) callP = clamp(callP * 0.72, 0.18, 0.85);
+      return r < callP ? 'call' : 'fold';
     }
     if (strength > potOdds - 0.05) {
-      return r < clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82) ? 'call' : 'fold';
+      let callP = clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82);
+      if (street === 'river' && passiveLine && polarSize) callP = clamp(callP * 0.65, 0.08, 0.70);
+      return r < callP ? 'call' : 'fold';
     }
     if (canAggressWithoutTrash(strength, opts, profile) && r < bluffRaise) return 'raise';
     return r < clamp(0.14 * p.callMult * mwFace.call, 0.03, 0.38) ? 'call' : 'fold';
@@ -22680,6 +22888,7 @@ window.PT_NASH_PUSH_JSON = {
 
     const isAgg = !!hand.heroIsAggressor;
     const priorAggressorBet = isAgg ? heroLedOnPriorStreets(hand, node.street) : false;
+    const delayedCbet = !!(isAgg && !priorAggressorBet && node.street !== 'flop' && node.street !== 'preflop');
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
@@ -22689,6 +22898,7 @@ window.PT_NASH_PUSH_JSON = {
       initiative: isAgg ? 'aggressor' : 'caller',
       inPosition: hand.heroInPosition,
       priorAggressorBet,
+      delayedCbet,
       villainRange: villainRangeAtNode(hand, node),
       madeHandInfo: node.info,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
@@ -22862,13 +23072,32 @@ window.PT_NASH_PUSH_JSON = {
       || (RSNuts.isAbsoluteNuts && RSNuts.isAbsoluteNuts(hc, hand.board))
     ));
     const neverFold = neverFoldHand || guestNeverFoldVillain(hand);
+    const Board = global.GTOBoardCluster;
+    const tex = Board && hand.board ? Board.boardTexture(hand.board) : null;
+    const priorLed = hand.stage === 'turn' || hand.stage === 'river'
+      ? heroLedOnPriorStreets(hand, hand.stage)
+      : false;
+    const heroChecks = (hand.decisions || []).filter(function (d) {
+      return (d.street === 'flop' || d.street === 'turn')
+        && (d.action === 'check' || d.chosen === 'check');
+    }).length;
+    const delayedHeroLead = !priorLed && heroChecks >= 1 && (hand.stage === 'turn' || hand.stage === 'river');
+    const pot = Math.max(hand.potBB || 1, 0.1);
+    const heroBet = hand.heroAction && hand.heroAction.amount != null
+      ? Number(hand.heroAction.amount)
+      : (hand._lastHeroBetBB != null ? Number(hand._lastHeroBetBB) : 0);
     return {
       street: hand.stage,
       tier: info.tier,
       madeCategory: info.ev ? info.ev.category : 0,
       multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3)),
       holeStrength: holeStrength,
-      neverFold: neverFold
+      neverFold: neverFold,
+      boardPaired: !!(tex && tex.paired),
+      texture: tex,
+      delayedHeroLead: delayedHeroLead,
+      passiveLine: delayedHeroLead,
+      betRatio: heroBet > 0 ? heroBet / pot : null
     };
   }
 

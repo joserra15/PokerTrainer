@@ -219,6 +219,60 @@
     return CLASS_MAP[k] || k;
   }
 
+  /** Orden postflop: último en actuar = IP. */
+  var POSTFLOP_POS_ORDER = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+
+  function heroInPositionPostflop(hand, heroSeat) {
+    if (!hand || !heroSeat) return false;
+    var alive = (hand.seats || []).filter(function (s) { return s && !s.folded; });
+    if (alive.length <= 1) return true;
+    var myIdx = POSTFLOP_POS_ORDER.indexOf(heroSeat.pos);
+    if (myIdx < 0) myIdx = 0;
+    var maxOther = -1;
+    for (var i = 0; i < alive.length; i++) {
+      if (alive[i].id === heroSeat.id) continue;
+      maxOther = Math.max(maxOther, POSTFLOP_POS_ORDER.indexOf(alive[i].pos));
+    }
+    return myIdx > maxOther;
+  }
+
+  /** True si el héroe ya bet/raise en una calle postflop anterior. */
+  function heroLedOnPriorStreets(hand, heroSeat, street) {
+    var prior = street === 'turn' ? ['flop']
+      : (street === 'river' ? ['flop', 'turn'] : []);
+    if (!prior.length || !heroSeat) return false;
+    var heroId = heroSeat.id;
+    var fromDec = (hand.decisions || []).some(function (d) {
+      if (prior.indexOf(d.street) < 0) return false;
+      var a = d.action || d.chosen || '';
+      return a === 'bet' || a === 'raise' || a === 'overbet' || a === 'allin'
+        || (typeof a === 'string' && a.indexOf('bet_') === 0);
+    });
+    if (fromDec) return true;
+    return (hand.log || []).some(function (e) {
+      if (!e || prior.indexOf(e.street) < 0) return false;
+      if (e.seatId !== heroId && e.actorId !== heroId && e.id !== heroId) return false;
+      var act = e.action || e.id || '';
+      return act === 'bet' || act === 'raise' || act === 'allin';
+    });
+  }
+
+  function lastVillainActionOnStreet(hand, heroSeat, street) {
+    var heroId = heroSeat && heroSeat.id;
+    var last = null;
+    (hand.log || []).forEach(function (e) {
+      if (!e || e.street !== street) return;
+      var sid = e.seatId != null ? e.seatId : (e.actorId != null ? e.actorId : e.id);
+      if (sid === heroId) return;
+      last = e.action || e.id || null;
+    });
+    if (last) return last;
+    var other = (hand.seats || []).find(function (s) {
+      return s && !s.folded && !s.isHero && s.lastAction && s.lastAction.street === street;
+    });
+    return other && other.lastAction ? other.lastAction.action : null;
+  }
+
   function actionLabel(action, amount, bb) {
     var a = String(action || '');
     var amt = Number(amount) || 0;
@@ -328,8 +382,11 @@
 
     var hub = resolveFormatHub(hand);
     var phase = resolveTournamentPhase(stackBB, hand);
-    var pushPhase = phase === 'push' || stackBB <= 12;
-    var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
+    var pushPhase = phase === 'push' || stackBB <= 14;
+    var shortPhase = pushPhase || phase === 'short' || stackBB <= 22;
+    var stealPhase = !pushPhase && street === 'preflop' && firstIn
+      && stackBB >= 14 && stackBB <= 25
+      && (heroSeat.pos === 'SB' || heroSeat.pos === 'BTN' || heroSeat.pos === 'CO');
 
     var toCallBB = toCall / bb;
     var potBeforeBB = Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1);
@@ -396,6 +453,20 @@
     var initiative = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp'
       ? 'isolator'
       : resolveInitiative(hand, heroSeat, firstIn);
+    var priorAggressorBet = false;
+    var delayedCbet = false;
+    var villainLastAction = null;
+    var inPosition = false;
+    if (street === 'preflop') {
+      inPosition = false;
+    } else {
+      inPosition = heroInPositionPostflop(hand, heroSeat);
+      if (initiative === 'aggressor') {
+        priorAggressorBet = heroLedOnPriorStreets(hand, heroSeat, street);
+        delayedCbet = !priorAggressorBet;
+      }
+      villainLastAction = lastVillainActionOnStreet(hand, heroSeat, street);
+    }
 
     var cfg = (hand && hand.tournamentConfig) || (hand && hand.config) || {};
     var kind = hand.kind || hand.tournamentKind || cfg.kind || null;
@@ -446,7 +517,10 @@
       availableActions: avail,
       chosenAction: chosen,
       initiative: initiative,
-      inPosition: street === 'preflop' ? false : undefined,
+      inPosition: inPosition,
+      priorAggressorBet: priorAggressorBet,
+      delayedCbet: delayedCbet,
+      villainLastAction: villainLastAction,
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
       kind: kind,
@@ -461,8 +535,10 @@
       tableMax: hand.tableMax != null ? hand.tableMax : seatedN,
       pushFold: !!(pushPhase || facingShove),
       facingAllIn: !!facingShove,
-      preflopMode: (pushPhase || facingShove) ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
-      scenario: (pushPhase || facingShove) ? 'push' : undefined,
+      preflopMode: (pushPhase || facingShove)
+        ? 'push'
+        : (stealPhase ? 'steal' : (shortPhase && street === 'preflop' ? 'short' : 'std')),
+      scenario: (pushPhase || facingShove) ? 'push' : (stealPhase ? 'steal' : undefined),
       anteBB: anteBB,
       /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
       icmEnabled: huWta ? false : true,

@@ -218,13 +218,20 @@
         call = clamp(1 - fold - raise, 0.04, 0.32);
       }
     } else {
+      /* Air: en paired river se puede representar boat/trips → raise polar más frecuente. */
+      const pairedAirBoost = (street === 'river' && texture.paired) ? 0.14 : 0;
       raise = street === 'river'
-        ? clamp(0.04 + (texture.scaryRiver ? 0.05 : 0) + (eqEdge < -0.15 ? 0.04 : 0), 0.03, rb.max)
+        ? clamp(0.04 + (texture.scaryRiver ? 0.05 : 0) + pairedAirBoost
+          + (eqEdge < -0.15 ? 0.04 : 0), 0.03, Math.max(rb.max, pairedAirBoost ? 0.22 : rb.max))
         : (street === 'turn' ? 0.10 : 0.13);
       call = street === 'river'
         ? clamp(0.03 + (eqEdge > 0.05 ? 0.06 : 0), 0.02, 0.10)
         : clamp(0.06 + Math.max(0, eqEdge) * 0.2, 0.04, 0.14);
       fold = clamp(1 - raise - call, 0.55, 0.92);
+      if (street === 'river' && texture.paired) {
+        raise = Math.max(raise, 0.12);
+        fold = clamp(1 - raise - call, 0.50, 0.88);
+      }
     }
 
     if (street === 'turn' && band !== 'nuts' && band !== 'value' && band !== 'air') {
@@ -240,9 +247,12 @@
 
     if (!inPosition && (texture.paired || texture.wet || texture.scaryRiver)
       && band !== 'nuts' && band !== 'value') {
-      raise *= 0.55;
-      fold = clamp(fold + 0.05, 0, 0.85);
-      call = Math.max(0.04, 1 - fold - raise);
+      /* Air en paired: no castigar el bluff-raise que representa full. */
+      if (!(band === 'air' && texture.paired && street === 'river')) {
+        raise *= 0.55;
+        fold = clamp(fold + 0.05, 0, 0.85);
+        call = Math.max(0.04, 1 - fold - raise);
+      }
     }
 
     let freqs = normalize({ fold, call, raise });

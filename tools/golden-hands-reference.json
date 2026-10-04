@@ -20,8 +20,9 @@
       "file": "Poker56.txt",
       "id": "261078480487",
       "heroCode": "A4o",
-      "expectedEvLoss": 4.5,
-      "minDecisions": 1
+      "expectedEvLoss": 0,
+      "minDecisions": 1,
+      "note": "Turn flush (As4d en Jd8d9c6d) tras check rival: value bet, no farol — EV loss 0 tras fix faroles/value."
     },
     {
       "file": "Poker91.txt",
@@ -34,8 +35,9 @@
       "file": "Poker91.txt",
       "id": "261465695578",
       "heroCode": "54o",
-      "expectedEvLoss": 5.3,
-      "minDecisions": 1
+      "expectedEvLoss": 3.2,
+      "minDecisions": 1,
+      "note": "River bet air/weak residual sigue Error (suboptimal_ev); ΔEV recalibrado tras FE contextual."
     },
     {
       "file": "GGPoker-sample.txt",

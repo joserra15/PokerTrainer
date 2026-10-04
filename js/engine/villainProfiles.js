@@ -348,6 +348,11 @@
     const p = profile.postflop;
     let bluffRaise = clamp(0.1 * p.raiseFreqMult * p.bluffFreqMult * mwFace.bluff, 0.02, 0.48);
     let valueRaise = clamp(0.22 * p.raiseFreqMult * mwFace.raise, 0.06, 0.5);
+    const betRatio = opts.betRatio != null ? opts.betRatio
+      : (opts.villainBetRatio != null ? opts.villainBetRatio : potOdds);
+    const polarSize = betRatio >= 0.75 || opts.facingNode === 'overbet' || opts.facingNode === 'shove';
+    const passiveLine = !!(opts.passiveLine || opts.delayedHeroLead || opts.linePassive);
+    const boardPaired = !!(opts.boardPaired || (opts.texture && opts.texture.paired));
 
     if (street === 'river') {
       bluffRaise = clamp(bluffRaise * 0.45, 0.01, 0.18);
@@ -355,14 +360,28 @@
         if (!canAggressWithoutTrash(strength, opts, profile)) return 'fold';
         return r < bluffRaise ? 'raise' : 'fold';
       }
+      /* Tras check-check + overbet/polar: mid-strength foldea más (respeta farol creíble). */
+      if (passiveLine && polarSize && strength < 0.62 && strength > 0.35 && !opts.neverFold) {
+        const foldShare = clamp(0.72 * p.foldMult, 0.48, 0.88);
+        if (r < foldShare) return 'fold';
+        return r < foldShare + valueRaise * 0.25 ? 'raise' : 'call';
+      }
+      /* Raise polar en board paired: bluff-catchers medios foldean más. */
+      if (boardPaired && polarSize && strength < 0.58 && strength > 0.32 && !opts.neverFold) {
+        if (r < clamp(0.48 * p.foldMult, 0.28, 0.72)) return 'fold';
+      }
     }
 
     if (strength > 0.72) return r < valueRaise ? 'raise' : 'call';
     if (strength > potOdds + 0.08) {
-      return r < clamp(0.82 * p.callMult * mwFace.call, 0.28, 0.96) ? 'call' : 'fold';
+      let callP = clamp(0.82 * p.callMult * mwFace.call, 0.28, 0.96);
+      if (street === 'river' && passiveLine && polarSize) callP = clamp(callP * 0.72, 0.18, 0.85);
+      return r < callP ? 'call' : 'fold';
     }
     if (strength > potOdds - 0.05) {
-      return r < clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82) ? 'call' : 'fold';
+      let callP = clamp(0.48 * p.callMult * mwFace.call, 0.14, 0.82);
+      if (street === 'river' && passiveLine && polarSize) callP = clamp(callP * 0.65, 0.08, 0.70);
+      return r < callP ? 'call' : 'fold';
     }
     if (canAggressWithoutTrash(strength, opts, profile) && r < bluffRaise) return 'raise';
     return r < clamp(0.14 * p.callMult * mwFace.call, 0.03, 0.38) ? 'call' : 'fold';

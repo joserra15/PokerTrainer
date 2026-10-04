@@ -157,4 +157,28 @@ const assertOk = (cond, msg) => { assert.ok(cond, msg); };
   console.log('OK CSS HUD/acción móvil');
 })();
 
+// --- Anti-regresión faroles: suma bet_* material no es Error solo por bet===0 ---
+(function airBetMaterialMixNotErrorByKey() {
+  const strat = { check: 0.70, bet_33: 0.10, bet_66: 0.08, bet_100: 0.06, overbet: 0.06, bet: 0, raise: 0 };
+  const errs = sandbox.window.GTOErrors.detectErrors({
+    chosenAction: 'overbet',
+    potBB: 12,
+    toCallBB: 0,
+    betSizeBB: 15,
+    spr: 5,
+    street: 'river',
+    strategy: strat,
+    madeHandInfo: { tier: 'air' },
+    priorAggressorBet: false,
+    delayedCbet: true,
+    villainLastAction: 'check',
+    foldEquity: 0.36,
+    heroCards: ['7h', '6c'],
+    board: ['As', 'Kd', '2c', '3h', '8d']
+  });
+  assertOk(!errs.some(function (e) { return e.type === 'bluff_excesivo'; }),
+    'air con suma bet_* ≥15% no dispara bluff_excesivo');
+  console.log('OK air bet material mix sin bluff_excesivo falso');
+})();
+
 console.log('\n*** test-feedback-ev-mix OK ***');

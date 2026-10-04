@@ -257,21 +257,71 @@
     return pos === 'SB' ? STEAL_SHOVE_SB : STEAL_SHOVE_BTN;
   }
 
-  /** Steal ~15–25 bb: premium → shove; medio GTO → open min; resto fold. */
+  /** Steal light jam (SB/BTN first-in ~14–22bb con ante/presión). */
+  const STEAL_JAM_LIGHT_SB = setFrom([
+    'A9o', 'A8o', 'A7o', 'KTo', 'K9s', 'QTs', 'QJo', 'QTo', 'JTs', 'T9s',
+    '98s', '87s', '76s', 'A5s', 'A4s', 'KJo', 'Q9s', 'J9s',
+    /* Presión SB first-in ~14–20bb: basura con FE (no deep ≥40bb). */
+    'Q3o', 'Q4o', 'Q5o', 'Q8o', 'J4o', 'J5o', 'J8o', 'T6s', '96s', 'K8o'
+  ]);
+  const STEAL_JAM_LIGHT_BTN = setFrom([
+    'A9o', 'A8o', 'A7o', 'K9o', 'Q9o', 'J9o', 'T9o', '87s', '76s', '65s',
+    '97s', '86s', 'T8s', 'J8s', 'KTo', 'QTo'
+  ]);
+
+  function stealJamLightSet(pos) {
+    if (pos === 'SB') return STEAL_JAM_LIGHT_SB;
+    if (pos === 'BTN') return STEAL_JAM_LIGHT_BTN;
+    return null;
+  }
+
+  /** Steal ~15–25 bb: premium → shove; medio GTO → open min; light → mix jam; resto fold. */
   function stealOpenStrategy(input) {
     const code = input.handCode;
     const pos = input.position || input.heroPos || 'BTN';
     const shoveSet = stealShoveSet(pos);
     const ctx = input.rangeContext || null;
+    const stack = Number(input.effStack || input.stackDepth || input.stackBB
+      || (ctx && ctx.stackBB)) || 20;
+    const ante = Number(input.anteBB || (ctx && ctx.anteBB)) || 0;
+    const shortSteal = stack <= 22;
     if (shoveSet[code]) {
+      /* ~22–25bb: open-min es la línea principal (ATo HU/MTT open no debe ser Error).
+         Jam pesado solo en steal corto ≤18bb; 18–20bb mezcla. */
+      if (stack > 20) {
+        return { fold: 0.10, raise: 0.78, allin: 0.12, call: 0 };
+      }
+      if (stack > 18) {
+        return { fold: 0.10, raise: 0.40, allin: 0.50, call: 0 };
+      }
       return { fold: 0.1, raise: 0.05, allin: 0.85, call: 0 };
     }
+    const light = stealJamLightSet(pos);
+    if (shortSteal && light && light[code] && (ante > 0 || stack <= 18 || pos === 'SB')) {
+      /* Jam light con ante/presión: open-min sigue mayoritario, jam deja de ser ~1%. */
+      return { fold: 0.18, raise: 0.52, allin: 0.30, call: 0 };
+    }
     const tier = openRangeTier(code, pos, ctx);
-    if (tier === 'raise') return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
+    if (tier === 'raise') {
+      if (shortSteal && stack <= 18 && (pos === 'SB' || pos === 'BTN')) {
+        return { fold: 0.10, raise: 0.62, allin: 0.28, call: 0 };
+      }
+      return { fold: 0.12, raise: 0.83, allin: 0.05, call: 0 };
+    }
     // En steal el mix se ejecuta como open (no como coin-flip fold/raise).
-    if (tier === 'mix') return { fold: 0.28, raise: 0.67, allin: 0.05, call: 0 };
+    if (tier === 'mix') {
+      if (shortSteal && (pos === 'SB' || pos === 'BTN')) {
+        return { fold: 0.22, raise: 0.55, allin: 0.23, call: 0 };
+      }
+      return { fold: 0.28, raise: 0.67, allin: 0.05, call: 0 };
+    }
     const extra = stealOpenExtraSet(pos);
-    if (extra && extra[code]) return { fold: 0.22, raise: 0.73, allin: 0.05, call: 0 };
+    if (extra && extra[code]) {
+      if (shortSteal && pos === 'SB' && ante > 0) {
+        return { fold: 0.20, raise: 0.55, allin: 0.25, call: 0 };
+      }
+      return { fold: 0.22, raise: 0.73, allin: 0.05, call: 0 };
+    }
     return { fold: 0.96, raise: 0.03, allin: 0.01, call: 0 };
   }
 
@@ -397,12 +447,11 @@
       || null;
     // Cash nunca es push/fold aunque mttPhase venga mal etiquetado (p.ej. análisis).
     if (hub === 'cash') return false;
-    if (!Tax) {
-      const bb = Number(config && (config.stackBB || config.effStack)) || 100;
-      return bb <= 12;
-    }
+    const bb = Number(config && (config.stackBB || config.effStack || config.stackDepth)) || 100;
+    /* Push efectivo ≤14bb (tabla Nash llega a 14); steal cubre 14–25. */
+    if (!Tax) return bb <= 14;
     const phase = Tax.resolvePhase(config);
-    return phase === 'push' || (Number(config && config.stackBB) || 100) <= 12;
+    return phase === 'push' || bb <= 14;
   }
 
   global.GTOPushFold = {

@@ -88,6 +88,8 @@
   }
 
   function phaseFromStackBB(stackBB, hub) {
+    /* Nota: push/fold charts usan ≤14bb en GTOPushFold.isPushPhase;
+       aquí la etiqueta de fase UI sigue ≤12 salvo que se pida push explícito. */
     const bb = Number(stackBB) || 100;
     if (hub === 'spin') {
       if (bb <= 12) return 'push';

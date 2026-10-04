@@ -346,6 +346,17 @@
       });
     }
 
+    /* Board paired + aire: raise polar representando boat/trips (no solo fold 98%). */
+    const airish = !strongShowdown && !nuts && eqEffective < potOdds + 0.05;
+    if (airish && pairInfo.paired && (node === 'shove' || node === 'overbet' || node === 'large')) {
+      const raiseBoat = node === 'shove' ? 0.12 : 0.16;
+      return wrap({
+        fold: clamp(0.72 + (potOdds - eqEffective) * 0.15, 0.62, 0.86),
+        call: clamp(0.10 - (potOdds - eqEffective) * 0.05, 0.02, 0.16),
+        raise: raiseBoat
+      });
+    }
+
     if (node === 'shove' || toCall >= 50) {
       if (deval.vulnerable || eqEffective < potOdds + 0.08) {
         return wrap({

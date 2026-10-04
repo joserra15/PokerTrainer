@@ -206,6 +206,22 @@
     const valueAggro = chosen === 'raise' || chosen === 'bet'
       || chosen === 'overbet' || chosen === 'allin'
       || (typeof chosen === 'string' && chosen.indexOf('bet_') === 0);
+    /* Farol polar creíble (river): delayed/check-check + FE/blockers/sizing — espejo de value. */
+    const bandAirish = opts.band === 'air' || opts.band === 'bluffcatch'
+      || (opts.madeHandInfo && (opts.madeHandInfo.tier === 'air' || opts.madeHandInfo.tier === 'weak'));
+    const delayedLead = opts.delayedCbet === true
+      || (opts.priorAggressorBet === false && opts.villainLastAction === 'check'
+        && (opts.initiative === 'aggressor' || opts.band === 'air'));
+    let goodBluffSignals = 0;
+    if (delayedLead) goodBluffSignals += 2;
+    if ((opts.foldEquity != null ? opts.foldEquity : 0) >= 0.30) goodBluffSignals++;
+    if ((opts.blockerScore != null ? opts.blockerScore : 0) >= 0.28) goodBluffSignals++;
+    if (opts.boardPaired || opts.boardDry) goodBluffSignals++;
+    if (chosen === 'overbet' || (opts.betSizeBB > 0 && opts.potBB > 0
+      && opts.betSizeBB >= opts.potBB * 0.75)) goodBluffSignals++;
+    /* Solo river con lead delayed + al menos otra señal (FE/blockers/texture/sizing). */
+    const goodBluffAggro = !!(valueAggro && bandAirish && delayedLead
+      && opts.street === 'river' && goodBluffSignals >= 3);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }
@@ -215,7 +231,7 @@
     // Solo promover chosen a "best"/óptima si es competitiva en la mezcla GTO.
     // Sin maxFreq conocido, no promover residuales (~5–12%) por empate EV.
     // Call ~16% vs fold ~70% con ΔEV≈0 (heurística FE) no debe ser óptima.
-    const chosenTrusted = strongValueAggro || chosen === freqBest || (maxFreq > 0
+    const chosenTrusted = strongValueAggro || goodBluffAggro || chosen === freqBest || (maxFreq > 0
       ? evBestTrustedInMix(chosen, freqBest, maxFreq, freq, false)
       : freq >= 0.40);
     if (delta <= EV_OPTIMA_BB) {
@@ -253,7 +269,7 @@
       }
     } else if (delta <= EV_TIE_BB) {
       if (cls === 'error' || cls === 'imprecisa') {
-        cls = (freq >= 0.05 || strongValueAggro) ? 'aceptable' : cls;
+        cls = (freq >= 0.05 || strongValueAggro || goodBluffAggro) ? 'aceptable' : cls;
       }
       if ((evResult.actionEV || 0) >= (evResult.bestEV || 0) - EV_OPTIMA_BB && chosenTrusted) {
         best = chosen;
@@ -282,8 +298,8 @@
           // fuga de 1bb o más nunca puede seguir siendo "Óptima": la ficha ya
           // enseña el EV perdido al lado del veredicto.
           if ((freq < 0.40 || evLoss >= 1) && cls === 'optima') cls = 'aceptable';
-        } else if (!(valueAggro && strongValueAggro)) {
-          // Raise/bet con nuts, color o top dos fuertes: no degradar a error por ΔEV heurístico.
+        } else if (!(valueAggro && (strongValueAggro || goodBluffAggro))) {
+          // Raise/bet con nuts/value o farol polar creíble: no degradar a error por ΔEV heurístico.
           cls = evLoss >= 1 ? 'error' : 'imprecisa';
         } else if (cls === 'optima' && freq < 0.15) {
           cls = 'aceptable';
@@ -303,6 +319,10 @@
     if (valueAggro && strongValueAggro && (cls === 'error' || cls === 'imprecisa')) {
       const passiveMix = (freqBest === 'check' || freqBest === 'fold') && maxFreq >= 0.85 && freq < 0.05;
       if (!passiveMix) cls = 'aceptable';
+    }
+    if (valueAggro && goodBluffAggro && cls === 'error') {
+      /* Farol polar: como mucho imprecisa; aceptable solo con peso material en la mezcla. */
+      cls = freq >= 0.12 ? 'aceptable' : 'imprecisa';
     }
 
     best = bestCoherentWithMix(best, freqBest, opts, chosen, freq, maxFreq, callSinOdds);
