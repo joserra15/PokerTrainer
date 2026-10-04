@@ -54,7 +54,22 @@ const settingsSrc = fs.readFileSync(path.join(__dirname, '..', 'js/account-setti
 assert.ok(/data-settings-lang|pt_lang_v1|settings-lang/.test(settingsSrc), 'settings lang UI');
 assert.ok(/advisor|PTLiveAdvisor|settings-advisor/.test(settingsSrc), 'settings advisor');
 assert.ok(/settings-card-style|PTCardStyle|Estilo de cartas/.test(settingsSrc), 'settings card style');
+assert.ok(/settings-table-speed|PTTournamentTableSpeed|Velocidad de mesa/.test(settingsSrc),
+  'settings table speed');
 assert.ok(/settings-help|data-open-help|hotkey|ayuda/i.test(settingsSrc), 'settings help/hotkeys link');
+
+vm.runInContext(
+  fs.readFileSync(path.join(__dirname, '..', 'js/tournament/table-speed.js'), 'utf8'),
+  sandbox,
+  { filename: 'table-speed.js' }
+);
+const TS = sandbox.window.PTTournamentTableSpeed;
+assert.ok(TS, 'PTTournamentTableSpeed');
+assert.strictEqual(TS.load(), 'veryFast');
+assert.strictEqual(TS.save('normal'), 'normal');
+assert.strictEqual(localStore.pt_table_speed_v1, 'normal');
+assert.strictEqual(TS.load(), 'normal');
+assert.strictEqual(TS.multiplier('fast'), 1.75);
 assert.ok(/settings-push-enable/.test(settingsSrc), 'toggle push');
 assert.ok(/settings-push-test/.test(settingsSrc), 'botón prueba push');
 assert.ok(/PTPush/.test(settingsSrc), 'bind PTPush');

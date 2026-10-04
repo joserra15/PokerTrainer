@@ -4032,6 +4032,7 @@
 
   function btnClassForAction(id) {
     if (!id) return 'fold';
+    if (id === 'limp') return 'call';
     if (id.indexOf('bet_') === 0 || id === 'bet') return 'bet';
     return id.split('_')[0];
   }

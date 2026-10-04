@@ -2927,7 +2927,7 @@
     assignHeroFromTable(hand);
     assignSeatProfiles(hand);
     initHandStacks(hand);
-    // setupVsRFI corre antes de cartas/stacks: recalcular GTO vs jam con mano real.
+    // setupVsRFI / setupRFI corren antes de cartas: recalcular GTO con mano real.
     if (hand.current && hand.current.kind === 'vsRFI' && hand.current.facingAllIn) {
       hand.current.gto = strategyForNode(hand, hand.current);
     }
@@ -2943,6 +2943,13 @@
     }
     if (force && force.forceScript) initForceScript(hand, force.forceScript);
     applyAnteToHand(hand);
+    // Tras forceDeal/ante: refrescar GTO preflop con código de mano real.
+    if (hand.current && hand.hero && hand.hero.code
+      && (hand.current.kind === 'RFI' || hand.current.kind === 'sbLimp'
+        || hand.current.kind === 'vsRFI' || hand.current.kind === 'face3bet'
+        || hand.current.kind === 'face4bet')) {
+      hand.current.gto = strategyForNode(hand, hand.current);
+    }
     if (hand._autoGoFlop) {
       delete hand._autoGoFlop;
       goFlop(hand);
@@ -3354,7 +3361,12 @@
         { id: 'raise', label: `Subir a ${openSize}bb` }
       ];
       context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`;
-      if (hand.playConfig && hand.playConfig.guestTrap) {
+      // SB vs BB folded-to: limpear (completar) es acción legal en mesa.
+      // Guest traps también ofrecen limp desde otras sillas como cebo.
+      // Freq GTO = 0 aquí: el chart RFI es raise/fold; el spot dedicado
+      // `sbLimp` usa charts con limp. Así la Escuela C-05 no cambia de veredicto.
+      const offerLimp = !!(hand.playConfig && hand.playConfig.guestTrap) || pos === 'SB';
+      if (offerLimp) {
         const heroBlind = pos === 'SB' ? SB : (pos === 'BB' ? BBET : 0);
         const limpAdd = round2(BBET - heroBlind);
         options.splice(1, 0, {

@@ -100,7 +100,8 @@ window.PT_VS_3BET_JSON = {
       }
     },
     "SB_vs_BB": {
-      "fourBet": "TT+, AQs+, AKo, A5s-A2s",
+      "fourBet": "TT+, AQs+, AKo",
+      "fourBetMix": "A5s-A2s",
       "call": "99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo",
       "callMix": "66, 55, 44, T9s, 98s, KJo, QJo"
     }

@@ -95,6 +95,8 @@
       /* Wallet de Koins en core: el entrenador suma manos sin abrir Torneos. */
       'js/tournament/wallet.js',
       'js/tournament/koins-recompute.js',
+      /* Preferencia de velocidad de mesa (Configuración + Torneos). */
+      'js/tournament/table-speed.js',
       'js/entitlements.js',
       'js/billing.js',
       'js/founder-request.js',
@@ -156,6 +158,7 @@
       'js/tournament/blinds.js',
       'js/tournament/names.js',
       'js/tournament/config.js',
+      'js/tournament/table-speed.js',
       'js/tournament/seating.js',
       'js/tournament/state.js',
       'js/tournament/gto-eval.js',
