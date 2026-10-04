@@ -5,6 +5,9 @@
 (function (global) {
   'use strict';
 
+  /** Mínimo legal de apuesta abierta (bet, no raise) en NLHE = 1bb. */
+  const MIN_OPEN_BET_BB = 1;
+
   function roundBB(x) {
     return Math.round((Number(x) || 0) * 100) / 100;
   }
@@ -12,6 +15,24 @@
   /** Muestra bb limpio: "37.00" en lugar de "62.39999999999999". */
   function formatBB(x) {
     return roundBB(x).toFixed(2);
+  }
+
+  /**
+   * Suelo de apuesta abierta postflop: nunca < 1bb.
+   * El all-in corto (<1bb) se aplica después con el cap de stack restante.
+   */
+  function floorOpenBetBB(sizeBB) {
+    const s = roundBB(sizeBB);
+    if (!(s > 0)) return 0;
+    return Math.max(MIN_OPEN_BET_BB, s);
+  }
+
+  /** Tamaño de lead = max(1bb, pot × fracción). */
+  function openBetSizeBB(potBB, frac) {
+    const pot = Math.max(Number(potBB) || 0, 0.1);
+    const f = Math.max(Number(frac) || 0, 0);
+    if (!(f > 0)) return 0;
+    return floorOpenBetBB(pot * f);
   }
 
   function euroToBB(euro, bb) {
@@ -42,6 +63,15 @@
   }
 
   global.GTOPotMath = {
-    roundBB, formatBB, euroToBB, bbToCents, centsToBB, potBBFromEuro, potOdds
+    MIN_OPEN_BET_BB,
+    roundBB,
+    formatBB,
+    floorOpenBetBB,
+    openBetSizeBB,
+    euroToBB,
+    bbToCents,
+    centsToBB,
+    potBBFromEuro,
+    potOdds
   };
 })(window);

@@ -499,16 +499,32 @@
 
   function betSizingOptions(potBB, wet) {
     const pot = Math.max(potBB || 1, 1);
-    const s33 = Math.round(pot * 0.33 * 100) / 100;
-    const s66 = Math.round(pot * (wet ? 0.66 : 0.55) * 100) / 100;
-    const s100 = Math.round(pot * 100) / 100;
-    const sOver = Math.round(pot * 1.5 * 100) / 100;
-    return [
+    const PM = global.GTOPotMath;
+    const sizeOf = function (frac) {
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, frac);
+      const raw = Math.round(pot * frac * 100) / 100;
+      return raw > 0 ? Math.max(1, raw) : 0;
+    };
+    const s33 = sizeOf(0.33);
+    const s66 = sizeOf(wet ? 0.66 : 0.55);
+    const s100 = sizeOf(1);
+    const sOver = sizeOf(1.5);
+    // En botes muy pequeños varios % colapsan al mínimo legal 1bb: una sola opción.
+    const specs = [
       { id: 'bet_33', label: `${s33}bb (33%)`, size: s33 },
       { id: 'bet_66', label: `${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
       { id: 'bet_100', label: `${s100}bb (pot)`, size: s100 },
       { id: 'overbet', label: `${sOver}bb (150%)`, size: sOver }
     ];
+    const out = [];
+    const seen = Object.create(null);
+    specs.forEach(function (s) {
+      const key = String(s.size);
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(s);
+    });
+    return out;
   }
 
   function getStrategy(input, spotKey) {

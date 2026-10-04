@@ -425,13 +425,20 @@
     return r < betFreq ? 'bet' : 'check';
   }
 
+  function floorOpenBet(sizeBB) {
+    const PM = global.GTOPotMath;
+    if (PM && PM.floorOpenBetBB) return PM.floorOpenBetBB(sizeBB);
+    const s = Math.round((Number(sizeBB) || 0) * 100) / 100;
+    return s > 0 ? Math.max(1, s) : 0;
+  }
+
   function betSizeBB(potBB, profile, rnd, opts) {
     opts = opts || {};
     const pot = Math.max(potBB || 1, 0.1);
 
     // Override desde strategy size key / fracción muestreada
     if (opts.frac != null && opts.frac > 0) {
-      return Math.round(pot * opts.frac * 100) / 100;
+      return floorOpenBet(Math.round(pot * opts.frac * 100) / 100);
     }
     if (opts.sizeKey) {
       const VS = global.GTOVillainSizing;
@@ -439,7 +446,9 @@
         return VS.amountFromKey(pot, opts.sizeKey, null, profile, rnd, opts);
       }
       const map = { bet_33: 0.33, bet_66: 0.66, bet_100: 1, bet_125: 1.25, overbet: 1.5, bet: 0.5 };
-      if (map[opts.sizeKey] != null) return Math.round(pot * map[opts.sizeKey] * 100) / 100;
+      if (map[opts.sizeKey] != null) {
+        return floorOpenBet(Math.round(pot * map[opts.sizeKey] * 100) / 100);
+      }
     }
 
     const mult = (profile.postflop && profile.postflop.betSizeMult) || 1;
@@ -471,7 +480,7 @@
     if (opts.street === 'river' && (opts.strength || 0) < 0.55 && frac <= 1.05) {
       frac = clamp(frac * 0.55, 0.25, 0.5);
     }
-    return Math.round(pot * frac * 100) / 100;
+    return floorOpenBet(Math.round(pot * frac * 100) / 100);
   }
 
   function adjustFoldProb(base, profile) {

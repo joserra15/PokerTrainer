@@ -305,9 +305,15 @@
     const texture = Board ? Board.boardTexture(input.board || []) : {};
     const streetScale = { flop: 1.0, turn: 0.76, river: 0.46 };
 
-    const s33 = pot * 0.33;
-    const s66 = pot * (texture.wet ? 0.66 : 0.55);
-    const s100 = pot;
+    const PM = global.GTOPotMath;
+    const openSize = function (frac) {
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, frac);
+      const raw = pot * frac;
+      return raw > 0 ? Math.max(1, raw) : 0;
+    };
+    const s33 = openSize(0.33);
+    const s66 = openSize(texture.wet ? 0.66 : 0.55);
+    const s100 = openSize(1);
 
     const evCheckVal = evCheck(equity, pot, rf);
     const sizes = [

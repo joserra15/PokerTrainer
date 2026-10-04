@@ -8,6 +8,16 @@
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function round2(x) { return Math.round(x * 100) / 100; }
 
+  /** Lead postflop: nunca por debajo de 1bb (mínimo legal NLHE). */
+  function openAmountBB(potBB, frac) {
+    const PM = global.GTOPotMath;
+    if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(potBB, frac);
+    const pot = Math.max(potBB || 1, 0.1);
+    const f = Math.max(frac || 0, 0);
+    if (!(f > 0)) return 0;
+    return Math.max(1, round2(pot * f));
+  }
+
   const SIZE_KEYS = [
     { key: 'bet_33', frac: 0.33 },
     { key: 'bet_66', frac: 0.66 },
@@ -83,7 +93,7 @@
         action: 'bet',
         sizeKey: pk,
         frac: frac,
-        amountBB: round2(potBB * frac)
+        amountBB: openAmountBB(potBB, frac)
       };
     }
 
@@ -133,7 +143,7 @@
           action: 'bet',
           sizeKey: e.key,
           frac: frac,
-          amountBB: round2(potBB * frac)
+          amountBB: openAmountBB(potBB, frac)
         };
       }
     }
@@ -209,16 +219,16 @@
   /** amountBB desde sizeKey/frac o fallback perfil. */
   function amountFromKey(potBB, sizeKey, frac, profile, rnd, opts) {
     potBB = Math.max(potBB || 1, 0.1);
-    if (frac != null && frac > 0) return round2(potBB * frac);
+    if (frac != null && frac > 0) return openAmountBB(potBB, frac);
     const f = fracForKey(sizeKey);
     if (f != null) {
       let use = f;
       if (sizeKey === 'overbet') use = clamp(1.35 + ((rnd != null ? rnd : Math.random()) * 0.4), 1.25, 1.75);
-      return round2(potBB * use);
+      return openAmountBB(potBB, use);
     }
     const VP = global.GTOVillainProfiles;
     if (VP && VP.betSizeBB) return VP.betSizeBB(potBB, profile, rnd, opts);
-    return round2(potBB * 0.5);
+    return openAmountBB(potBB, 0.5);
   }
 
   global.GTOVillainSizing = {
