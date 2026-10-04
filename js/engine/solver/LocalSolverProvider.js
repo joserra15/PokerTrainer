@@ -269,16 +269,38 @@
     const gtoStrategy = Object.assign({}, strategy);
     const Exploit = global.GTOHeroExploitAdjust;
     let exploitMeta = null;
+    let primaryMeta = null;
     if (Exploit && typeof Exploit.adjustStrategy === 'function') {
-      exploitMeta = Exploit.adjustStrategy(gtoStrategy, enriched);
+      /* Dual: siempre calcular mezcla explotativa completa (arquetipo) para
+         classExploit / freqExploit, aunque el primario sea GTO. */
+      exploitMeta = Exploit.adjustStrategy(gtoStrategy, Object.assign({}, enriched, {
+        scoreMode: 'exploit'
+      }));
+      primaryMeta = (enriched.scoreMode === 'exploit')
+        ? exploitMeta
+        : Exploit.adjustStrategy(gtoStrategy, Object.assign({}, enriched, {
+          scoreMode: enriched.scoreMode || 'gto'
+        }));
     }
     const exploitStrategy = (exploitMeta && exploitMeta.strategy)
       ? Object.assign({}, exploitMeta.strategy)
       : Object.assign({}, gtoStrategy);
-    /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat). */
+    /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat).
+       En torneos el detalle «Evaluación GTO» y el paso a paso usan primario GTO.
+       exploitApplied refleja solo el primario (no el snapshot dual). */
     const useExploitPrimary = !!(Exploit && Exploit.shouldApply(enriched)
       && exploitMeta && exploitMeta.archetypeApplied);
-    strategy = useExploitPrimary ? exploitStrategy : gtoStrategy;
+    if (useExploitPrimary) {
+      strategy = exploitStrategy;
+    } else if (primaryMeta && primaryMeta.applied && primaryMeta.strategy) {
+      /* Modo GTO: line-lite / señales de línea pueden ajustar sin arquetipo. */
+      strategy = Object.assign({}, primaryMeta.strategy);
+    } else {
+      strategy = gtoStrategy;
+    }
+    const primaryExploitApplied = useExploitPrimary
+      ? !!(exploitMeta && exploitMeta.applied)
+      : !!(primaryMeta && primaryMeta.applied);
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
@@ -327,8 +349,10 @@
           potOdds: facing && Facing
             ? Facing.calculatePotOdds(enriched.potBeforeBB || enriched.potBB, enriched.toCallBB)
             : null,
-          exploitApplied: !!(exploitMeta && exploitMeta.applied),
-          exploitReasons: (exploitMeta && exploitMeta.reasons) || []
+          exploitApplied: primaryExploitApplied,
+          exploitReasons: (useExploitPrimary
+            ? ((exploitMeta && exploitMeta.reasons) || [])
+            : ((primaryMeta && primaryMeta.reasons) || []))
         }
       );
     }
@@ -348,11 +372,20 @@
       evaluationExploit: null,
       optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions),
       scoreMode: enriched.scoreMode || 'gto',
-      villainType: enriched.villainType || (exploitMeta && exploitMeta.villainType) || null,
-      exploitApplied: !!(exploitMeta && exploitMeta.applied),
-      exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
-      explainDelta: (exploitMeta && exploitMeta.explainDelta) || [],
-      lineSignals: (exploitMeta && exploitMeta.lineSignals) || [],
+      villainType: enriched.villainType
+        || (exploitMeta && exploitMeta.villainType)
+        || (primaryMeta && primaryMeta.villainType)
+        || null,
+      exploitApplied: primaryExploitApplied,
+      exploitReasons: (useExploitPrimary
+        ? ((exploitMeta && exploitMeta.reasons) || [])
+        : ((primaryMeta && primaryMeta.reasons) || [])),
+      explainDelta: (useExploitPrimary
+        ? ((exploitMeta && exploitMeta.explainDelta) || [])
+        : ((primaryMeta && primaryMeta.explainDelta) || [])),
+      lineSignals: (primaryMeta && primaryMeta.lineSignals)
+        || (exploitMeta && exploitMeta.lineSignals)
+        || [],
       drivers: driversMeta.drivers || [],
       topDrivers: driversMeta.topDrivers || [],
       conceptTags: driversMeta.conceptTags || [],
