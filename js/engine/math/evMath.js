@@ -81,10 +81,14 @@
     if (chosen.startsWith('bet_')) {
       const pot = input.potBB || 1;
       const frac = chosen === 'bet_33' ? 0.33 : (chosen === 'bet_66' ? 0.66 : 1);
-      return round2(pot * frac);
+      // Mínimo legal de lead = 1bb (evita EV «barato» con 0.66bb en bote limped).
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, frac);
+      return round2(Math.max(1, pot * frac));
     }
     if (chosen === 'overbet') {
-      return round2((input.potBB || 1) * 1.5);
+      const pot = input.potBB || 1;
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, 1.5);
+      return round2(Math.max(1, pot * 1.5));
     }
     if (chosen === 'allin') {
       if (input.heroRemainingBB > 0) return round2(input.heroRemainingBB);

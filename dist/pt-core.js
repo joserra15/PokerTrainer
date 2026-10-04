@@ -7908,6 +7908,9 @@ window.PT_NASH_PUSH_JSON = {
 (function (global) {
   'use strict';
 
+  /** Mínimo legal de apuesta abierta (bet, no raise) en NLHE = 1bb. */
+  const MIN_OPEN_BET_BB = 1;
+
   function roundBB(x) {
     return Math.round((Number(x) || 0) * 100) / 100;
   }
@@ -7915,6 +7918,24 @@ window.PT_NASH_PUSH_JSON = {
   /** Muestra bb limpio: "37.00" en lugar de "62.39999999999999". */
   function formatBB(x) {
     return roundBB(x).toFixed(2);
+  }
+
+  /**
+   * Suelo de apuesta abierta postflop: nunca < 1bb.
+   * El all-in corto (<1bb) se aplica después con el cap de stack restante.
+   */
+  function floorOpenBetBB(sizeBB) {
+    const s = roundBB(sizeBB);
+    if (!(s > 0)) return 0;
+    return Math.max(MIN_OPEN_BET_BB, s);
+  }
+
+  /** Tamaño de lead = max(1bb, pot × fracción). */
+  function openBetSizeBB(potBB, frac) {
+    const pot = Math.max(Number(potBB) || 0, 0.1);
+    const f = Math.max(Number(frac) || 0, 0);
+    if (!(f > 0)) return 0;
+    return floorOpenBetBB(pot * f);
   }
 
   function euroToBB(euro, bb) {
@@ -7945,7 +7966,16 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   global.GTOPotMath = {
-    roundBB, formatBB, euroToBB, bbToCents, centsToBB, potBBFromEuro, potOdds
+    MIN_OPEN_BET_BB,
+    roundBB,
+    formatBB,
+    floorOpenBetBB,
+    openBetSizeBB,
+    euroToBB,
+    bbToCents,
+    centsToBB,
+    potBBFromEuro,
+    potOdds
   };
 })(window);
 
@@ -8032,10 +8062,14 @@ window.PT_NASH_PUSH_JSON = {
     if (chosen.startsWith('bet_')) {
       const pot = input.potBB || 1;
       const frac = chosen === 'bet_33' ? 0.33 : (chosen === 'bet_66' ? 0.66 : 1);
-      return round2(pot * frac);
+      // Mínimo legal de lead = 1bb (evita EV «barato» con 0.66bb en bote limped).
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, frac);
+      return round2(Math.max(1, pot * frac));
     }
     if (chosen === 'overbet') {
-      return round2((input.potBB || 1) * 1.5);
+      const pot = input.potBB || 1;
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, 1.5);
+      return round2(Math.max(1, pot * 1.5));
     }
     if (chosen === 'allin') {
       if (input.heroRemainingBB > 0) return round2(input.heroRemainingBB);
@@ -10511,9 +10545,15 @@ window.PT_NASH_PUSH_JSON = {
     const texture = Board ? Board.boardTexture(input.board || []) : {};
     const streetScale = { flop: 1.0, turn: 0.76, river: 0.46 };
 
-    const s33 = pot * 0.33;
-    const s66 = pot * (texture.wet ? 0.66 : 0.55);
-    const s100 = pot;
+    const PM = global.GTOPotMath;
+    const openSize = function (frac) {
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, frac);
+      const raw = pot * frac;
+      return raw > 0 ? Math.max(1, raw) : 0;
+    };
+    const s33 = openSize(0.33);
+    const s66 = openSize(texture.wet ? 0.66 : 0.55);
+    const s100 = openSize(1);
 
     const evCheckVal = evCheck(equity, pot, rf);
     const sizes = [
@@ -11875,16 +11915,32 @@ window.PT_NASH_PUSH_JSON = {
 
   function betSizingOptions(potBB, wet) {
     const pot = Math.max(potBB || 1, 1);
-    const s33 = Math.round(pot * 0.33 * 100) / 100;
-    const s66 = Math.round(pot * (wet ? 0.66 : 0.55) * 100) / 100;
-    const s100 = Math.round(pot * 100) / 100;
-    const sOver = Math.round(pot * 1.5 * 100) / 100;
-    return [
+    const PM = global.GTOPotMath;
+    const sizeOf = function (frac) {
+      if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(pot, frac);
+      const raw = Math.round(pot * frac * 100) / 100;
+      return raw > 0 ? Math.max(1, raw) : 0;
+    };
+    const s33 = sizeOf(0.33);
+    const s66 = sizeOf(wet ? 0.66 : 0.55);
+    const s100 = sizeOf(1);
+    const sOver = sizeOf(1.5);
+    // En botes muy pequeños varios % colapsan al mínimo legal 1bb: una sola opción.
+    const specs = [
       { id: 'bet_33', label: `${s33}bb (33%)`, size: s33 },
       { id: 'bet_66', label: `${s66}bb (${wet ? '66' : '55'}%)`, size: s66 },
       { id: 'bet_100', label: `${s100}bb (pot)`, size: s100 },
       { id: 'overbet', label: `${sOver}bb (150%)`, size: sOver }
     ];
+    const out = [];
+    const seen = Object.create(null);
+    specs.forEach(function (s) {
+      const key = String(s.size);
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push(s);
+    });
+    return out;
   }
 
   function getStrategy(input, spotKey) {
@@ -14911,13 +14967,20 @@ window.PT_NASH_PUSH_JSON = {
     return r < betFreq ? 'bet' : 'check';
   }
 
+  function floorOpenBet(sizeBB) {
+    const PM = global.GTOPotMath;
+    if (PM && PM.floorOpenBetBB) return PM.floorOpenBetBB(sizeBB);
+    const s = Math.round((Number(sizeBB) || 0) * 100) / 100;
+    return s > 0 ? Math.max(1, s) : 0;
+  }
+
   function betSizeBB(potBB, profile, rnd, opts) {
     opts = opts || {};
     const pot = Math.max(potBB || 1, 0.1);
 
     // Override desde strategy size key / fracción muestreada
     if (opts.frac != null && opts.frac > 0) {
-      return Math.round(pot * opts.frac * 100) / 100;
+      return floorOpenBet(Math.round(pot * opts.frac * 100) / 100);
     }
     if (opts.sizeKey) {
       const VS = global.GTOVillainSizing;
@@ -14925,7 +14988,9 @@ window.PT_NASH_PUSH_JSON = {
         return VS.amountFromKey(pot, opts.sizeKey, null, profile, rnd, opts);
       }
       const map = { bet_33: 0.33, bet_66: 0.66, bet_100: 1, bet_125: 1.25, overbet: 1.5, bet: 0.5 };
-      if (map[opts.sizeKey] != null) return Math.round(pot * map[opts.sizeKey] * 100) / 100;
+      if (map[opts.sizeKey] != null) {
+        return floorOpenBet(Math.round(pot * map[opts.sizeKey] * 100) / 100);
+      }
     }
 
     const mult = (profile.postflop && profile.postflop.betSizeMult) || 1;
@@ -14957,7 +15022,7 @@ window.PT_NASH_PUSH_JSON = {
     if (opts.street === 'river' && (opts.strength || 0) < 0.55 && frac <= 1.05) {
       frac = clamp(frac * 0.55, 0.25, 0.5);
     }
-    return Math.round(pot * frac * 100) / 100;
+    return floorOpenBet(Math.round(pot * frac * 100) / 100);
   }
 
   function adjustFoldProb(base, profile) {
@@ -17249,6 +17314,16 @@ window.PT_NASH_PUSH_JSON = {
   function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
   function round2(x) { return Math.round(x * 100) / 100; }
 
+  /** Lead postflop: nunca por debajo de 1bb (mínimo legal NLHE). */
+  function openAmountBB(potBB, frac) {
+    const PM = global.GTOPotMath;
+    if (PM && PM.openBetSizeBB) return PM.openBetSizeBB(potBB, frac);
+    const pot = Math.max(potBB || 1, 0.1);
+    const f = Math.max(frac || 0, 0);
+    if (!(f > 0)) return 0;
+    return Math.max(1, round2(pot * f));
+  }
+
   const SIZE_KEYS = [
     { key: 'bet_33', frac: 0.33 },
     { key: 'bet_66', frac: 0.66 },
@@ -17324,7 +17399,7 @@ window.PT_NASH_PUSH_JSON = {
         action: 'bet',
         sizeKey: pk,
         frac: frac,
-        amountBB: round2(potBB * frac)
+        amountBB: openAmountBB(potBB, frac)
       };
     }
 
@@ -17374,7 +17449,7 @@ window.PT_NASH_PUSH_JSON = {
           action: 'bet',
           sizeKey: e.key,
           frac: frac,
-          amountBB: round2(potBB * frac)
+          amountBB: openAmountBB(potBB, frac)
         };
       }
     }
@@ -17450,16 +17525,16 @@ window.PT_NASH_PUSH_JSON = {
   /** amountBB desde sizeKey/frac o fallback perfil. */
   function amountFromKey(potBB, sizeKey, frac, profile, rnd, opts) {
     potBB = Math.max(potBB || 1, 0.1);
-    if (frac != null && frac > 0) return round2(potBB * frac);
+    if (frac != null && frac > 0) return openAmountBB(potBB, frac);
     const f = fracForKey(sizeKey);
     if (f != null) {
       let use = f;
       if (sizeKey === 'overbet') use = clamp(1.35 + ((rnd != null ? rnd : Math.random()) * 0.4), 1.25, 1.75);
-      return round2(potBB * use);
+      return openAmountBB(potBB, use);
     }
     const VP = global.GTOVillainProfiles;
     if (VP && VP.betSizeBB) return VP.betSizeBB(potBB, profile, rnd, opts);
-    return round2(potBB * 0.5);
+    return openAmountBB(potBB, 0.5);
   }
 
   global.GTOVillainSizing = {
@@ -21578,7 +21653,10 @@ window.PT_NASH_PUSH_JSON = {
   function scriptBetAmount(hand, amountBB) {
     if (amountBB != null && amountBB > 0) {
       const vSeat = villainTableSeat(hand) || hand.villain.pos;
-      return capBetForSeat(hand, vSeat, round2(amountBB));
+      const floored = global.GTOPotMath && global.GTOPotMath.floorOpenBetBB
+        ? global.GTOPotMath.floorOpenBetBB(amountBB)
+        : round2(Math.max(1, amountBB));
+      return capBetForSeat(hand, vSeat, floored);
     }
     return villainBetAmount(hand);
   }
@@ -21890,7 +21968,11 @@ window.PT_NASH_PUSH_JSON = {
       formatHub: ctx.formatHub,
       gameType: ctx.gameType
     };
-    let size = VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), sizeOpts) : round2(hand.potBB * 0.5);
+    let size = VP
+      ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), sizeOpts)
+      : (global.GTOPotMath && global.GTOPotMath.openBetSizeBB
+        ? global.GTOPotMath.openBetSizeBB(hand.potBB, 0.5)
+        : round2(Math.max(1, hand.potBB * 0.5)));
     hand._villainBetSizeKey = null;
     hand._villainBetFrac = null;
     const vSeat = villainTableSeat(hand) || hand.villain.pos;
@@ -23687,7 +23769,10 @@ window.PT_NASH_PUSH_JSON = {
     logLineStreet(hand);
 
     if (facingBet) {
-      const vBet = round2(Math.max(0.5, hand.potBB * 0.33));
+      // Mínimo legal de lead NLHE = 1bb (no 0.5 / pot% sub-mínimo en limped pots).
+      const vBet = global.GTOPotMath && global.GTOPotMath.openBetSizeBB
+        ? global.GTOPotMath.openBetSizeBB(hand.potBB, 0.33)
+        : round2(Math.max(1, hand.potBB * 0.33));
       hand.villainInvested = round2((hand.villainInvested || 0) + vBet);
       hand.table.invested[villainPos] = hand.villainInvested;
       hand.potBB = round2(hand.potBB + vBet);

@@ -852,7 +852,10 @@
   function scriptBetAmount(hand, amountBB) {
     if (amountBB != null && amountBB > 0) {
       const vSeat = villainTableSeat(hand) || hand.villain.pos;
-      return capBetForSeat(hand, vSeat, round2(amountBB));
+      const floored = global.GTOPotMath && global.GTOPotMath.floorOpenBetBB
+        ? global.GTOPotMath.floorOpenBetBB(amountBB)
+        : round2(Math.max(1, amountBB));
+      return capBetForSeat(hand, vSeat, floored);
     }
     return villainBetAmount(hand);
   }
@@ -1164,7 +1167,11 @@
       formatHub: ctx.formatHub,
       gameType: ctx.gameType
     };
-    let size = VP ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), sizeOpts) : round2(hand.potBB * 0.5);
+    let size = VP
+      ? VP.betSizeBB(hand.potBB, prof, C.rng.random(), sizeOpts)
+      : (global.GTOPotMath && global.GTOPotMath.openBetSizeBB
+        ? global.GTOPotMath.openBetSizeBB(hand.potBB, 0.5)
+        : round2(Math.max(1, hand.potBB * 0.5)));
     hand._villainBetSizeKey = null;
     hand._villainBetFrac = null;
     const vSeat = villainTableSeat(hand) || hand.villain.pos;
@@ -2961,7 +2968,10 @@
     logLineStreet(hand);
 
     if (facingBet) {
-      const vBet = round2(Math.max(0.5, hand.potBB * 0.33));
+      // Mínimo legal de lead NLHE = 1bb (no 0.5 / pot% sub-mínimo en limped pots).
+      const vBet = global.GTOPotMath && global.GTOPotMath.openBetSizeBB
+        ? global.GTOPotMath.openBetSizeBB(hand.potBB, 0.33)
+        : round2(Math.max(1, hand.potBB * 0.33));
       hand.villainInvested = round2((hand.villainInvested || 0) + vBet);
       hand.table.invested[villainPos] = hand.villainInvested;
       hand.potBB = round2(hand.potBB + vBet);
