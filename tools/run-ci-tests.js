@@ -47,6 +47,8 @@ const STEPS = [
   ['Test GTO river torneo coherencia paso a paso/resumen', ['node', 'tools/test-gto-river-tournament-coherence.js']],
   ['Test range cell popup', ['node', 'tools/test-range-cell-popup.js']],
   ['Test BB vs SB', ['node', 'tools/test-bb-vs-sb-position.js']],
+  ['Test entrenador SB RFI limp', ['node', 'tools/test-trainer-sb-rfi-limp.js']],
+  ['Test SB A4s MTT no NIT', ['node', 'tools/test-sb-a4s-mtt-not-nit.js']],
   ['Test coherencia "mejor" vs mezcla GTO', ['node', 'tools/test-best-mix-coherence.js']],
   ['Regresión frecuencias flop/turn (Colorado 98s)', ['node', 'tools/test-flop-turn-freq-duplicate.js']],
   ['Test card picker UX', ['node', 'tools/test-card-picker-ux.js']],

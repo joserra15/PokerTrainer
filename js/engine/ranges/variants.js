@@ -19,7 +19,8 @@
     HJ: { raise: '66+, A9s+, A5s-A2s, KTs+, QTs+, JTs, ATo+, KJo+', mix: '55, K9s, Q9s, 98s' },
     CO: { raise: '55+, A5s+, K9s+, Q9s+, J9s+, T9s, 98s, A9o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, K9o' },
     BTN: { raise: '44+, A2s+, K7s+, Q8s+, J8s+, T8s+, 97s+, 87s, 76s, A7o+, K9o+, Q9o+, J9o+', mix: '33, 65s, A5o-A2o' },
-    SB: { raise: '55+, A5s+, K8s+, Q9s+, J9s+, T9s, 98s, A8o+, KTo+, QTo+', mix: '44, A4s-A2s, 87s, JTo' }
+    // SB vs BB con ante MTT: A4s/conectores suited son open frecuentes (no mix fold-heavy).
+    SB: { raise: '55+, A4s+, K8s+, Q9s+, J9s+, T9s, 98s, 87s, A8o+, KTo+, QTo+, JTo', mix: '44, A3s-A2s, 76s, K9o' }
   };
 
   /** MTT ~25-40bb: opens mid (steal/ante). LJ nativo: KJo en mix (no open-fold duro). */

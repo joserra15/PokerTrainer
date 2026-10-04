@@ -104,11 +104,13 @@
     }
     if (lower === "c") {
       e.preventDefault();
-      return clickAction(findAction("call"));
+      return clickAction(findAction("call")) || clickAction(findAction("limp"));
     }
     if (lower === "k" || k === " ") {
       e.preventDefault();
-      return clickAction(findAction("check")) || clickAction(findAction("call"));
+      return clickAction(findAction("check"))
+        || clickAction(findAction("call"))
+        || clickAction(findAction("limp"));
     }
     if (lower === "r") {
       e.preventDefault();
@@ -261,7 +263,7 @@
 
   PTHotkeys.hintForAction = function hintForAction(id) {
     if (id === "fold") return "F";
-    if (id === "call") return "C";
+    if (id === "call" || id === "limp") return "C";
     if (id === "check") return "K";
     if (id === "raise") return "R";
     if (id === "bet" || (id && id.indexOf("bet_") === 0)) return "R";
