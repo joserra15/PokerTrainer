@@ -1048,6 +1048,60 @@
   }
 
   /** Contexto de spot para line policy / format adjust / sizing del villano. */
+  /** Resumen de línea del héroe (paridad con torneo heroLinePressure). */
+  function heroLineFromTrainerHand(hand) {
+    const aggStreets = {};
+    let checkCount = 0;
+    let betRaiseCount = 0;
+    let maxBetRatio = 0;
+    let checkRaiseHero = false;
+    const curStreet = hand.stage || hand.street;
+    const consume = function (street, action, betRatio) {
+      if (street !== 'flop' && street !== 'turn' && street !== 'river') return;
+      if (action === 'bet' || action === 'raise' || action === 'allin' || action === 'overbet') {
+        aggStreets[street] = true;
+        betRaiseCount += 1;
+        if (betRatio != null && betRatio > maxBetRatio) maxBetRatio = betRatio;
+      } else if (action === 'check') {
+        checkCount += 1;
+      } else if (action === 'checkraise' || action === 'check-raise') {
+        checkRaiseHero = true;
+        aggStreets[street] = true;
+        betRaiseCount += 1;
+      }
+    };
+    (hand.actionLine || []).forEach(function (e) {
+      if (!e) return;
+      const heroPos = hand.hero && hand.hero.pos;
+      const isHero = !!(e.isHero || e.actor === 'hero' || e.who === 'hero' || e.seat === 'hero'
+        || (heroPos && (e.pos === heroPos || e.position === heroPos)));
+      if (!isHero) return;
+      const ratio = e.betBB != null && e.potBB ? (Number(e.betBB) / Math.max(Number(e.potBB), 0.1)) : null;
+      consume(e.street, e.action || e.type, ratio);
+    });
+    (hand.decisions || []).forEach(function (d) {
+      if (!d) return;
+      const act = d.action || d.chosen;
+      const pot = Number(d.potBeforeBB || d.potBB) || 0;
+      const size = Number(d.betSizeBB || d.toCallBB) || 0;
+      consume(d.street, act, pot > 0 && size > 0 ? size / pot : null);
+    });
+    if (hand._priorStreetCheckCheck) checkCount = Math.max(checkCount, 2);
+    const multiStreetAgg = Object.keys(aggStreets).length;
+    const priorAgg = Object.keys(aggStreets).some(function (st) { return st !== curStreet; });
+    return {
+      multiStreetAgg: multiStreetAgg,
+      betRaiseCount: betRaiseCount,
+      checkCount: checkCount,
+      passive: checkCount >= 2 && betRaiseCount === 0,
+      delayedLead: !priorAgg && checkCount >= 1,
+      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2,
+      polarSize: maxBetRatio >= 0.75,
+      checkRaiseHero: checkRaiseHero,
+      barrelCount: betRaiseCount
+    };
+  }
+
   function buildVillainSpotCtx(hand, extra) {
     extra = extra || {};
     const cfg = hand.playConfig || {};
@@ -1092,6 +1146,7 @@
     if (!heroProfile && Ex && Ex.profileFromStats && heroStats) {
       heroProfile = Ex.profileFromStats(heroStats);
     }
+    const heroLine = extra.heroLine || hand.heroLine || heroLineFromTrainerHand(hand);
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
@@ -1130,6 +1185,7 @@
       proStyle: (profileFor(hand, hand.villain.pos) || {}).proStyle || 'exploit_pool',
       heroProfile: heroProfile,
       heroSessionStats: heroStats,
+      heroLine: heroLine,
       hub: hub
     }, extra);
   }
@@ -1880,6 +1936,7 @@
     const isAgg = !!hand.heroIsAggressor;
     const priorAggressorBet = isAgg ? heroLedOnPriorStreets(hand, node.street) : false;
     const delayedCbet = !!(isAgg && !priorAggressorBet && node.street !== 'flop' && node.street !== 'preflop');
+    const heroLine = heroLineFromTrainerHand(hand);
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
@@ -1890,6 +1947,9 @@
       inPosition: hand.heroInPosition,
       priorAggressorBet,
       delayedCbet,
+      priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
+      passiveLine: !!(hand._priorStreetCheckCheck || (heroLine && heroLine.passive)),
+      heroLine: heroLine,
       villainRange: villainRangeAtNode(hand, node),
       madeHandInfo: node.info,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
@@ -3532,13 +3592,23 @@
       label: labelFor(node, actionId),
       class: ev.class,
       best: ev.best,
+      classGto: ev.classGto || (evalResult.evaluationGto && evalResult.evaluationGto.class) || ev.class,
+      classExploit: ev.classExploit || (evalResult.evaluationExploit && evalResult.evaluationExploit.class) || ev.class,
+      freqGto: ev.freqGto != null ? ev.freqGto
+        : (evalResult.evaluationGto && evalResult.evaluationGto.frequency),
+      freqExploit: ev.freqExploit != null ? ev.freqExploit
+        : (evalResult.evaluationExploit && evalResult.evaluationExploit.frequency),
+      bestGto: ev.bestGto || (evalResult.evaluationGto && evalResult.evaluationGto.best) || null,
+      bestExploit: ev.bestExploit || (evalResult.evaluationExploit && evalResult.evaluationExploit.best) || null,
       gto: evalResult.strategy,
       gtoBaseline: evalResult.gtoStrategy || null,
+      exploitStrategy: evalResult.exploitStrategy || null,
       scoreMode: evalResult.scoreMode || 'gto',
       villainType: evalResult.villainType || null,
       exploitApplied: !!evalResult.exploitApplied,
       exploitReasons: evalResult.exploitReasons || [],
       explainDelta: evalResult.explainDelta || [],
+      lineSignals: evalResult.lineSignals || [],
       optionBreakdown: evalResult.optionBreakdown,
       evLoss: ev.evLoss,
       evErroneous: ev.evErroneous,

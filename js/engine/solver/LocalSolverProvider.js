@@ -156,6 +156,66 @@
     return chosen;
   }
 
+  /** Clasificación + reconcile (sin scoring/ICM annotate completo). */
+  function classifyAgainstStrategy(strategy, chosenAction, enriched) {
+    const cls = Classifier.classify(strategy, chosenAction, enriched.availableActions);
+    const evResult = EvLoss.computeEvLoss(
+      enriched.street || 'preflop', cls.cls, chosenAction,
+      enriched.handCode, strategy, enriched.potBB, enriched
+    );
+    const BoardCl = global.GTOBoardCluster;
+    const tex = BoardCl && enriched.board ? BoardCl.boardTexture(enriched.board) : null;
+    let blockerScore = null;
+    if (global.GTOBlockers && enriched.heroCards && enriched.board) {
+      try {
+        blockerScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
+      } catch (eBlk) { blockerScore = null; }
+    }
+    const reconciled = Classifier.reconcileWithEv(
+      cls.cls, chosenAction, cls.best, evResult,
+      {
+        freq: cls.freq,
+        maxFreq: cls.maxFreq,
+        legalStrategy: cls.legalStrategy,
+        equity: enriched.heroEquity,
+        band: enriched.handRank && enriched.handRank.band,
+        madeHandInfo: enriched.madeHandInfo,
+        madeCategory: enriched.madeHandInfo && (
+          (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
+          || enriched.madeHandInfo.category
+        ),
+        priorAggressorBet: enriched.priorAggressorBet,
+        delayedCbet: enriched.delayedCbet,
+        villainLastAction: enriched.villainLastAction,
+        street: enriched.street,
+        initiative: enriched.initiative,
+        foldEquity: (evResult.mathParams && evResult.mathParams.foldEquityPct != null)
+          ? evResult.mathParams.foldEquityPct / 100
+          : enriched.foldEquity,
+        blockerScore: blockerScore,
+        boardPaired: !!(tex && tex.paired),
+        boardDry: !!(tex && !tex.wet && !tex.paired),
+        betSizeBB: enriched.betSizeBB,
+        potBB: enriched.potBB
+      }
+    );
+    let finalCls = reconciled.cls;
+    if (finalCls === 'error' && cls.maxFreq > 0 && cls.freq >= cls.maxFreq - 0.08) {
+      finalCls = 'optima';
+    } else if (finalCls === 'error' && cls.freq >= 0.15) {
+      finalCls = 'imprecisa';
+    }
+    return {
+      class: finalCls,
+      best: reconciled.best,
+      frequency: cls.freq,
+      maxFreq: cls.maxFreq,
+      legalStrategy: cls.legalStrategy,
+      cls: cls,
+      evResult: evResult
+    };
+  }
+
   function evaluateSpot(input) {
     const enriched = enrichInput(input);
     enriched.spotKind = resolveSpotKind(enriched);
@@ -168,7 +228,6 @@
       )
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
 
-    const gtoStrategy = strategy;
     // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain
     const DC = global.GTODecisionContext;
     const facing = (enriched.toCallBB || 0) > 0;
@@ -206,12 +265,20 @@
       strategy = Classifier.filterStrategy(strategy, enriched.availableActions);
     }
 
-    let exploitMeta = null;
+    /* Snapshot GTO post-ICM (antes de exploit). */
+    const gtoStrategy = Object.assign({}, strategy);
     const Exploit = global.GTOHeroExploitAdjust;
-    if (Exploit && enriched.scoreMode === 'exploit') {
-      exploitMeta = Exploit.adjustStrategy(strategy, enriched);
-      strategy = exploitMeta.strategy;
+    let exploitMeta = null;
+    if (Exploit && typeof Exploit.adjustStrategy === 'function') {
+      exploitMeta = Exploit.adjustStrategy(gtoStrategy, enriched);
     }
+    const exploitStrategy = (exploitMeta && exploitMeta.strategy)
+      ? Object.assign({}, exploitMeta.strategy)
+      : Object.assign({}, gtoStrategy);
+    /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat). */
+    const useExploitPrimary = !!(Exploit && Exploit.shouldApply(enriched)
+      && exploitMeta && exploitMeta.archetypeApplied);
+    strategy = useExploitPrimary ? exploitStrategy : gtoStrategy;
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
@@ -269,6 +336,7 @@
     const result = {
       strategy,
       gtoStrategy: gtoStrategy,
+      exploitStrategy: exploitStrategy,
       rawStrategy,
       spotKey,
       boardType,
@@ -276,12 +344,15 @@
       heroEquity: enriched.heroEquity,
       explanation: null,
       evaluation: null,
+      evaluationGto: null,
+      evaluationExploit: null,
       optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions),
       scoreMode: enriched.scoreMode || 'gto',
-      villainType: enriched.villainType || null,
+      villainType: enriched.villainType || (exploitMeta && exploitMeta.villainType) || null,
       exploitApplied: !!(exploitMeta && exploitMeta.applied),
       exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
       explainDelta: (exploitMeta && exploitMeta.explainDelta) || [],
+      lineSignals: (exploitMeta && exploitMeta.lineSignals) || [],
       drivers: driversMeta.drivers || [],
       topDrivers: driversMeta.topDrivers || [],
       conceptTags: driversMeta.conceptTags || [],
@@ -289,56 +360,24 @@
     };
 
     if (chosenAction != null) {
-      const cls = Classifier.classify(strategy, chosenAction, enriched.availableActions);
-      const evResult = EvLoss.computeEvLoss(
-        enriched.street || 'preflop', cls.cls, chosenAction,
-        enriched.handCode, strategy, enriched.potBB, enriched
-      );
-      const Board = global.GTOBoardCluster;
-      const tex = Board && enriched.board ? Board.boardTexture(enriched.board) : null;
-      let blockerScore = null;
-      if (global.GTOBlockers && enriched.heroCards && enriched.board) {
-        try {
-          blockerScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
-        } catch (eBlk) { blockerScore = null; }
-      }
-      const reconciled = Classifier.reconcileWithEv(
-        cls.cls, chosenAction, cls.best, evResult,
-        {
-          freq: cls.freq,
-          maxFreq: cls.maxFreq,
-          legalStrategy: cls.legalStrategy,
-          equity: enriched.heroEquity,
-          band: enriched.handRank && enriched.handRank.band,
-          madeHandInfo: enriched.madeHandInfo,
-          madeCategory: enriched.madeHandInfo && (
-            (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
-            || enriched.madeHandInfo.category
-          ),
-          priorAggressorBet: enriched.priorAggressorBet,
-          delayedCbet: enriched.delayedCbet,
-          villainLastAction: enriched.villainLastAction,
-          street: enriched.street,
-          initiative: enriched.initiative,
-          foldEquity: (evResult.mathParams && evResult.mathParams.foldEquityPct != null)
-            ? evResult.mathParams.foldEquityPct / 100
-            : enriched.foldEquity,
-          blockerScore: blockerScore,
-          boardPaired: !!(tex && tex.paired),
-          boardDry: !!(tex && !tex.wet && !tex.paired),
-          betSizeBB: enriched.betSizeBB,
-          potBB: enriched.potBB
-        }
-      );
-      const finalCls0 = reconciled.cls;
-      let finalCls = finalCls0;
-      const finalBest = reconciled.best;
-      /* Cinturón: si la freq clasificada lidera la mezcla, no permitir Error. */
-      if (finalCls === 'error' && cls.maxFreq > 0 && cls.freq >= cls.maxFreq - 0.08) {
-        finalCls = 'optima';
-      } else if (finalCls === 'error' && cls.freq >= 0.15) {
-        finalCls = 'imprecisa';
-      }
+      const gradedPrimary = classifyAgainstStrategy(strategy, chosenAction, enriched);
+      const gradedGto = classifyAgainstStrategy(gtoStrategy, chosenAction, enriched);
+      const gradedExploit = classifyAgainstStrategy(exploitStrategy, chosenAction, enriched);
+      result.evaluationGto = {
+        class: gradedGto.class,
+        best: gradedGto.best,
+        frequency: gradedGto.frequency
+      };
+      result.evaluationExploit = {
+        class: gradedExploit.class,
+        best: gradedExploit.best,
+        frequency: gradedExploit.frequency
+      };
+
+      const cls = gradedPrimary.cls;
+      const evResult = gradedPrimary.evResult;
+      let finalCls = gradedPrimary.class;
+      const finalBest = gradedPrimary.best;
       const stratErrors = Errors.detectErrors(Object.assign({}, enriched, { strategy, chosenAction }));
 
       let evLoss = evResult.evLoss;
@@ -347,8 +386,6 @@
       let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
-      // Si el reconciliador ya suavizó a aceptable/óptima (p.ej. overbet con nueces),
-      // no inventar una fuga «suboptimal_ev» por un hueco EV residual.
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
         let gapLoss = EvLoss.round2(evGap);
@@ -373,7 +410,6 @@
         }
       }
 
-      // ICM: escalar ΔEV en spins / MTT late (chipEV → presión $EV).
       const Icm = global.GTOIcmEv;
       let icmMult = 1;
       const chipEvLoss = evLoss;
@@ -409,6 +445,12 @@
         class: finalCls,
         best: finalBest,
         frequency: cls.freq,
+        classGto: gradedGto.class,
+        classExploit: gradedExploit.class,
+        freqGto: gradedGto.frequency,
+        freqExploit: gradedExploit.frequency,
+        bestGto: gradedGto.best,
+        bestExploit: gradedExploit.best,
         confidence: Scoring.confidence(strategy, chosenAction),
         confidenceTier: confTier.tier,
         confidenceLabel: confTier.label,

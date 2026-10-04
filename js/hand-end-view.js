@@ -116,8 +116,8 @@
       return '<div class="card-box hand-end-decisions"><p class="muted">Sin decisiones del héroe en esta mano.</p></div>';
     }
     var html = '<div class="card-box hand-end-decisions"><h3>' +
-      (decisions.some(function (x) { return x && (x.exploitApplied || x.scoreMode === 'exploit'); })
-        ? 'Evaluación de la mano (explotativa)'
+      (decisions.some(function (x) { return x && (x.exploitApplied || x.classExploit || x.scoreMode === 'exploit'); })
+        ? 'Evaluación GTO + explotativa'
         : 'Evaluación GTO de la mano') +
       '</h3>';
     decisions.forEach(function (d) {
@@ -138,6 +138,25 @@
         html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
       }
       html += '</div>';
+      if (d.classGto || d.classExploit) {
+        var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
+        var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
+        html += '<div class="dual-verdict-note muted" style="margin-top:4px;font-size:12px">';
+        if (d.classGto) {
+          html += '<span class="verdict ' + esc(d.classGto) + '">GTO: ' + esc(verdictWord(d.classGto))
+            + (gtoPct != null ? ' (' + gtoPct + '%)' : '') + '</span>';
+        }
+        if (d.classGto && d.classExploit) html += ' · ';
+        if (d.classExploit) {
+          html += '<span class="verdict ' + esc(d.classExploit) + '">Explotativo: '
+            + esc(verdictWord(d.classExploit))
+            + (exPct != null ? ' (' + exPct + '%)' : '') + '</span>';
+        }
+        if (d.exploitReasons && d.exploitReasons.length) {
+          html += '<div style="margin-top:2px">' + esc(d.exploitReasons.slice(0, 2).join(' ')) + '</div>';
+        }
+        html += '</div>';
+      }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';

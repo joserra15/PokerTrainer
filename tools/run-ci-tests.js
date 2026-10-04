@@ -38,6 +38,7 @@ const STEPS = [
   ['Test mínimo apuesta abierta 1bb', ['node', 'tools/test-min-open-bet-bb.js']],
   ['Test motor Pro unificado (DecisionContext/ICM/LinePlan/Escuela M3)', ['node', 'tools/test-pro-decision-engine.js']],
   ['Test hero exploit adjust', ['node', 'tools/test-hero-exploit-adjust.js']],
+  ['Test exploit dual verdict', ['node', 'tools/test-exploit-dual-verdict.js']],
   ['Test villain type trainer', ['node', 'tools/test-villain-type-trainer.js']],
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
   ['Test evaluación manos contexto torneo', ['node', 'tools/test-hand-eval-tournament-context.js']],

@@ -680,17 +680,30 @@
     var aggStreets = {};
     var checkCount = 0;
     var betRaiseCount = 0;
+    var maxBetRatio = 0;
+    var checkRaiseHero = false;
+    var bb = Math.max(1, Number(hand.bb) || 1);
     (hand.log || []).forEach(function (e) {
       if (!e || (e.street !== 'flop' && e.street !== 'turn' && e.street !== 'river')) return;
       var isHero = heroId != null
         ? e.id === heroId
         : !!(hand.seats || []).find(function (s) { return s && s.id === e.id && s.isHero; });
       if (!isHero) return;
-      if (e.action === 'bet' || e.action === 'raise') {
+      if (e.action === 'bet' || e.action === 'raise' || e.action === 'allin') {
         aggStreets[e.street] = true;
         betRaiseCount += 1;
+        var amt = Number(e.amount) || 0;
+        var pot = Number(e.pot) || Number(hand.pot) || 0;
+        if (amt > 0 && pot > 0) {
+          var ratio = (amt / bb) / Math.max(pot / bb, 0.1);
+          if (ratio > maxBetRatio) maxBetRatio = ratio;
+        }
       } else if (e.action === 'check') {
         checkCount += 1;
+      } else if (e.action === 'checkraise' || e.action === 'check-raise') {
+        checkRaiseHero = true;
+        aggStreets[e.street] = true;
+        betRaiseCount += 1;
       }
     });
     var multiStreetAgg = Object.keys(aggStreets).length;
@@ -703,7 +716,10 @@
       passive: checkCount >= 2 && betRaiseCount === 0,
       /* Check-check previo + lead actual (delayed c-bet / river stab). */
       delayedLead: !priorAgg && checkCount >= 1,
-      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2
+      aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2 || checkRaiseHero,
+      polarSize: maxBetRatio >= 0.75,
+      checkRaiseHero: checkRaiseHero,
+      barrelCount: betRaiseCount
     };
   }
 
@@ -1671,6 +1687,7 @@
     handCode: handCode,
     mapRoleId: mapRoleId,
     blindPressureFlags: blindPressureFlags,
-    rangeCtx: rangeCtx
+    rangeCtx: rangeCtx,
+    heroLinePressure: heroLinePressure
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
