@@ -36,6 +36,10 @@ test.describe('Torneos: revelado de la acción @smoke', () => {
     });
 
     await page.click('#tab-tournaments .trn-lobby-row');
+    await page.waitForSelector('[data-act="confirm-structure-prompt"]', { timeout: 10000 });
+    await page.click('[data-act="confirm-structure-prompt"]');
+    const assist1 = page.locator('[data-act="confirm-assist-prompt"]');
+    if (await assist1.isVisible().catch(() => false)) await assist1.click();
 
     // Mientras se revela hay botón Saltar y todavía no hay turno de héroe.
     await page.waitForSelector('[data-act="skip-anim"]', { timeout: 20000 });
@@ -72,6 +76,10 @@ test.describe('Torneos: revelado de la acción @smoke', () => {
     await goTab(page, 'tournaments');
     await page.waitForSelector('#tab-tournaments .trn-lobby-row', { timeout: 30000 });
     await page.click('#tab-tournaments .trn-lobby-row');
+    await page.waitForSelector('[data-act="confirm-structure-prompt"]', { timeout: 10000 });
+    await page.click('[data-act="confirm-structure-prompt"]');
+    const assist2 = page.locator('[data-act="confirm-assist-prompt"]');
+    if (await assist2.isVisible().catch(() => false)) await assist2.click();
 
     await page.waitForSelector('[data-hero-act], .trn-hand-end-modal, [data-act="next-hand"]', {
       timeout: 40000

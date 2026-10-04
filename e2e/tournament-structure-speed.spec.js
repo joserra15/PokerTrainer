@@ -28,7 +28,6 @@ test.describe('Torneos: estructura y velocidad de mesa', () => {
     await expect(page.locator('[data-lobby-structure="turbo"]')).toBeVisible();
     await expect(page.locator('[data-lobby-structure="normal"]')).toBeVisible();
 
-    await page.click('[data-lobby-structure="normal"]');
     await expect(page.locator('[data-lobby-structure="normal"]')).toHaveClass(/is-on/);
     await page.screenshot({
       path: path.join(ART, 'e2e-lobby-structure.png'),
@@ -36,9 +35,13 @@ test.describe('Torneos: estructura y velocidad de mesa', () => {
     });
 
     await page.click('#tab-tournaments .trn-lobby-row[data-preset="spinEasy"], #tab-tournaments .trn-lobby-row');
+    /* Pregunta de estructura antes de empezar. */
+    await page.waitForSelector('[data-act="confirm-structure-prompt"]', { timeout: 10000 });
+    await expect(page.locator('[data-act="structure-prompt-pick"][data-structure="normal"]')).toHaveClass(/is-selected/);
+    await page.click('[data-act="confirm-structure-prompt"]');
     /* spinEasy puede pedir assist o ir directo; cerrar prompts si aparecen. */
     const assistConfirm = page.locator('[data-act="confirm-assist-prompt"]');
-    if (await assistConfirm.count()) {
+    if (await assistConfirm.isVisible().catch(() => false)) {
       await assistConfirm.click();
     }
     await page.waitForSelector('#tab-tournaments [data-act="info"], #tab-tournaments .trn-play-like', {

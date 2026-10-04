@@ -35,20 +35,22 @@
   function normalizeBlindStructure(v) {
     var s = String(v || '').toLowerCase();
     if (s === 'hyper' || s === 'hyper-turbo' || s === 'hyperturbo') return 'hyper';
+    if (s === 'turbo') return 'turbo';
     if (s === 'normal' || s === 'regular' || s === 'standard') return 'normal';
-    return 'turbo';
+    /* Default: Normal (más manos/nivel; Turbo era el histórico). */
+    return 'normal';
   }
 
   function blindStructureLabel(v) {
     var s = normalizeBlindStructure(v);
     if (s === 'hyper') return 'Hyper-turbo';
-    if (s === 'normal') return 'Normal';
-    return 'Turbo';
+    if (s === 'turbo') return 'Turbo';
+    return 'Normal';
   }
 
   function handsPerLevelForSeats(seats, structure) {
     var n = Number(seats) || 6;
-    var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.turbo;
+    var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.normal;
     if (n <= 2) return row.hu;
     return n >= 9 ? row.full : row.short;
   }
@@ -67,7 +69,7 @@
     });
   }
 
-  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6, 'turbo');
+  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6, 'normal');
 
   function clone(o) {
     return JSON.parse(JSON.stringify(o));

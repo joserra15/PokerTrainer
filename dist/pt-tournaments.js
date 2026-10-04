@@ -254,20 +254,22 @@
   function normalizeBlindStructure(v) {
     var s = String(v || '').toLowerCase();
     if (s === 'hyper' || s === 'hyper-turbo' || s === 'hyperturbo') return 'hyper';
+    if (s === 'turbo') return 'turbo';
     if (s === 'normal' || s === 'regular' || s === 'standard') return 'normal';
-    return 'turbo';
+    /* Default: Normal (más manos/nivel; Turbo era el histórico). */
+    return 'normal';
   }
 
   function blindStructureLabel(v) {
     var s = normalizeBlindStructure(v);
     if (s === 'hyper') return 'Hyper-turbo';
-    if (s === 'normal') return 'Normal';
-    return 'Turbo';
+    if (s === 'turbo') return 'Turbo';
+    return 'Normal';
   }
 
   function handsPerLevelForSeats(seats, structure) {
     var n = Number(seats) || 6;
-    var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.turbo;
+    var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.normal;
     if (n <= 2) return row.hu;
     return n >= 9 ? row.full : row.short;
   }
@@ -286,7 +288,7 @@
     });
   }
 
-  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6, 'turbo');
+  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6, 'normal');
 
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
@@ -11474,7 +11476,7 @@
     root: null,
     state: null,
     setupDraft: null,
-    lobbyStructure: 'turbo',
+    lobbyStructure: 'normal',
     infoOpen: false,
     infoHandlogOpen: false,
     roleModalPlayerId: null,
@@ -11483,6 +11485,7 @@
     exitPrompt: false,
     resumePrompt: false,
     upgradePrompt: null,
+    structurePrompt: null,
     handDetailOpen: false,
     replayOpen: false,
     replayStep: 0,
@@ -12563,11 +12566,40 @@ function reducedMotion() {
   function resolveLobbyStructure() {
     var Cfg = global.PTTournamentConfig;
     if (Cfg && typeof Cfg.normalizeBlindStructure === 'function') {
-      return Cfg.normalizeBlindStructure(ui.lobbyStructure || 'turbo');
+      return Cfg.normalizeBlindStructure(ui.lobbyStructure || 'normal');
     }
-    return ui.lobbyStructure === 'hyper' || ui.lobbyStructure === 'normal'
+    return ui.lobbyStructure === 'hyper' || ui.lobbyStructure === 'turbo'
       ? ui.lobbyStructure
-      : 'turbo';
+      : 'normal';
+  }
+
+  function openStructurePrompt(payload) {
+    var structure = resolveLobbyStructure();
+    if (payload && payload.cfg && payload.cfg.blindStructure) {
+      structure = global.PTTournamentConfig.normalizeBlindStructure
+        ? global.PTTournamentConfig.normalizeBlindStructure(payload.cfg.blindStructure)
+        : payload.cfg.blindStructure;
+    }
+    ui.structurePrompt = Object.assign({ structure: structure }, payload || {});
+    paint();
+  }
+
+  function continueAfterStructureChoice(sp) {
+    if (!sp) return;
+    var structure = resolveLobbyStructure();
+    if (sp.kind === 'preset' && sp.presetId) {
+      startPreset(sp.presetId, { structureReady: true });
+      return;
+    }
+    if (sp.kind === 'custom' && sp.cfg) {
+      sp.cfg.blindStructure = structure;
+      startFromConfig(sp.cfg, sp.opts || {});
+      return;
+    }
+    if (sp.kind === 'config') {
+      if (sp.cfg && typeof sp.cfg === 'object') sp.cfg.blindStructure = structure;
+      startFromConfig(sp.cfg != null ? sp.cfg : sp.presetId, sp.opts || {});
+    }
   }
 
   function applyBlindStructureToConfig(cfg) {
@@ -12621,6 +12653,7 @@ function reducedMotion() {
     ui.resumePrompt = false;
     ui.upgradePrompt = null;
     ui.assistPrompt = null;
+    ui.structurePrompt = null;
     ui.handDetailOpen = false;
     ui.heldFrames = null;
     ui.heldFramesDone = null;
@@ -12643,7 +12676,8 @@ function reducedMotion() {
     whenReady(began, afterBegin);
   }
 
-  function startPreset(id) {
+  function startPreset(id, opts) {
+    opts = opts || {};
     var gate = gateForPreset(id);
     if (!gate.ok) {
       if (gate.upgrade || gate.reason === 'plan') showUpgradePrompt(gate, id);
@@ -12654,6 +12688,10 @@ function reducedMotion() {
     if (active) {
       ui.resumePrompt = { presetId: id, active: active };
       paint();
+      return;
+    }
+    if (!opts.structureReady) {
+      openStructurePrompt({ kind: 'preset', presetId: id });
       return;
     }
     if (assistFeatureVisible() && isProPresetId(id)) {
@@ -12819,6 +12857,37 @@ function reducedMotion() {
         '</div></div></div>';
     }
 
+    var structureModal = '';
+    if (ui.structurePrompt) {
+      var sp = ui.structurePrompt;
+      var spStruct = resolveLobbyStructure();
+      if (sp.structure) {
+        spStruct = global.PTTournamentConfig.normalizeBlindStructure
+          ? global.PTTournamentConfig.normalizeBlindStructure(sp.structure)
+          : sp.structure;
+      }
+      function spChip(id, label, hint) {
+        return '<button type="button" class="btn btn-sm' + (spStruct === id ? ' is-selected' : '') +
+          '" data-act="structure-prompt-pick" data-structure="' + id + '">' + label +
+          '<small class="trn-structure-chip-hint">' + hint + '</small></button>';
+      }
+      structureModal = '<div class="trn-modal-backdrop" data-act="close-structure-prompt">' +
+        '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Estructura de ciegas" data-act="noop">' +
+        '<h3>Estructura de ciegas</h3>' +
+        '<p class="muted">¿Cómo de rápido suben las ciegas? Normal da más manos por nivel ' +
+        '(menos presión en mesa final). Turbo e Hyper aceleran el torneo.</p>' +
+        '<p class="trn-assist-level-lbl">Elige estructura</p>' +
+        '<div class="trn-assist-levels trn-structure-prompt-levels" role="group">' +
+        spChip('hyper', 'Hyper-turbo', '~½ órbita') +
+        spChip('turbo', 'Turbo', '~1 órbita') +
+        spChip('normal', 'Normal', '~2 órbitas') +
+        '</div>' +
+        '<div class="trn-setup-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="confirm-structure-prompt">Continuar</button>' +
+        '<button type="button" class="btn" data-act="close-structure-prompt">Cancelar</button>' +
+        '</div></div></div>';
+    }
+
     var assistModal = '';
     if (ui.assistPrompt && ui.assistPrompt.presetId) {
       var ap = ui.assistPrompt;
@@ -12894,7 +12963,7 @@ function reducedMotion() {
       structureChip('hyper', 'Hyper-turbo') +
       structureChip('turbo', 'Turbo') +
       structureChip('normal', 'Normal') +
-      '<span class="muted trn-lobby-structure-hint">Manos por nivel · Turbo ≈ ritmo actual</span>' +
+      '<span class="muted trn-lobby-structure-hint">Manos por nivel · Normal por defecto</span>' +
       '</div>' +
       '<div class="trn-lobby-headrow" aria-hidden="true">' +
       '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
@@ -12908,7 +12977,7 @@ function reducedMotion() {
       })() +
       '<section class="trn-lobby-recent">' +
       '<h3>Recientes</h3><ul class="trn-lobby-recent-grid">' + histHtml + '</ul>' +
-      '</section>' + resumeModal + upgradeModal + assistModal + '</div>';
+      '</section>' + resumeModal + upgradeModal + structureModal + assistModal + '</div>';
   }
 
   /* ---------- Setup ---------- */
@@ -12935,7 +13004,7 @@ function reducedMotion() {
     var w = d.roleWeights || {};
     var struct = (global.PTTournamentConfig.normalizeBlindStructure
       ? global.PTTournamentConfig.normalizeBlindStructure(d.blindStructure)
-      : (d.blindStructure || 'turbo'));
+      : (d.blindStructure || 'normal'));
     function wInput(id, label) {
       return '<label class="trn-field trn-field-sm">' + esc(label) +
         '<input type="number" min="0" max="100" data-w="' + id + '" value="' + (w[id] || 0) + '"></label>';
@@ -14901,6 +14970,30 @@ function reducedMotion() {
           paint();
         } else if (act === 'upgrade-plans') {
           openUpgradePlans();
+        } else if (act === 'close-structure-prompt') {
+          ui.structurePrompt = null;
+          paint();
+        } else if (act === 'structure-prompt-pick') {
+          if (ui.structurePrompt) {
+            var picked = btn.getAttribute('data-structure') || 'normal';
+            ui.structurePrompt.structure = global.PTTournamentConfig.normalizeBlindStructure
+              ? global.PTTournamentConfig.normalizeBlindStructure(picked)
+              : picked;
+            ui.lobbyStructure = ui.structurePrompt.structure;
+            paint();
+          }
+        } else if (act === 'confirm-structure-prompt') {
+          var spConfirm = ui.structurePrompt;
+          if (!spConfirm) {
+            paint();
+            return;
+          }
+          var chosenStruct = spConfirm.structure || resolveLobbyStructure();
+          ui.lobbyStructure = global.PTTournamentConfig.normalizeBlindStructure
+            ? global.PTTournamentConfig.normalizeBlindStructure(chosenStruct)
+            : chosenStruct;
+          ui.structurePrompt = null;
+          continueAfterStructureChoice(spConfirm);
         } else if (act === 'close-assist-prompt') {
           ui.assistPrompt = null;
           paint();
@@ -14953,7 +15046,7 @@ function reducedMotion() {
           var pid = btn.getAttribute('data-preset-id');
           clearActive();
           ui.resumePrompt = false;
-          if (pid) startFromConfig(pid, {});
+          if (pid) startPreset(pid);
           else paint();
         } else if (act === 'continue-hand') {
           if (ui.actionBusy) return;
@@ -15050,7 +15143,7 @@ function reducedMotion() {
               ? global.PTTournamentConfig.normalizeBlindStructure(cfg.blindStructure)
               : cfg.blindStructure;
           }
-          startFromConfig(cfg, {});
+          openStructurePrompt({ kind: 'custom', cfg: cfg });
         } else if (act === 'dismiss-blind-up') {
           if (ui.state) ui.state.blindUpPending = null;
           paint();
