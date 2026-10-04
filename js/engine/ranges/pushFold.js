@@ -286,6 +286,14 @@
     const ante = Number(input.anteBB || (ctx && ctx.anteBB)) || 0;
     const shortSteal = stack <= 22;
     if (shoveSet[code]) {
+      /* ~22–25bb: open-min es la línea principal (ATo HU/MTT open no debe ser Error).
+         Jam pesado solo en steal corto ≤18bb; 18–20bb mezcla. */
+      if (stack > 20) {
+        return { fold: 0.10, raise: 0.78, allin: 0.12, call: 0 };
+      }
+      if (stack > 18) {
+        return { fold: 0.10, raise: 0.40, allin: 0.50, call: 0 };
+      }
       return { fold: 0.1, raise: 0.05, allin: 0.85, call: 0 };
     }
     const light = stealJamLightSet(pos);
