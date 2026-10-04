@@ -21,15 +21,40 @@
     { level: 10, sb: 500, bb: 1000, ante: 100 }
   ];
 
-  /** Mesas HU: 12 manos/nivel. Cortas/medias (≤6): 8. Largas (9-max): 15. */
-  function handsPerLevelForSeats(seats) {
-    var n = Number(seats) || 6;
-    if (n <= 2) return 12;
-    return n >= 9 ? 15 : 8;
+  /**
+   * Manos por nivel según asientos × estructura.
+   * Turbo = valores históricos (HU 12 / ≤8 → 8 / 9-max 15).
+   * Hyper ≈ ½ órbita; Normal ≈ 2 órbitas.
+   */
+  var STRUCTURE_HANDS = {
+    hyper: { hu: 6, short: 4, full: 8 },
+    turbo: { hu: 12, short: 8, full: 15 },
+    normal: { hu: 24, short: 16, full: 30 }
+  };
+
+  function normalizeBlindStructure(v) {
+    var s = String(v || '').toLowerCase();
+    if (s === 'hyper' || s === 'hyper-turbo' || s === 'hyperturbo') return 'hyper';
+    if (s === 'normal' || s === 'regular' || s === 'standard') return 'normal';
+    return 'turbo';
   }
 
-  function defaultScheduleForSeats(seats) {
-    var hands = handsPerLevelForSeats(seats);
+  function blindStructureLabel(v) {
+    var s = normalizeBlindStructure(v);
+    if (s === 'hyper') return 'Hyper-turbo';
+    if (s === 'normal') return 'Normal';
+    return 'Turbo';
+  }
+
+  function handsPerLevelForSeats(seats, structure) {
+    var n = Number(seats) || 6;
+    var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.turbo;
+    if (n <= 2) return row.hu;
+    return n >= 9 ? row.full : row.short;
+  }
+
+  function defaultScheduleForSeats(seats, structure) {
+    var hands = handsPerLevelForSeats(seats, structure);
     /* Niveles base 1–10; blinds.js continúa geométricamente después. */
     return DEFAULT_LEVELS.map(function (lv) {
       return {
@@ -42,7 +67,7 @@
     });
   }
 
-  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6);
+  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6, 'turbo');
 
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
@@ -68,11 +93,11 @@
     return out;
   }
 
-  function normalizeSchedule(sched, seats) {
+  function normalizeSchedule(sched, seats, structure) {
     if (!Array.isArray(sched) || !sched.length) {
-      return defaultScheduleForSeats(seats != null ? seats : 6);
+      return defaultScheduleForSeats(seats != null ? seats : 6, structure);
     }
-    var fallbackHands = handsPerLevelForSeats(seats != null ? seats : 6);
+    var fallbackHands = handsPerLevelForSeats(seats != null ? seats : 6, structure);
     return sched.map(function (lv, i) {
       return {
         level: Number(lv.level) || (i + 1),
@@ -399,10 +424,11 @@
     var placesPaidDefault = (kind === 'spin' || kind === 'hu') ? 1 : Math.max(1, Math.floor(entries / 5));
     var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
     if ((kind === 'spin' || kind === 'hu') && entries <= 2) placesPaid = 1;
-    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15; HU a 12. */
+    /* Presets comparten DEFAULT_SCHEDULE; se reescala por asientos × blindStructure. */
+    var blindStructure = normalizeBlindStructure(raw.blindStructure);
     var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
-      ? normalizeSchedule(raw.blindSchedule, seats)
-      : defaultScheduleForSeats(seats);
+      ? normalizeSchedule(raw.blindSchedule, seats, blindStructure)
+      : defaultScheduleForSeats(seats, blindStructure);
     var id = String(raw.id || 'custom');
     var minPlan = raw.minPlan || PRESET_MIN_PLAN[id] || (id === 'custom' ? null : 'pro');
     if (minPlan === 'study') minPlan = 'pro';
@@ -428,6 +454,7 @@
         return 'unknown';
       })(),
       payoutLadder: normalizeLadder(raw.payoutLadder),
+      blindStructure: blindStructure,
       blindSchedule: blindSchedule,
       roleWeights: normalizeWeights(raw.roleWeights),
       exploitProPct: clamp(raw.exploitProPct != null ? raw.exploitProPct : 0, 0, 1),
@@ -501,6 +528,7 @@
     MAX_ENTRIES: MAX_ENTRIES,
     ROLE_IDS: ROLE_IDS.slice(),
     DEFAULT_SCHEDULE: clone(DEFAULT_SCHEDULE),
+    STRUCTURE_HANDS: STRUCTURE_HANDS,
     PRESETS: PRESETS,
     PRESET_MIN_PLAN: PRESET_MIN_PLAN,
     normalize: normalize,
@@ -509,6 +537,8 @@
     prizePool: prizePool,
     payoutFractions: payoutFractions,
     payoutEuros: payoutEuros,
+    normalizeBlindStructure: normalizeBlindStructure,
+    blindStructureLabel: blindStructureLabel,
     handsPerLevelForSeats: handsPerLevelForSeats,
     defaultScheduleForSeats: defaultScheduleForSeats,
     planLabel: planLabel,

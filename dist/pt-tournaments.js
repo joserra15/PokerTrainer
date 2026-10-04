@@ -240,15 +240,40 @@
     { level: 10, sb: 500, bb: 1000, ante: 100 }
   ];
 
-  /** Mesas HU: 12 manos/nivel. Cortas/medias (≤6): 8. Largas (9-max): 15. */
-  function handsPerLevelForSeats(seats) {
-    var n = Number(seats) || 6;
-    if (n <= 2) return 12;
-    return n >= 9 ? 15 : 8;
+  /**
+   * Manos por nivel según asientos × estructura.
+   * Turbo = valores históricos (HU 12 / ≤8 → 8 / 9-max 15).
+   * Hyper ≈ ½ órbita; Normal ≈ 2 órbitas.
+   */
+  var STRUCTURE_HANDS = {
+    hyper: { hu: 6, short: 4, full: 8 },
+    turbo: { hu: 12, short: 8, full: 15 },
+    normal: { hu: 24, short: 16, full: 30 }
+  };
+
+  function normalizeBlindStructure(v) {
+    var s = String(v || '').toLowerCase();
+    if (s === 'hyper' || s === 'hyper-turbo' || s === 'hyperturbo') return 'hyper';
+    if (s === 'normal' || s === 'regular' || s === 'standard') return 'normal';
+    return 'turbo';
   }
 
-  function defaultScheduleForSeats(seats) {
-    var hands = handsPerLevelForSeats(seats);
+  function blindStructureLabel(v) {
+    var s = normalizeBlindStructure(v);
+    if (s === 'hyper') return 'Hyper-turbo';
+    if (s === 'normal') return 'Normal';
+    return 'Turbo';
+  }
+
+  function handsPerLevelForSeats(seats, structure) {
+    var n = Number(seats) || 6;
+    var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.turbo;
+    if (n <= 2) return row.hu;
+    return n >= 9 ? row.full : row.short;
+  }
+
+  function defaultScheduleForSeats(seats, structure) {
+    var hands = handsPerLevelForSeats(seats, structure);
     /* Niveles base 1–10; blinds.js continúa geométricamente después. */
     return DEFAULT_LEVELS.map(function (lv) {
       return {
@@ -261,7 +286,7 @@
     });
   }
 
-  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6);
+  var DEFAULT_SCHEDULE = defaultScheduleForSeats(6, 'turbo');
 
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
@@ -287,11 +312,11 @@
     return out;
   }
 
-  function normalizeSchedule(sched, seats) {
+  function normalizeSchedule(sched, seats, structure) {
     if (!Array.isArray(sched) || !sched.length) {
-      return defaultScheduleForSeats(seats != null ? seats : 6);
+      return defaultScheduleForSeats(seats != null ? seats : 6, structure);
     }
-    var fallbackHands = handsPerLevelForSeats(seats != null ? seats : 6);
+    var fallbackHands = handsPerLevelForSeats(seats != null ? seats : 6, structure);
     return sched.map(function (lv, i) {
       return {
         level: Number(lv.level) || (i + 1),
@@ -618,10 +643,11 @@
     var placesPaidDefault = (kind === 'spin' || kind === 'hu') ? 1 : Math.max(1, Math.floor(entries / 5));
     var placesPaid = clamp(raw.placesPaid != null ? raw.placesPaid : placesPaidDefault, 1, Math.max(1, entries - 1));
     if ((kind === 'spin' || kind === 'hu') && entries <= 2) placesPaid = 1;
-    /* Presets comparten DEFAULT_SCHEDULE (8 manos); en 9-max se reescala a 15; HU a 12. */
+    /* Presets comparten DEFAULT_SCHEDULE; se reescala por asientos × blindStructure. */
+    var blindStructure = normalizeBlindStructure(raw.blindStructure);
     var blindSchedule = (raw.blindSchedule != null && !isPresetDefaultSchedule(raw.blindSchedule))
-      ? normalizeSchedule(raw.blindSchedule, seats)
-      : defaultScheduleForSeats(seats);
+      ? normalizeSchedule(raw.blindSchedule, seats, blindStructure)
+      : defaultScheduleForSeats(seats, blindStructure);
     var id = String(raw.id || 'custom');
     var minPlan = raw.minPlan || PRESET_MIN_PLAN[id] || (id === 'custom' ? null : 'pro');
     if (minPlan === 'study') minPlan = 'pro';
@@ -647,6 +673,7 @@
         return 'unknown';
       })(),
       payoutLadder: normalizeLadder(raw.payoutLadder),
+      blindStructure: blindStructure,
       blindSchedule: blindSchedule,
       roleWeights: normalizeWeights(raw.roleWeights),
       exploitProPct: clamp(raw.exploitProPct != null ? raw.exploitProPct : 0, 0, 1),
@@ -720,6 +747,7 @@
     MAX_ENTRIES: MAX_ENTRIES,
     ROLE_IDS: ROLE_IDS.slice(),
     DEFAULT_SCHEDULE: clone(DEFAULT_SCHEDULE),
+    STRUCTURE_HANDS: STRUCTURE_HANDS,
     PRESETS: PRESETS,
     PRESET_MIN_PLAN: PRESET_MIN_PLAN,
     normalize: normalize,
@@ -728,10 +756,76 @@
     prizePool: prizePool,
     payoutFractions: payoutFractions,
     payoutEuros: payoutEuros,
+    normalizeBlindStructure: normalizeBlindStructure,
+    blindStructureLabel: blindStructureLabel,
     handsPerLevelForSeats: handsPerLevelForSeats,
     defaultScheduleForSeats: defaultScheduleForSeats,
     planLabel: planLabel,
     requiredPlanForPreset: requiredPlanForPreset
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * tournament/table-speed.js — Preferencia de velocidad de animación en torneos.
+ * veryFast = timings históricos; fast / normal multiplican delays de UI.
+ */
+(function (global) {
+  'use strict';
+
+  var KEY = 'pt_table_speed_v1';
+  var MULTIPLIERS = {
+    veryFast: 1,
+    fast: 1.75,
+    normal: 2.75
+  };
+
+  function normalize(v) {
+    var s = String(v || '').toLowerCase();
+    if (s === 'fast' || s === 'rapida' || s === 'rápida') return 'fast';
+    if (s === 'normal') return 'normal';
+    if (s === 'veryfast' || s === 'very_fast' || s === 'muyrapida' || s === 'muy_rapida'
+      || s === 'muy rápida' || s === 'muy rapida') {
+      return 'veryFast';
+    }
+    return 'veryFast';
+  }
+
+  function label(v) {
+    var s = normalize(v);
+    if (s === 'fast') return 'Rápida';
+    if (s === 'normal') return 'Normal';
+    return 'Muy rápida';
+  }
+
+  function multiplier(v) {
+    var s = normalize(v);
+    return MULTIPLIERS[s] != null ? MULTIPLIERS[s] : 1;
+  }
+
+  function load() {
+    try {
+      return normalize(global.localStorage && global.localStorage.getItem(KEY));
+    } catch (e) {
+      return 'veryFast';
+    }
+  }
+
+  function save(speed) {
+    var v = normalize(speed);
+    try {
+      if (global.localStorage) global.localStorage.setItem(KEY, v);
+    } catch (e) { /* ignore */ }
+    return v;
+  }
+
+  global.PTTournamentTableSpeed = {
+    KEY: KEY,
+    MULTIPLIERS: MULTIPLIERS,
+    normalize: normalize,
+    label: label,
+    multiplier: multiplier,
+    load: load,
+    save: save
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -1267,6 +1361,11 @@
       });
     }
 
+    var Speed = global.PTTournamentTableSpeed;
+    var tableSpeed = (opts.tableSpeed != null && Speed)
+      ? Speed.normalize(opts.tableSpeed)
+      : (Speed && Speed.load ? Speed.load() : 'veryFast');
+
     var state = {
       id: uid('trn'),
       config: cfg,
@@ -1276,6 +1375,7 @@
       status: 'running',
       handIndex: 0,
       blindLevel: 1,
+      tableSpeed: tableSpeed,
       players: players,
       tables: [],
       heroGuesses: {},
@@ -8099,10 +8199,16 @@
       }).join('') + '</ol>' }
       : '—';
 
+    var structureLabel = (Cfg && Cfg.blindStructureLabel)
+      ? Cfg.blindStructureLabel(cfg.blindStructure)
+      : (cfg.blindStructure === 'hyper' ? 'Hyper-turbo'
+        : (cfg.blindStructure === 'normal' ? 'Normal' : 'Turbo'));
+
     return [
       { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG'
         : (cfg.kind === 'spin' ? 'SPIN'
           : (cfg.kind === 'hu' ? 'Heads-Up' : 'MTT'))) },
+      { label: 'Estructura', value: structureLabel },
       { label: 'Avance', value: progressHands },
       { label: 'Posición', value: posLabel },
       { label: 'Stack Hero', value: fmtNum(heroStack) + ' (' + heroBb + ' bb)' },
@@ -11306,6 +11412,7 @@
     root: null,
     state: null,
     setupDraft: null,
+    lobbyStructure: 'turbo',
     infoOpen: false,
     infoHandlogOpen: false,
     roleModalPlayerId: null,
@@ -11837,18 +11944,29 @@ function reducedMotion() {
     }
   }
 
+  function tableSpeedMultiplier() {
+    var Speed = global.PTTournamentTableSpeed;
+    var speed = (ui.state && ui.state.tableSpeed) || (Speed && Speed.load ? Speed.load() : 'veryFast');
+    if (Speed && typeof Speed.multiplier === 'function') return Speed.multiplier(speed);
+    return 1;
+  }
+
   function frameDelay(f) {
     if (reducedMotion()) return 60;
     if (!f) return 0;
-    if (f.kind === 'deal') return 420;
+    var base = 400;
+    if (f.kind === 'deal') base = 420;
     /* Pausa para ver holes de all-in antes del runout de comunitarias. */
-    if (f.kind === 'reveal') return 2000;
-    if (f.kind === 'street') return 560;
-    var a = String(f.action || '').toLowerCase();
-    if (a === 'fold') return 240;
-    if (a === 'check') return 300;
-    if (a === 'call') return 320;
-    return 400;
+    else if (f.kind === 'reveal') base = 2000;
+    else if (f.kind === 'street') base = 560;
+    else {
+      var a = String(f.action || '').toLowerCase();
+      if (a === 'fold') base = 240;
+      else if (a === 'check') base = 300;
+      else if (a === 'call') base = 320;
+      else base = 400;
+    }
+    return Math.round(base * tableSpeedMultiplier());
   }
 
   /** Mano "de presentación": el estado visible en el fotograma en curso. */
@@ -12275,6 +12393,13 @@ function reducedMotion() {
   function resumeActive() {
     var st = global.PTTournamentStore.loadActive && global.PTTournamentStore.loadActive();
     if (!st) return false;
+    var SpeedResume = global.PTTournamentTableSpeed;
+    if (SpeedResume && SpeedResume.normalize) {
+      st.tableSpeed = SpeedResume.normalize(st.tableSpeed || (SpeedResume.load && SpeedResume.load()));
+    } else if (!st.tableSpeed) {
+      st.tableSpeed = 'veryFast';
+    }
+    if (st.config && !st.config.blindStructure) st.config.blindStructure = 'turbo';
     ui.state = st;
     ui.bustPrompt = false;
     ui.infoOpen = false;
@@ -12373,6 +12498,35 @@ function reducedMotion() {
     return true;
   }
 
+  function resolveLobbyStructure() {
+    var Cfg = global.PTTournamentConfig;
+    if (Cfg && typeof Cfg.normalizeBlindStructure === 'function') {
+      return Cfg.normalizeBlindStructure(ui.lobbyStructure || 'turbo');
+    }
+    return ui.lobbyStructure === 'hyper' || ui.lobbyStructure === 'normal'
+      ? ui.lobbyStructure
+      : 'turbo';
+  }
+
+  function applyBlindStructureToConfig(cfg) {
+    var Cfg = global.PTTournamentConfig;
+    if (!Cfg || typeof Cfg.normalize !== 'function') return cfg;
+    var structure = resolveLobbyStructure();
+    if (typeof cfg === 'string') {
+      var preset = Cfg.fromPreset(cfg);
+      return Cfg.normalize(Object.assign({}, preset, {
+        id: cfg,
+        blindStructure: structure
+      }));
+    }
+    if (cfg && typeof cfg === 'object') {
+      var raw = Object.assign({}, cfg);
+      if (raw.blindStructure == null) raw.blindStructure = structure;
+      return Cfg.normalize(raw);
+    }
+    return Cfg.normalize({ blindStructure: structure });
+  }
+
   function startFromConfig(cfg, opts) {
     opts = opts || {};
     opts.heroName = opts.heroName || resolveHeroNameOpt();
@@ -12389,6 +12543,7 @@ function reducedMotion() {
       }
       return;
     }
+    cfg = applyBlindStructureToConfig(cfg);
     /* Comprobar saldo ANTES de borrar un torneo guardado / arrancar. */
     var buyIn = resolveBuyIn(cfg);
     if (!chargeBuyInOrExplain(buyIn)) return;
@@ -12545,6 +12700,12 @@ function reducedMotion() {
         '" data-lobby-filter="' + id + '">' + label + '</button>';
     }
 
+    var structure = resolveLobbyStructure();
+    function structureChip(id, label) {
+      return '<button type="button" class="trn-filter' + (structure === id ? ' is-on' : '') +
+        '" data-lobby-structure="' + id + '">' + label + '</button>';
+    }
+
     var active = global.PTTournamentStore.activeSummary && global.PTTournamentStore.activeSummary();
     var activeBanner = '';
     if (active) {
@@ -12666,6 +12827,13 @@ function reducedMotion() {
       '</div>' +
       '<p class="trn-lobby-count">' + filtered.length +
       ' torneo' + (filtered.length === 1 ? '' : 's') + '</p></div>' +
+      '<div class="trn-lobby-structure" role="group" aria-label="Estructura de ciegas">' +
+      '<span class="trn-lobby-structure-lbl">Estructura</span>' +
+      structureChip('hyper', 'Hyper-turbo') +
+      structureChip('turbo', 'Turbo') +
+      structureChip('normal', 'Normal') +
+      '<span class="muted trn-lobby-structure-hint">Manos por nivel · Turbo ≈ ritmo actual</span>' +
+      '</div>' +
       '<div class="trn-lobby-headrow" aria-hidden="true">' +
       '<span>Comienzo</span><span>Nombre</span><span>Juego</span>' +
       '<span>Jug.</span><span>Buy-in</span><span>Premio</span></div>' +
@@ -12692,6 +12860,7 @@ function reducedMotion() {
       startingStack: 1500,
       placesPaid: 3,
       payoutLadder: 'standard',
+      blindStructure: resolveLobbyStructure(),
       onBust: 'simulate',
       exploitProPct: 0.1,
       roleWeights: { fish: 20, nit: 15, tag: 30, lag: 20, maniac: 5, pro: 10 }
@@ -12702,6 +12871,9 @@ function reducedMotion() {
     var d = ui.setupDraft || defaultDraft();
     ui.setupDraft = d;
     var w = d.roleWeights || {};
+    var struct = (global.PTTournamentConfig.normalizeBlindStructure
+      ? global.PTTournamentConfig.normalizeBlindStructure(d.blindStructure)
+      : (d.blindStructure || 'turbo'));
     function wInput(id, label) {
       return '<label class="trn-field trn-field-sm">' + esc(label) +
         '<input type="number" min="0" max="100" data-w="' + id + '" value="' + (w[id] || 0) + '"></label>';
@@ -12717,6 +12889,10 @@ function reducedMotion() {
       '<label class="trn-field">Asientos/mesa<select data-f="seatsPerTable">' +
       '<option value="6"' + (d.seatsPerTable === 6 ? ' selected' : '') + '>6</option>' +
       '<option value="9"' + (d.seatsPerTable === 9 ? ' selected' : '') + '>9</option></select></label>' +
+      '<label class="trn-field">Estructura<select data-f="blindStructure">' +
+      '<option value="hyper"' + (struct === 'hyper' ? ' selected' : '') + '>Hyper-turbo</option>' +
+      '<option value="turbo"' + (struct === 'turbo' ? ' selected' : '') + '>Turbo</option>' +
+      '<option value="normal"' + (struct === 'normal' ? ' selected' : '') + '>Normal</option></select></label>' +
       '<label class="trn-field">Formato bounty<select data-f="tournamentType">' +
       '<option value="vanilla"' + (d.tournamentType === 'vanilla' ? ' selected' : '') + '>Vanilla</option>' +
       '<option value="pko"' + (d.tournamentType === 'pko' ? ' selected' : '') + '>PKO</option>' +
@@ -13325,11 +13501,28 @@ function reducedMotion() {
             '</button></li>';
         }).join('') + '</ul>')
         : '<p class="muted">Aún no hay manos</p>';
+      var Speed = global.PTTournamentTableSpeed;
+      var curSpeed = Speed && Speed.normalize
+        ? Speed.normalize(state.tableSpeed || (Speed.load && Speed.load()))
+        : (state.tableSpeed || 'veryFast');
+      function speedChip(id, label) {
+        return '<button type="button" class="btn btn-sm' + (curSpeed === id ? ' is-selected' : '') +
+          '" data-act="info-table-speed" data-speed="' + id + '">' + label + '</button>';
+      }
       infoModal = '<div class="trn-modal-backdrop" data-act="close-info">' +
         '<div class="trn-modal trn-modal-wide trn-info-modal" role="dialog" aria-modal="true" aria-label="Info del torneo" ' +
         'data-act="noop">' +
         '<h3>Info del torneo</h3>' +
         '<div class="trn-info-dl">' + rows + '</div>' +
+        '<div class="trn-assist-info card-box trn-table-speed-info">' +
+        '<h4>Velocidad de mesa</h4>' +
+        '<p class="muted trn-assist-info-blurb">Ritmo de las acciones de los rivales y del board. ' +
+        'Muy rápida es el ritmo actual.</p>' +
+        '<div class="trn-assist-levels" role="group" aria-label="Velocidad de mesa">' +
+        speedChip('veryFast', 'Muy rápida') +
+        speedChip('fast', 'Rápida') +
+        speedChip('normal', 'Normal') +
+        '</div></div>' +
         (function () {
           if (!assistFeatureVisible() || !isProPresetId((state.config && state.config.id) || state._presetId)) {
             return '';
@@ -14270,6 +14463,14 @@ function reducedMotion() {
     try {
       if (typeof document !== 'undefined' && document.body) {
         document.body.classList.toggle('trn-table-active', !!on);
+        var Speed = global.PTTournamentTableSpeed;
+        var speed = on && ui.state
+          ? (Speed && Speed.normalize
+            ? Speed.normalize(ui.state.tableSpeed || (Speed.load && Speed.load()))
+            : (ui.state.tableSpeed || 'veryFast'))
+          : '';
+        if (speed) document.body.setAttribute('data-table-speed', speed);
+        else document.body.removeAttribute('data-table-speed');
       }
     } catch (e) { /* noop */ }
   }
@@ -14476,7 +14677,7 @@ function reducedMotion() {
         }
 
         /* Pausa mínima de «pensando» para que el rival se note aunque el motor sea sync. */
-        var thinkMs = reducedMotion() ? 60 : 280;
+        var thinkMs = reducedMotion() ? 60 : Math.round(280 * tableSpeedMultiplier());
         var shouldDwell = !!(more.length && thinkMs > 0 && typeof setTimeout === 'function'
           && (ui.thinkingSeatId || ui.actionBusy));
         if (shouldDwell) {
@@ -14534,6 +14735,17 @@ function reducedMotion() {
     root.querySelectorAll('[data-lobby-filter]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         ui.lobbyFilter = btn.getAttribute('data-lobby-filter') || 'all';
+        paint();
+      });
+    });
+
+    root.querySelectorAll('[data-lobby-structure]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var Cfg = global.PTTournamentConfig;
+        var next = btn.getAttribute('data-lobby-structure') || 'turbo';
+        ui.lobbyStructure = Cfg && Cfg.normalizeBlindStructure
+          ? Cfg.normalizeBlindStructure(next)
+          : next;
         paint();
       });
     });
@@ -14665,6 +14877,16 @@ function reducedMotion() {
             persistActive();
             paint();
           }
+        } else if (act === 'info-table-speed') {
+          if (ui.state) {
+            var SpeedInfo = global.PTTournamentTableSpeed;
+            var nextSpeed = btn.getAttribute('data-speed') || 'veryFast';
+            ui.state.tableSpeed = SpeedInfo && SpeedInfo.normalize
+              ? SpeedInfo.normalize(nextSpeed)
+              : nextSpeed;
+            persistActive();
+            paint();
+          }
         } else if (act === 'restart-preset') {
           var pid = btn.getAttribute('data-preset-id');
           clearActive();
@@ -14761,6 +14983,11 @@ function reducedMotion() {
           setView(VIEW.generalStats);
         } else if (act === 'start-custom') {
           var cfg = readSetupForm(root);
+          if (cfg && cfg.blindStructure) {
+            ui.lobbyStructure = global.PTTournamentConfig.normalizeBlindStructure
+              ? global.PTTournamentConfig.normalizeBlindStructure(cfg.blindStructure)
+              : cfg.blindStructure;
+          }
           startFromConfig(cfg, {});
         } else if (act === 'dismiss-blind-up') {
           if (ui.state) ui.state.blindUpPending = null;

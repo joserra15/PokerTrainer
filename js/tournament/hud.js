@@ -182,10 +182,16 @@
       }).join('') + '</ol>' }
       : '—';
 
+    var structureLabel = (Cfg && Cfg.blindStructureLabel)
+      ? Cfg.blindStructureLabel(cfg.blindStructure)
+      : (cfg.blindStructure === 'hyper' ? 'Hyper-turbo'
+        : (cfg.blindStructure === 'normal' ? 'Normal' : 'Turbo'));
+
     return [
       { label: 'Torneo', value: cfg.name || (cfg.kind === 'sng' ? 'SNG'
         : (cfg.kind === 'spin' ? 'SPIN'
           : (cfg.kind === 'hu' ? 'Heads-Up' : 'MTT'))) },
+      { label: 'Estructura', value: structureLabel },
       { label: 'Avance', value: progressHands },
       { label: 'Posición', value: posLabel },
       { label: 'Stack Hero', value: fmtNum(heroStack) + ' (' + heroBb + ' bb)' },

@@ -91,6 +91,7 @@ function load(sandbox, rel) {
 const FILES = [
   'js/hand-end-view.js',
   'js/tournament/config.js',
+  'js/tournament/table-speed.js',
   'js/tournament/blinds.js',
   'js/tournament/names.js',
   'js/tournament/seating.js',
@@ -1224,6 +1225,9 @@ console.log('OK villain-aggression');
   assert.ok(dist.includes('computeSidePotsBySeat'), 'dist includes side pots settle');
   assert.ok(dist.includes('findLimpers'), 'dist includes limp detection');
   assert.ok(/n\s*<=\s*6/.test(dist), 'dist seatCoordsFor uses 9 slots for 7+');
+  assert.ok(dist.includes('PTTournamentTableSpeed'), 'dist includes table speed');
+  assert.ok(dist.includes('normalizeBlindStructure'), 'dist includes blind structure');
+  assert.ok(dist.includes('blindStructure'), 'dist persists blindStructure');
 }
 console.log('OK dist-tournaments-bundle');
 
@@ -2427,12 +2431,23 @@ console.log('OK pushfold-freq-100');
   console.log('OK tournament-ante-and-general-stats');
 }
 
-// --- mesas largas (9-max): 15 manos por nivel; 6-max: 8 ---
+// --- mesas largas (9-max): 15 manos por nivel; 6-max: 8 (turbo default) ---
 {
   const Cfg = g.PTTournamentConfig;
-  assert.strictEqual(Cfg.handsPerLevelForSeats(6), 8, '6-max → 8 manos');
-  assert.strictEqual(Cfg.handsPerLevelForSeats(9), 15, '9-max → 15 manos');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(6), 8, '6-max turbo → 8 manos');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(9), 15, '9-max turbo → 15 manos');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(6, 'turbo'), 8, 'explicit turbo 6-max');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(6, 'hyper'), 4, 'hyper 6-max → 4');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(6, 'normal'), 16, 'normal 6-max → 16');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(9, 'hyper'), 8, 'hyper 9-max → 8');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(9, 'normal'), 30, 'normal 9-max → 30');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(2, 'hyper'), 6, 'hyper HU → 6');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(2, 'normal'), 24, 'normal HU → 24');
+  assert.strictEqual(Cfg.normalizeBlindStructure('hyper-turbo'), 'hyper');
+  assert.strictEqual(Cfg.normalizeBlindStructure(null), 'turbo');
+  assert.strictEqual(Cfg.blindStructureLabel('normal'), 'Normal');
   const sng6 = Cfg.fromPreset('sng6');
+  assert.strictEqual(sng6.blindStructure, 'turbo', 'preset default turbo');
   assert.strictEqual(sng6.blindSchedule[0].hands, 8, 'sng6 level1 = 8');
   const sng9 = Cfg.fromPreset('sng9');
   assert.strictEqual(sng9.blindSchedule[0].hands, 15, 'sng9 level1 = 15');
@@ -2444,6 +2459,15 @@ console.log('OK pushfold-freq-100');
   assert.strictEqual(easy.blindSchedule[0].hands, 8, 'easy 6-max = 8');
   const customLong = Cfg.normalize({ kind: 'mtt', entries: 27, seatsPerTable: 9 });
   assert.strictEqual(customLong.blindSchedule[0].hands, 15, 'custom 9-max = 15');
+  const customNormal = Cfg.normalize({
+    kind: 'mtt', entries: 18, seatsPerTable: 6, blindStructure: 'normal'
+  });
+  assert.strictEqual(customNormal.blindStructure, 'normal');
+  assert.strictEqual(customNormal.blindSchedule[0].hands, 16, 'normal 6-max schedule');
+  const customHyper = Cfg.normalize({
+    kind: 'mtt', entries: 27, seatsPerTable: 9, blindStructure: 'hyper'
+  });
+  assert.strictEqual(customHyper.blindSchedule[0].hands, 8, 'hyper 9-max schedule');
   /* Schedule custom explícito se respeta. */
   const customHands = Cfg.normalize({
     kind: 'mtt', entries: 27, seatsPerTable: 9,
@@ -2451,6 +2475,38 @@ console.log('OK pushfold-freq-100');
   });
   assert.strictEqual(customHands.blindSchedule[0].hands, 12, 'explicit custom hands kept');
   console.log('OK long-table-15-hands');
+}
+
+// --- velocidad de mesa: preferencia + multiplicadores ---
+{
+  const Speed = g.PTTournamentTableSpeed;
+  assert.ok(Speed, 'PTTournamentTableSpeed loaded');
+  assert.strictEqual(Speed.normalize(null), 'veryFast');
+  assert.strictEqual(Speed.normalize('fast'), 'fast');
+  assert.strictEqual(Speed.normalize('normal'), 'normal');
+  assert.strictEqual(Speed.multiplier('veryFast'), 1);
+  assert.strictEqual(Speed.multiplier('fast'), 1.75);
+  assert.strictEqual(Speed.multiplier('normal'), 2.75);
+  assert.strictEqual(Speed.save('fast'), 'fast');
+  assert.strictEqual(Speed.load(), 'fast');
+  const st = g.PTTournamentRunner.create('easy', { seed: 7, heroName: 'SpeedHero' });
+  assert.strictEqual(st.tableSpeed, 'fast', 'create uses saved preference');
+  Speed.save('veryFast');
+  const st2 = g.PTTournamentRunner.create(
+    g.PTTournamentConfig.normalize({ kind: 'mtt', entries: 18, seatsPerTable: 6, blindStructure: 'normal' }),
+    { seed: 8, heroName: 'Struct', tableSpeed: 'normal' }
+  );
+  assert.strictEqual(st2.tableSpeed, 'normal', 'opts.tableSpeed override');
+  assert.strictEqual(st2.config.blindStructure, 'normal');
+  assert.strictEqual(st2.config.blindSchedule[0].hands, 16);
+  const uiSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/ui.js'), 'utf8');
+  assert.ok(/tableSpeedMultiplier/.test(uiSrc), 'ui scales frame delays');
+  assert.ok(/info-table-speed/.test(uiSrc), 'info panel table speed chips');
+  assert.ok(/data-lobby-structure/.test(uiSrc), 'lobby structure chips');
+  assert.ok(/blindStructure/.test(uiSrc), 'setup blindStructure field');
+  const hudSrc = fs.readFileSync(path.join(ROOT, 'js/tournament/hud.js'), 'utf8');
+  assert.ok(/Estructura/.test(hudSrc) && /blindStructureLabel/.test(hudSrc), 'hud structure row');
+  console.log('OK table-speed-and-structure');
 }
 
 // --- Top 10 sin scroll ---
@@ -2950,7 +3006,8 @@ console.log('OK pushfold-freq-100');
   assert.strictEqual(Cfg.requiredPlanForPreset('huMedium'), 'pro');
   assert.strictEqual(Cfg.requiredPlanForPreset('huHard'), 'pro');
   assert.strictEqual(Cfg.requiredPlanForPreset('huPro'), 'premium');
-  assert.strictEqual(Cfg.handsPerLevelForSeats(2), 12, 'HU 12 hands/level');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(2), 12, 'HU turbo 12 hands/level');
+  assert.strictEqual(Cfg.handsPerLevelForSeats(2, 'turbo'), 12, 'HU turbo explicit');
   assert.strictEqual(Cfg.fromPreset('huEasy').blindSchedule[0].hands, 12, 'huEasy level1 = 12');
   const huState = g.PTTournamentRunner.create('huEasy', { seed: 42, heroName: 'Tester' });
   assert.strictEqual(huState.players.length, 2, 'HU 2 players');
