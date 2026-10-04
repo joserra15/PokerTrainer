@@ -543,12 +543,9 @@
       /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
       icmEnabled: huWta ? false : true,
       villainType: villainType(hand, heroSeat),
-      /* Dual verdict siempre; primario exploit solo con arquetipo tipificado. */
-      scoreMode: (function () {
-        var vt = villainType(hand, heroSeat);
-        if (vt && vt !== 'pro' && vt !== 'tag' && vt !== 'random') return 'exploit';
-        return 'gto';
-      })(),
+      /* Primario GTO: el detalle «Evaluación GTO» y el paso a paso deben coincidir.
+         El veredicto explotativo viaja en classExploit/freqExploit (dual). */
+      scoreMode: 'gto',
       priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
       passiveLine: !!(hand._priorStreetCheckCheck),
       heroLine: (function () {
@@ -670,20 +667,21 @@
         base.label = actionLabel(chosen, action && action.amount, hand.bb);
       }
       base.unscored = graded.class === 'unscored';
-      base.class = graded.class;
+      /* Primario persistido = GTO para alinear detalle y paso a paso. */
       base.classGto = graded.classGto || graded.class;
       base.classExploit = graded.classExploit || graded.class;
+      base.class = base.classGto;
       base.freqGto = graded.freqGto;
       base.freqExploit = graded.freqExploit;
-      base.bestGto = graded.bestGto || null;
+      base.bestGto = graded.bestGto || graded.best || null;
       base.bestExploit = graded.bestExploit || null;
       base.evLoss = graded.evLoss;
-      base.frequency = graded.frequency;
-      base.best = graded.best;
+      base.frequency = graded.freqGto != null ? graded.freqGto : graded.frequency;
+      base.best = base.bestGto;
       base.explanation = graded.explanation;
-      base.strategy = graded.strategy;
-      base.gto = graded.strategy;
-      base.gtoBaseline = graded.gtoStrategy || null;
+      base.gtoBaseline = graded.gtoStrategy || graded.strategy || null;
+      base.strategy = base.gtoBaseline;
+      base.gto = base.gtoBaseline;
       base.exploitStrategy = graded.exploitStrategy || null;
       base.exploitApplied = !!graded.exploitApplied;
       base.exploitReasons = graded.exploitReasons || [];
@@ -722,6 +720,10 @@
         base.bestEV = result.evaluation.bestEV;
       }
       if (input.heroRemainingBB != null) base.heroRemainingBB = input.heroRemainingBB;
+      base.inPosition = input.inPosition;
+      base.priorAggressorBet = input.priorAggressorBet;
+      base.delayedCbet = input.delayedCbet;
+      base.villainLastAction = input.villainLastAction;
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
@@ -738,13 +740,26 @@
         chosenAction: input.chosenAction,
         initiative: input.initiative,
         inPosition: input.inPosition,
+        priorAggressorBet: input.priorAggressorBet,
+        delayedCbet: input.delayedCbet,
+        villainLastAction: input.villainLastAction,
         formatHub: input.formatHub,
         gameType: input.gameType,
         mttPhase: input.mttPhase,
         pushFold: input.pushFold,
-        preflopMode: input.preflopMode
+        preflopMode: input.preflopMode,
+        scoreMode: input.scoreMode || 'gto',
+        villainType: input.villainType || null
       };
       if (input.betSizeBB != null) base.betSizeBB = input.betSizeBB;
+      /* Rejilla del detalle GTO = mezcla GTO (no explotativa). */
+      if (graded.gtoStrategy && typeof graded.gtoStrategy === 'object') {
+        var gtoGrid = optionBreakdown(graded.gtoStrategy, {
+          pushFold: !!input.pushFold,
+          availableActions: input.availableActions
+        });
+        if (gtoGrid && gtoGrid.length) base.optionBreakdown = gtoGrid;
+      }
     } catch (e) {
       base.error = String(e && e.message || e);
     }

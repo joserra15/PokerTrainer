@@ -14458,16 +14458,34 @@ window.PT_NASH_PUSH_JSON = {
     const gtoStrategy = Object.assign({}, strategy);
     const Exploit = global.GTOHeroExploitAdjust;
     let exploitMeta = null;
+    let primaryMeta = null;
     if (Exploit && typeof Exploit.adjustStrategy === 'function') {
-      exploitMeta = Exploit.adjustStrategy(gtoStrategy, enriched);
+      /* Dual: siempre calcular mezcla explotativa completa (arquetipo) para
+         classExploit / freqExploit, aunque el primario sea GTO. */
+      exploitMeta = Exploit.adjustStrategy(gtoStrategy, Object.assign({}, enriched, {
+        scoreMode: 'exploit'
+      }));
+      primaryMeta = (enriched.scoreMode === 'exploit')
+        ? exploitMeta
+        : Exploit.adjustStrategy(gtoStrategy, Object.assign({}, enriched, {
+          scoreMode: enriched.scoreMode || 'gto'
+        }));
     }
     const exploitStrategy = (exploitMeta && exploitMeta.strategy)
       ? Object.assign({}, exploitMeta.strategy)
       : Object.assign({}, gtoStrategy);
-    /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat). */
+    /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat).
+       En torneos el detalle «Evaluación GTO» y el paso a paso usan primario GTO. */
     const useExploitPrimary = !!(Exploit && Exploit.shouldApply(enriched)
       && exploitMeta && exploitMeta.archetypeApplied);
-    strategy = useExploitPrimary ? exploitStrategy : gtoStrategy;
+    if (useExploitPrimary) {
+      strategy = exploitStrategy;
+    } else if (primaryMeta && primaryMeta.applied && primaryMeta.strategy) {
+      /* Modo GTO: line-lite / señales de línea pueden ajustar sin arquetipo. */
+      strategy = Object.assign({}, primaryMeta.strategy);
+    } else {
+      strategy = gtoStrategy;
+    }
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
@@ -14537,11 +14555,22 @@ window.PT_NASH_PUSH_JSON = {
       evaluationExploit: null,
       optionBreakdown: buildOptionBreakdown(strategy, enriched.availableActions),
       scoreMode: enriched.scoreMode || 'gto',
-      villainType: enriched.villainType || (exploitMeta && exploitMeta.villainType) || null,
-      exploitApplied: !!(exploitMeta && exploitMeta.applied),
-      exploitReasons: (exploitMeta && exploitMeta.reasons) || [],
-      explainDelta: (exploitMeta && exploitMeta.explainDelta) || [],
-      lineSignals: (exploitMeta && exploitMeta.lineSignals) || [],
+      villainType: enriched.villainType
+        || (exploitMeta && exploitMeta.villainType)
+        || (primaryMeta && primaryMeta.villainType)
+        || null,
+      exploitApplied: !!(useExploitPrimary
+        || (exploitMeta && exploitMeta.archetypeApplied)
+        || (primaryMeta && primaryMeta.applied)),
+      exploitReasons: (useExploitPrimary
+        ? ((exploitMeta && exploitMeta.reasons) || [])
+        : ((primaryMeta && primaryMeta.reasons) || (exploitMeta && exploitMeta.reasons) || [])),
+      explainDelta: (useExploitPrimary
+        ? ((exploitMeta && exploitMeta.explainDelta) || [])
+        : ((primaryMeta && primaryMeta.explainDelta) || [])),
+      lineSignals: (primaryMeta && primaryMeta.lineSignals)
+        || (exploitMeta && exploitMeta.lineSignals)
+        || [],
       drivers: driversMeta.drivers || [],
       topDrivers: driversMeta.topDrivers || [],
       conceptTags: driversMeta.conceptTags || [],
@@ -41884,9 +41913,20 @@ window.PT_NASH_PUSH_JSON = {
         : 'Evaluación GTO de la mano') +
       '</h3>';
     decisions.forEach(function (d) {
-      var cls = d.class || 'unscored';
+      /* Badge principal = GTO (coherente con paso a paso / «Evaluación GTO»). */
+      var cls = d.classGto || d.class || 'unscored';
       var label = d.label || d.chosen || d.action || '';
-      var breakdown = d.optionBreakdown;
+      var best = d.bestGto || d.best;
+      var gtoMix = d.gtoBaseline || d.gtoStrategy || null;
+      var breakdown = null;
+      if (gtoMix && typeof gtoMix === 'object') {
+        breakdown = Object.keys(gtoMix).map(function (id) {
+          var freq = Number(gtoMix[id]) || 0;
+          return { id: id, label: String(id).toUpperCase(), pct: Math.round(freq * 1000) / 10, frequency: freq };
+        }).filter(function (o) { return o.frequency >= 0.005; })
+          .sort(function (a, b) { return b.frequency - a.frequency; });
+      }
+      if (!breakdown || !breakdown.length) breakdown = d.optionBreakdown;
       if ((!breakdown || !breakdown.length) && d.gto) {
         breakdown = Object.keys(d.gto).map(function (id) {
           var freq = Number(d.gto[id]) || 0;
@@ -41904,28 +41944,31 @@ window.PT_NASH_PUSH_JSON = {
       if (d.classGto || d.classExploit) {
         var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
         var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
-        html += '<div class="dual-verdict-note muted" style="margin-top:4px;font-size:12px">';
-        if (d.classGto) {
-          html += '<span class="verdict ' + esc(d.classGto) + '">GTO: ' + esc(verdictWord(d.classGto))
-            + (gtoPct != null ? ' (' + gtoPct + '%)' : '') + '</span>';
+        var showDual = d.classExploit && d.classGto && d.classExploit !== d.classGto;
+        if (showDual || (d.exploitReasons && d.exploitReasons.length)) {
+          html += '<div class="dual-verdict-note muted" style="margin-top:4px;font-size:12px">';
+          if (d.classGto) {
+            html += '<span class="verdict ' + esc(d.classGto) + '">GTO: ' + esc(verdictWord(d.classGto))
+              + (gtoPct != null ? ' (' + gtoPct + '%)' : '') + '</span>';
+          }
+          if (d.classGto && d.classExploit) html += ' · ';
+          if (d.classExploit) {
+            html += '<span class="verdict ' + esc(d.classExploit) + '">Explotativo: '
+              + esc(verdictWord(d.classExploit))
+              + (exPct != null ? ' (' + exPct + '%)' : '') + '</span>';
+          }
+          if (d.exploitReasons && d.exploitReasons.length) {
+            html += '<div style="margin-top:2px">' + esc(d.exploitReasons.slice(0, 2).join(' ')) + '</div>';
+          }
+          html += '</div>';
         }
-        if (d.classGto && d.classExploit) html += ' · ';
-        if (d.classExploit) {
-          html += '<span class="verdict ' + esc(d.classExploit) + '">Explotativo: '
-            + esc(verdictWord(d.classExploit))
-            + (exPct != null ? ' (' + exPct + '%)' : '') + '</span>';
-        }
-        if (d.exploitReasons && d.exploitReasons.length) {
-          html += '<div style="margin-top:2px">' + esc(d.exploitReasons.slice(0, 2).join(' ')) + '</div>';
-        }
-        html += '</div>';
       }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
       }
       if (breakdown && breakdown.length) {
-        html += optionGridHtml(breakdown, d.action || d.chosen, d.best);
+        html += optionGridHtml(breakdown, d.action || d.chosen, best);
       } else if (d.gto) {
         html += gtoBarsHtml(d.gto);
       }

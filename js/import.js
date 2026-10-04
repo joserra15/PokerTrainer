@@ -513,7 +513,7 @@
       : (toCallBB > 0 ? r2(Math.max(potEvalBB - toCallBB, 0.1)) : potEvalBB);
     const lineCtx = street !== 'preflop' ? villainContextForAnalyzedHand(hand, d) : null;
     const villainRange = lineCtx ? lineCtx.villainRange : (d.villainRange || BROAD_CONTINUE);
-    const villainLastAction = lineCtx ? lineCtx.villainLastAction : d.villainLastAction;
+    let villainLastAction = lineCtx ? lineCtx.villainLastAction : d.villainLastAction;
     const villainBetRatio = lineCtx ? lineCtx.villainBetRatio : d.villainBetRatio;
     const RS = global.GTORiverShoveNode;
     const facingNode = d.facingNode || (RS
@@ -617,7 +617,10 @@
         return undefined;
       })(),
       pushFold: !!(d.pushFold || (d.input && d.input.pushFold)),
-      preflopMode: d.preflopMode || (d.input && d.input.preflopMode) || null
+      preflopMode: d.preflopMode || (d.input && d.input.preflopMode) || null,
+      /* Torneos: primario GTO en revisión; villainType alimenta el dual explotativo. */
+      scoreMode: d.scoreMode || (d.input && d.input.scoreMode) || 'gto',
+      villainType: d.villainType || (d.input && d.input.villainType) || null
     };
     if (d.street === 'preflop') return attachRangeContext(base, hand);
 
@@ -632,6 +635,14 @@
     if (delayedCbet == null && initiative === 'aggressor') {
       delayedCbet = !priorAggressorBet && street !== 'flop' && street !== 'preflop';
     }
+
+    if (d.villainLastAction || (d.input && d.input.villainLastAction)) {
+      villainLastAction = d.villainLastAction || d.input.villainLastAction;
+    }
+    if (d.priorAggressorBet != null) priorAggressorBet = d.priorAggressorBet;
+    else if (d.input && d.input.priorAggressorBet != null) priorAggressorBet = d.input.priorAggressorBet;
+    if (d.delayedCbet != null) delayedCbet = !!d.delayedCbet;
+    else if (d.input && d.input.delayedCbet != null) delayedCbet = !!d.input.delayedCbet;
 
     return Object.assign(attachRangeContext(base, hand), {
       villainRange,
@@ -675,11 +686,28 @@
     if (!GTO || !GTO.evaluateSpot) return d;
     const evalResult = GTO.evaluateSpot(buildEvalInputFromDecision(hand, d, chosenOverride));
     const ev = evalResult.evaluation;
-    d.gto = evalResult.strategy;
-    d.optionBreakdown = evalResult.optionBreakdown;
-    d.best = ev.best;
-    d.class = ev.class;
+    /* Paso a paso / detalle GTO: rejilla y veredicto primario = GTO. */
+    const gtoStrat = evalResult.gtoStrategy || evalResult.strategy;
+    d.gto = gtoStrat;
+    d.gtoBaseline = evalResult.gtoStrategy || gtoStrat;
+    if (evalResult.scoreMode === 'exploit' && evalResult.gtoStrategy) {
+      const order = d.options || d.availableActions || Object.keys(evalResult.gtoStrategy);
+      d.optionBreakdown = order.map(function (id) {
+        const freq = Number(evalResult.gtoStrategy[id]) || 0;
+        return {
+          id: id,
+          label: String(id).toUpperCase(),
+          frequency: freq,
+          pct: Math.round(freq * 1000) / 10
+        };
+      }).filter(function (o) { return o.frequency >= 0.005; })
+        .sort(function (a, b) { return b.frequency - a.frequency; });
+    } else {
+      d.optionBreakdown = evalResult.optionBreakdown;
+    }
     attachDualVerdictFields(d, evalResult);
+    d.best = d.bestGto || ev.best;
+    d.class = d.classGto || ev.class;
     d.evLoss = ev.evLoss;
     d.evLossEuro = ev.evLossEuro;
     d.evErroneous = ev.evErroneous;
@@ -689,7 +717,7 @@
     d.evLossTier = ev.evLossTier;
     d.actionEV = ev.actionEV;
     d.bestEV = ev.bestEV;
-    d.frequency = ev.frequency;
+    d.frequency = d.freqGto != null ? d.freqGto : ev.frequency;
     d.confidence = ev.confidence;
     d.confidenceTier = ev.confidenceTier;
     d.confidenceLabel = ev.confidenceLabel;

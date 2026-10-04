@@ -1969,12 +1969,9 @@
       /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
       icmEnabled: huWta ? false : true,
       villainType: villainType(hand, heroSeat),
-      /* Dual verdict siempre; primario exploit solo con arquetipo tipificado. */
-      scoreMode: (function () {
-        var vt = villainType(hand, heroSeat);
-        if (vt && vt !== 'pro' && vt !== 'tag' && vt !== 'random') return 'exploit';
-        return 'gto';
-      })(),
+      /* Primario GTO: el detalle «Evaluación GTO» y el paso a paso deben coincidir.
+         El veredicto explotativo viaja en classExploit/freqExploit (dual). */
+      scoreMode: 'gto',
       priorStreetCheckCheck: !!(hand._priorStreetCheckCheck),
       passiveLine: !!(hand._priorStreetCheckCheck),
       heroLine: (function () {
@@ -2096,20 +2093,21 @@
         base.label = actionLabel(chosen, action && action.amount, hand.bb);
       }
       base.unscored = graded.class === 'unscored';
-      base.class = graded.class;
+      /* Primario persistido = GTO para alinear detalle y paso a paso. */
       base.classGto = graded.classGto || graded.class;
       base.classExploit = graded.classExploit || graded.class;
+      base.class = base.classGto;
       base.freqGto = graded.freqGto;
       base.freqExploit = graded.freqExploit;
-      base.bestGto = graded.bestGto || null;
+      base.bestGto = graded.bestGto || graded.best || null;
       base.bestExploit = graded.bestExploit || null;
       base.evLoss = graded.evLoss;
-      base.frequency = graded.frequency;
-      base.best = graded.best;
+      base.frequency = graded.freqGto != null ? graded.freqGto : graded.frequency;
+      base.best = base.bestGto;
       base.explanation = graded.explanation;
-      base.strategy = graded.strategy;
-      base.gto = graded.strategy;
-      base.gtoBaseline = graded.gtoStrategy || null;
+      base.gtoBaseline = graded.gtoStrategy || graded.strategy || null;
+      base.strategy = base.gtoBaseline;
+      base.gto = base.gtoBaseline;
       base.exploitStrategy = graded.exploitStrategy || null;
       base.exploitApplied = !!graded.exploitApplied;
       base.exploitReasons = graded.exploitReasons || [];
@@ -2148,6 +2146,10 @@
         base.bestEV = result.evaluation.bestEV;
       }
       if (input.heroRemainingBB != null) base.heroRemainingBB = input.heroRemainingBB;
+      base.inPosition = input.inPosition;
+      base.priorAggressorBet = input.priorAggressorBet;
+      base.delayedCbet = input.delayedCbet;
+      base.villainLastAction = input.villainLastAction;
       base.input = {
         spotKind: input.spotKind,
         street: input.street,
@@ -2164,13 +2166,26 @@
         chosenAction: input.chosenAction,
         initiative: input.initiative,
         inPosition: input.inPosition,
+        priorAggressorBet: input.priorAggressorBet,
+        delayedCbet: input.delayedCbet,
+        villainLastAction: input.villainLastAction,
         formatHub: input.formatHub,
         gameType: input.gameType,
         mttPhase: input.mttPhase,
         pushFold: input.pushFold,
-        preflopMode: input.preflopMode
+        preflopMode: input.preflopMode,
+        scoreMode: input.scoreMode || 'gto',
+        villainType: input.villainType || null
       };
       if (input.betSizeBB != null) base.betSizeBB = input.betSizeBB;
+      /* Rejilla del detalle GTO = mezcla GTO (no explotativa). */
+      if (graded.gtoStrategy && typeof graded.gtoStrategy === 'object') {
+        var gtoGrid = optionBreakdown(graded.gtoStrategy, {
+          pushFold: !!input.pushFold,
+          availableActions: input.availableActions
+        });
+        if (gtoGrid && gtoGrid.length) base.optionBreakdown = gtoGrid;
+      }
     } catch (e) {
       base.error = String(e && e.message || e);
     }
@@ -9521,11 +9536,27 @@
   function normalizeDecision(d, bb) {
     if (!d) return null;
     var chosen = d.chosen || d.action || d.label || 'fold';
-    var cls = mapClass(d.class);
-    var strategy = d.strategy || d.gto || null;
+    var classGto = d.classGto != null ? mapClass(d.classGto) : null;
+    var classExploit = d.classExploit != null ? mapClass(d.classExploit) : null;
+    /* Detalle GTO / paso a paso: primario = veredicto GTO cuando existe. */
+    var cls = mapClass(classGto || d.class);
+    var gtoBaseline = d.gtoBaseline || d.gtoStrategy || null;
+    var strategy = gtoBaseline || d.strategy || d.gto || null;
     var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
       || d.preflopMode === 'push');
-    var breakdown = d.optionBreakdown || null;
+    var avail = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    var breakdown = null;
+    /* Preferir rejilla GTO (no la mezcla explotativa) para coincidir con paso a paso. */
+    if (gtoBaseline) {
+      breakdown = optionBreakdownFromStrategy(gtoBaseline, {
+        pushFold: pushFold,
+        availableActions: avail
+      });
+    }
+    if (!breakdown || !breakdown.length) {
+      breakdown = d.optionBreakdown || null;
+    }
     /* Reconstruir / normalizar labels al estilo paso a paso (FOLD 12%, CALL 40%…). */
     if (breakdown && breakdown.length) {
       breakdown = breakdown.map(function (o) {
@@ -9546,28 +9577,37 @@
     } else {
       breakdown = optionBreakdownFromStrategy(strategy, {
         pushFold: pushFold,
-        availableActions: d.options || d.availableActions
-          || (d.input && (d.input.availableActions || d.input.options)) || null
+        availableActions: avail
       });
     }
-    var opts = d.options || d.availableActions
-      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    var opts = avail;
     if ((!opts || !opts.length) && breakdown && breakdown.length) {
       opts = breakdown.map(function (o) { return o.id; }).filter(Boolean);
     }
     var input = d.input || null;
+    var freq = d.freqGto != null ? Number(d.freqGto)
+      : (Number(d.frequency) || 0);
+    var best = d.bestGto || d.best || null;
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
       action: chosen,
       label: d.label || actionLabel(chosen, d.amount, bb),
       class: cls === 'unscored' ? 'aceptable' : cls,
-      best: d.best || null,
+      classGto: classGto || cls,
+      classExploit: classExploit || cls,
+      best: best,
+      bestGto: d.bestGto || best,
+      bestExploit: d.bestExploit || null,
       gto: strategy,
+      gtoBaseline: gtoBaseline,
+      exploitStrategy: d.exploitStrategy || null,
       optionBreakdown: breakdown,
       evLoss: Number(d.evLoss) || 0,
       evErroneous: !!d.evErroneous,
-      frequency: Number(d.frequency) || 0,
+      frequency: freq,
+      freqGto: d.freqGto != null ? Number(d.freqGto) : freq,
+      freqExploit: d.freqExploit != null ? Number(d.freqExploit) : null,
       explanation: d.explanation || null,
       context: d.context || null,
       unscored: !!d.unscored || cls === 'unscored',
@@ -9584,11 +9624,24 @@
       spotKind: (input && input.spotKind) || d.spotKind || null,
       vsPosition: d.vsPosition || (input && input.vsPosition) || null,
       initiative: d.initiative || (input && input.initiative) || null,
+      inPosition: d.inPosition != null ? d.inPosition
+        : (input && input.inPosition != null ? input.inPosition : null),
+      priorAggressorBet: d.priorAggressorBet != null ? d.priorAggressorBet
+        : (input && input.priorAggressorBet != null ? input.priorAggressorBet : null),
+      delayedCbet: d.delayedCbet != null ? d.delayedCbet
+        : (input && input.delayedCbet != null ? input.delayedCbet : null),
+      villainLastAction: d.villainLastAction || (input && input.villainLastAction) || null,
       formatHub: d.formatHub || (input && input.formatHub) || 'mtt',
       gameType: d.gameType || (input && input.gameType) || null,
       mttPhase: d.mttPhase || (input && input.mttPhase) || null,
       pushFold: pushFold,
       preflopMode: d.preflopMode || (input && input.preflopMode) || null,
+      scoreMode: d.scoreMode || (input && input.scoreMode) || 'gto',
+      villainType: d.villainType || (input && input.villainType) || null,
+      exploitApplied: !!d.exploitApplied,
+      exploitReasons: d.exploitReasons || [],
+      explainDelta: d.explainDelta || [],
+      lineSignals: d.lineSignals || [],
       stackBB: d.stackBB != null ? d.stackBB
         : (input && input.stackBB != null ? input.stackBB : null),
       amount: d.amount != null ? d.amount : null,
@@ -9596,7 +9649,7 @@
       availableActions: Array.isArray(opts) ? opts.slice() : null,
       input: input
     };
-    if (out.unscored && !d.class) out.class = 'aceptable';
+    if (out.unscored && !d.class && !classGto) out.class = 'aceptable';
     return out;
   }
 
