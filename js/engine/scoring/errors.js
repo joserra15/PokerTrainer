@@ -56,9 +56,26 @@
       if (action !== 'overbet' && betSize > pot * 2.5) {
         errors.push({ type: 'overbet_absurda', msg: 'Sizing excesivo respecto al bote.' });
       }
-      if (tier === 'air' && (freqs.bet || 0) < 0.15 && (freqs.raise || 0) < 0.15
-        && (freqs.overbet || 0) < 0.15) {
-        errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
+      if (tier === 'air') {
+        /* Sumar bet_* + raise/overbet/allin: mirar keys sueltas marcaba casi todo farol river. */
+        let aggroFreq = (freqs.bet || 0) + (freqs.raise || 0) + (freqs.overbet || 0) + (freqs.allin || 0);
+        Object.keys(freqs).forEach(function (k) {
+          if (k.indexOf('bet_') === 0) aggroFreq += freqs[k] || 0;
+        });
+        const street = input.street || 'preflop';
+        const delayedOk = (input.delayedCbet === true
+          || (input.initiative === 'aggressor' && input.priorAggressorBet === false))
+          && input.villainLastAction === 'check';
+        const feOk = (input.foldEquity != null ? input.foldEquity : 0) >= 0.30;
+        const blkOk = Block && input.heroCards && input.board
+          ? (Block.computeBlockerScore(input.heroCards, input.board) || 0) >= 0.28
+          : false;
+        /* Solo river delayed polar con FE/blockers y masa mínima en la mezcla. */
+        const polarLeadOk = street === 'river' && delayedOk && (feOk || blkOk) && toCall <= 0
+          && aggroFreq >= 0.12;
+        if (aggroFreq < 0.15 && !polarLeadOk) {
+          errors.push({ type: 'bluff_excesivo', msg: 'Farol con frecuencia GTO muy baja en este spot.' });
+        }
       }
       if (!dustJam && tier === 'strong' && betSize < pot * 0.2
         && (action === 'bet' || action.startsWith('bet_'))) {
@@ -68,7 +85,8 @@
       if (!dustJam && action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
-      if (tier === 'air' || tier === 'weak') {
+      /* Solo faroles FACING polarización rival (pagamos apuesta); no leads propios tras checks. */
+      if ((tier === 'air' || tier === 'weak') && toCall > 0) {
         const polarized = input.villainBetRatio >= 0.6 || input.facingNode === 'shove';
         const lowBlockers = Block && input.heroCards && input.board
           ? (Block.computeBlockerScore(input.heroCards, input.board) || 0) < 0.15 : true;

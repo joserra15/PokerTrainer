@@ -126,10 +126,35 @@
 
   function estimateFoldEquity(input, freqs) {
     const tier = input.madeHandInfo ? input.madeHandInfo.tier : (input.handRank ? input.handRank.tier : 'medium');
-    if (tier === 'air') return 0.32;
-    if (tier === 'weak') return 0.22;
-    if (tier === 'strong') return 0.12;
-    return 0.2;
+    let fe = 0.2;
+    if (tier === 'air') fe = 0.32;
+    else if (tier === 'weak') fe = 0.22;
+    else if (tier === 'strong') fe = 0.12;
+
+    const street = input.street || 'preflop';
+    const inPosition = input.inPosition !== false;
+    /* Delayed solo si el agresor no barreó (no confundir con caller prior=false). */
+    const delayed = input.delayedCbet === true
+      || (input.initiative === 'aggressor' && input.priorAggressorBet === false);
+    const Probe = global.GTOProbeEV;
+    if (Probe && Probe.cbetFoldEquityBoost && input.initiative === 'aggressor') {
+      fe += Probe.cbetFoldEquityBoost(input) || 0;
+    } else if (street === 'river' && delayed && (input.toCallBB || 0) <= 0) {
+      fe += inPosition ? 0.10 : 0.08;
+    } else if (street === 'river' && input.initiative === 'aggressor' && !delayed && tier === 'air') {
+      fe -= 0.08;
+    }
+
+    const pot = Math.max(input.potBeforeBB != null ? input.potBeforeBB : (input.potBB || 1), 0.1);
+    const size = input.betSizeBB || 0;
+    if (size > 0) {
+      const ratio = size / pot;
+      if (ratio >= 1.0) fe += 0.06;
+      else if (ratio >= 0.66) fe += 0.03;
+    }
+    if (input.villainLastAction === 'check') fe += 0.04;
+
+    return Math.max(0.08, Math.min(0.62, fe));
   }
 
   /**

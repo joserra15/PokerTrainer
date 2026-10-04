@@ -138,7 +138,12 @@
 
     if (band === 'air' || band === 'bluffcatch') {
       if (street === 'river' && polarization > 0.45) {
-        return withOver({ s33: 0.32, s66: 0.34, s100: 0.22 }, 0.14);
+        const delayedPolar = !isTrueBarrelLine(input) || input.delayedCbet === true;
+        const overW = delayedPolar ? 0.22 : 0.14;
+        const split = delayedPolar
+          ? { s33: 0.18, s66: 0.28, s100: 0.32 }
+          : { s33: 0.32, s66: 0.34, s100: 0.22 };
+        return withOver(split, overW);
       }
       base = { s33: 0.52, s66: 0.32, s100: 0.16 };
       return Object.assign({ sOver: 0 }, base);
@@ -234,6 +239,20 @@
       if (band === 'nuts' || band === 'value') return inPosition ? 0.62 : 0.50;
       if (band === 'merge') return inPosition ? 0.36 : 0.26;
       return inPosition ? 0.28 : 0.18;
+    }
+    if (street === 'river') {
+      if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
+      if (band === 'air' && !isTrueBarrelLine(input)) {
+        // Delayed river stab tras check-check: piso material (no spew).
+        const dry = !texture.wet;
+        const highBoard = texture.category === 'ACE_HIGH' || texture.category === 'HIGH_BOARD'
+          || texture.category === 'KING_HIGH';
+        if (dry || highBoard || texture.paired) {
+          return inPosition ? 0.20 : 0.16;
+        }
+        return inPosition ? 0.14 : 0.10;
+      }
+      return 0;
     }
     if (band === 'nuts' || band === 'value') return inPosition ? 0.55 : 0.45;
     return 0;
@@ -387,7 +406,11 @@
     }
 
     betTotal *= (band === 'nuts' && street === 'river') ? 1.0 : (streetScale[street] || 1);
-    if (street === 'river' && band === 'air') betTotal = Math.min(betTotal, 0.14);
+    const delayedAirRiver = street === 'river' && band === 'air' && !isTrueBarrelLine(input);
+    if (street === 'river' && band === 'air') {
+      /* Delayed: techo más alto (polar stab); true barrel sigue capped bajo. */
+      betTotal = Math.min(betTotal, delayedAirRiver ? 0.40 : 0.14);
+    }
 
     if (band === 'bluffcatch' && street === 'river') betTotal = Math.min(betTotal, 0.15);
 
@@ -413,7 +436,12 @@
       }
     }
     if (isContinuationBetSpot(input) && band === 'air' && street === 'river') {
-      betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.08);
+      if (!isTrueBarrelLine(input)) {
+        // Delayed river tras check-check: polar stab creíble (techo anti-spew 0.40).
+        betTotal = Math.min(betTotal, inPosition ? 0.36 : 0.28);
+      } else {
+        betTotal = Math.min(betTotal, inPosition ? 0.16 : 0.08);
+      }
     }
     if (!isContinuationBetSpot(input) && input.initiative === 'caller') {
       // Caps escalados por calle: si el tope fijo se aplica DESPUÉS de streetScale,

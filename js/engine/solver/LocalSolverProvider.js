@@ -294,6 +294,14 @@
         enriched.street || 'preflop', cls.cls, chosenAction,
         enriched.handCode, strategy, enriched.potBB, enriched
       );
+      const Board = global.GTOBoardCluster;
+      const tex = Board && enriched.board ? Board.boardTexture(enriched.board) : null;
+      let blockerScore = null;
+      if (global.GTOBlockers && enriched.heroCards && enriched.board) {
+        try {
+          blockerScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
+        } catch (eBlk) { blockerScore = null; }
+      }
       const reconciled = Classifier.reconcileWithEv(
         cls.cls, chosenAction, cls.best, evResult,
         {
@@ -306,7 +314,20 @@
           madeCategory: enriched.madeHandInfo && (
             (enriched.madeHandInfo.ev && enriched.madeHandInfo.ev.category)
             || enriched.madeHandInfo.category
-          )
+          ),
+          priorAggressorBet: enriched.priorAggressorBet,
+          delayedCbet: enriched.delayedCbet,
+          villainLastAction: enriched.villainLastAction,
+          street: enriched.street,
+          initiative: enriched.initiative,
+          foldEquity: (evResult.mathParams && evResult.mathParams.foldEquityPct != null)
+            ? evResult.mathParams.foldEquityPct / 100
+            : enriched.foldEquity,
+          blockerScore: blockerScore,
+          boardPaired: !!(tex && tex.paired),
+          boardDry: !!(tex && !tex.wet && !tex.paired),
+          betSizeBB: enriched.betSizeBB,
+          potBB: enriched.potBB
         }
       );
       const finalCls0 = reconciled.cls;

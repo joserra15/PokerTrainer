@@ -210,6 +210,19 @@ assert(cashBtn && N.toSet(cashBtn.raise).has('AKs'), 'cash BTN open incluye AKs'
     'BB vs BTN AA defiende: ' + JSON.stringify(s));
 }
 
+// 10) 14bb MTT SB ATs: Nash shove no colapsa a fold 100%
+{
+  assert(PF.isPushPhase({ formatHub: 'mtt', stackBB: 14 }), 'push phase a 14bb');
+  const s = strategy({
+    spotKind: 'RFI', position: 'SB', handCode: 'ATs', stackDepth: 14,
+    formatHub: 'mtt', gameType: 'mtt', mttPhase: 'push',
+    pushFold: true, preflopMode: 'push',
+    availableActions: ['fold', 'raise', 'allin']
+  });
+  assert(aggress(s) >= 0.5,
+    '14bb SB ATs jam ≥50%: ' + JSON.stringify(s));
+}
+
 if (failed) {
   console.error('\n*** test-gto-matrix-pushfold-allfold FALLÓ (' + failed + ') ***');
   process.exit(1);

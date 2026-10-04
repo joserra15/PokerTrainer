@@ -159,6 +159,31 @@ assert(!!Cl, 'GTOClassifier loaded');
   assert(rows[0].id === 'check' && rows[0].pct >= 50, 'check leads injected grid');
 }
 
+// --- Delayed vs barrel: frecuencias distintas en air dry ---
+{
+  const Probe = sandbox.GTOProbeEV;
+  assert(!!Probe && typeof Probe.computeProbeStrategy === 'function', 'GTOProbeEV loaded');
+  const base = {
+    street: 'river',
+    initiative: 'aggressor',
+    inPosition: false,
+    board: ['As', 'Kd', '2c', '3h', '8d'],
+    heroCards: ['7h', '6c'],
+    potBB: 12,
+    toCallBB: 0,
+    villainLastAction: 'check'
+  };
+  const delayed = Probe.computeProbeStrategy(Object.assign({}, base, {
+    priorAggressorBet: false, delayedCbet: true
+  }));
+  const barrel = Probe.computeProbeStrategy(Object.assign({}, base, {
+    priorAggressorBet: true, delayedCbet: false
+  }));
+  assert(delayed.betTotal > barrel.betTotal + 0.03,
+    'delayed river air > barrel, got ' + delayed.betTotal.toFixed(3) + ' vs ' + barrel.betTotal.toFixed(3));
+  assert(delayed.betTotal <= 0.45, 'delayed techo ≤0.45, got ' + delayed.betTotal.toFixed(3));
+}
+
 if (failed) {
   console.error('\n*** TEST GTO-RIVER-TOURNAMENT-COHERENCE FALLÓ (' + failed + ') ***');
   process.exit(1);

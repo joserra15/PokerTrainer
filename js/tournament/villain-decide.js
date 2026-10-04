@@ -621,7 +621,7 @@
         });
       } catch (e) { /* */ }
     }
-    return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 12;
+    return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 14;
   }
 
   /**
@@ -694,11 +694,15 @@
       }
     });
     var multiStreetAgg = Object.keys(aggStreets).length;
+    var curStreet = hand.street;
+    var priorAgg = Object.keys(aggStreets).some(function (st) { return st !== curStreet; });
     return {
       multiStreetAgg: multiStreetAgg,
       betRaiseCount: betRaiseCount,
       checkCount: checkCount,
       passive: checkCount >= 2 && betRaiseCount === 0,
+      /* Check-check previo + lead actual (delayed c-bet / river stab). */
+      delayedLead: !priorAgg && checkCount >= 1,
       aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2
     };
   }
@@ -745,7 +749,7 @@
       if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
 
       /* Push/fold corto, fase push, o ciegas a punto de comer el stack. */
-      var inPushZone = stackBB <= 12 || pushPhase || blindStrong
+      var inPushZone = stackBB <= 14 || pushPhase || blindStrong
         || (blindPress && stackBB <= 18 && isLateStealPos(seat.pos));
       if (inPushZone && PF && typeof PF.shouldOpenShove === 'function' && code) {
         try {
@@ -767,7 +771,7 @@
             return { id: 'raise', amount: allInTo(seat) };
           }
         } catch (eShove) { /* */ }
-        if (stackBB <= 12 || pushPhase || blindStrong) {
+        if (stackBB <= 14 || pushPhase || blindStrong) {
           return tc > 0 ? { id: 'fold' } : { id: 'check' };
         }
       }
@@ -942,7 +946,7 @@
   }
 
   function pushesOrShort(stackBB, pushPhase) {
-    return stackBB <= 12 || !!pushPhase;
+    return stackBB <= 14 || !!pushPhase;
   }
 
   /**
@@ -969,6 +973,22 @@
     /* River air / board-only: fold vs ≥25% pot (K-high / Q-high jugando el board). */
     if (street === 'river' && (strength < 0.30 || boardOnly || band === 'air')) {
       if ((betFrac >= 0.25 || potOdds >= 0.20) && potOdds >= 0.08) return 'fold';
+    }
+    /*
+     * Delayed river stab / overbet tras línea pasiva: mid-strength respeta polarización
+     * (no hero-call automático con bluff-catchers medios).
+     */
+    var delayedPolar = street === 'river'
+      && !!(extra.heroLine && (extra.heroLine.delayedLead || extra.heroLine.passive))
+      && (betFrac >= 0.66 || potOdds >= 0.38);
+    if (delayedPolar && strength < 0.62 && strength >= 0.32 && !boardOnly
+      && band !== 'nuts' && band !== 'value') {
+      if (rnd < 0.62) return 'fold';
+    }
+    /* Board paired + raise/overbet: foldear más bluff-catchers medios (boat story). */
+    if (street === 'river' && extra.boardPaired && (betFrac >= 0.55 || potOdds >= 0.35)
+      && strength < 0.55 && strength >= 0.30 && band !== 'nuts') {
+      if (rnd < 0.55) return 'fold';
     }
     /* All-in / overbet river sin mejora real: nunca hero-call con board-only. */
     if (street === 'river' && boardOnly && (betFrac >= 0.55 || potOdds >= 0.40)) {
@@ -1212,12 +1232,15 @@
         if (seat._linePlan) seat._linePlan.floatOop = true;
       }
       /* Disciplina Pro: no call-down sticky con aire / underpair en boards peligrosos. */
+      var BoardTexP = global.GTOBoardCluster;
+      var texP = BoardTexP && hand.board ? BoardTexP.boardTexture(hand.board) : null;
       var discExtra = {
         band: band,
         heroLine: heroLine,
         scaryBoard: isScaryCalldownBoard(hand.board),
         underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
         boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown),
+        boardPaired: !!(texP && texP.paired),
         stack: Number(seat.stack) || 0,
         facingJam: tc > 0 && (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85,
         hasRealDraw: hasRealDraw(madeInfo),
@@ -1509,6 +1532,8 @@
         }
       }
 
+      var BoardTex = global.GTOBoardCluster;
+      var texFace = BoardTex && hand.board ? BoardTex.boardTexture(hand.board) : null;
       var heurDisc = {
         band: (madeInfo && DC && DC.bandFromMade)
           ? DC.bandFromMade(madeInfo, strength)
@@ -1517,6 +1542,7 @@
         scaryBoard: isScaryCalldownBoard(hand.board),
         underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
         boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown),
+        boardPaired: !!(texFace && texFace.paired),
         stack: Number(seat.stack) || 0,
         facingJam: tc > 0 && (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85,
         hasRealDraw: hasRealDraw(madeInfo),

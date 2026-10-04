@@ -395,9 +395,14 @@
       f.bet = street === 'river' ? 0.48 : 0.55;
     }
     f.bet = (f.bet || 0) * (STREET_PROBE_SCALE[street] || 1);
-    if (texture.paired) f.bet *= street === 'river' ? (tier === 'air' ? 0.32 : 0.55) : 0.88;
+    const delayedLegacy = input.delayedCbet === true || input.priorAggressorBet === false;
+    if (texture.paired) {
+      /* Paired river: air polar (represent boat) no se castiga tan fuerte. */
+      if (street === 'river' && tier === 'air') f.bet *= delayedLegacy ? 0.85 : 0.55;
+      else f.bet *= street === 'river' ? 0.55 : 0.88;
+    }
     if (street === 'river' && tier === 'air' && input.initiative === 'aggressor' && input.inPosition) {
-      f.bet = Math.min(f.bet, 0.09);
+      f.bet = Math.min(f.bet, delayedLegacy ? 0.28 : 0.09);
     }
     const pot = input.potBB || 1;
     if (pot >= 8 && street === 'river') f.bet *= 0.72;

@@ -1545,6 +1545,60 @@
     return CLASS_MAP[k] || k;
   }
 
+  /** Orden postflop: último en actuar = IP. */
+  var POSTFLOP_POS_ORDER = ['SB', 'BB', 'UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN'];
+
+  function heroInPositionPostflop(hand, heroSeat) {
+    if (!hand || !heroSeat) return false;
+    var alive = (hand.seats || []).filter(function (s) { return s && !s.folded; });
+    if (alive.length <= 1) return true;
+    var myIdx = POSTFLOP_POS_ORDER.indexOf(heroSeat.pos);
+    if (myIdx < 0) myIdx = 0;
+    var maxOther = -1;
+    for (var i = 0; i < alive.length; i++) {
+      if (alive[i].id === heroSeat.id) continue;
+      maxOther = Math.max(maxOther, POSTFLOP_POS_ORDER.indexOf(alive[i].pos));
+    }
+    return myIdx > maxOther;
+  }
+
+  /** True si el héroe ya bet/raise en una calle postflop anterior. */
+  function heroLedOnPriorStreets(hand, heroSeat, street) {
+    var prior = street === 'turn' ? ['flop']
+      : (street === 'river' ? ['flop', 'turn'] : []);
+    if (!prior.length || !heroSeat) return false;
+    var heroId = heroSeat.id;
+    var fromDec = (hand.decisions || []).some(function (d) {
+      if (prior.indexOf(d.street) < 0) return false;
+      var a = d.action || d.chosen || '';
+      return a === 'bet' || a === 'raise' || a === 'overbet' || a === 'allin'
+        || (typeof a === 'string' && a.indexOf('bet_') === 0);
+    });
+    if (fromDec) return true;
+    return (hand.log || []).some(function (e) {
+      if (!e || prior.indexOf(e.street) < 0) return false;
+      if (e.seatId !== heroId && e.actorId !== heroId && e.id !== heroId) return false;
+      var act = e.action || e.id || '';
+      return act === 'bet' || act === 'raise' || act === 'allin';
+    });
+  }
+
+  function lastVillainActionOnStreet(hand, heroSeat, street) {
+    var heroId = heroSeat && heroSeat.id;
+    var last = null;
+    (hand.log || []).forEach(function (e) {
+      if (!e || e.street !== street) return;
+      var sid = e.seatId != null ? e.seatId : (e.actorId != null ? e.actorId : e.id);
+      if (sid === heroId) return;
+      last = e.action || e.id || null;
+    });
+    if (last) return last;
+    var other = (hand.seats || []).find(function (s) {
+      return s && !s.folded && !s.isHero && s.lastAction && s.lastAction.street === street;
+    });
+    return other && other.lastAction ? other.lastAction.action : null;
+  }
+
   function actionLabel(action, amount, bb) {
     var a = String(action || '');
     var amt = Number(amount) || 0;
@@ -1654,8 +1708,11 @@
 
     var hub = resolveFormatHub(hand);
     var phase = resolveTournamentPhase(stackBB, hand);
-    var pushPhase = phase === 'push' || stackBB <= 12;
-    var shortPhase = pushPhase || phase === 'short' || stackBB <= 20;
+    var pushPhase = phase === 'push' || stackBB <= 14;
+    var shortPhase = pushPhase || phase === 'short' || stackBB <= 22;
+    var stealPhase = !pushPhase && street === 'preflop' && firstIn
+      && stackBB >= 14 && stackBB <= 25
+      && (heroSeat.pos === 'SB' || heroSeat.pos === 'BTN' || heroSeat.pos === 'CO');
 
     var toCallBB = toCall / bb;
     var potBeforeBB = Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1);
@@ -1722,6 +1779,20 @@
     var initiative = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp'
       ? 'isolator'
       : resolveInitiative(hand, heroSeat, firstIn);
+    var priorAggressorBet = false;
+    var delayedCbet = false;
+    var villainLastAction = null;
+    var inPosition = false;
+    if (street === 'preflop') {
+      inPosition = false;
+    } else {
+      inPosition = heroInPositionPostflop(hand, heroSeat);
+      if (initiative === 'aggressor') {
+        priorAggressorBet = heroLedOnPriorStreets(hand, heroSeat, street);
+        delayedCbet = !priorAggressorBet;
+      }
+      villainLastAction = lastVillainActionOnStreet(hand, heroSeat, street);
+    }
 
     var cfg = (hand && hand.tournamentConfig) || (hand && hand.config) || {};
     var kind = hand.kind || hand.tournamentKind || cfg.kind || null;
@@ -1772,7 +1843,10 @@
       availableActions: avail,
       chosenAction: chosen,
       initiative: initiative,
-      inPosition: street === 'preflop' ? false : undefined,
+      inPosition: inPosition,
+      priorAggressorBet: priorAggressorBet,
+      delayedCbet: delayedCbet,
+      villainLastAction: villainLastAction,
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
       kind: kind,
@@ -1787,8 +1861,10 @@
       tableMax: hand.tableMax != null ? hand.tableMax : seatedN,
       pushFold: !!(pushPhase || facingShove),
       facingAllIn: !!facingShove,
-      preflopMode: (pushPhase || facingShove) ? 'push' : (shortPhase && street === 'preflop' ? 'short' : 'std'),
-      scenario: (pushPhase || facingShove) ? 'push' : undefined,
+      preflopMode: (pushPhase || facingShove)
+        ? 'push'
+        : (stealPhase ? 'steal' : (shortPhase && street === 'preflop' ? 'short' : 'std')),
+      scenario: (pushPhase || facingShove) ? 'push' : (stealPhase ? 'steal' : undefined),
       anteBB: anteBB,
       /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
       icmEnabled: huWta ? false : true,
@@ -2631,7 +2707,7 @@
         });
       } catch (e) { /* */ }
     }
-    return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 12;
+    return (ctx.effectivePhase || ctx.mttPhase) === 'push' || ctx.stackBB <= 14;
   }
 
   /**
@@ -2704,11 +2780,15 @@
       }
     });
     var multiStreetAgg = Object.keys(aggStreets).length;
+    var curStreet = hand.street;
+    var priorAgg = Object.keys(aggStreets).some(function (st) { return st !== curStreet; });
     return {
       multiStreetAgg: multiStreetAgg,
       betRaiseCount: betRaiseCount,
       checkCount: checkCount,
       passive: checkCount >= 2 && betRaiseCount === 0,
+      /* Check-check previo + lead actual (delayed c-bet / river stab). */
+      delayedLead: !priorAgg && checkCount >= 1,
       aggressive: multiStreetAgg >= 2 || betRaiseCount >= 2
     };
   }
@@ -2755,7 +2835,7 @@
       if (seat.pos === 'BB' && tc <= 0) return { id: 'check' };
 
       /* Push/fold corto, fase push, o ciegas a punto de comer el stack. */
-      var inPushZone = stackBB <= 12 || pushPhase || blindStrong
+      var inPushZone = stackBB <= 14 || pushPhase || blindStrong
         || (blindPress && stackBB <= 18 && isLateStealPos(seat.pos));
       if (inPushZone && PF && typeof PF.shouldOpenShove === 'function' && code) {
         try {
@@ -2777,7 +2857,7 @@
             return { id: 'raise', amount: allInTo(seat) };
           }
         } catch (eShove) { /* */ }
-        if (stackBB <= 12 || pushPhase || blindStrong) {
+        if (stackBB <= 14 || pushPhase || blindStrong) {
           return tc > 0 ? { id: 'fold' } : { id: 'check' };
         }
       }
@@ -2952,7 +3032,7 @@
   }
 
   function pushesOrShort(stackBB, pushPhase) {
-    return stackBB <= 12 || !!pushPhase;
+    return stackBB <= 14 || !!pushPhase;
   }
 
   /**
@@ -2979,6 +3059,22 @@
     /* River air / board-only: fold vs ≥25% pot (K-high / Q-high jugando el board). */
     if (street === 'river' && (strength < 0.30 || boardOnly || band === 'air')) {
       if ((betFrac >= 0.25 || potOdds >= 0.20) && potOdds >= 0.08) return 'fold';
+    }
+    /*
+     * Delayed river stab / overbet tras línea pasiva: mid-strength respeta polarización
+     * (no hero-call automático con bluff-catchers medios).
+     */
+    var delayedPolar = street === 'river'
+      && !!(extra.heroLine && (extra.heroLine.delayedLead || extra.heroLine.passive))
+      && (betFrac >= 0.66 || potOdds >= 0.38);
+    if (delayedPolar && strength < 0.62 && strength >= 0.32 && !boardOnly
+      && band !== 'nuts' && band !== 'value') {
+      if (rnd < 0.62) return 'fold';
+    }
+    /* Board paired + raise/overbet: foldear más bluff-catchers medios (boat story). */
+    if (street === 'river' && extra.boardPaired && (betFrac >= 0.55 || potOdds >= 0.35)
+      && strength < 0.55 && strength >= 0.30 && band !== 'nuts') {
+      if (rnd < 0.55) return 'fold';
     }
     /* All-in / overbet river sin mejora real: nunca hero-call con board-only. */
     if (street === 'river' && boardOnly && (betFrac >= 0.55 || potOdds >= 0.40)) {
@@ -3222,12 +3318,15 @@
         if (seat._linePlan) seat._linePlan.floatOop = true;
       }
       /* Disciplina Pro: no call-down sticky con aire / underpair en boards peligrosos. */
+      var BoardTexP = global.GTOBoardCluster;
+      var texP = BoardTexP && hand.board ? BoardTexP.boardTexture(hand.board) : null;
       var discExtra = {
         band: band,
         heroLine: heroLine,
         scaryBoard: isScaryCalldownBoard(hand.board),
         underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
         boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown),
+        boardPaired: !!(texP && texP.paired),
         stack: Number(seat.stack) || 0,
         facingJam: tc > 0 && (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85,
         hasRealDraw: hasRealDraw(madeInfo),
@@ -3519,6 +3618,8 @@
         }
       }
 
+      var BoardTex = global.GTOBoardCluster;
+      var texFace = BoardTex && hand.board ? BoardTex.boardTexture(hand.board) : null;
       var heurDisc = {
         band: (madeInfo && DC && DC.bandFromMade)
           ? DC.bandFromMade(madeInfo, strength)
@@ -3527,6 +3628,7 @@
         scaryBoard: isScaryCalldownBoard(hand.board),
         underpairBoardTwoPair: !!(madeInfo && madeInfo.underpairBoardTwoPair),
         boardOnlyShowdown: !!(madeInfo && madeInfo.boardOnlyShowdown),
+        boardPaired: !!(texFace && texFace.paired),
         stack: Number(seat.stack) || 0,
         facingJam: tc > 0 && (Number(seat.stack) || 0) > 0 && tc >= (Number(seat.stack) || 0) * 0.85,
         hasRealDraw: hasRealDraw(madeInfo),

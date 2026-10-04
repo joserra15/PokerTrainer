@@ -628,6 +628,11 @@
     }
     if (priorAggressorBet == null) priorAggressorBet = false;
 
+    let delayedCbet = d.delayedCbet;
+    if (delayedCbet == null && initiative === 'aggressor') {
+      delayedCbet = !priorAggressorBet && street !== 'flop' && street !== 'preflop';
+    }
+
     return Object.assign(attachRangeContext(base, hand), {
       villainRange,
       // Solo se reutiliza la equity guardada si viene con precisión completa:
@@ -639,7 +644,8 @@
       potBeforeBB,
       facingNode,
       actionSequenceId: d.actionSequenceId,
-      priorAggressorBet
+      priorAggressorBet,
+      delayedCbet: !!delayedCbet
     });
   }
 
@@ -1350,6 +1356,8 @@
         const priorAggressorBet = postflopCtx.initiative === 'aggressor'
           ? heroLedOnPriorStreets(hand, hero, st)
           : false;
+        const delayedCbet = !!(postflopCtx.initiative === 'aggressor' && !priorAggressorBet
+          && st !== 'flop');
         const evalResult = GTO.evaluateSpot(attachRangeContext({
           spotKind: 'postflop', position: hand.positions[hero] || '??',
           stackDepth: stackBB, street: st, board: boardSoFar, priorBoard, heroCards,
@@ -1360,6 +1368,7 @@
           potBeforeBB, facingNode, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
           priorAggressorBet,
+          delayedCbet,
           availableActions: opts,
           betSizeBB,
           bbSizeEuro: bb
@@ -1389,6 +1398,7 @@
           priorBoard, actionSequenceId: acts.indexOf(a),
           initiative: postflopCtx.initiative, inPosition: postflopCtx.inPosition,
           priorAggressorBet,
+          delayedCbet,
           board: boardSoFar.slice(),
           heroCards: heroCards.slice(),
           handRank: evalResult.handRank || null,

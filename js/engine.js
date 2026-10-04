@@ -1879,6 +1879,7 @@
 
     const isAgg = !!hand.heroIsAggressor;
     const priorAggressorBet = isAgg ? heroLedOnPriorStreets(hand, node.street) : false;
+    const delayedCbet = !!(isAgg && !priorAggressorBet && node.street !== 'flop' && node.street !== 'preflop');
     const input = {
       spotKind, position: hand.hero.pos, vsPosition: hand.villain.pos,
       stackDepth: effStackForHand(hand), street: node.street,
@@ -1888,6 +1889,7 @@
       initiative: isAgg ? 'aggressor' : 'caller',
       inPosition: hand.heroInPosition,
       priorAggressorBet,
+      delayedCbet,
       villainRange: villainRangeAtNode(hand, node),
       madeHandInfo: node.info,
       villainLastAction: hand.villainAction ? hand.villainAction.type : null,
@@ -2061,13 +2063,32 @@
       || (RSNuts.isAbsoluteNuts && RSNuts.isAbsoluteNuts(hc, hand.board))
     ));
     const neverFold = neverFoldHand || guestNeverFoldVillain(hand);
+    const Board = global.GTOBoardCluster;
+    const tex = Board && hand.board ? Board.boardTexture(hand.board) : null;
+    const priorLed = hand.stage === 'turn' || hand.stage === 'river'
+      ? heroLedOnPriorStreets(hand, hand.stage)
+      : false;
+    const heroChecks = (hand.decisions || []).filter(function (d) {
+      return (d.street === 'flop' || d.street === 'turn')
+        && (d.action === 'check' || d.chosen === 'check');
+    }).length;
+    const delayedHeroLead = !priorLed && heroChecks >= 1 && (hand.stage === 'turn' || hand.stage === 'river');
+    const pot = Math.max(hand.potBB || 1, 0.1);
+    const heroBet = hand.heroAction && hand.heroAction.amount != null
+      ? Number(hand.heroAction.amount)
+      : (hand._lastHeroBetBB != null ? Number(hand._lastHeroBetBB) : 0);
     return {
       street: hand.stage,
       tier: info.tier,
       madeCategory: info.ev ? info.ev.category : 0,
       multiway: !!(hand.multiway || (MW() && MW().aliveCount(hand) >= 3)),
       holeStrength: holeStrength,
-      neverFold: neverFold
+      neverFold: neverFold,
+      boardPaired: !!(tex && tex.paired),
+      texture: tex,
+      delayedHeroLead: delayedHeroLead,
+      passiveLine: delayedHeroLead,
+      betRatio: heroBet > 0 ? heroBet / pot : null
     };
   }
 
