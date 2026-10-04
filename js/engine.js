@@ -3294,7 +3294,12 @@
         { id: 'raise', label: `Subir a ${openSize}bb` }
       ];
       context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres o te retiras?`;
-      if (hand.playConfig && hand.playConfig.guestTrap) {
+      // SB vs BB folded-to: limpear (completar) es acción legal en mesa.
+      // Guest traps también ofrecen limp desde otras sillas como cebo.
+      // Freq GTO = 0 aquí: el chart RFI es raise/fold; el spot dedicado
+      // `sbLimp` usa charts con limp. Así la Escuela C-05 no cambia de veredicto.
+      const offerLimp = !!(hand.playConfig && hand.playConfig.guestTrap) || pos === 'SB';
+      if (offerLimp) {
         const heroBlind = pos === 'SB' ? SB : (pos === 'BB' ? BBET : 0);
         const limpAdd = round2(BBET - heroBlind);
         options.splice(1, 0, {

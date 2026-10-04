@@ -92,6 +92,7 @@ assert.ok(/hand-end-modal|handEndModalOpen/.test(hotkeys), 'hotkeys con modal fi
 assert.ok(sandbox.PTHotkeys && typeof sandbox.PTHotkeys.bind === 'function', 'PTHotkeys.bind');
 assert.strictEqual(sandbox.PTHotkeys.hintForAction('fold'), 'F');
 assert.strictEqual(sandbox.PTHotkeys.hintForAction('call'), 'C');
+assert.strictEqual(sandbox.PTHotkeys.hintForAction('limp'), 'C');
 
 vm.runInNewContext(help, sandbox);
 assert.ok(sandbox.PTHelp && typeof sandbox.PTHelp.toggle === 'function', 'PTHelp.toggle');
