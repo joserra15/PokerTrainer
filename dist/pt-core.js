@@ -37269,6 +37269,70 @@ window.PT_NASH_PUSH_JSON = {
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
 /*
+ * tournament/table-speed.js — Preferencia de velocidad de animación en torneos.
+ * veryFast = timings históricos; fast / normal multiplican delays de UI.
+ */
+(function (global) {
+  'use strict';
+
+  var KEY = 'pt_table_speed_v1';
+  var MULTIPLIERS = {
+    veryFast: 1,
+    fast: 1.75,
+    normal: 2.75
+  };
+
+  function normalize(v) {
+    var s = String(v || '').toLowerCase();
+    if (s === 'fast' || s === 'rapida' || s === 'rápida') return 'fast';
+    if (s === 'normal') return 'normal';
+    if (s === 'veryfast' || s === 'very_fast' || s === 'muyrapida' || s === 'muy_rapida'
+      || s === 'muy rápida' || s === 'muy rapida') {
+      return 'veryFast';
+    }
+    return 'veryFast';
+  }
+
+  function label(v) {
+    var s = normalize(v);
+    if (s === 'fast') return 'Rápida';
+    if (s === 'normal') return 'Normal';
+    return 'Muy rápida';
+  }
+
+  function multiplier(v) {
+    var s = normalize(v);
+    return MULTIPLIERS[s] != null ? MULTIPLIERS[s] : 1;
+  }
+
+  function load() {
+    try {
+      return normalize(global.localStorage && global.localStorage.getItem(KEY));
+    } catch (e) {
+      return 'veryFast';
+    }
+  }
+
+  function save(speed) {
+    var v = normalize(speed);
+    try {
+      if (global.localStorage) global.localStorage.setItem(KEY, v);
+    } catch (e) { /* ignore */ }
+    return v;
+  }
+
+  global.PTTournamentTableSpeed = {
+    KEY: KEY,
+    MULTIPLIERS: MULTIPLIERS,
+    normalize: normalize,
+    label: label,
+    multiplier: multiplier,
+    load: load,
+    save: save
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
  * entitlements.js — Límites freemium y estado de plan (Epic 3).
  */
 (function (global) {
@@ -40219,6 +40283,20 @@ window.PT_NASH_PUSH_JSON = {
       '</div>' +
       '</section>' +
 
+      '<section class="account-settings-card card-box">' +
+      '<h3>Velocidad de mesa en torneos</h3>' +
+      '<p class="muted-text">Ritmo por defecto de las acciones de los rivales y del board en torneos nuevos. En Info del torneo puedes cambiarlo solo para ese torneo.</p>' +
+      '<div class="account-advisor-block">' +
+      '<span class="setup-label">Velocidad</span>' +
+      '<div class="setup-chips" id="settings-table-speed">' +
+      '<button type="button" class="setup-chip" data-val="veryFast">Muy rápida</button>' +
+      '<button type="button" class="setup-chip" data-val="fast">Rápida</button>' +
+      '<button type="button" class="setup-chip" data-val="normal">Normal</button>' +
+      '</div>' +
+      '<p class="muted-text setup-hint">Muy rápida es el ritmo histórico de Torneos IA.</p>' +
+      '</div>' +
+      '</section>' +
+
       '<section class="account-settings-card card-box hidden" hidden aria-hidden="true">' +
       '<h3 data-i18n="settings.langTitle">Idioma / Language</h3>' +
       '<p class="muted-text" id="settings-lang-status"></p>' +
@@ -40302,6 +40380,13 @@ window.PT_NASH_PUSH_JSON = {
     host.querySelectorAll('#settings-card-style .setup-chip').forEach(function (c) {
       c.classList.toggle('active', c.dataset.val === cardStyle);
     });
+    var tableSpeed = 'veryFast';
+    if (global.PTTournamentTableSpeed && global.PTTournamentTableSpeed.load) {
+      tableSpeed = global.PTTournamentTableSpeed.load();
+    }
+    host.querySelectorAll('#settings-table-speed .setup-chip').forEach(function (c) {
+      c.classList.toggle('active', c.dataset.val === tableSpeed);
+    });
     if (global.PTI18n && global.PTI18n.apply) {
       global.PTI18n.apply(host);
     }
@@ -40372,6 +40457,17 @@ window.PT_NASH_PUSH_JSON = {
         } else if (global.PTCardStyle) {
           if (global.PTCardStyle.save) global.PTCardStyle.save(style);
           if (global.PTCardStyle.apply) global.PTCardStyle.apply(style);
+        }
+      };
+    });
+    root.querySelectorAll('#settings-table-speed .setup-chip').forEach(function (chip) {
+      chip.onclick = function () {
+        root.querySelectorAll('#settings-table-speed .setup-chip').forEach(function (c) {
+          c.classList.toggle('active', c === chip);
+        });
+        var speed = chip.dataset.val || 'veryFast';
+        if (global.PTTournamentTableSpeed && global.PTTournamentTableSpeed.save) {
+          global.PTTournamentTableSpeed.save(speed);
         }
       };
     });

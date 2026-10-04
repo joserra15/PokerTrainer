@@ -79,6 +79,11 @@
       });
     }
 
+    var Speed = global.PTTournamentTableSpeed;
+    var tableSpeed = (opts.tableSpeed != null && Speed)
+      ? Speed.normalize(opts.tableSpeed)
+      : (Speed && Speed.load ? Speed.load() : 'veryFast');
+
     var state = {
       id: uid('trn'),
       config: cfg,
@@ -88,6 +93,7 @@
       status: 'running',
       handIndex: 0,
       blindLevel: 1,
+      tableSpeed: tableSpeed,
       players: players,
       tables: [],
       heroGuesses: {},
