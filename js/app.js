@@ -3941,11 +3941,15 @@
       if (mobile && !showFullSeat && !isHero) cls.push('seat-mini');
       const stackHtml = showFullSeat ? renderSeatStack(hand, pos) : '';
       let placement = seatBetPlacement(c);
-      // En pantallas estrechas los asientos laterales apuntarían sus fichas al
-      // centro, que es justo donde está el bote y no hay ancho para los dos.
-      // Colocadas en vertical se quedan en la columna del propio asiento.
-      if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
-        placement = c.top > 50 ? 'bet-above' : 'bet-below';
+      // En móvil las fichas deben alejarse del bote: arco superior → arriba;
+      // laterales → vertical en la columna del asiento (abajo si está bajo,
+      // arriba si está alto). Antes el lateral apuntaba al centro y el arco
+      // superior colgaba bet-below sobre el bote (E2E «fichas tapa bote»).
+      if (mobile) {
+        if (c.top < 22) placement = 'bet-above';
+        else if (placement === 'bet-left' || placement === 'bet-right') {
+          placement = c.top > 50 ? 'bet-below' : 'bet-above';
+        }
       }
       // Arco superior: burbuja bajo las cartas. En móvil, si las fichas van
       // arriba del pod, la burbuja también baja (si no, fichas y burbuja se
@@ -10865,8 +10869,11 @@
       }
 
       let placement = seatBetPlacement(c);
-      if (mobile && (placement === 'bet-left' || placement === 'bet-right')) {
-        placement = c.top > 50 ? 'bet-above' : 'bet-below';
+      if (mobile) {
+        if (c.top < 22) placement = 'bet-above';
+        else if (placement === 'bet-left' || placement === 'bet-right') {
+          placement = c.top > 50 ? 'bet-below' : 'bet-above';
+        }
       }
       const actBelowCards = c.top < 20 || (mobile && !!actHtml && placement === 'bet-above');
       if (actBelowCards && actHtml) cls.push('seat-act-below');
