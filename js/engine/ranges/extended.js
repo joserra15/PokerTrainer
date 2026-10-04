@@ -60,7 +60,9 @@
       row.callMix = 'JJ, TT, 99, AQs, AJs, ATs, KQs, AQo';
     }
     if (opener === 'SB' && tb === 'BB') {
-      row.fourBet = 'TT+, AQs+, AKo, A5s-A2s';
+      // Value 4-bet vs polar bluffs (Axs wheel): mix 4bet/fold, nunca flat.
+      row.fourBet = 'TT+, AQs+, AKo';
+      row.fourBetMix = 'A5s-A2s';
       row.call = '99, 88, 77, AJs, ATs, KQs, KJs, QJs, AQo, AJo, KQo';
       row.callMix = '66, 55, 44, T9s, 98s, KJo, QJo';
     }

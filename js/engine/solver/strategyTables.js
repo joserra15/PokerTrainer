@@ -198,12 +198,19 @@
       const fromMatrix = strategyFromComboMatrix(data, code, 'vs3bet');
       if (fromMatrix) return fromMatrix;
       const jam = N.toSet(data.fourBet);
+      const jamMix = N.toSet(data.fourBetMix || '');
       const call = N.toSet(data.call);
       const callMix = N.toSet(data.callMix || '');
       if (jam.has(code)) {
         return shortish
           ? { fold: 0, call: 0.12, raise: 0.88 }
           : { fold: 0, call: 0.25, raise: 0.75 };
+      }
+      // Polar 4-bet bluffs (p.ej. A4s SB vs BB): 4bet o fold, sin call.
+      if (jamMix.has(code)) {
+        return shortish
+          ? { fold: 0.58, call: 0, raise: 0.42 }
+          : { fold: 0.55, call: 0, raise: 0.45 };
       }
       if (call.has(code)) {
         return shortish
