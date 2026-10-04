@@ -14475,7 +14475,8 @@ window.PT_NASH_PUSH_JSON = {
       ? Object.assign({}, exploitMeta.strategy)
       : Object.assign({}, gtoStrategy);
     /* Primario: arquetipo exploit solo si scoreMode=exploit + tipo fijo (compat).
-       En torneos el detalle «Evaluación GTO» y el paso a paso usan primario GTO. */
+       En torneos el detalle «Evaluación GTO» y el paso a paso usan primario GTO.
+       exploitApplied refleja solo el primario (no el snapshot dual). */
     const useExploitPrimary = !!(Exploit && Exploit.shouldApply(enriched)
       && exploitMeta && exploitMeta.archetypeApplied);
     if (useExploitPrimary) {
@@ -14486,6 +14487,9 @@ window.PT_NASH_PUSH_JSON = {
     } else {
       strategy = gtoStrategy;
     }
+    const primaryExploitApplied = useExploitPrimary
+      ? !!(exploitMeta && exploitMeta.applied)
+      : !!(primaryMeta && primaryMeta.applied);
 
     const boardType = spotKey.boardType;
     const chosenAction = normalizeChosenAction(input.chosenAction, enriched.availableActions);
@@ -14534,8 +14538,10 @@ window.PT_NASH_PUSH_JSON = {
           potOdds: facing && Facing
             ? Facing.calculatePotOdds(enriched.potBeforeBB || enriched.potBB, enriched.toCallBB)
             : null,
-          exploitApplied: !!(exploitMeta && exploitMeta.applied),
-          exploitReasons: (exploitMeta && exploitMeta.reasons) || []
+          exploitApplied: primaryExploitApplied,
+          exploitReasons: (useExploitPrimary
+            ? ((exploitMeta && exploitMeta.reasons) || [])
+            : ((primaryMeta && primaryMeta.reasons) || []))
         }
       );
     }
@@ -14559,12 +14565,10 @@ window.PT_NASH_PUSH_JSON = {
         || (exploitMeta && exploitMeta.villainType)
         || (primaryMeta && primaryMeta.villainType)
         || null,
-      exploitApplied: !!(useExploitPrimary
-        || (exploitMeta && exploitMeta.archetypeApplied)
-        || (primaryMeta && primaryMeta.applied)),
+      exploitApplied: primaryExploitApplied,
       exploitReasons: (useExploitPrimary
         ? ((exploitMeta && exploitMeta.reasons) || [])
-        : ((primaryMeta && primaryMeta.reasons) || (exploitMeta && exploitMeta.reasons) || [])),
+        : ((primaryMeta && primaryMeta.reasons) || [])),
       explainDelta: (useExploitPrimary
         ? ((exploitMeta && exploitMeta.explainDelta) || [])
         : ((primaryMeta && primaryMeta.explainDelta) || [])),
