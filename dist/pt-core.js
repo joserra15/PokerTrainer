@@ -15972,6 +15972,15 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
+   * Umbral de delta material.
+   * 0.04 descartaba line-lite en rivers check-heavy (~87% check → Δ≈3.2% con scale 0.55),
+   * dejando GTO≡Explotativo pero con el copy de «línea pasiva» (falso negativo en dual UI).
+   * Si hay explain intencional (|m-1|>0.08), basta Δ≥0.02.
+   */
+  const MATERIAL_DELTA = 0.04;
+  const MATERIAL_DELTA_WITH_EXPLAIN = 0.02;
+
+  /**
    * Calcula mix explotativo (arquetipo y/o línea) sin mutar el GTO de entrada.
    * @returns {{ strategy, gtoStrategy, explainDelta, reasons, villainType, applied, lineSignals, tier? }}
    */
@@ -16008,7 +16017,9 @@ window.PT_NASH_PUSH_JSON = {
       });
     }
 
-    const material = maxFreqDelta(gto, strategy) >= 0.04;
+    const delta = maxFreqDelta(gto, strategy);
+    const material = delta >= MATERIAL_DELTA
+      || (explain.length > 0 && delta >= MATERIAL_DELTA_WITH_EXPLAIN);
     /* Arquetipo tipificado cuenta como applied aunque el delta sea mínimo (TAG≈GTO). */
     const applied = archetypeApplied || material;
     explain.forEach(function (row) {
@@ -16016,11 +16027,17 @@ window.PT_NASH_PUSH_JSON = {
       if (row.gtoFreq == null) row.gtoFreq = gto[row.action] || 0;
     });
 
+    /* No publicar reasons de línea/arquetipo si el mix se revirtió a GTO. */
+    let outReasons = reasons;
+    if (!applied) {
+      outReasons = (mode === 'exploit' && typeId === 'pro') ? [REASONS.pro_gto] : [];
+    }
+
     return {
       strategy: applied ? strategy : gto,
       gtoStrategy: gto,
       explainDelta: material ? explain : [],
-      reasons: reasons,
+      reasons: outReasons,
       villainType: typeId,
       applied: applied,
       lineSignals: signals,
