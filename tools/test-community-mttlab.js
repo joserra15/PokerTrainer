@@ -275,6 +275,14 @@ assert.ok(C.getConfig('mttlab').menus.hide.indexOf('pricing') >= 0, 'mttlab ocul
 assert.ok(C.getConfig('mttlab').menus.hide.indexOf('tournaments') < 0, 'mttlab no oculta tournaments');
 assert.ok(C.getConfig('mttlab').menus.show.indexOf('tournaments') >= 0, 'mttlab muestra tournaments');
 assert.ok(C.getConfig('mttlab').menus.show.indexOf('school') >= 0, 'mttlab muestra school');
+assert.ok(C.getConfig('mttlab').menus.show.indexOf('sessions') >= 0, 'mttlab muestra Sesiones (import)');
+assert.ok(C.getConfig('mttlab').menus.hide.indexOf('analysis') >= 0, 'mttlab oculta menú Análisis');
+assert.ok(C.getConfig('mttlab').menus.show.indexOf('analysis') < 0, 'mttlab no lista analysis en show');
+/* analysis está en hide → tab_hidden aunque no haya membership mockeada */
+C.setActive('mttlab', { skipMenus: true, skipBrand: true });
+assert.strictEqual(C.canOpenTab('analysis').error, 'tab_hidden', 'analysis bloqueado por menú en mttlab');
+C.setActive('pokerforge', { skipMenus: true, skipBrand: true });
+assert.ok(C.canOpenTab('analysis').allowed, 'canOpenTab analysis en pokerforge');
 assert.ok(C.getConfig('mttlab').school.unlockMode === 'allOpen');
 assert.ok(C.getConfig('mttlab').billing.hidePricing);
 assert.ok(C.getConfig('mttlab').home.hideDailySpot, 'mttlab hide daily spot');
