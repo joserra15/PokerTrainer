@@ -324,12 +324,49 @@
     return busted;
   }
 
+  function currentBlindClockSeats(state) {
+    var Seat = global.PTTournamentSeating;
+    var St = global.PTTournamentState;
+    var tables = state.tables || [];
+    var n = 0;
+    var heroTable = tables.find(function (t) { return t && t.isHeroTable; });
+    if (heroTable && Seat && typeof Seat.playersOnTable === 'function') {
+      n = Seat.playersOnTable(state, heroTable.id).length;
+    }
+    if (n < 2 && tables.length <= 1 && St && typeof St.playersLeft === 'function') {
+      n = St.playersLeft(state);
+    }
+    if (n < 2 && St && typeof St.playersLeft === 'function') {
+      /* Fallback: field vivo si la mesa Hero aún no está marcada. */
+      n = St.playersLeft(state);
+    }
+    return Math.max(2, Number(n) || 2);
+  }
+
+  function applyLateGameHandsScale(state) {
+    var Cfg = global.PTTournamentConfig;
+    var Blinds = global.PTTournamentBlinds;
+    if (!state || !state.config || !Cfg || !Blinds) return;
+    if (typeof Cfg.handsPerLevelDynamic !== 'function') return;
+    if (typeof Blinds.restampHandsFromLevel !== 'function') return;
+    var cfg = state.config;
+    var ref = Number(cfg.seatsPerTable) || 6;
+    var cur = currentBlindClockSeats(state);
+    var hands = Cfg.handsPerLevelDynamic(ref, cur, cfg.blindStructure);
+    var handIndex = Number(state.handIndex) || 0;
+    cfg.blindSchedule = Blinds.restampHandsFromLevel(cfg.blindSchedule, handIndex, hands);
+  }
+
   function syncBlindLevel(state) {
     var Blinds = global.PTTournamentBlinds;
     var lv = Blinds.currentLevel(state.config.blindSchedule, state.handIndex || 0);
     var prev = state.blindLevel;
     state.blindLevel = lv.level;
     if (prev != null && lv.level !== prev) {
+      /* Frontera de nivel: alargar niveles actuales/futuros si la mesa se achicó. */
+      applyLateGameHandsScale(state);
+      lv = Blinds.currentLevel(state.config.blindSchedule, state.handIndex || 0);
+      state.blindLevel = lv.level;
       state.events = state.events || [];
       state.events.push({
         type: 'blind_up',
@@ -337,13 +374,15 @@
         level: lv.level,
         sb: lv.sb,
         bb: lv.bb,
-        ante: lv.ante
+        ante: lv.ante,
+        hands: lv.hands
       });
       state.blindUpPending = {
         level: lv.level,
         sb: lv.sb,
         bb: lv.bb,
-        ante: lv.ante
+        ante: lv.ante,
+        hands: lv.hands
       };
     }
     return lv;

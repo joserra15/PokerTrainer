@@ -1,6 +1,7 @@
 /*
  * tournament/blinds.js — Reloj de ciegas por número de manos (mesa Hero).
  * Tras el schedule fijo, los niveles siguen subiendo (progresión geométrica).
+ * Late game: restampHandsFromLevel alarga niveles futuros según asientos actuales.
  */
 (function (global) {
   'use strict';
@@ -53,13 +54,20 @@
     return n;
   }
 
-  /** Amplía el schedule hasta cubrir handIndex (niveles infinitos tras el fijo). */
-  function extendSchedule(schedule, handIndex) {
+  /**
+   * Amplía el schedule hasta cubrir handIndex (niveles infinitos tras el fijo).
+   * handsPerOverride: si se pasa, fuerza duración de la cola; si no, usa el
+   * último nivel stampado (ya puede estar escalado en late game).
+   */
+  function extendSchedule(schedule, handIndex, handsPerOverride) {
     var sched = cloneSchedule(schedule);
     if (!sched.length) {
       sched = [{ level: 1, sb: 10, bb: 20, ante: 0, hands: 8 }];
     }
-    var handsPer = sched[0].hands || 8;
+    var handsPer = handsPerOverride != null
+      ? Math.max(1, Number(handsPerOverride) || 8)
+      : Math.max(1, (sched[sched.length - 1] && sched[sched.length - 1].hands)
+        || sched[0].hands || 8);
     var target = Math.max(0, Number(handIndex) || 0);
     /* Evita que el “último” nivel fijo absorba todas las manos restantes. */
     while (totalHands(sched) <= target) {
@@ -111,6 +119,26 @@
     return nextBlindLevel(sched[idx], sched[idx].hands);
   }
 
+  /**
+   * Reescribe hands del nivel actual (into debe ser 0 / frontera) y todos los
+   * posteriores. Devuelve un schedule nuevo; no muta el array de entrada.
+   */
+  function restampHandsFromLevel(schedule, handIndex, hands) {
+    hands = Math.max(1, Number(hands) || 1);
+    var sched = extendSchedule(schedule, handIndex, hands);
+    var idx = levelIndexForHand(schedule, handIndex);
+    /* Si el índice se calculó con el schedule viejo, alinear con el extendido. */
+    var into = handsIntoLevel(schedule, handIndex);
+    if (into > 0 && into < (sched[idx] && sched[idx].hands)) {
+      /* Mitad de nivel: no tocar el actual; solo futuros. */
+      idx = idx + 1;
+    }
+    for (var i = Math.max(0, idx); i < sched.length; i++) {
+      sched[i].hands = hands;
+    }
+    return sched;
+  }
+
   function labelFor(level) {
     if (!level) return '';
     var s = 'Nv.' + level.level + ' · ' + level.sb + '/' + level.bb;
@@ -128,6 +156,7 @@
     handsIntoLevel: handsIntoLevel,
     handsUntilNext: handsUntilNext,
     nextLevel: nextLevel,
+    restampHandsFromLevel: restampHandsFromLevel,
     labelFor: labelFor
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
