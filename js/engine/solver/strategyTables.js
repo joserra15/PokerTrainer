@@ -564,9 +564,12 @@
     // RFI fold/raise con un shove allin previo → filterStrategy → 100% fold.
     const acts = input.availableActions || [];
     const actsKey = acts.length ? acts.slice().sort().join(',') : '-';
+    const roleKey = input.stackRole || (input.isChipLead ? 'cover' : '-');
+    const phaseKey = input.resolvedPhase || input.effectivePhase || input.mttPhase || '-';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
       + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey
-      + '|' + pushFlag + '|' + shoveFlag + '|pm' + preflopFlag + '|a' + actsKey;
+      + '|' + pushFlag + '|' + shoveFlag + '|pm' + preflopFlag + '|a' + actsKey
+      + '|r' + roleKey + '|ph' + phaseKey;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -584,7 +587,10 @@
         placesPaid: input.placesPaid,
         playersSeated: input.playersSeated,
         tableMax: input.tableMax,
-        icmEnabled: input.icmEnabled
+        icmEnabled: input.icmEnabled,
+        stackRole: input.stackRole,
+        isChipLead: input.isChipLead,
+        coversOpponent: input.coversVillain || input.coversOpponent
       }) : null);
 
       const hub = (input.formatHub)
