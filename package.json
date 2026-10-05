@@ -103,6 +103,7 @@
     "test:trainer-presets": "node tools/test-trainer-presets.js",
     "test:trainer-audit": "node tools/test-trainer-audit-fixes.js",
     "test:formats-v2": "node tools/test-trainer-formats-v2.js",
+    "test:trainer-rfi-allin": "node tools/test-trainer-rfi-allin.js",
     "test:trainer-pro": "node tools/test-trainer-pro-ranges.js && node tools/test-trainer-pro-regression.js && node tools/test-trainer-stack-phase-villains.js && node tools/test-trainer-fase3.js && node tools/test-feedback-ev-mix.js && node tools/test-ranges-stack-phase.js && node tools/test-vs3bet-tournament-phase.js && node tools/test-trainer-audit-fixes.js",
     "test:action-mode": "node tools/test-action-mode.js",
     "test:cold4bet-order": "node tools/test-cold4bet-order.js",
