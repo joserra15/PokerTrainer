@@ -60,7 +60,8 @@
     'js/engine/villainSizing.js',
     'js/engine/villainPreflop.js',
     'js/engine/multiway.js',
-    'js/engine/stacks.js'
+    'js/engine/stacks.js',
+    'js/engine/stackCoverage.js'
   ];
 
   var CHUNKS = {

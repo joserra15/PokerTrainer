@@ -8,7 +8,7 @@
   const FORMAT_HUBS = ['cash', 'spin', 'mtt'];
   const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
   const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
-  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'hu'];
+  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'itm', 'ft', 'hu'];
   /** Etiquetas de producto (no cambian EV de bounty en este ciclo). */
   const TOURNAMENT_TYPES = ['vanilla', 'pko', 'mystery', 'unknown'];
   const TOURNAMENT_TYPE_LABELS = {
@@ -51,6 +51,8 @@
     short: 'Short',
     push: 'Push/fold',
     bubble: 'Burbuja',
+    itm: 'ITM',
+    ft: 'Mesa final',
     hu: 'Heads Up'
   };
 
@@ -131,6 +133,8 @@
       if (p === 'short') return ['bb25', 'bb20', 'bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb25', 'bb20', 'bb15'];
+      if (p === 'itm') return ['bb40', 'bb25', 'bb20'];
+      if (p === 'ft') return ['bb40', 'bb25', 'bb20', 'bb15'];
       if (p === 'hu') return ['bb40', 'bb25', 'bb20', 'bb15', 'bb10'];
     }
     return null;
@@ -172,6 +176,8 @@
       if (p === 'mid') return prefer('bb25');
       if (p === 'short') return prefer('bb20');
       if (p === 'bubble') return prefer('bb25');
+      if (p === 'itm') return prefer('bb25');
+      if (p === 'ft') return prefer('bb25');
       if (p === 'push') return prefer('bb10');
       if (p === 'hu') return prefer('bb25');
       return list[0];

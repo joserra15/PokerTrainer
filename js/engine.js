@@ -1102,6 +1102,54 @@
     };
   }
 
+  /**
+   * Contexto ICM por pareja (cobertura, rol de stack y risk premium de cada lado)
+   * desde el punto de vista de quien decide.
+   *
+   * @param {object} hand
+   * @param {boolean} selfIsHero — true: decide el héroe; false: decide el villano
+   */
+  function pairIcmCtx(hand, selfIsHero) {
+    const Cov = global.PTStackCoverage;
+    if (!Cov || !hand || !hand.stacks) return null;
+    const cfg = hand.playConfig || {};
+    const heroSeat = heroStackSeat(hand);
+    const villainSeat = (hand.villain && (villainTableSeat(hand) || hand.villain.pos)) || null;
+    if (!heroSeat || !villainSeat || heroSeat === villainSeat) return null;
+    const selfPos = selfIsHero ? heroSeat : villainSeat;
+    const oppPos = selfIsHero ? villainSeat : heroSeat;
+
+    // contextForHand indexa siempre hero=0 / villain=1: para el villano se invierten.
+    let icmCtx = null;
+    const Icm = global.GTOIcmEv;
+    if (Icm && Icm.contextForHand) {
+      try {
+        const base = Icm.contextForHand(hand, cfg);
+        if (base && base.icmEnabled && base.icmStacksBB && base.icmPayouts) {
+          icmCtx = {
+            icmStacksBB: base.icmStacksBB,
+            icmPayouts: base.icmPayouts,
+            icmHeroIdx: selfIsHero ? 0 : 1,
+            icmVillainIdx: selfIsHero ? 1 : 0
+          };
+        }
+      } catch (e) { /* sin estructura ICM: se cae al RP por rol */ }
+    }
+
+    const pair = Cov.pairContext(hand, selfPos, oppPos, icmCtx);
+    if (pair && pair.ownRiskPremium == null && Cov.riskPremiumFromRole) {
+      // Sin stacks/payouts del field: aproximación por rol y fase.
+      const phase = cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase
+        || cfg.mttStructureSituation || '';
+      pair.ownRiskPremium = Cov.riskPremiumFromRole(pair.stackRole, phase, pair.coveredByOpponent);
+      pair.opponentRiskPremium = Cov.riskPremiumFromRole(
+        pair.opponentStackRole, phase, pair.coversOpponent
+      );
+      pair.riskPremiumEstimated = true;
+    }
+    return pair;
+  }
+
   function buildVillainSpotCtx(hand, extra) {
     extra = extra || {};
     const cfg = hand.playConfig || {};
@@ -1147,10 +1195,26 @@
       heroProfile = Ex.profileFromStats(heroStats);
     }
     const heroLine = extra.heroLine || hand.heroLine || heroLineFromTrainerHand(hand);
+    // Asimetría ICM: el rol del villano y el risk premium de cada lado deciden
+    // cuánto presiona (RP del héroe) y cuánto se aprieta (RP propio).
+    const pair = isTournament ? pairIcmCtx(hand, false) : null;
+    const heroStackBB = ST() && hand.stacks ? ST().remaining(hand, heroStackSeat(hand)) : null;
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
       isTournament: isTournament,
+      stackRole: (pair && pair.stackRole) || cfg.stackRole || null,
+      opponentStackRole: (pair && pair.opponentStackRole) || null,
+      coversHero: !!(pair && pair.coversOpponent),
+      coveredByHero: !!(pair && pair.coveredByOpponent),
+      coverageRatio: pair ? pair.coverageRatio : null,
+      isChipLead: !!(pair && pair.isChipLead),
+      avgStackBB: (pair && pair.avgStackBB) != null ? pair.avgStackBB : cfg.avgStackBB,
+      ownRiskPremium: pair ? pair.ownRiskPremium : null,
+      opponentRiskPremium: pair ? pair.opponentRiskPremium : null,
+      pairBubbleFactor: pair ? pair.bubbleFactor : null,
+      heroStackBB: heroStackBB,
+      villainStackBB: stackForAdjust,
       tournamentType: cfg.tournamentType || 'unknown',
       playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
       playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
@@ -2040,6 +2104,24 @@
     if (Icm && Icm.contextForHand) {
       const icmCtx = Icm.contextForHand(hand, cfg);
       if (icmCtx) Object.assign(input, icmCtx);
+    }
+    // Rol de stack y risk premium del héroe frente a este villano concreto.
+    const heroPair = input.formatHub && input.formatHub !== 'cash'
+      ? pairIcmCtx(hand, true)
+      : null;
+    if (heroPair) {
+      input.stackRole = heroPair.stackRole || cfg.stackRole || null;
+      input.opponentStackRole = heroPair.opponentStackRole || null;
+      input.coversVillain = !!heroPair.coversOpponent;
+      input.coveredByVillain = !!heroPair.coveredByOpponent;
+      input.coverageRatio = heroPair.coverageRatio;
+      input.isChipLead = !!heroPair.isChipLead;
+      input.ownRiskPremium = heroPair.ownRiskPremium;
+      input.opponentRiskPremium = heroPair.opponentRiskPremium;
+      input.pairBubbleFactor = heroPair.bubbleFactor;
+      if (heroPair.avgStackBB != null) input.avgStackBB = heroPair.avgStackBB;
+    } else if (cfg.stackRole) {
+      input.stackRole = cfg.stackRole;
     }
     const RR = global.GTORangesRegistry;
     if (RR) RR.attachToInput(input, rangeCtx(hand));

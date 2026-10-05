@@ -259,6 +259,13 @@
         multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,
         potType: enriched.potType || 'srp',
         stackRole: enriched.stackRole,
+        opponentStackRole: enriched.opponentStackRole,
+        coversOpponent: enriched.coversVillain,
+        coveredByOpponent: enriched.coveredByVillain,
+        avgStackBB: enriched.avgStackBB,
+        ownRiskPremium: enriched.ownRiskPremium,
+        opponentRiskPremium: enriched.opponentRiskPremium,
+        pairBubbleFactor: enriched.pairBubbleFactor,
         lineIntent: enriched.lineIntent || null
       });
       strategy = DC.applyIcmToFreqs(Object.assign({}, strategy), ctx, facing ? 'facing' : 'lead');
@@ -337,7 +344,10 @@
             icmStacksBB: enriched.icmStacksBB,
             icmPayouts: enriched.icmPayouts,
             playersLeft: enriched.playersLeft,
-            placesPaid: enriched.placesPaid
+            placesPaid: enriched.placesPaid,
+            stackRole: enriched.stackRole,
+            coversOpponent: enriched.coversVillain,
+            pairBubbleFactor: enriched.pairBubbleFactor
           }),
           stackRole: enriched.stackRole,
           multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2

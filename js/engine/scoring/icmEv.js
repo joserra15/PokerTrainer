@@ -97,17 +97,99 @@
     return eq.map((e, i) => Math.round(((chip[i] || 0) * prize - e) * 1000) / 1000);
   }
 
+  const BF_MIN = 0.7;
+  const BF_MAX = 3.5;
+
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
   /**
-   * Bubble factor aproximado hero vs villain:
-   * BF ≈ (ΔchipEV risk) / (Δ$EV risk) — aquí usamos ratio presión.
+   * Equity ICM de un jugador tolerando stacks a 0.
+   * Un stack eliminado cobra el puesto inmediatamente por debajo de los que siguen vivos
+   * (en burbuja ese puesto paga 0, que es justo lo que queremos).
    */
+  function equityForIndex(stacks, idx, payouts) {
+    const s = (stacks || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    const pays = (payouts || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    if (idx < 0 || idx >= s.length) return 0;
+    const alive = [];
+    for (let i = 0; i < s.length; i++) if (s[i] > 0) alive.push(i);
+    if (!alive.length) return 0;
+    if (s[idx] <= 0) return pays[alive.length] != null ? pays[alive.length] : 0;
+    if (alive.length === 1) return pays[0] || 0;
+    const eq = icmEquities(alive.map(function (i) { return s[i]; }), pays.slice(0, alive.length));
+    if (!eq) return 0;
+    return eq[alive.indexOf(idx)] || 0;
+  }
+
+  /**
+   * Bubble factor canónico por pareja (ICMIZER / GTO Wizard):
+   * BF = ($EV que pierdes si caes) / ($EV que ganas si doblas).
+   * Es asimétrico: el stack que cubre tiene BF bajo; el cubierto, alto.
+   */
+  function bubbleFactorPair(stacks, heroIdx, villainIdx, payouts) {
+    const s = (stacks || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    const i = heroIdx != null ? heroIdx : 0;
+    const j = villainIdx != null ? villainIdx : 1;
+    if (s.length < 2 || i === j || i < 0 || j < 0 || i >= s.length || j >= s.length) return 1;
+    const pays = alignPayoutsToStacks(payouts, s.length);
+    if (!pays || !pays.length) return 1;
+    // El all-in se juega por el stack efectivo entre ambos.
+    const eff = Math.min(s[i], s[j]);
+    if (!(eff > 0)) return 1;
+
+    const lose = s.slice();
+    lose[i] = s[i] - eff;
+    lose[j] = s[j] + eff;
+    const win = s.slice();
+    win[i] = s[i] + eff;
+    win[j] = s[j] - eff;
+
+    const now = equityForIndex(s, i, pays);
+    const risk = now - equityForIndex(lose, i, pays);
+    const reward = equityForIndex(win, i, pays) - now;
+    if (!(reward > 1e-9)) return risk > 1e-9 ? BF_MAX : 1;
+    return Math.round(clamp(risk / reward, BF_MIN, BF_MAX) * 100) / 100;
+  }
+
+  /**
+   * Risk premium: equity extra (0..1) sobre el breakeven de chipEV que exige el ICM.
+   * RP = BF / (BF + 1) − 0.5. BF 1 ⇒ 0; BF 2 ⇒ +0.167.
+   */
+  function riskPremium(bf) {
+    const b = Number(bf);
+    if (!(b > 0)) return 0;
+    return Math.round((b / (b + 1) - 0.5) * 1000) / 1000;
+  }
+
+  /** Equity requerida para pagar un all-in según el BF. */
+  function requiredEquity(bf) {
+    const b = Number(bf);
+    if (!(b > 0)) return 0.5;
+    return Math.round((b / (b + 1)) * 1000) / 1000;
+  }
+
+  function riskPremiumPair(stacks, heroIdx, villainIdx, payouts) {
+    return riskPremium(bubbleFactorPair(stacks, heroIdx, villainIdx, payouts));
+  }
+
+  /** Matriz n×n de bubble factors (fila = quién decide, columna = contra quién). */
+  function bubbleFactorMatrix(stacks, payouts) {
+    const s = (stacks || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    const n = s.length;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const row = [];
+      for (let j = 0; j < n; j++) {
+        row.push(i === j ? 1 : bubbleFactorPair(s, i, j, payouts));
+      }
+      out.push(row);
+    }
+    return out;
+  }
+
+  /** Bubble factor hero vs villain (alias canónico; antes era un ratio de presión). */
   function bubbleFactor(stacks, heroIdx, villainIdx, payouts) {
-    const pressure = icmPressure(stacks, payouts);
-    if (!pressure) return 1;
-    const pH = pressure[heroIdx] || 0;
-    // Más presión ⇒ BF más alto (llamar/farolear cuesta más en $EV).
-    const bf = 1 + Math.max(0, pH) * 4 + Math.max(0, -(pressure[villainIdx] || 0)) * 1.5;
-    return Math.round(Math.min(3.5, Math.max(0.7, bf)) * 100) / 100;
+    return bubbleFactorPair(stacks, heroIdx, villainIdx, payouts);
   }
 
   function defaultStacks(input) {
@@ -429,7 +511,13 @@
   global.GTOIcmEv = {
     icmEquities: icmEquities,
     icmPressure: icmPressure,
+    equityForIndex: equityForIndex,
     bubbleFactor: bubbleFactor,
+    bubbleFactorPair: bubbleFactorPair,
+    bubbleFactorMatrix: bubbleFactorMatrix,
+    riskPremium: riskPremium,
+    riskPremiumPair: riskPremiumPair,
+    requiredEquity: requiredEquity,
     riskMultiplier: riskMultiplier,
     adjustEvLoss: adjustEvLoss,
     annotateDecision: annotateDecision,
