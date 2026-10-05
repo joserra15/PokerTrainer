@@ -5935,7 +5935,11 @@ window.PT_NASH_PUSH_JSON = {
       tableMax: c.tableMax != null ? Number(c.tableMax) : null,
       entries: c.entries != null ? Number(c.entries) : null,
       buyIn: c.buyIn != null ? Number(c.buyIn) : null,
-      mttStructureSituation: c.mttStructureSituation || (effectivePhase === 'hu' ? 'hu' : null)
+      mttStructureSituation: c.mttStructureSituation || (effectivePhase === 'hu' ? 'hu' : null),
+      /* Chip lead / cobertura: el open chart puede ensancharse (early-like). */
+      stackRole: c.stackRole || null,
+      isChipLead: !!(c.isChipLead || c.stackRole === 'cover'),
+      coversOpponent: !!(c.coversOpponent || c.coversVillain)
     };
   }
 
@@ -6114,6 +6118,13 @@ window.PT_NASH_PUSH_JSON = {
     const layers = V().PHASE_LAYERS;
     const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const ext = global.GTORangesExtended;
+    // Chip lead: presión ICM — opens más wide (charts early) en mid/short/bubble/FT.
+    // No aplica en push/Nash, HU WTA, ni stacks ≤18bb (ahí manda shove/fold).
+    const coverPressure = !isHuContext(c)
+      && phase !== 'push'
+      && phase !== 'hu'
+      && (stackBB == null || stackBB > 18)
+      && (c.stackRole === 'cover' || c.isChipLead || c.coversOpponent);
 
     // Heads Up WTA: charts chip-EV (no MTT early/short multiway).
     if (isHuContext(c) && V().OPEN_RAISE_HU) {
@@ -6129,7 +6140,13 @@ window.PT_NASH_PUSH_JSON = {
 
     // P3a: Spin — capa exacta por stack (25/20/15/10)
     if (c.isSpin && layers && layers.spinOpen) {
-      const key = spinStackLayerKey(stackBB);
+      let key = spinStackLayerKey(stackBB);
+      // Cover: un escalón más deep = open más wide (misma profundidad real).
+      if (coverPressure && key) {
+        if (key === '10') key = '15';
+        else if (key === '15') key = '20';
+        else if (key === '20') key = '25';
+      }
       if (key && layers.spinOpen[key] && Object.keys(layers.spinOpen[key]).length) {
         return layers.spinOpen[key];
       }
@@ -6140,7 +6157,13 @@ window.PT_NASH_PUSH_JSON = {
       let phaseKey = phase;
       if (phase === 'bubble') phaseKey = 'short';
       if (phase === 'hu') phaseKey = 'short';
-      if (phaseKey === 'push' || (stackBB != null && stackBB <= 16)) {
+      if (phase === 'ft' || phase === 'itm' || phase === 'mincash') phaseKey = 'mid';
+      // Chip lead: charts early (p.ej. A8s CO mid deja de ser fold 100%).
+      if (coverPressure && phaseKey !== 'push' && layers.mttOpen.early
+        && Object.keys(layers.mttOpen.early).length) {
+        return layers.mttOpen.early;
+      }
+      if (phaseKey === 'push' || (stackBB != null && stackBB <= 16 && !coverPressure)) {
         if (layers.mttOpen.push) return layers.mttOpen.push;
         if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
       }
@@ -12128,9 +12151,12 @@ window.PT_NASH_PUSH_JSON = {
     // RFI fold/raise con un shove allin previo → filterStrategy → 100% fold.
     const acts = input.availableActions || [];
     const actsKey = acts.length ? acts.slice().sort().join(',') : '-';
+    const roleKey = input.stackRole || (input.isChipLead ? 'cover' : '-');
+    const phaseKey = input.resolvedPhase || input.effectivePhase || input.mttPhase || '-';
     const cacheKey = global.GTOSpotKey.spotKeyString(spotKey) + '|' + (input.handCode || '')
       + '|' + suffix + '|eq' + eqSuffix + '|p' + pctSuffix + '|' + nodeKey
-      + '|' + pushFlag + '|' + shoveFlag + '|pm' + preflopFlag + '|a' + actsKey;
+      + '|' + pushFlag + '|' + shoveFlag + '|pm' + preflopFlag + '|a' + actsKey
+      + '|r' + roleKey + '|ph' + phaseKey;
     return Cache.memo('spot', cacheKey, () => {
       const kind = input.spotKind || spotKey.spotKind;
       const code = input.handCode;
@@ -12148,7 +12174,10 @@ window.PT_NASH_PUSH_JSON = {
         placesPaid: input.placesPaid,
         playersSeated: input.playersSeated,
         tableMax: input.tableMax,
-        icmEnabled: input.icmEnabled
+        icmEnabled: input.icmEnabled,
+        stackRole: input.stackRole,
+        isChipLead: input.isChipLead,
+        coversOpponent: input.coversVillain || input.coversOpponent
       }) : null);
 
       const hub = (input.formatHub)

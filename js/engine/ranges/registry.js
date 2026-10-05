@@ -145,7 +145,11 @@
       tableMax: c.tableMax != null ? Number(c.tableMax) : null,
       entries: c.entries != null ? Number(c.entries) : null,
       buyIn: c.buyIn != null ? Number(c.buyIn) : null,
-      mttStructureSituation: c.mttStructureSituation || (effectivePhase === 'hu' ? 'hu' : null)
+      mttStructureSituation: c.mttStructureSituation || (effectivePhase === 'hu' ? 'hu' : null),
+      /* Chip lead / cobertura: el open chart puede ensancharse (early-like). */
+      stackRole: c.stackRole || null,
+      isChipLead: !!(c.isChipLead || c.stackRole === 'cover'),
+      coversOpponent: !!(c.coversOpponent || c.coversVillain)
     };
   }
 
@@ -324,6 +328,13 @@
     const layers = V().PHASE_LAYERS;
     const stackBB = c.stackBB != null ? Number(c.stackBB) : null;
     const ext = global.GTORangesExtended;
+    // Chip lead: presión ICM — opens más wide (charts early) en mid/short/bubble/FT.
+    // No aplica en push/Nash, HU WTA, ni stacks ≤18bb (ahí manda shove/fold).
+    const coverPressure = !isHuContext(c)
+      && phase !== 'push'
+      && phase !== 'hu'
+      && (stackBB == null || stackBB > 18)
+      && (c.stackRole === 'cover' || c.isChipLead || c.coversOpponent);
 
     // Heads Up WTA: charts chip-EV (no MTT early/short multiway).
     if (isHuContext(c) && V().OPEN_RAISE_HU) {
@@ -339,7 +350,13 @@
 
     // P3a: Spin — capa exacta por stack (25/20/15/10)
     if (c.isSpin && layers && layers.spinOpen) {
-      const key = spinStackLayerKey(stackBB);
+      let key = spinStackLayerKey(stackBB);
+      // Cover: un escalón más deep = open más wide (misma profundidad real).
+      if (coverPressure && key) {
+        if (key === '10') key = '15';
+        else if (key === '15') key = '20';
+        else if (key === '20') key = '25';
+      }
       if (key && layers.spinOpen[key] && Object.keys(layers.spinOpen[key]).length) {
         return layers.spinOpen[key];
       }
@@ -350,7 +367,13 @@
       let phaseKey = phase;
       if (phase === 'bubble') phaseKey = 'short';
       if (phase === 'hu') phaseKey = 'short';
-      if (phaseKey === 'push' || (stackBB != null && stackBB <= 16)) {
+      if (phase === 'ft' || phase === 'itm' || phase === 'mincash') phaseKey = 'mid';
+      // Chip lead: charts early (p.ej. A8s CO mid deja de ser fold 100%).
+      if (coverPressure && phaseKey !== 'push' && layers.mttOpen.early
+        && Object.keys(layers.mttOpen.early).length) {
+        return layers.mttOpen.early;
+      }
+      if (phaseKey === 'push' || (stackBB != null && stackBB <= 16 && !coverPressure)) {
         if (layers.mttOpen.push) return layers.mttOpen.push;
         if (ext && ext.OPEN_RAISE_MTT_PUSH) return ext.OPEN_RAISE_MTT_PUSH;
       }

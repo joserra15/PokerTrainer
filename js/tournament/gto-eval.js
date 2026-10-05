@@ -102,6 +102,81 @@
     return 'mtt';
   }
 
+  /**
+   * Rol de stack + cobertura para evaluar opens de chip lead más wide.
+   * Usa stacks vivos en mesa (fichas detrás + invertidas en la calle).
+   */
+  function resolveStackCoverage(hand, heroSeat, stackBB) {
+    var Cov = global.PTStackCoverage;
+    var bb = Math.max(1, Number(hand && hand.bb) || 1);
+    var seats = (hand && hand.seats) || [];
+    var alive = seats.filter(function (s) {
+      if (!s) return false;
+      var chips = (Number(s.stack) || 0) + (Number(s.streetInvested) || 0);
+      return chips > 0.001;
+    });
+    var allBB = alive.map(function (s) {
+      return Math.round((((Number(s.stack) || 0) + (Number(s.streetInvested) || 0)) / bb) * 100) / 100;
+    });
+    var heroBB = Number(stackBB);
+    if (!(heroBB > 0) && heroSeat) {
+      heroBB = Math.round((((Number(heroSeat.stack) || 0) + (Number(heroSeat.streetInvested) || 0)) / bb) * 100) / 100;
+    }
+    var avg = allBB.length
+      ? Math.round((allBB.reduce(function (a, x) { return a + x; }, 0) / allBB.length) * 100) / 100
+      : (hand && hand.avgStackBB != null ? Number(hand.avgStackBB) : null);
+    var role = null;
+    var isChipLead = false;
+    if (Cov && typeof Cov.roleForStack === 'function' && allBB.length >= 2 && heroBB > 0) {
+      role = Cov.roleForStack(heroBB, allBB);
+      var maxBB = Math.max.apply(null, allBB);
+      isChipLead = heroBB >= maxBB - 0.01;
+    } else if (avg > 0 && heroBB > 0) {
+      if (heroBB / avg >= 1.55) role = 'cover';
+      else if (heroBB <= 12 || heroBB / avg <= 0.45) role = 'short';
+      else role = 'mid';
+      isChipLead = role === 'cover';
+    }
+    var opp = null;
+    if (heroSeat) {
+      if (hand && hand.openerId) {
+        opp = seats.find(function (s) { return s && s.id === hand.openerId; }) || null;
+      }
+      if (!opp) {
+        opp = seats.find(function (s) {
+          return s && !s.isHero && !s.folded && s.id !== (heroSeat && heroSeat.id);
+        }) || null;
+      }
+    }
+    var oppBB = opp
+      ? Math.round((((Number(opp.stack) || 0) + (Number(opp.streetInvested) || 0)) / bb) * 100) / 100
+      : null;
+    var coversVillain = !!(oppBB != null && heroBB > oppBB * 1.02);
+    var coveredByVillain = !!(oppBB != null && oppBB > heroBB * 1.02);
+    var oppRole = null;
+    if (Cov && typeof Cov.roleForStack === 'function' && oppBB != null && allBB.length >= 2) {
+      oppRole = Cov.roleForStack(oppBB, allBB);
+    }
+    var phase = (hand && (hand.mttPhase || (hand.state && hand.state.mttPhase))) || null;
+    var ownRp = null;
+    var oppRp = null;
+    if (Cov && typeof Cov.riskPremiumFromRole === 'function') {
+      ownRp = Cov.riskPremiumFromRole(role, phase, coveredByVillain);
+      oppRp = Cov.riskPremiumFromRole(oppRole, phase, coversVillain);
+    }
+    return {
+      stackRole: role,
+      opponentStackRole: oppRole,
+      coversVillain: coversVillain,
+      coveredByVillain: coveredByVillain,
+      coverageRatio: oppBB > 0 ? Math.round((heroBB / oppBB) * 100) / 100 : null,
+      isChipLead: isChipLead,
+      avgStackBB: avg,
+      ownRiskPremium: ownRp,
+      opponentRiskPremium: oppRp
+    };
+  }
+
   function resolveTournamentPhase(stackBB, hand) {
     var Tax = global.PTFormatTaxonomy;
     var TC = global.PTTournamentContext;
@@ -562,6 +637,22 @@
         ? ('Call vs shove · fase «' + phase + '» · ' + stackBB + ' bb')
         : ('Fase ' + (huWta ? 'HU' : (hub === 'spin' ? 'Spin' : 'MTT')) + ' «' + phase + '» · ' + stackBB + ' bb')
     };
+    var cov = resolveStackCoverage(hand, heroSeat, stackBB);
+    if (cov) {
+      if (cov.stackRole) input.stackRole = cov.stackRole;
+      if (cov.opponentStackRole) input.opponentStackRole = cov.opponentStackRole;
+      input.coversVillain = !!cov.coversVillain;
+      input.coveredByVillain = !!cov.coveredByVillain;
+      if (cov.coverageRatio != null) input.coverageRatio = cov.coverageRatio;
+      input.isChipLead = !!cov.isChipLead;
+      if (cov.avgStackBB != null) input.avgStackBB = cov.avgStackBB;
+      if (cov.ownRiskPremium != null) input.ownRiskPremium = cov.ownRiskPremium;
+      if (cov.opponentRiskPremium != null) input.opponentRiskPremium = cov.opponentRiskPremium;
+      if (cov.stackRole === 'cover' || cov.isChipLead) {
+        input.phaseNote = (input.phaseNote ? input.phaseNote + ' · ' : '')
+          + 'chip lead (opens más wide)';
+      }
+    }
     if (!incompleteAllIn && action && (action.id === 'bet' || action.id === 'raise' || action.id === 'allin') && action.amount != null) {
       input.betSizeBB = Number(action.amount) / bb;
     }
@@ -810,6 +901,7 @@
     mapClass: mapClass,
     optionBreakdown: optionBreakdown,
     resolveFormatHub: resolveFormatHub,
+    resolveStackCoverage: resolveStackCoverage,
     resolveTournamentPhase: resolveTournamentPhase,
     isFirstInOpen: isFirstInOpen,
     isIncompleteAllIn: isIncompleteAllIn,
