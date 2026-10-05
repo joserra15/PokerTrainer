@@ -51,6 +51,7 @@ const STEPS = [
   ['Test range cell popup', ['node', 'tools/test-range-cell-popup.js']],
   ['Test BB vs SB', ['node', 'tools/test-bb-vs-sb-position.js']],
   ['Test entrenador SB RFI limp', ['node', 'tools/test-trainer-sb-rfi-limp.js']],
+  ['Test entrenador RFI all-in', ['node', 'tools/test-trainer-rfi-allin.js']],
   ['Test SB A4s MTT no NIT', ['node', 'tools/test-sb-a4s-mtt-not-nit.js']],
   ['Test coherencia "mejor" vs mezcla GTO', ['node', 'tools/test-best-mix-coherence.js']],
   ['Regresión frecuencias flop/turn (Colorado 98s)', ['node', 'tools/test-flop-turn-freq-duplicate.js']],
