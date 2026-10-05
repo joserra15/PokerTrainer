@@ -12919,10 +12919,9 @@ function reducedMotion() {
           ? global.PTTournamentConfig.normalizeBlindStructure(sp.structure)
           : sp.structure;
       }
-      function spChip(id, label, hint) {
+      function spChip(id, label) {
         return '<button type="button" class="btn btn-sm' + (spStruct === id ? ' is-selected' : '') +
-          '" data-act="structure-prompt-pick" data-structure="' + id + '">' + label +
-          '<small class="trn-structure-chip-hint">' + hint + '</small></button>';
+          '" data-act="structure-prompt-pick" data-structure="' + id + '">' + label + '</button>';
       }
       structureModal = '<div class="trn-modal-backdrop" data-act="close-structure-prompt">' +
         '<div class="trn-modal" role="dialog" aria-modal="true" aria-label="Estructura de ciegas" data-act="noop">' +
@@ -12931,9 +12930,9 @@ function reducedMotion() {
         '(menos presión en mesa final). Turbo e Hyper aceleran el torneo.</p>' +
         '<p class="trn-assist-level-lbl">Elige estructura</p>' +
         '<div class="trn-assist-levels trn-structure-prompt-levels" role="group">' +
-        spChip('hyper', 'Hyper-turbo', '~½ órbita') +
-        spChip('turbo', 'Turbo', '~1 órbita') +
-        spChip('normal', 'Normal', '~2 órbitas') +
+        spChip('hyper', 'Hyper-turbo') +
+        spChip('turbo', 'Turbo') +
+        spChip('normal', 'Normal') +
         '</div>' +
         '<div class="trn-setup-actions">' +
         '<button type="button" class="btn btn-primary" data-act="confirm-structure-prompt">Continuar</button>' +
