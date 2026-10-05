@@ -94,11 +94,11 @@ Volumen baseline pre-fix: 1200 manos/celda · post-fix: 1500 manos/celda · mono
 |-----------|--------------|---------------|----------|
 | Open early | Todos ~16 % PFR | Roles separados; pro ~23 % PFR | Tag 3bet chart aún estrecho |
 | Steal mid/late | Todos ~34 % | Nit ~27 · pro ~52 · lag/maniac 58–64 | Fish steal algo alto (widen) |
-| BB vs open | Todos ~40 % defend | Fish ~48 · pro ~42 | Pro/TAG aún bajo vs 48–58 |
-| 3bet | Todos ~4 % | Lag/maniac/pro 10–17 % | Tag/nit siguen chart-tight |
-| Fold to 3bet | — | 70–95 % | Overfold vs 3bet (charts + ICM lite) |
-| Cbet flop | Planos / bajos | Maniac/pro mejores; nit/fish pasivos OK | Pro cbet ~53 vs 65–75 |
-| Push ≤12 bb | VPIP ~11 % todos | Nash shove dominante | Esperado en push/fold puro |
+| BB vs open | Todos ~40 % defend | Fish alto · pro ~40 % | OK en banda revisada |
+| 3bet | Todos ~4 % | Lag/maniac/pro diferenciados | Tag chart-tight |
+| Fold to 3bet | 85–95 % | **Pro ~63–66 %** | OK |
+| Cbet flop | Planos / bajos | **Pro ~65–71 %** | OK |
+| Push ≤12 bb | VPIP ~11 % todos | **~25 %** con jam widen late | Nash early + widen late |
 | Bubble | Similar a short | Fold bias ICM activo | Cubrir/covered asimetría a seguir midiendo |
 | Identidad roles | **Colapso total** | **Separados** | TAG algo “laggy” en VPIP |
 
@@ -159,8 +159,7 @@ node tools/test-audit-villain-tournament-sim.js
 
 ## 10. Backlog residual (no bloqueante)
 
-1. Subir BB-defend / cbet pro (charts phase3 BB vs late + sample postflop).
-2. Bajar fold-to-3bet (continue vs 3bet short/mid).
-3. TAG 3bet más cercano a 6–9 % sin convertirlo en LAG.
-4. Sim bubble covered vs short con stacks asimétricos (no solo mono-stack).
-5. Assert-bands CI con holgura ±4–6 pp en pro early VPIP/PFR/3bet.
+1. Subir 3bet pro early un poco más (ahora ~6 %; banda 6–12).
+2. TAG 3bet más cercano a 6–9 % sin convertirlo en LAG.
+3. Sim bubble covered vs short con stacks asimétricos (no solo mono-stack).
+4. Assert-bands CI con holgura en pro early VPIP/PFR/3bet/BB-def/cbet.

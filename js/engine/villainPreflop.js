@@ -16,6 +16,26 @@
     return W.weightOf(weights, code);
   }
 
+  /** Off-chart BB/SB defend: Ax, suited decentes, broadway — no basura tipo Q2o. */
+  function speculativeDefendOk(code) {
+    if (!code || code.length < 2) return false;
+    if (code.length === 2) return true;
+    const ranks = '23456789TJQKA';
+    const hi = code[0];
+    const lo = code[1];
+    const suited = code[2] === 's';
+    const ri = ranks.indexOf(hi);
+    const rj = ranks.indexOf(lo);
+    if (ri < 0 || rj < 0) return false;
+    if (hi === 'A') return true;
+    if (suited && ri >= ranks.indexOf('7')) return true;
+    if (!suited && ri >= ranks.indexOf('K') && rj >= ranks.indexOf('9')) return true;
+    if (!suited && ri >= ranks.indexOf('Q') && rj >= ranks.indexOf('T')) return true;
+    if (!suited && ri >= ranks.indexOf('J') && rj >= ranks.indexOf('T')) return true;
+    if (suited && (ri - rj) <= 2 && ri >= ranks.indexOf('5')) return true;
+    return false;
+  }
+
   function bucketWeights(sets) {
     return W.fromSets(sets || {});
   }
@@ -291,15 +311,30 @@
     }
     if (foldBias > 0.05 && wc > 0) wc = Math.max(0, wc - foldBias * 0.8);
     if (foldBias > 0.05 && w3 > 0) w3 = Math.max(0, w3 - foldBias * 0.35);
+    /* BB: bump extra al calling range in-chart (MDF). */
+    if (defenderPos === 'BB' && callBias >= 0 && wc > 0) {
+      wc = Math.min(1, wc + 0.12 + callBias * 0.8);
+    }
+    if (defenderPos === 'BB' && callBias > 0.02 && w3 <= 0 && wc <= 0
+      && speculativeDefendOk(code)) {
+      /* ≥0.42 para entrar en la rama call (no caer al fold final). */
+      wc = Math.min(0.9, 0.48 + callBias * 2.2);
+    }
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
       /* Fish/LAG/pro: defensa especulativa fuera de chart (no solo leakRate). */
       const offChartCall = Math.max(0, callBias * 1.55 - foldBias * 0.6 + huAgg * 0.25);
       const offChart3 = Math.max(0, threeBias * 0.7 + huAgg * 0.2 - foldBias * 0.4);
-      if (offChart3 > 0.04 && r < offChart3) return '3bet';
-      if (offChartCall > 0.04 && r < offChartCall + offChart3) return 'call';
-      if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r)) return 'call';
+      /* BB: más defend (MDF). SB un poco menos que BB. */
+      const blindDef = defenderPos === 'BB' ? 2.45 : (defenderPos === 'SB' ? 1.4 : 1);
+      /* Pro/TAG/Nit: no callar basura off-chart (Q2o). Fish/LAG/maniac sí pueden. */
+      const pid = profile && profile.id;
+      const gateTrash = pid === 'pro' || pid === 'tag' || pid === 'nit';
+      const okSpec = !gateTrash || speculativeDefendOk(code);
+      if (offChart3 * blindDef > 0.04 && okSpec && r < offChart3 * blindDef) return '3bet';
+      if (offChartCall * blindDef > 0.04 && okSpec && r < (offChartCall + offChart3) * blindDef) return 'call';
+      if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r) && okSpec) return 'call';
       return 'fold';
     }
 
@@ -328,7 +363,11 @@
       return 'fold';
     }
     if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.12 + icmBias - huAgg * 0.5 - callBias * 0.3), profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.4 - icmBias * 0.5 + huAgg * 0.25 + callBias * 0.35, profile) ? 'call' : 'fold';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.4 - icmBias * 0.5 + huAgg * 0.25 + callBias * 0.35 + (defenderPos === 'BB' ? 0.12 : 0), profile) ? 'call' : 'fold';
+    if (defenderPos === 'BB' && speculativeDefendOk(code) && (callBias > 0.02 || (profile && profile.id === 'pro'))
+      && r < Math.min(0.78, 0.42 + callBias * 3 - icmBias * 0.5)) {
+      return 'call';
+    }
     return 'fold';
   }
 
@@ -336,32 +375,54 @@
   function openerVs3BetAction(code, profile, rnd, ctx) {
     const r = rnd != null ? rnd : Math.random();
     const buckets = vs3betBuckets(ctx);
-    const wf = handWeight(buckets.fourBet, code);
-    const wc = handWeight(buckets.call, code);
+    let wf = handWeight(buckets.fourBet, code);
+    let wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
+    const pf = (profile && profile.preflop) || {};
+    const callBias = Number(pf.callBias) || 0;
+    const threeBias = Number(pf.threeBetBias) || 0;
+    const fourBias = Number(pf.fourBetBias) || 0;
+    const foldBias = Number(pf.foldBias) || 0;
     let act;
+
+    /* Continue vs 3bet: ensanchar call/4bet según perfil (bajar fold-to-3bet). */
+    if (callBias > 0 && wc > 0) wc = Math.min(1, wc + callBias * 1.5);
+    if (fourBias > 0 && wf > 0) wf = Math.min(1, wf + fourBias * 1.3);
+    if (threeBias > 0.04 && wc >= 0.35 && wf < 0.15) {
+      wf = Math.max(wf, threeBias * 0.55);
+    }
 
     if (wf <= 0 && wc <= 0) {
       if (allowsLeak(profile, '4bet', r)) act = '4bet';
-      else act = 'fold';
+      else {
+        /* Off-chart continue: pro/lag/fish no overfoldean tanto vs 3bet. */
+        const off4 = Math.max(0, fourBias * 1.05 + threeBias * 0.4 - foldBias * 0.45);
+        const offCall = Math.max(0, callBias * 2.4 + threeBias * 0.45 - foldBias * 0.35);
+        if (off4 > 0.05 && r < off4) act = '4bet';
+        else if (offCall > 0.05 && r < off4 + offCall) act = 'call';
+        else act = 'fold';
+      }
     } else if (strict >= 0.99) {
-      const mix = gtoMixAction(r, wf, wc, 'call');
+      const mix = gtoMixAction(r, wf, wc * (1 + callBias * 0.55), 'call');
       act = mix === 'aggress' ? '4bet' : (mix === 'pass' ? 'call' : 'fold');
     } else if (wf >= 1) {
-      if (r < VP.adjustFourBetProb(strict >= 0.75 ? 0.55 : 0.58, profile)) act = '4bet';
-      else if (wc > 0 && r < VP.adjustCallProb(0.72, profile)) act = 'call';
+      if (r < VP.adjustFourBetProb(strict >= 0.75 ? 0.58 : 0.62, profile)) act = '4bet';
+      else if (wc > 0 && r < VP.adjustCallProb(0.82 + callBias * 0.5, profile)) act = 'call';
       else act = 'fold';
     } else if (wf > 0) {
-      const freq = strict >= 0.75 ? wf : VP.adjustFourBetProb(Math.min(0.28, wf * 0.65), profile);
+      const freq = strict >= 0.75 ? Math.min(1, wf + fourBias * 0.4) : VP.adjustFourBetProb(Math.min(0.35, wf * 0.7), profile);
       if (r < freq) act = '4bet';
-      else if (wc > 0 && r < VP.adjustCallProb(0.52, profile)) act = 'call';
+      else if (wc > 0 && r < VP.adjustCallProb(0.64 + callBias * 0.55, profile)) act = 'call';
       else act = 'fold';
-    } else if (wc >= 1) act = r < VP.adjustFoldProb(0.18, profile) ? 'fold' : 'call';
-    else if (wc >= 0.42) act = r < VP.adjustCallProb(0.34, profile) ? 'call' : 'fold';
-    else act = 'fold';
+    } else if (wc >= 1) act = r < VP.adjustFoldProb(Math.max(0.05, 0.10 - callBias * 0.45 + foldBias * 0.35), profile) ? 'fold' : 'call';
+    else if (wc >= 0.42) act = r < VP.adjustCallProb(0.5 + callBias * 0.6, profile) ? 'call' : 'fold';
+    else {
+      const lightCall = Math.max(0, callBias * 1.6 + threeBias * 0.2 - foldBias * 0.25);
+      act = (lightCall > 0.05 && r < lightCall) ? 'call' : 'fold';
+    }
 
     if (act === '4bet' && !isInFourBetRange(code, ctx)) {
-      if (wc > 0) return 'call';
+      if (wc > 0 || callBias > 0.03) return 'call';
       return 'fold';
     }
     return act;

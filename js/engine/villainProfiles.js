@@ -48,15 +48,15 @@
       id: 'pro',
       label: 'Pro',
       shortLabel: 'Pro (GTO+)',
-      /* GTO + presión selectiva: 3bet/steal/defend un poco por encima del chart base. */
-      preflop: { foldBias: -0.01, threeBetBias: 0.09, fourBetBias: 0.04, callBias: 0.02 },
+      /* GTO + presión selectiva: más defend/3bet/cbet que el chart base. */
+      preflop: { foldBias: -0.02, threeBetBias: 0.10, fourBetBias: 0.05, callBias: 0.055 },
       postflop: {
-        betFreqMult: 1.22,
-        bluffFreqMult: 1.08,
-        raiseFreqMult: 1.38,
-        callMult: 1.02,
-        foldMult: 0.98,
-        betSizeMult: 1.08,
+        betFreqMult: 1.62,
+        bluffFreqMult: 1.32,
+        raiseFreqMult: 1.42,
+        callMult: 1.05,
+        foldMult: 0.9,
+        betSizeMult: 1.1,
         overbetWeight: 1.28,
         xrFlopMult: 1.42,
         riverPolarMult: 1.32
@@ -580,7 +580,7 @@
     if (id === 'maniac') return { widenThr: 0.36, skipChance: 0 };
     if (id === 'lag') return { widenThr: 0.42, skipChance: 0 };
     if (id === 'fish') return { widenThr: 0.52, skipChance: 0.06 };
-    if (id === 'pro') return { widenThr: 0.52, skipChance: 0.03 };
+    if (id === 'pro') return { widenThr: 0.54, skipChance: 0.05 };
     if (id === 'tag') return { widenThr: 0.56, skipChance: 0.06 };
     if (id === 'nit') return { widenThr: null, skipChance: 0.32 };
     return { widenThr: null, skipChance: 0 };
