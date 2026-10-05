@@ -55,6 +55,25 @@
     return n >= 9 ? row.full : row.short;
   }
 
+  /**
+   * Manos/nivel “tipo minutos”: al bajar de asientos (FT / 3-max / HU) sube la
+   * duración hasta MAX_SCALE × base para que las ciegas no coman más rápido.
+   * Nunca baja de la base del arranque (refSeats × structure).
+   */
+  var MAX_SCALE = { hyper: 1.75, turbo: 2, normal: 2 };
+
+  function handsPerLevelDynamic(refSeats, curSeats, structure) {
+    structure = normalizeBlindStructure(structure);
+    var ref = Math.max(2, Number(refSeats) || 6);
+    var cur = Math.max(2, Number(curSeats) || ref);
+    var base = handsPerLevelForSeats(ref, structure);
+    if (cur >= ref) return base;
+    var raw = Math.round(base * ref / cur);
+    var maxScale = MAX_SCALE[structure] != null ? MAX_SCALE[structure] : 2;
+    var hi = Math.max(base, Math.round(base * maxScale));
+    return Math.max(base, Math.min(hi, raw));
+  }
+
   function defaultScheduleForSeats(seats, structure) {
     var hands = handsPerLevelForSeats(seats, structure);
     /* Niveles base 1–10; blinds.js continúa geométricamente después. */
@@ -531,6 +550,7 @@
     ROLE_IDS: ROLE_IDS.slice(),
     DEFAULT_SCHEDULE: clone(DEFAULT_SCHEDULE),
     STRUCTURE_HANDS: STRUCTURE_HANDS,
+    MAX_SCALE: MAX_SCALE,
     PRESETS: PRESETS,
     PRESET_MIN_PLAN: PRESET_MIN_PLAN,
     normalize: normalize,
@@ -542,6 +562,7 @@
     normalizeBlindStructure: normalizeBlindStructure,
     blindStructureLabel: blindStructureLabel,
     handsPerLevelForSeats: handsPerLevelForSeats,
+    handsPerLevelDynamic: handsPerLevelDynamic,
     defaultScheduleForSeats: defaultScheduleForSeats,
     planLabel: planLabel,
     requiredPlanForPreset: requiredPlanForPreset

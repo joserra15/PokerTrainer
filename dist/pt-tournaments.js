@@ -2,6 +2,7 @@
 /*
  * tournament/blinds.js — Reloj de ciegas por número de manos (mesa Hero).
  * Tras el schedule fijo, los niveles siguen subiendo (progresión geométrica).
+ * Late game: restampHandsFromLevel alarga niveles futuros según asientos actuales.
  */
 (function (global) {
   'use strict';
@@ -54,13 +55,20 @@
     return n;
   }
 
-  /** Amplía el schedule hasta cubrir handIndex (niveles infinitos tras el fijo). */
-  function extendSchedule(schedule, handIndex) {
+  /**
+   * Amplía el schedule hasta cubrir handIndex (niveles infinitos tras el fijo).
+   * handsPerOverride: si se pasa, fuerza duración de la cola; si no, usa el
+   * último nivel stampado (ya puede estar escalado en late game).
+   */
+  function extendSchedule(schedule, handIndex, handsPerOverride) {
     var sched = cloneSchedule(schedule);
     if (!sched.length) {
       sched = [{ level: 1, sb: 10, bb: 20, ante: 0, hands: 8 }];
     }
-    var handsPer = sched[0].hands || 8;
+    var handsPer = handsPerOverride != null
+      ? Math.max(1, Number(handsPerOverride) || 8)
+      : Math.max(1, (sched[sched.length - 1] && sched[sched.length - 1].hands)
+        || sched[0].hands || 8);
     var target = Math.max(0, Number(handIndex) || 0);
     /* Evita que el “último” nivel fijo absorba todas las manos restantes. */
     while (totalHands(sched) <= target) {
@@ -112,6 +120,26 @@
     return nextBlindLevel(sched[idx], sched[idx].hands);
   }
 
+  /**
+   * Reescribe hands del nivel actual (into debe ser 0 / frontera) y todos los
+   * posteriores. Devuelve un schedule nuevo; no muta el array de entrada.
+   */
+  function restampHandsFromLevel(schedule, handIndex, hands) {
+    hands = Math.max(1, Number(hands) || 1);
+    var sched = extendSchedule(schedule, handIndex, hands);
+    var idx = levelIndexForHand(schedule, handIndex);
+    /* Si el índice se calculó con el schedule viejo, alinear con el extendido. */
+    var into = handsIntoLevel(schedule, handIndex);
+    if (into > 0 && into < (sched[idx] && sched[idx].hands)) {
+      /* Mitad de nivel: no tocar el actual; solo futuros. */
+      idx = idx + 1;
+    }
+    for (var i = Math.max(0, idx); i < sched.length; i++) {
+      sched[i].hands = hands;
+    }
+    return sched;
+  }
+
   function labelFor(level) {
     if (!level) return '';
     var s = 'Nv.' + level.level + ' · ' + level.sb + '/' + level.bb;
@@ -129,6 +157,7 @@
     handsIntoLevel: handsIntoLevel,
     handsUntilNext: handsUntilNext,
     nextLevel: nextLevel,
+    restampHandsFromLevel: restampHandsFromLevel,
     labelFor: labelFor
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
@@ -272,6 +301,25 @@
     var row = STRUCTURE_HANDS[normalizeBlindStructure(structure)] || STRUCTURE_HANDS.normal;
     if (n <= 2) return row.hu;
     return n >= 9 ? row.full : row.short;
+  }
+
+  /**
+   * Manos/nivel “tipo minutos”: al bajar de asientos (FT / 3-max / HU) sube la
+   * duración hasta MAX_SCALE × base para que las ciegas no coman más rápido.
+   * Nunca baja de la base del arranque (refSeats × structure).
+   */
+  var MAX_SCALE = { hyper: 1.75, turbo: 2, normal: 2 };
+
+  function handsPerLevelDynamic(refSeats, curSeats, structure) {
+    structure = normalizeBlindStructure(structure);
+    var ref = Math.max(2, Number(refSeats) || 6);
+    var cur = Math.max(2, Number(curSeats) || ref);
+    var base = handsPerLevelForSeats(ref, structure);
+    if (cur >= ref) return base;
+    var raw = Math.round(base * ref / cur);
+    var maxScale = MAX_SCALE[structure] != null ? MAX_SCALE[structure] : 2;
+    var hi = Math.max(base, Math.round(base * maxScale));
+    return Math.max(base, Math.min(hi, raw));
   }
 
   function defaultScheduleForSeats(seats, structure) {
@@ -750,6 +798,7 @@
     ROLE_IDS: ROLE_IDS.slice(),
     DEFAULT_SCHEDULE: clone(DEFAULT_SCHEDULE),
     STRUCTURE_HANDS: STRUCTURE_HANDS,
+    MAX_SCALE: MAX_SCALE,
     PRESETS: PRESETS,
     PRESET_MIN_PLAN: PRESET_MIN_PLAN,
     normalize: normalize,
@@ -761,6 +810,7 @@
     normalizeBlindStructure: normalizeBlindStructure,
     blindStructureLabel: blindStructureLabel,
     handsPerLevelForSeats: handsPerLevelForSeats,
+    handsPerLevelDynamic: handsPerLevelDynamic,
     defaultScheduleForSeats: defaultScheduleForSeats,
     planLabel: planLabel,
     requiredPlanForPreset: requiredPlanForPreset
@@ -11004,12 +11054,49 @@
     return busted;
   }
 
+  function currentBlindClockSeats(state) {
+    var Seat = global.PTTournamentSeating;
+    var St = global.PTTournamentState;
+    var tables = state.tables || [];
+    var n = 0;
+    var heroTable = tables.find(function (t) { return t && t.isHeroTable; });
+    if (heroTable && Seat && typeof Seat.playersOnTable === 'function') {
+      n = Seat.playersOnTable(state, heroTable.id).length;
+    }
+    if (n < 2 && tables.length <= 1 && St && typeof St.playersLeft === 'function') {
+      n = St.playersLeft(state);
+    }
+    if (n < 2 && St && typeof St.playersLeft === 'function') {
+      /* Fallback: field vivo si la mesa Hero aún no está marcada. */
+      n = St.playersLeft(state);
+    }
+    return Math.max(2, Number(n) || 2);
+  }
+
+  function applyLateGameHandsScale(state) {
+    var Cfg = global.PTTournamentConfig;
+    var Blinds = global.PTTournamentBlinds;
+    if (!state || !state.config || !Cfg || !Blinds) return;
+    if (typeof Cfg.handsPerLevelDynamic !== 'function') return;
+    if (typeof Blinds.restampHandsFromLevel !== 'function') return;
+    var cfg = state.config;
+    var ref = Number(cfg.seatsPerTable) || 6;
+    var cur = currentBlindClockSeats(state);
+    var hands = Cfg.handsPerLevelDynamic(ref, cur, cfg.blindStructure);
+    var handIndex = Number(state.handIndex) || 0;
+    cfg.blindSchedule = Blinds.restampHandsFromLevel(cfg.blindSchedule, handIndex, hands);
+  }
+
   function syncBlindLevel(state) {
     var Blinds = global.PTTournamentBlinds;
     var lv = Blinds.currentLevel(state.config.blindSchedule, state.handIndex || 0);
     var prev = state.blindLevel;
     state.blindLevel = lv.level;
     if (prev != null && lv.level !== prev) {
+      /* Frontera de nivel: alargar niveles actuales/futuros si la mesa se achicó. */
+      applyLateGameHandsScale(state);
+      lv = Blinds.currentLevel(state.config.blindSchedule, state.handIndex || 0);
+      state.blindLevel = lv.level;
       state.events = state.events || [];
       state.events.push({
         type: 'blind_up',
@@ -11017,13 +11104,15 @@
         level: lv.level,
         sb: lv.sb,
         bb: lv.bb,
-        ante: lv.ante
+        ante: lv.ante,
+        hands: lv.hands
       });
       state.blindUpPending = {
         level: lv.level,
         sb: lv.sb,
         bb: lv.bb,
-        ante: lv.ante
+        ante: lv.ante,
+        hands: lv.hands
       };
     }
     return lv;
