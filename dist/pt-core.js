@@ -25279,6 +25279,15 @@ window.PT_NASH_PUSH_JSON = {
         freqs.limp = 0;
         context = `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres, limpeas o te retiras?`;
       }
+      // All-in siempre legal (como postflop / torneo live): chip lead vs short,
+      // burbuja, o presión ICM. El act() ya soporta `allin` en RFI.
+      const shoveLabel = `Shove (${fmt(stackBB)}bb)`;
+      if (stackBB > openSize + 0.01) {
+        options.push({ id: 'allin', label: shoveLabel });
+        context = offerLimp
+          ? `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres, limpeas, shoves o te retiras?`
+          : `Eres ${displayPos}. La acción te llega sin subir (RFI). ¿Abres, shoves o te retiras?`;
+      }
     }
     hand.current = {
       street: 'preflop',
