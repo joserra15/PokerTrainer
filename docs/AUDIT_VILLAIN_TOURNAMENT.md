@@ -60,7 +60,7 @@ Pro early objetivo: VPIP 22–30 · PFR 18–24 · 3bet 6–12 · steal 42–55 
 | Pieza | Antes | Después |
 |-------|-------|---------|
 | `applyDifficulty` forced+pro | `biasScale 0.06` para **todos** | `pro`: scale 1 + strict 0.9; **otros**: scale 0.82 + strict 0.52 |
-| Sesgos `pro` preflop | fold +0.02, 3bet +0.05, call −0.02 | fold −0.02, 3bet +0.10, call +0.055 |
+| Sesgos `pro` preflop | fold +0.02, 3bet +0.05, call −0.02 | fold −0.02, 3bet +0.14, call +0.05 |
 | Postflop `pro` | bet 1.14 / bluff 0.92 / raise 1.28 | bet 1.62 / bluff 1.32 / raise 1.42 + XR/overbet ↑ |
 | `adjust*Prob` scale | `1 - strict` → ~0 con strict 0.92 | suelo `max(0.28, …)` / 0.12 si strict≈1 |
 | `openStyle` | no existía | widen/skip por rol |
@@ -95,19 +95,19 @@ Volumen baseline pre-fix: 1200 manos/celda · post-fix: 1500 manos/celda · mono
 | Open early | Todos ~16 % PFR | Roles separados; pro ~23 % PFR | Tag 3bet chart aún estrecho |
 | Steal mid/late | Todos ~34 % | Nit ~27 · pro ~52 · lag/maniac 58–64 | Fish steal algo alto (widen) |
 | BB vs open | Todos ~40 % defend | Fish alto · pro ~40 % | OK en banda revisada |
-| 3bet | Todos ~4 % | Lag/maniac/pro diferenciados | Tag chart-tight |
-| Fold to 3bet | 85–95 % | **Pro ~63–66 %** | OK |
-| Cbet flop | Planos / bajos | **Pro ~65–71 %** | OK |
+| 3bet | Todos ~4 % | **Pro early ~11 %**; lag/maniac ↑ | Tag chart-tight |
+| Fold to 3bet | 85–95 % | **Pro ~60 %** | OK |
+| Cbet flop | Planos / bajos | **Pro early ~61 %** | Short a veces ~56 % |
 | Push ≤12 bb | VPIP ~11 % todos | **~25 %** con jam widen late | Nash early + widen late |
 | Bubble | Similar a short | Fold bias ICM activo | Cubrir/covered asimetría a seguir midiendo |
 | Identidad roles | **Colapso total** | **Separados** | TAG algo “laggy” en VPIP |
 
 ### Pro — profundidad
 
-- **Presión:** 3bet ~10 % y steal ~52 % early — creíble para reg/pro MTT.
-- **Defensa de ciegas:** mejor que el colapso previo, aún corta vs banda pro; el ensanchamiento off-chart ayuda pero el chart BB vs BTN sigue siendo el ancla.
-- **Lines:** LinePolicy / FormatAdjust / overbet-XR sin cambio estructural; cbet residual → siguiente iteración en `betFreqMult` / strategy sample.
-- **Evaluación:** exploit vs `villainType: pro` ahora aplica híbrido GTO+selectivo (dual en torneos sigue pudiendo mostrar GTO primario + exploit dual).
+- **Presión:** 3bet **~11 %** (banda 6–12) y steal ~48 % early — creíble para reg/pro MTT. Rango polar: value (QQ+/AK) + light (Ax s, broadways, SC fuertes); no Q2o.
+- **Composición preflop:** parte del calling range pasa a 3bet light; off-chart 3bet solo si `speculativeThreeBetOk` (gate trash para pro/tag/nit).
+- **Postflop:** más pots 3bet (SPR bajo) → cbet/XR/overbet del perfil pro pesan más; fold-to-3bet ~60 % alinea continue vs presión del hero.
+- **Evaluación:** exploit vs `villainType: pro` = híbrido (`pro_hybrid`): ↓ bluff/3bet-bluff, ↑ value/call-down frente a presión. `scoreMode: 'gto'` sigue baseline puro.
 
 ---
 
@@ -159,7 +159,6 @@ node tools/test-audit-villain-tournament-sim.js
 
 ## 10. Backlog residual (no bloqueante)
 
-1. Subir 3bet pro early un poco más (ahora ~6 %; banda 6–12).
-2. TAG 3bet más cercano a 6–9 % sin convertirlo en LAG.
-3. Sim bubble covered vs short con stacks asimétricos (no solo mono-stack).
-4. Assert-bands CI con holgura en pro early VPIP/PFR/3bet/BB-def/cbet.
+1. TAG 3bet más cercano a 6–9 % sin convertirlo en LAG.
+2. Sim bubble covered vs short con stacks asimétricos (no solo mono-stack).
+3. Cbet short a veces ~56 % (banda 58–75): holgura menor.
