@@ -159,7 +159,24 @@
       spr: potBB > 0 ? stackBB / potBB : stackBB,
       legalOptions: local.legalOptions || null,
       /* false solo cuando el Hero ya no está en la mano (villano vs villano). */
-      heroInvolved: heroStatus == null ? true : heroStatus
+      heroInvolved: heroStatus == null ? true : heroStatus,
+      /* HUD en vivo del oponente (héroe u otro villano) para sesgo explotativo remoto. */
+      opponentStyle: (function () {
+        try {
+          var rc = D && D.rangeCtx ? D.rangeCtx(hand, seat) : null;
+          if (!rc) return null;
+          var st = rc.targetSessionStats || rc.heroSessionStats;
+          if (!st) return null;
+          return {
+            profile: rc.targetProfile || rc.heroProfile || null,
+            hands: Number(st.handsPlayed != null ? st.handsPlayed : st.hands) || 0,
+            vpip: st.vpipPct != null ? st.vpipPct : st.vpip,
+            pfr: st.pfrPct != null ? st.pfrPct : st.pfr,
+            threeBet: st.threeBetPct != null ? st.threeBetPct : null,
+            confidence: rc.targetConfidence || 0
+          };
+        } catch (eSt) { return null; }
+      })()
     };
   }
 

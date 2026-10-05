@@ -16783,11 +16783,12 @@ window.PT_NASH_PUSH_JSON = {
       }
     }
 
-    var stats = ctx.heroSessionStats || ctx.heroStats || null;
+    /* target* = oponente al que explotamos (héroe u otro villano con HUD observado). */
+    var stats = ctx.targetSessionStats || ctx.heroSessionStats || ctx.heroStats || null;
     var hands = stats ? Number(stats.handsPlayed != null ? stats.handsPlayed
       : (stats.hands != null ? stats.hands : (stats.nHands != null ? stats.nHands : 0))) || 0 : 0;
     var conf = sampleConfidence(hands);
-    var tag = ctx.heroProfile || null;
+    var tag = ctx.targetProfile || ctx.heroProfile || null;
     if (!tag && stats && conf > 0) tag = profileFromStats(stats);
     applyHeroProfile(out, tag, conf || 1);
     return out;

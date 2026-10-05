@@ -202,9 +202,11 @@ Cruzar con EPIC 10: no duplicar SN-*; aquí el foco es **métricas de estilo HUD
 
 | Ítem | Motivo |
 |------|--------|
-| HUD en vivo multi-mesa vs rivales | Posicionamiento: no somos tracker; ver `ESTUDIO_MERCADO` |
+| HUD en vivo multi-mesa vs rivales (tracker / población) | Posicionamiento: no somos tracker; ver `ESTUDIO_MERCADO` |
 | Stats de población / database compartida | Legal + infra + no core GTO study |
 | Equivalencia total PokerTracker columns | Overkill; priorizar las 10–12 métricas de coaching |
+
+**Excepción in-app (torneos IA):** detalle de villano/héroe con Jugado/Subido/Resubido/Manos solo dentro del torneo en curso (`js/tournament/player-hud.js`), sin DB de población ni HUD en felt. Ver `PLAN_TORNEOS_IA.md` §9.
 
 ---
 

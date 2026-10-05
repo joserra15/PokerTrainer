@@ -106,6 +106,7 @@ const FILES = [
   'js/tournament/other-tables.js',
   'js/tournament/role-guess.js',
   'js/tournament/stats.js',
+  'js/tournament/player-hud.js',
   'js/tournament/hud.js',
   'js/tournament/wallet.js',
   'js/tournament/koins-recompute.js',

@@ -433,8 +433,29 @@
 
   function villainType(hand, hero) {
     var opener = (hand.seats || []).find(function (s) { return s.id === hand.openerId; });
-    if (opener && opener.roleId) return opener.roleId;
     var other = (hand.seats || []).find(function (s) { return !s.isHero && !s.folded; });
+    var target = (opener && !opener.isHero) ? opener : other;
+    /* Preferir arquetipo observado (HUD en vivo) cuando hay muestra suficiente. */
+    try {
+      var PH = global.PTTournamentPlayerHud;
+      if (PH && target && target.id) {
+        var snap = (hand.playerHudById && hand.playerHudById[target.id])
+          || (hand.state && hand.state.playerHud && hand.state.playerHud[target.id]
+            ? PH.snapshot({ playerHud: hand.state.playerHud }, target.id)
+            : null);
+        if (!snap && PH.snapshot && hand._tournamentState) {
+          snap = PH.snapshot(hand._tournamentState, target.id);
+        }
+        if (snap) {
+          var phase = hand.mttPhase || (hand.state && hand.state.mttPhase) || 'early';
+          var cls = PH.classify(snap, phase);
+          if (cls && cls.confidence > 0 && cls.archetype) {
+            return cls.archetype;
+          }
+        }
+      }
+    } catch (eHud) { /* fallback role */ }
+    if (opener && opener.roleId) return opener.roleId;
     return (other && other.roleId) || 'tag';
   }
 
@@ -775,7 +796,36 @@
       base.gto = base.gtoBaseline;
       base.exploitStrategy = graded.exploitStrategy || null;
       base.exploitApplied = !!graded.exploitApplied;
-      base.exploitReasons = graded.exploitReasons || [];
+      base.exploitReasons = (function () {
+        var reasons = (graded.exploitReasons || []).slice();
+        try {
+          var vt = graded.villainType || (input && input.villainType);
+          var PH = global.PTTournamentPlayerHud;
+          var opener = (hand.seats || []).find(function (s) {
+            return s && s.id === hand.openerId && !s.isHero;
+          }) || (hand.seats || []).find(function (s) { return s && !s.isHero && !s.folded; });
+          if (PH && opener && hand.playerHudById && hand.playerHudById[opener.id]) {
+            var snap = hand.playerHudById[opener.id];
+            var cls = PH.classify(snap, hand.mttPhase || 'early');
+            if (cls && cls.confidence > 0 && cls.archetype) {
+              var vpip = snap.vpipPct != null ? snap.vpipPct : '—';
+              var pfr = snap.pfrPct != null ? snap.pfrPct : '—';
+              var n = snap.hands || 0;
+              var note = 'Vs ' + cls.archetype + ' observado (' + vpip + '/' + pfr +
+                ', N=' + n + ')' +
+                (cls.exploitTag === 'overfolder' || cls.archetype === 'nit'
+                  ? ': más presión'
+                  : (cls.exploitTag === 'laggy' || cls.archetype === 'lag' || cls.archetype === 'maniac'
+                    ? ': no asumir premiums'
+                    : ''));
+              if (reasons.indexOf(note) < 0) reasons.push(note);
+            }
+          } else if (vt) {
+            void vt;
+          }
+        } catch (eR) { /* */ }
+        return reasons;
+      })();
       base.explainDelta = graded.explainDelta || [];
       base.lineSignals = graded.lineSignals || [];
       base.scoreMode = graded.scoreMode || input.scoreMode || 'gto';

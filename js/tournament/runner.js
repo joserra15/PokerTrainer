@@ -420,6 +420,8 @@
     hand.result.applied = true;
     hand.result.deltas = deltas;
     if (Stats && Stats.onHandComplete) Stats.onHandComplete(state, hand, heroId);
+    var PlayerHud = global.PTTournamentPlayerHud;
+    if (PlayerHud && PlayerHud.onHandComplete) PlayerHud.onHandComplete(state, hand);
 
     state.handIndex = (Number(state.handIndex) || 0) + 1;
     syncBlindLevel(state);

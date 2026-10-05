@@ -367,6 +367,42 @@
     if (Ex && Ex.profileFromStats && heroStats) {
       try { heroProfile = Ex.profileFromStats(heroStats); } catch (eHp) { heroProfile = null; }
     }
+    /* Oponente principal observado (HUD en vivo): opener o rival activo distinto de seat. */
+    var targetStats = null;
+    var targetProfile = null;
+    var targetConfidence = 0;
+    try {
+      var PH = global.PTTournamentPlayerHud;
+      var openerSeat = (hand.seats || []).find(function (s) {
+        return s && s.id === hand.openerId && (!seat || s.id !== seat.id);
+      });
+      var altSeat = (hand.seats || []).find(function (s) {
+        return s && !s.folded && (!seat || s.id !== seat.id);
+      });
+      var targetSeat = openerSeat || altSeat || null;
+      if (targetSeat && targetSeat.id) {
+        if (targetSeat.isHero || targetSeat.id === 'hero') {
+          targetStats = heroStats;
+          targetProfile = heroProfile;
+        } else if (hand.playerHudById && hand.playerHudById[targetSeat.id]) {
+          targetStats = hand.playerHudById[targetSeat.id];
+        } else if (PH && PH.snapshot && hand._tournamentState) {
+          targetStats = PH.snapshot(hand._tournamentState, targetSeat.id);
+        }
+        if (targetStats && Ex && Ex.profileFromStats && !targetProfile) {
+          try { targetProfile = Ex.profileFromStats(targetStats); } catch (eTp) { targetProfile = null; }
+        }
+        if (PH && PH.classify && targetStats) {
+          var cls = PH.classify(targetStats, phase);
+          targetConfidence = (cls && cls.confidence) || 0;
+          if (!targetProfile && cls && cls.exploitTag) targetProfile = cls.exploitTag;
+        } else if (targetStats && Ex && Ex.sampleConfidence) {
+          targetConfidence = Ex.sampleConfidence(
+            Number(targetStats.handsPlayed != null ? targetStats.handsPlayed : targetStats.hands) || 0
+          );
+        }
+      }
+    } catch (eTgt) { /* */ }
     var ctx = {
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
@@ -400,6 +436,9 @@
         || null,
       heroProfile: heroProfile,
       heroSessionStats: heroStats,
+      targetProfile: targetProfile,
+      targetSessionStats: targetStats,
+      targetConfidence: targetConfidence,
       proStyle: (seat && seat.proStyle) || null
     };
     /* Reloj de ciegas → proyección de stack tras la subida. */
@@ -492,21 +531,35 @@
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
 
     var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
-    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+    var targetConf = Number(ctx && ctx.targetConfidence) || 0;
+    var useLiveExploit = (proStyle === 'exploit_pool')
+      || (targetConf > 0 && !!(ctx && (ctx.targetProfile || ctx.targetSessionStats)));
+    if (useLiveExploit && Ex && typeof Ex.multipliers === 'function') {
       var exCtx = Object.assign({}, ctx || {}, {
-        proStyle: 'exploit_pool',
+        proStyle: proStyle === 'exploit_pool' ? 'exploit_pool' : (ctx.proStyle || 'exploit_pool'),
         strength: strength,
         band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
       });
       var em = Ex.multipliers(exCtx) || {};
+      var liveScale = proStyle === 'exploit_pool' ? 1 : Math.max(0.35, Math.min(1, targetConf));
       if (face === 'fold' && (em.barrel > 1.15 || em.bluff > 1.12)
-        && strength > Math.max(potOdds + 0.06, 0.42) && r < 0.22) {
+        && strength > Math.max(potOdds + 0.06, 0.42) && r < 0.22 * liveScale) {
         return 'call';
       }
-      if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22) {
+      if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22 * liveScale) {
         return 'raise';
       }
-      if (face === 'raise' && em.bluff < 0.85 && strength < 0.38 && r < 0.4) {
+      if (face === 'raise' && em.bluff < 0.85 && strength < 0.38 && r < 0.4 * liveScale) {
+        return 'call';
+      }
+      /* Vs overfolder/nit observado: más 3-bet / presión (menos fold). */
+      if (face === 'fold' && (ctx.targetProfile === 'overfolder' || ctx.targetProfile === 'nit')
+        && strength > 0.34 && r < 0.18 * liveScale) {
+        return 'call';
+      }
+      /* Vs laggy/héroe muy agresivo: no asumir premiums — call-down más. */
+      if (face === 'fold' && (ctx.targetProfile === 'laggy' || ctx.targetProfile === 'barrelBot')
+        && strength > Math.max(potOdds, 0.36) && r < 0.2 * liveScale) {
         return 'call';
       }
     }
@@ -531,21 +584,26 @@
     }
 
     var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
-    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+    var targetConfLead = Number(ctx && ctx.targetConfidence) || 0;
+    var useLiveLead = (proStyle === 'exploit_pool')
+      || (targetConfLead > 0 && !!(ctx && (ctx.targetProfile || ctx.targetSessionStats)));
+    if (useLiveLead && Ex && typeof Ex.multipliers === 'function') {
       var exCtx = Object.assign({}, ctx || {}, {
-        proStyle: 'exploit_pool',
+        proStyle: proStyle === 'exploit_pool' ? 'exploit_pool' : (ctx.proStyle || 'exploit_pool'),
         initiative: wasAgg ? 'aggressor' : 'caller',
         strength: strength,
         band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
       });
       var em = Ex.multipliers(exCtx) || {};
-      var barrelBoost = ((Number(em.barrel) || 1) - 1) * (wasAgg ? 1 : 0.45);
-      var bluffBoost = ((Number(em.bluff) || 1) - 1);
-      if (lead === 'check' && (barrelBoost > 0.08 || bluffBoost > 0.08)
+      var liveScaleLead = proStyle === 'exploit_pool' ? 1 : Math.max(0.35, Math.min(1, targetConfLead));
+      var barrelBoost = ((Number(em.barrel) || 1) - 1) * (wasAgg ? 1 : 0.45) * liveScaleLead;
+      var bluffBoost = ((Number(em.bluff) || 1) - 1) * liveScaleLead;
+      if (lead === 'check' && (barrelBoost > 0.08 || bluffBoost > 0.08
+        || ctx.targetProfile === 'overfolder' || ctx.targetProfile === 'nit')
         && strength > 0.28 && r < Math.min(0.62, 0.3 + barrelBoost + bluffBoost * 0.5)) {
         return 'bet';
       }
-      if (lead === 'bet' && em.bluff < 0.8 && strength < 0.32 && r < 0.45) {
+      if (lead === 'bet' && em.bluff < 0.8 && strength < 0.32 && r < 0.45 * liveScaleLead) {
         return 'check';
       }
       if (lead === 'check' && em.thinValue > 1.15 && strength > 0.58 && r < 0.35) {

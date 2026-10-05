@@ -1442,6 +1442,7 @@
         wonHands: 0,
         wentToShowdown: 0
       },
+      playerHud: {},
       result: null,
       _lastTableCount: 0,
       villainAssist: {
@@ -1911,8 +1912,29 @@
 
   function villainType(hand, hero) {
     var opener = (hand.seats || []).find(function (s) { return s.id === hand.openerId; });
-    if (opener && opener.roleId) return opener.roleId;
     var other = (hand.seats || []).find(function (s) { return !s.isHero && !s.folded; });
+    var target = (opener && !opener.isHero) ? opener : other;
+    /* Preferir arquetipo observado (HUD en vivo) cuando hay muestra suficiente. */
+    try {
+      var PH = global.PTTournamentPlayerHud;
+      if (PH && target && target.id) {
+        var snap = (hand.playerHudById && hand.playerHudById[target.id])
+          || (hand.state && hand.state.playerHud && hand.state.playerHud[target.id]
+            ? PH.snapshot({ playerHud: hand.state.playerHud }, target.id)
+            : null);
+        if (!snap && PH.snapshot && hand._tournamentState) {
+          snap = PH.snapshot(hand._tournamentState, target.id);
+        }
+        if (snap) {
+          var phase = hand.mttPhase || (hand.state && hand.state.mttPhase) || 'early';
+          var cls = PH.classify(snap, phase);
+          if (cls && cls.confidence > 0 && cls.archetype) {
+            return cls.archetype;
+          }
+        }
+      }
+    } catch (eHud) { /* fallback role */ }
+    if (opener && opener.roleId) return opener.roleId;
     return (other && other.roleId) || 'tag';
   }
 
@@ -2253,7 +2275,36 @@
       base.gto = base.gtoBaseline;
       base.exploitStrategy = graded.exploitStrategy || null;
       base.exploitApplied = !!graded.exploitApplied;
-      base.exploitReasons = graded.exploitReasons || [];
+      base.exploitReasons = (function () {
+        var reasons = (graded.exploitReasons || []).slice();
+        try {
+          var vt = graded.villainType || (input && input.villainType);
+          var PH = global.PTTournamentPlayerHud;
+          var opener = (hand.seats || []).find(function (s) {
+            return s && s.id === hand.openerId && !s.isHero;
+          }) || (hand.seats || []).find(function (s) { return s && !s.isHero && !s.folded; });
+          if (PH && opener && hand.playerHudById && hand.playerHudById[opener.id]) {
+            var snap = hand.playerHudById[opener.id];
+            var cls = PH.classify(snap, hand.mttPhase || 'early');
+            if (cls && cls.confidence > 0 && cls.archetype) {
+              var vpip = snap.vpipPct != null ? snap.vpipPct : '—';
+              var pfr = snap.pfrPct != null ? snap.pfrPct : '—';
+              var n = snap.hands || 0;
+              var note = 'Vs ' + cls.archetype + ' observado (' + vpip + '/' + pfr +
+                ', N=' + n + ')' +
+                (cls.exploitTag === 'overfolder' || cls.archetype === 'nit'
+                  ? ': más presión'
+                  : (cls.exploitTag === 'laggy' || cls.archetype === 'lag' || cls.archetype === 'maniac'
+                    ? ': no asumir premiums'
+                    : ''));
+              if (reasons.indexOf(note) < 0) reasons.push(note);
+            }
+          } else if (vt) {
+            void vt;
+          }
+        } catch (eR) { /* */ }
+        return reasons;
+      })();
       base.explainDelta = graded.explainDelta || [];
       base.lineSignals = graded.lineSignals || [];
       base.scoreMode = graded.scoreMode || input.scoreMode || 'gto';
@@ -2757,6 +2808,42 @@
     if (Ex && Ex.profileFromStats && heroStats) {
       try { heroProfile = Ex.profileFromStats(heroStats); } catch (eHp) { heroProfile = null; }
     }
+    /* Oponente principal observado (HUD en vivo): opener o rival activo distinto de seat. */
+    var targetStats = null;
+    var targetProfile = null;
+    var targetConfidence = 0;
+    try {
+      var PH = global.PTTournamentPlayerHud;
+      var openerSeat = (hand.seats || []).find(function (s) {
+        return s && s.id === hand.openerId && (!seat || s.id !== seat.id);
+      });
+      var altSeat = (hand.seats || []).find(function (s) {
+        return s && !s.folded && (!seat || s.id !== seat.id);
+      });
+      var targetSeat = openerSeat || altSeat || null;
+      if (targetSeat && targetSeat.id) {
+        if (targetSeat.isHero || targetSeat.id === 'hero') {
+          targetStats = heroStats;
+          targetProfile = heroProfile;
+        } else if (hand.playerHudById && hand.playerHudById[targetSeat.id]) {
+          targetStats = hand.playerHudById[targetSeat.id];
+        } else if (PH && PH.snapshot && hand._tournamentState) {
+          targetStats = PH.snapshot(hand._tournamentState, targetSeat.id);
+        }
+        if (targetStats && Ex && Ex.profileFromStats && !targetProfile) {
+          try { targetProfile = Ex.profileFromStats(targetStats); } catch (eTp) { targetProfile = null; }
+        }
+        if (PH && PH.classify && targetStats) {
+          var cls = PH.classify(targetStats, phase);
+          targetConfidence = (cls && cls.confidence) || 0;
+          if (!targetProfile && cls && cls.exploitTag) targetProfile = cls.exploitTag;
+        } else if (targetStats && Ex && Ex.sampleConfidence) {
+          targetConfidence = Ex.sampleConfidence(
+            Number(targetStats.handsPlayed != null ? targetStats.handsPlayed : targetStats.hands) || 0
+          );
+        }
+      }
+    } catch (eTgt) { /* */ }
     var ctx = {
       formatHub: hub,
       gameType: hub === 'spin' ? 'spin3' : 'mtt',
@@ -2790,6 +2877,9 @@
         || null,
       heroProfile: heroProfile,
       heroSessionStats: heroStats,
+      targetProfile: targetProfile,
+      targetSessionStats: targetStats,
+      targetConfidence: targetConfidence,
       proStyle: (seat && seat.proStyle) || null
     };
     /* Reloj de ciegas → proyección de stack tras la subida. */
@@ -2882,21 +2972,35 @@
     if (face === 'raise' && m.raise < 0.75 && r < 0.35) return 'call';
 
     var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
-    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+    var targetConf = Number(ctx && ctx.targetConfidence) || 0;
+    var useLiveExploit = (proStyle === 'exploit_pool')
+      || (targetConf > 0 && !!(ctx && (ctx.targetProfile || ctx.targetSessionStats)));
+    if (useLiveExploit && Ex && typeof Ex.multipliers === 'function') {
       var exCtx = Object.assign({}, ctx || {}, {
-        proStyle: 'exploit_pool',
+        proStyle: proStyle === 'exploit_pool' ? 'exploit_pool' : (ctx.proStyle || 'exploit_pool'),
         strength: strength,
         band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
       });
       var em = Ex.multipliers(exCtx) || {};
+      var liveScale = proStyle === 'exploit_pool' ? 1 : Math.max(0.35, Math.min(1, targetConf));
       if (face === 'fold' && (em.barrel > 1.15 || em.bluff > 1.12)
-        && strength > Math.max(potOdds + 0.06, 0.42) && r < 0.22) {
+        && strength > Math.max(potOdds + 0.06, 0.42) && r < 0.22 * liveScale) {
         return 'call';
       }
-      if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22) {
+      if (face === 'call' && em.thinValue > 1.15 && strength > 0.55 && r < 0.22 * liveScale) {
         return 'raise';
       }
-      if (face === 'raise' && em.bluff < 0.85 && strength < 0.38 && r < 0.4) {
+      if (face === 'raise' && em.bluff < 0.85 && strength < 0.38 && r < 0.4 * liveScale) {
+        return 'call';
+      }
+      /* Vs overfolder/nit observado: más 3-bet / presión (menos fold). */
+      if (face === 'fold' && (ctx.targetProfile === 'overfolder' || ctx.targetProfile === 'nit')
+        && strength > 0.34 && r < 0.18 * liveScale) {
+        return 'call';
+      }
+      /* Vs laggy/héroe muy agresivo: no asumir premiums — call-down más. */
+      if (face === 'fold' && (ctx.targetProfile === 'laggy' || ctx.targetProfile === 'barrelBot')
+        && strength > Math.max(potOdds, 0.36) && r < 0.2 * liveScale) {
         return 'call';
       }
     }
@@ -2921,21 +3025,26 @@
     }
 
     var proStyle = (profile && profile.proStyle) || (ctx && ctx.proStyle);
-    if (proStyle === 'exploit_pool' && Ex && typeof Ex.multipliers === 'function') {
+    var targetConfLead = Number(ctx && ctx.targetConfidence) || 0;
+    var useLiveLead = (proStyle === 'exploit_pool')
+      || (targetConfLead > 0 && !!(ctx && (ctx.targetProfile || ctx.targetSessionStats)));
+    if (useLiveLead && Ex && typeof Ex.multipliers === 'function') {
       var exCtx = Object.assign({}, ctx || {}, {
-        proStyle: 'exploit_pool',
+        proStyle: proStyle === 'exploit_pool' ? 'exploit_pool' : (ctx.proStyle || 'exploit_pool'),
         initiative: wasAgg ? 'aggressor' : 'caller',
         strength: strength,
         band: strength > 0.7 ? 'value' : (strength < 0.35 ? 'air' : 'merge')
       });
       var em = Ex.multipliers(exCtx) || {};
-      var barrelBoost = ((Number(em.barrel) || 1) - 1) * (wasAgg ? 1 : 0.45);
-      var bluffBoost = ((Number(em.bluff) || 1) - 1);
-      if (lead === 'check' && (barrelBoost > 0.08 || bluffBoost > 0.08)
+      var liveScaleLead = proStyle === 'exploit_pool' ? 1 : Math.max(0.35, Math.min(1, targetConfLead));
+      var barrelBoost = ((Number(em.barrel) || 1) - 1) * (wasAgg ? 1 : 0.45) * liveScaleLead;
+      var bluffBoost = ((Number(em.bluff) || 1) - 1) * liveScaleLead;
+      if (lead === 'check' && (barrelBoost > 0.08 || bluffBoost > 0.08
+        || ctx.targetProfile === 'overfolder' || ctx.targetProfile === 'nit')
         && strength > 0.28 && r < Math.min(0.62, 0.3 + barrelBoost + bluffBoost * 0.5)) {
         return 'bet';
       }
-      if (lead === 'bet' && em.bluff < 0.8 && strength < 0.32 && r < 0.45) {
+      if (lead === 'bet' && em.bluff < 0.8 && strength < 0.32 && r < 0.45 * liveScaleLead) {
         return 'check';
       }
       if (lead === 'check' && em.thinValue > 1.15 && strength > 0.58 && r < 0.35) {
@@ -5289,7 +5398,24 @@
       spr: potBB > 0 ? stackBB / potBB : stackBB,
       legalOptions: local.legalOptions || null,
       /* false solo cuando el Hero ya no está en la mano (villano vs villano). */
-      heroInvolved: heroStatus == null ? true : heroStatus
+      heroInvolved: heroStatus == null ? true : heroStatus,
+      /* HUD en vivo del oponente (héroe u otro villano) para sesgo explotativo remoto. */
+      opponentStyle: (function () {
+        try {
+          var rc = D && D.rangeCtx ? D.rangeCtx(hand, seat) : null;
+          if (!rc) return null;
+          var st = rc.targetSessionStats || rc.heroSessionStats;
+          if (!st) return null;
+          return {
+            profile: rc.targetProfile || rc.heroProfile || null,
+            hands: Number(st.handsPlayed != null ? st.handsPlayed : st.hands) || 0,
+            vpip: st.vpipPct != null ? st.vpipPct : st.vpip,
+            pfr: st.pfrPct != null ? st.pfrPct : st.pfr,
+            threeBet: st.threeBetPct != null ? st.threeBetPct : null,
+            confidence: rc.targetConfidence || 0
+          };
+        } catch (eSt) { return null; }
+      })()
     };
   }
 
@@ -7081,22 +7207,62 @@
       }
       var heroStatsPayload = null;
       try {
-        var stStats = state.stats || {};
-        var hp = Number(stStats.handsPlayed) || 0;
-        var vpipH = Number(stStats.vpipHands) || 0;
-        var pfrH = Number(stStats.pfrHands) || 0;
-        heroStatsPayload = {
-          handsPlayed: hp,
-          hands: hp,
-          vpipHands: vpipH,
-          pfrHands: pfrH,
-          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
-          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
-        };
+        var PlayerHud = global.PTTournamentPlayerHud;
+        var heroIdForHud = 'hero';
+        try {
+          var hSeat = (hand.seats || []).find(function (s) { return s && s.isHero; });
+          if (hSeat && hSeat.id) heroIdForHud = hSeat.id;
+        } catch (eHid) { /* */ }
+        if (PlayerHud && PlayerHud.snapshot) {
+          var snap = PlayerHud.snapshot(state, heroIdForHud);
+          if (snap && (Number(snap.hands) || 0) > 0) {
+            heroStatsPayload = {
+              handsPlayed: snap.hands,
+              hands: snap.hands,
+              vpipHands: snap.vpipHands,
+              pfrHands: snap.pfrHands,
+              vpipPct: snap.vpipPct,
+              pfrPct: snap.pfrPct,
+              vpip: snap.vpipPct,
+              pfr: snap.pfrPct,
+              threeBetHands: snap.threeBetHands,
+              threeBetOpps: snap.threeBetOpps,
+              threeBetPct: snap.threeBetPct,
+              foldTo3BetHands: snap.foldTo3BetHands,
+              foldTo3BetOpps: snap.foldTo3BetOpps,
+              foldTo3BetPct: snap.foldTo3BetPct
+            };
+          }
+        }
+        if (!heroStatsPayload) {
+          var stStats = state.stats || {};
+          var hp = Number(stStats.handsPlayed) || 0;
+          var vpipH = Number(stStats.vpipHands) || 0;
+          var pfrH = Number(stStats.pfrHands) || 0;
+          heroStatsPayload = {
+            handsPlayed: hp,
+            hands: hp,
+            vpipHands: vpipH,
+            pfrHands: pfrH,
+            vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+            pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
+            vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+            pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
+          };
+        }
       } catch (eStats) { heroStatsPayload = null; }
       hand.heroSessionStats = heroStatsPayload;
+      /* Mapa ligero de HUD observado por asiento (para exploit vs rivales). */
+      try {
+        var PH = global.PTTournamentPlayerHud;
+        if (PH && PH.snapshot && hand.seats) {
+          hand.playerHudById = {};
+          hand.seats.forEach(function (s) {
+            if (!s || !s.id) return;
+            hand.playerHudById[s.id] = PH.snapshot(state, s.id);
+          });
+        }
+      } catch (eMap) { /* */ }
       /* Misma referencia que state: contador de consultas del torneo. */
       if (state.villainAssist) {
         hand.villainAssist = state.villainAssist;
@@ -7331,6 +7497,12 @@
     try {
       var hand = simulateOneTable(state, tableId, pending.blinds);
       pending.tablesSimulated += 1;
+      if (hand) {
+        var PlayerHud = global.PTTournamentPlayerHud;
+        if (PlayerHud && PlayerHud.onHandComplete) {
+          try { PlayerHud.onHandComplete(state, hand); } catch (eHud) { /* */ }
+        }
+      }
       if (hand && hand.result && hand.result.deltas) {
         mergeDeltas(pending.deltasByPlayer, hand.result.deltas);
         var Seat = global.PTTournamentSeating;
@@ -7474,6 +7646,10 @@
       var hand = simulateOneTable(state, tb.id, blinds);
       if (!hand) return;
       tablesSimulated += 1;
+      var PlayerHud = global.PTTournamentPlayerHud;
+      if (PlayerHud && PlayerHud.onHandComplete) {
+        try { PlayerHud.onHandComplete(state, hand); } catch (eHud) { /* */ }
+      }
       var busted = applyDeltas(state, hand);
       eliminated = eliminated.concat(busted);
     });
@@ -8233,6 +8409,318 @@
     topLeaksFromHands: topLeaksFromHands,
     leaksFromSessions: leaksFromSessions,
     aggregateWithSessionStats: aggregateWithSessionStats
+  };
+})(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
+
+/*
+ * tournament/player-hud.js — HUD en vivo por jugador (héroe + villanos).
+ * Jugado≈VPIP, Subido≈PFR, Resubido≈3-bet; fold-to-3bet interno para exploit.
+ * Solo torneos in-app; no se pinta en el felt.
+ */
+(function (global) {
+  'use strict';
+
+  var PARTIAL_SAMPLE = 4;
+  var MIN_SAMPLE = 7;
+
+  function emptyHud() {
+    return {
+      hands: 0,
+      vpipHands: 0,
+      pfrHands: 0,
+      threeBetHands: 0,
+      threeBetOpps: 0,
+      foldTo3BetHands: 0,
+      foldTo3BetOpps: 0
+    };
+  }
+
+  function ensure(state) {
+    if (!state) return null;
+    if (!state.playerHud || typeof state.playerHud !== 'object') state.playerHud = {};
+    return state.playerHud;
+  }
+
+  function getOrCreate(state, playerId) {
+    var map = ensure(state);
+    if (!map || !playerId) return null;
+    if (!map[playerId]) map[playerId] = emptyHud();
+    return map[playerId];
+  }
+
+  function pct(num, den) {
+    if (!den) return null;
+    return Math.round((num / den) * 1000) / 10;
+  }
+
+  function putChipsBeyondBlinds(hand, seat) {
+    if (!seat || !hand) return false;
+    var blindShare = 0;
+    if (seat.pos === 'SB' || (hand.seats && hand.seats.length === 2 && seat.pos === 'BTN')) {
+      blindShare = Number(hand.sb) || 0;
+    } else if (seat.pos === 'BB') {
+      blindShare = Number(hand.bb) || 0;
+    }
+    if (hand.ante > 0) blindShare += Number(hand.ante) || 0;
+    return (Number(seat.invested) || 0) > blindShare + 0.001;
+  }
+
+  function isRaiseAction(action) {
+    return action === 'raise' || action === 'bet' || action === 'allin';
+  }
+
+  /**
+   * Analiza el log preflop de una mano y devuelve por jugador:
+   * { pfr, threeBet, threeBetOpp, foldTo3Bet, foldTo3BetOpp }.
+   */
+  function analyzePreflop(hand) {
+    var out = {};
+    var seats = (hand && hand.seats) || [];
+    seats.forEach(function (s) {
+      if (!s || !s.id) return;
+      out[s.id] = {
+        pfr: false,
+        threeBet: false,
+        threeBetOpp: false,
+        foldTo3Bet: false,
+        foldTo3BetOpp: false
+      };
+    });
+
+    var log = (hand && hand.log) || [];
+    var raiseCount = 0;
+    var lastRaiserId = null;
+    var openerId = null;
+
+    for (var i = 0; i < log.length; i++) {
+      var a = log[i];
+      if (!a || a.street !== 'preflop') continue;
+      var pid = a.id;
+      if (!pid) continue;
+      if (!out[pid]) {
+        out[pid] = {
+          pfr: false,
+          threeBet: false,
+          threeBetOpp: false,
+          foldTo3Bet: false,
+          foldTo3BetOpp: false
+        };
+      }
+      var row = out[pid];
+      var act = a.action;
+
+      /* Spot vs open (exactamente 1 raise previa): oportunidad de 3-bet. */
+      if (raiseCount === 1 && lastRaiserId && lastRaiserId !== pid) {
+        if (act === 'fold' || act === 'call' || isRaiseAction(act)) {
+          row.threeBetOpp = true;
+        }
+      }
+
+      /* Spot enfrentando 3-bet: el opener responde a un resubido (raiseCount===2). */
+      if (raiseCount === 2 && openerId === pid && lastRaiserId && lastRaiserId !== pid) {
+        if (act === 'fold' || act === 'call' || isRaiseAction(act)) {
+          row.foldTo3BetOpp = true;
+          if (act === 'fold') row.foldTo3Bet = true;
+        }
+      }
+
+      if (isRaiseAction(act)) {
+        /* allin corto ya se loguea como call en live-hand; aquí allin/raise/bet cuentan. */
+        if (raiseCount === 0) {
+          row.pfr = true;
+          openerId = pid;
+          raiseCount = 1;
+          lastRaiserId = pid;
+        } else if (raiseCount === 1 && lastRaiserId !== pid) {
+          row.pfr = true;
+          row.threeBet = true;
+          row.threeBetOpp = true;
+          raiseCount = 2;
+          lastRaiserId = pid;
+        } else if (raiseCount >= 2 && lastRaiserId !== pid) {
+          row.pfr = true;
+          raiseCount += 1;
+          lastRaiserId = pid;
+        } else if (raiseCount >= 1 && lastRaiserId === pid) {
+          /* Re-open / 4-bet own line — sigue contando PFR. */
+          row.pfr = true;
+          raiseCount += 1;
+          lastRaiserId = pid;
+        }
+      }
+    }
+    return out;
+  }
+
+  function onHandComplete(state, hand) {
+    if (!state || !hand || !hand.seats || !hand.seats.length) return ensure(state);
+    var map = ensure(state);
+    var pf = analyzePreflop(hand);
+
+    hand.seats.forEach(function (seat) {
+      if (!seat || !seat.id) return;
+      var hud = getOrCreate(state, seat.id);
+      if (!hud) return;
+      hud.hands = (Number(hud.hands) || 0) + 1;
+      if (putChipsBeyondBlinds(hand, seat)) {
+        hud.vpipHands = (Number(hud.vpipHands) || 0) + 1;
+      }
+      var row = pf[seat.id] || {};
+      if (row.pfr) hud.pfrHands = (Number(hud.pfrHands) || 0) + 1;
+      if (row.threeBetOpp) hud.threeBetOpps = (Number(hud.threeBetOpps) || 0) + 1;
+      if (row.threeBet) hud.threeBetHands = (Number(hud.threeBetHands) || 0) + 1;
+      if (row.foldTo3BetOpp) hud.foldTo3BetOpps = (Number(hud.foldTo3BetOpps) || 0) + 1;
+      if (row.foldTo3Bet) hud.foldTo3BetHands = (Number(hud.foldTo3BetHands) || 0) + 1;
+    });
+    return map;
+  }
+
+  function snapshot(state, playerId) {
+    var map = ensure(state);
+    var hud = (map && playerId && map[playerId]) || emptyHud();
+    var hands = Number(hud.hands) || 0;
+    var threeBetOpps = Number(hud.threeBetOpps) || 0;
+    var foldOpps = Number(hud.foldTo3BetOpps) || 0;
+    return {
+      hands: hands,
+      vpipHands: Number(hud.vpipHands) || 0,
+      pfrHands: Number(hud.pfrHands) || 0,
+      threeBetHands: Number(hud.threeBetHands) || 0,
+      threeBetOpps: threeBetOpps,
+      foldTo3BetHands: Number(hud.foldTo3BetHands) || 0,
+      foldTo3BetOpps: foldOpps,
+      vpipPct: pct(hud.vpipHands, hands),
+      pfrPct: pct(hud.pfrHands, hands),
+      threeBetPct: pct(hud.threeBetHands, threeBetOpps),
+      foldTo3BetPct: pct(hud.foldTo3BetHands, foldOpps),
+      /* Alias compatibles con profileFromStats / heroSessionStats */
+      handsPlayed: hands,
+      nHands: hands,
+      vpip: pct(hud.vpipHands, hands),
+      pfr: pct(hud.pfrHands, hands)
+    };
+  }
+
+  function sampleConfidence(hands) {
+    hands = Number(hands) || 0;
+    var Ex = global.GTOVillainProExploit;
+    if (Ex && typeof Ex.sampleConfidence === 'function') {
+      return Ex.sampleConfidence(hands);
+    }
+    if (hands >= MIN_SAMPLE) return 1;
+    if (hands >= PARTIAL_SAMPLE) {
+      return 0.55 + 0.45 * ((hands - PARTIAL_SAMPLE) / Math.max(1, MIN_SAMPLE - PARTIAL_SAMPLE));
+    }
+    return 0;
+  }
+
+  /**
+   * Clasifica estilo MTT con umbrales fase-aware.
+   * @returns {{ archetype: string|null, exploitTag: string|null, confidence: number, label: string|null }}
+   */
+  function classify(snap, phase) {
+    snap = snap || {};
+    var hands = Number(snap.hands != null ? snap.hands : snap.handsPlayed) || 0;
+    var conf = sampleConfidence(hands);
+    var empty = { archetype: null, exploitTag: null, confidence: conf, label: null };
+    if (conf <= 0) return empty;
+
+    var vpip = snap.vpipPct != null ? Number(snap.vpipPct) : Number(snap.vpip);
+    var pfr = snap.pfrPct != null ? Number(snap.pfrPct) : Number(snap.pfr);
+    if (!isFinite(vpip)) return empty;
+    if (!isFinite(pfr)) pfr = vpip * 0.55;
+    var gap = vpip - pfr;
+    var threeBet = snap.threeBetPct != null ? Number(snap.threeBetPct) : null;
+
+    var ph = String(phase || 'early').toLowerCase();
+    var looseShift = 0;
+    if (ph === 'mid' || ph === 'bubble') looseShift = 4;
+    else if (ph === 'short' || ph === 'push' || ph === 'late' || ph === 'hu') looseShift = 6;
+
+    var nitVpip = 16 + looseShift;
+    var nitPfr = 12 + looseShift * 0.75;
+    var lagVpip = 30 + looseShift;
+    var lagPfr = 24 + looseShift;
+    var maniacVpip = 40 + looseShift;
+    var fishVpip = 34 + looseShift;
+
+    var archetype = 'tag';
+    if (vpip <= nitVpip && pfr <= nitPfr) archetype = 'nit';
+    else if (vpip >= maniacVpip && pfr >= lagPfr) archetype = 'maniac';
+    else if (vpip >= lagVpip && pfr >= lagPfr && gap <= 10) archetype = 'lag';
+    else if (vpip >= fishVpip && gap >= 12) archetype = 'fish';
+    else if (vpip >= lagVpip && gap > 10) archetype = 'fish';
+
+    var exploitTag = null;
+    var Ex = global.GTOVillainProExploit;
+    if (Ex && typeof Ex.profileFromStats === 'function') {
+      try {
+        exploitTag = Ex.profileFromStats({
+          handsPlayed: hands,
+          vpipPct: vpip,
+          pfrPct: pfr,
+          foldTo3BetPct: snap.foldTo3BetPct
+        });
+      } catch (ePf) { exploitTag = null; }
+    }
+    if (!exploitTag) {
+      if (archetype === 'nit') exploitTag = 'nit';
+      else if (archetype === 'lag' || archetype === 'maniac') exploitTag = 'laggy';
+      else if (archetype === 'fish') exploitTag = 'callingStation';
+    }
+    /* 3-bet muy light refuerza laggy aunque VPIP sea medio. */
+    if (threeBet != null && isFinite(threeBet) && threeBet >= 12 && hands >= PARTIAL_SAMPLE) {
+      if (exploitTag !== 'callingStation') exploitTag = 'laggy';
+      if (archetype === 'tag') archetype = 'lag';
+    }
+
+    return {
+      archetype: archetype,
+      exploitTag: exploitTag,
+      confidence: conf,
+      label: archetype
+    };
+  }
+
+  /** HTML de la franja Jugado / Subido / Resubido / Manos. */
+  function renderStripHtml(snap, opts) {
+    opts = opts || {};
+    snap = snap || snapshot(null, null);
+    function fmtPct(v) {
+      if (v == null || !isFinite(v)) return '—';
+      return String(v).replace('.', ',') + '%';
+    }
+    var cells = [
+      { cls: 'jugado', val: fmtPct(snap.vpipPct), lab: 'Jugado', tone: 'red' },
+      { cls: 'subido', val: fmtPct(snap.pfrPct), lab: 'Subido', tone: 'orange' },
+      { cls: 'resubido', val: fmtPct(snap.threeBetPct), lab: 'Resubido', tone: 'green' },
+      { cls: 'manos', val: snap.hands != null ? String(snap.hands) : '0', lab: 'Manos', tone: 'white' }
+    ];
+    var html = '<div class="trn-live-hud-strip"' +
+      (opts.compact ? ' data-compact="1"' : '') + ' role="group" aria-label="Estadísticas en vivo">';
+    cells.forEach(function (c) {
+      html += '<div class="trn-live-hud-cell trn-live-hud-' + c.cls + '" data-tone="' + c.tone + '">' +
+        '<div class="trn-live-hud-icon" aria-hidden="true"></div>' +
+        '<div class="trn-live-hud-val">' + c.val + '</div>' +
+        '<div class="trn-live-hud-lab">' + c.lab + '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  global.PTTournamentPlayerHud = {
+    PARTIAL_SAMPLE: PARTIAL_SAMPLE,
+    MIN_SAMPLE: MIN_SAMPLE,
+    ensure: ensure,
+    emptyHud: emptyHud,
+    getOrCreate: getOrCreate,
+    analyzePreflop: analyzePreflop,
+    onHandComplete: onHandComplete,
+    snapshot: snapshot,
+    sampleConfidence: sampleConfidence,
+    classify: classify,
+    renderStripHtml: renderStripHtml
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 
@@ -9237,7 +9725,8 @@
       mttStructureSituation: live.mttStructureSituation,
       avgStackBB: live.avgStackBB,
       state: live.state,
-      heroSessionStats: live.heroSessionStats
+      heroSessionStats: live.heroSessionStats,
+      playerHudById: live.playerHudById || null
     };
   }
 
@@ -11242,6 +11731,8 @@
     hand.result.applied = true;
     hand.result.deltas = deltas;
     if (Stats && Stats.onHandComplete) Stats.onHandComplete(state, hand, heroId);
+    var PlayerHud = global.PTTournamentPlayerHud;
+    if (PlayerHud && PlayerHud.onHandComplete) PlayerHud.onHandComplete(state, hand);
 
     state.handIndex = (Number(state.handIndex) || 0) + 1;
     syncBlindLevel(state);
@@ -11714,6 +12205,7 @@
     infoOpen: false,
     infoHandlogOpen: false,
     roleModalPlayerId: null,
+    heroDetailOpen: false,
     bustPrompt: false,
     lobbyFilter: 'all',
     exitPrompt: false,
@@ -12704,6 +13196,7 @@ function reducedMotion() {
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
+    ui.heroDetailOpen = false;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
@@ -12883,6 +13376,7 @@ function reducedMotion() {
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
+    ui.heroDetailOpen = false;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.upgradePrompt = null;
@@ -13673,11 +14167,52 @@ function reducedMotion() {
     return html;
   }
 
+  function liveHudStripForPlayer(state, playerId) {
+    var PH = global.PTTournamentPlayerHud;
+    if (!PH || !PH.snapshot || !PH.renderStripHtml) return '';
+    try {
+      return PH.renderStripHtml(PH.snapshot(state, playerId));
+    } catch (eHud) { return ''; }
+  }
+
+  /** Stats de sesión en vivo del héroe (nota media + resto) para detalle / Info. */
+  function liveHeroSessionStats(state) {
+    if (!state) return null;
+    var Stats = global.PTTournamentStats;
+    var Bridge = global.PTTournamentSessionBridge;
+    var sum = Stats && Stats.summary ? Stats.summary(state) : null;
+    var hands = (state.sessionHands && state.sessionHands.length)
+      ? state.sessionHands
+      : [];
+    var synth = null;
+    if (Bridge && Bridge.synthesizeStatsFromHands) {
+      try { synth = Bridge.synthesizeStatsFromHands(hands, sum); } catch (eSy) { synth = null; }
+    }
+    var PH = global.PTTournamentPlayerHud;
+    var hud = PH && PH.snapshot ? PH.snapshot(state, 'hero') : null;
+    var out = {
+      nHands: (hud && hud.hands) || (sum && sum.handsPlayed) || hands.length || 0,
+      vpipPct: (hud && hud.vpipPct != null) ? hud.vpipPct : (sum && sum.vpip),
+      pfrPct: (hud && hud.pfrPct != null) ? hud.pfrPct : (sum && sum.pfr),
+      threeBetPct: hud && hud.threeBetPct,
+      accuracy: (synth && synth.accuracy != null) ? synth.accuracy : (sum && sum.gtoAccuracy),
+      avgHandScore: synth && synth.avgHandScore != null ? synth.avgHandScore : null,
+      evLossBB: (synth && synth.evLossBB != null) ? synth.evLossBB : (sum && sum.evLoss),
+      wtsdPct: (synth && synth.wtsdPct != null) ? synth.wtsdPct : (sum && sum.wtsd),
+      wsdPct: (synth && synth.wsdPct != null) ? synth.wsdPct : (sum && sum.wsd),
+      netBB: synth && synth.netBB != null ? synth.netBB : null,
+      bbPer100: synth && synth.bbPer100 != null ? synth.bbPer100 : null,
+      gameKind: (state.config && state.config.kind === 'spin') ? 'spin' : 'mtt',
+      formatKey: 'mtt'
+    };
+    return out;
+  }
+
   function renderHeroArea(hand, bb) {
     if (!hand) {
-      return '<div class="hero-area">' +
+      return '<button type="button" class="hero-area hero-area-btn" data-act="open-hero-detail" title="Ver mis estadísticas">' +
         '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + '</div>' +
-        '<div class="hero-cards"></div></div>';
+        '<div class="hero-cards"></div></button>';
     }
     var hero = null;
     for (var i = 0; i < hand.seats.length; i++) {
@@ -13705,7 +14240,8 @@ function reducedMotion() {
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed)));
     var eqPct = equityMap && equityMap[hero.id] != null ? equityMap[hero.id] : null;
     var eqHtml = (heroShowdown && eqPct != null) ? equityBesideCardsHtml(eqPct) : '';
-    return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
+    return '<button type="button" class="hero-area hero-area-btn' + (folded ? ' is-folded' : '') +
+      '" data-act="open-hero-detail" title="Ver mis estadísticas">' +
       act +
       '<div class="hero-chips">' + streetChips +
       '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
@@ -13716,7 +14252,7 @@ function reducedMotion() {
       (cards
         ? ('<div class="hero-cards">' + cards + '</div>' + eqHtml)
         : '<div class="hero-cards hero-cards-folded"></div>') +
-      '</div>';
+      '</button>';
   }
 
   function actionBtnClass(id) {
@@ -13914,6 +14450,18 @@ function reducedMotion() {
             '<p class="trn-assist-stats">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
             '</div>';
         })() +
+        '<div class="trn-info-live-hud">' +
+        '<h4>Tus estadísticas en vivo</h4>' +
+        liveHudStripForPlayer(state, 'hero') +
+        (function () {
+          var HEV = global.PTHandEndView;
+          var live = liveHeroSessionStats(state);
+          if (HEV && HEV.renderSessionStatsHtml && live && live.nHands) {
+            return HEV.renderSessionStatsHtml(live, { title: 'Hasta ahora' });
+          }
+          return '';
+        })() +
+        '</div>' +
         roleLegendHtml() +
         '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
         '<summary data-act="toggle-handlog">Histórico de manos' +
@@ -13941,19 +14489,51 @@ function reducedMotion() {
           '<span class="trn-role-opt-sub">' + esc(roleLabel(rid)) + '</span>' +
           '</button>';
       }).join('');
+      var villHud = liveHudStripForPlayer(state, pid);
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
-        '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
+        '<div class="trn-modal trn-modal-player-detail" role="dialog" aria-modal="true" data-act="noop">' +
         '<h3>' + esc(pl && pl.name) + '</h3>' +
         '<p class="trn-player-stack-detail">' +
         esc(String(Math.round(Number(pl && pl.stack) || 0))) + ' fichas · ' +
         esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
+        (villHud
+          ? ('<div class="trn-player-live-hud">' + villHud +
+            '<p class="muted trn-live-hud-hint">Estadísticas en vivo de este torneo (todas las mesas).</p></div>')
+          : '') +
         '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
         (cur ? ('<p class="trn-role-current">Actual: ' + roleChipHtml(cur) + '</p>') : '') +
         '<div class="trn-role-grid" role="group" aria-label="Tipo de rival">' + roleBtns + '</div>' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
+        '</div></div>';
+    }
+
+    var heroDetailModal = '';
+    if (ui.heroDetailOpen) {
+      var heroPl = (global.PTTournamentState && PTTournamentState.hero)
+        ? PTTournamentState.hero(state)
+        : (state.players || []).find(function (p) { return p.isHero; });
+      var heroHud = liveHudStripForPlayer(state, 'hero');
+      var liveStats = liveHeroSessionStats(state);
+      var heroStatsBody = '';
+      var HEV2 = global.PTHandEndView;
+      if (HEV2 && HEV2.renderSessionStatsHtml && liveStats && liveStats.nHands) {
+        heroStatsBody = HEV2.renderSessionStatsHtml(liveStats, { title: 'Resto de estadísticas' });
+      } else {
+        heroStatsBody = '<p class="muted">Aún no hay manos puntuadas en este torneo.</p>';
+      }
+      heroDetailModal = '<div class="trn-modal-backdrop" data-act="close-hero-detail">' +
+        '<div class="trn-modal trn-modal-wide trn-modal-player-detail" role="dialog" aria-modal="true" data-act="noop">' +
+        '<h3>' + esc((heroPl && heroPl.name) || heroDisplayName(state)) + '</h3>' +
+        '<p class="trn-player-stack-detail">' +
+        esc(String(Math.round(Number(heroPl && heroPl.stack) || 0))) + ' fichas · ' +
+        esc(fmtBb(Number(heroPl && heroPl.stack) || 0, bb)) +
+        '</p>' +
+        '<div class="trn-player-live-hud">' + heroHud + '</div>' +
+        heroStatsBody +
+        '<button type="button" class="btn btn-primary" data-act="close-hero-detail">Cerrar</button>' +
         '</div></div>';
     }
 
@@ -14063,7 +14643,7 @@ function reducedMotion() {
       '</div></div>' +
       actions +
       '</div>' +
-      infoModal + roleModal + handEndModal + exitModal +
+      infoModal + roleModal + heroDetailModal + handEndModal + exitModal +
       '</div>';
   }
 
@@ -15391,6 +15971,13 @@ function reducedMotion() {
         } else if (act === 'close-role') {
           ui.roleModalPlayerId = null;
           paint();
+        } else if (act === 'open-hero-detail') {
+          ui.heroDetailOpen = true;
+          ui.roleModalPlayerId = null;
+          paint();
+        } else if (act === 'close-hero-detail') {
+          ui.heroDetailOpen = false;
+          paint();
         } else if (act === 'clear-guess') {
           global.PTTournamentRoleGuess.clearGuess(ui.state, btn.getAttribute('data-guess-player'));
           ui.roleModalPlayerId = null;
@@ -15468,8 +16055,18 @@ function reducedMotion() {
         ev.stopPropagation();
         var pid = btn.getAttribute('data-player');
         if (!pid) return;
+        ui.heroDetailOpen = false;
         ui.roleModalPlayerId = pid;
         paint();
+      });
+    });
+
+    root.querySelectorAll('.trn-modal-backdrop[data-act="close-hero-detail"]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target === el) {
+          ui.heroDetailOpen = false;
+          paint();
+        }
       });
     });
 

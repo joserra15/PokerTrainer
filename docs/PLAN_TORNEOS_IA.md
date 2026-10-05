@@ -132,6 +132,7 @@ flowchart TB
 | `js/tournament/role-guess.js` | Guesses, resolve al final, XP |
 | `js/tournament/names.js` | Pool de nicks únicos para villanos |
 | `js/tournament/stats.js` | Stats de sesión de torneo (VPIP/PFR/AF lite, ITM, ROI…) |
+| `js/tournament/player-hud.js` | HUD en vivo por jugador (Jugado/Subido/Resubido) + classify |
 | `js/tournament/hud.js` | Chips HUD + filas del modal Info |
 | `js/tournament/store.js` | Persistencia local + hook cloud |
 | `js/tournament/ui.js` | Render hub / setup params / mesa / resultado / histórico |
@@ -279,10 +280,12 @@ Esta es la pieza más invasiva; el resto del runner cuelga de ella.
 
 ### UI de guess
 
-- Click en el asiento / nombre del villano → modal con los 6 arquetipos (`tag`, `lag`, `nit`, `fish`, `maniac`, `pro`).
+- Click en el asiento / nombre / cartas del villano → modal con stats en vivo arriba (**Jugado**≈VPIP, **Subido**≈PFR, **Resubido**≈3-bet, **Manos**) y debajo los 6 arquetipos (`tag`, `lag`, `nit`, `fish`, `maniac`, `pro`).
 - El modal muestra el **nombre** del villano; indicador visual si ya hay guess (p.ej. borde o icono, sin revelar si es correcto).
 - Se puede cambiar el guess mientras el villano esté vivo.
 - No revelar el rol real hasta el **fin del torneo** (ni al bustearse ese villano, para no spoilear mesa).
+- Click en el área del **héroe** → detalle con la misma franja + nota media y resto de stats de sesión hasta el momento (también en modal Info).
+- El HUD por jugador (`state.playerHud`) se acumula en la mesa del héroe **y** en mesas satélite; no se pinta en el felt. Alimenta evaluación explotativa del héroe y decisiones de villanos vs estilo observado (p.ej. más presión vs overfold / nit). No es un tracker de población externo.
 
 ### Scoring al cerrar
 

@@ -1158,6 +1158,118 @@
 
 .trn-modal h3 { margin: 0 0 10px; font-size: 1.1rem; }
 
+/* Live HUD strip (Jugado / Subido / Resubido / Manos) — detalle, no felt */
+.trn-live-hud-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+.trn-live-hud-cell {
+  text-align: center;
+  padding: 10px 6px 8px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .28);
+  border-bottom: 3px solid rgba(255, 255, 255, .35);
+}
+.trn-live-hud-cell[data-tone="red"] { border-bottom-color: #e25555; }
+.trn-live-hud-cell[data-tone="orange"] { border-bottom-color: #e2a03a; }
+.trn-live-hud-cell[data-tone="green"] { border-bottom-color: #3d9b6a; }
+.trn-live-hud-cell[data-tone="white"] { border-bottom-color: rgba(255, 255, 255, .45); }
+.trn-live-hud-icon {
+  width: 22px;
+  height: 22px;
+  margin: 0 auto 6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, .45);
+  background: rgba(255, 255, 255, .06);
+  position: relative;
+}
+.trn-live-hud-jugado .trn-live-hud-icon { border-color: #e25555; }
+.trn-live-hud-jugado .trn-live-hud-icon::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: radial-gradient(circle at 40% 30%, #ff8a6a, #e25555 70%);
+  border-radius: 40% 40% 45% 45%;
+  clip-path: polygon(50% 8%, 72% 38%, 68% 72%, 50% 92%, 32% 72%, 28% 38%);
+}
+.trn-live-hud-subido .trn-live-hud-icon { border-color: #e2a03a; }
+.trn-live-hud-subido .trn-live-hud-icon::before,
+.trn-live-hud-subido .trn-live-hud-icon::after {
+  content: '';
+  position: absolute;
+  width: 10px;
+  height: 1.5px;
+  background: #f0d08a;
+  top: 50%;
+  left: 50%;
+}
+.trn-live-hud-subido .trn-live-hud-icon::before { transform: translate(-50%, -50%) rotate(35deg); }
+.trn-live-hud-subido .trn-live-hud-icon::after { transform: translate(-50%, -50%) rotate(-35deg); }
+.trn-live-hud-resubido .trn-live-hud-icon { border-color: #3d9b6a; }
+.trn-live-hud-resubido .trn-live-hud-icon::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  left: 4px;
+  top: 4px;
+  border-left: 1.5px solid #9be0b8;
+  border-bottom: 1.5px solid #9be0b8;
+  transform: rotate(-20deg);
+}
+.trn-live-hud-manos .trn-live-hud-icon { display: none; }
+.trn-live-hud-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.15;
+  color: #f2f5f8;
+}
+.trn-live-hud-jugado .trn-live-hud-val { color: #ff7b7b; }
+.trn-live-hud-subido .trn-live-hud-val { color: #f0c060; }
+.trn-live-hud-resubido .trn-live-hud-val { color: #6fd29a; }
+.trn-live-hud-lab {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted, #9aa4b2);
+  letter-spacing: 0.02em;
+}
+.trn-live-hud-hint { margin: 0 0 10px; font-size: 12px; }
+.trn-player-live-hud { margin-bottom: 8px; }
+.trn-info-live-hud {
+  margin: 0 0 14px;
+  padding: 12px 12px 4px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, .22);
+  border: 1px solid rgba(255, 255, 255, .06);
+}
+.trn-info-live-hud h4 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+.trn-modal-player-detail { max-width: 460px; }
+.trn-play-like .hero-area.hero-area-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: inherit;
+  width: auto;
+  max-width: none;
+}
+.trn-play-like .hero-area.hero-area-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, #3d9b6a 70%, transparent);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
 .trn-info-dl {
   margin: 0 0 14px;
   display: flex;

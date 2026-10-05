@@ -108,6 +108,7 @@
         wonHands: 0,
         wentToShowdown: 0
       },
+      playerHud: {},
       result: null,
       _lastTableCount: 0,
       villainAssist: {

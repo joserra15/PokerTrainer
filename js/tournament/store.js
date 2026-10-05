@@ -344,7 +344,8 @@
       mttStructureSituation: live.mttStructureSituation,
       avgStackBB: live.avgStackBB,
       state: live.state,
-      heroSessionStats: live.heroSessionStats
+      heroSessionStats: live.heroSessionStats,
+      playerHudById: live.playerHudById || null
     };
   }
 

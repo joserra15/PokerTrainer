@@ -1356,22 +1356,62 @@
       }
       var heroStatsPayload = null;
       try {
-        var stStats = state.stats || {};
-        var hp = Number(stStats.handsPlayed) || 0;
-        var vpipH = Number(stStats.vpipHands) || 0;
-        var pfrH = Number(stStats.pfrHands) || 0;
-        heroStatsPayload = {
-          handsPlayed: hp,
-          hands: hp,
-          vpipHands: vpipH,
-          pfrHands: pfrH,
-          vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
-          vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
-          pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
-        };
+        var PlayerHud = global.PTTournamentPlayerHud;
+        var heroIdForHud = 'hero';
+        try {
+          var hSeat = (hand.seats || []).find(function (s) { return s && s.isHero; });
+          if (hSeat && hSeat.id) heroIdForHud = hSeat.id;
+        } catch (eHid) { /* */ }
+        if (PlayerHud && PlayerHud.snapshot) {
+          var snap = PlayerHud.snapshot(state, heroIdForHud);
+          if (snap && (Number(snap.hands) || 0) > 0) {
+            heroStatsPayload = {
+              handsPlayed: snap.hands,
+              hands: snap.hands,
+              vpipHands: snap.vpipHands,
+              pfrHands: snap.pfrHands,
+              vpipPct: snap.vpipPct,
+              pfrPct: snap.pfrPct,
+              vpip: snap.vpipPct,
+              pfr: snap.pfrPct,
+              threeBetHands: snap.threeBetHands,
+              threeBetOpps: snap.threeBetOpps,
+              threeBetPct: snap.threeBetPct,
+              foldTo3BetHands: snap.foldTo3BetHands,
+              foldTo3BetOpps: snap.foldTo3BetOpps,
+              foldTo3BetPct: snap.foldTo3BetPct
+            };
+          }
+        }
+        if (!heroStatsPayload) {
+          var stStats = state.stats || {};
+          var hp = Number(stStats.handsPlayed) || 0;
+          var vpipH = Number(stStats.vpipHands) || 0;
+          var pfrH = Number(stStats.pfrHands) || 0;
+          heroStatsPayload = {
+            handsPlayed: hp,
+            hands: hp,
+            vpipHands: vpipH,
+            pfrHands: pfrH,
+            vpipPct: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+            pfrPct: hp ? Math.round((pfrH / hp) * 1000) / 10 : null,
+            vpip: hp ? Math.round((vpipH / hp) * 1000) / 10 : null,
+            pfr: hp ? Math.round((pfrH / hp) * 1000) / 10 : null
+          };
+        }
       } catch (eStats) { heroStatsPayload = null; }
       hand.heroSessionStats = heroStatsPayload;
+      /* Mapa ligero de HUD observado por asiento (para exploit vs rivales). */
+      try {
+        var PH = global.PTTournamentPlayerHud;
+        if (PH && PH.snapshot && hand.seats) {
+          hand.playerHudById = {};
+          hand.seats.forEach(function (s) {
+            if (!s || !s.id) return;
+            hand.playerHudById[s.id] = PH.snapshot(state, s.id);
+          });
+        }
+      } catch (eMap) { /* */ }
       /* Misma referencia que state: contador de consultas del torneo. */
       if (state.villainAssist) {
         hand.villainAssist = state.villainAssist;

@@ -157,6 +157,12 @@
     try {
       var hand = simulateOneTable(state, tableId, pending.blinds);
       pending.tablesSimulated += 1;
+      if (hand) {
+        var PlayerHud = global.PTTournamentPlayerHud;
+        if (PlayerHud && PlayerHud.onHandComplete) {
+          try { PlayerHud.onHandComplete(state, hand); } catch (eHud) { /* */ }
+        }
+      }
       if (hand && hand.result && hand.result.deltas) {
         mergeDeltas(pending.deltasByPlayer, hand.result.deltas);
         var Seat = global.PTTournamentSeating;
@@ -300,6 +306,10 @@
       var hand = simulateOneTable(state, tb.id, blinds);
       if (!hand) return;
       tablesSimulated += 1;
+      var PlayerHud = global.PTTournamentPlayerHud;
+      if (PlayerHud && PlayerHud.onHandComplete) {
+        try { PlayerHud.onHandComplete(state, hand); } catch (eHud) { /* */ }
+      }
       var busted = applyDeltas(state, hand);
       eliminated = eliminated.concat(busted);
     });

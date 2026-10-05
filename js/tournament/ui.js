@@ -22,6 +22,7 @@
     infoOpen: false,
     infoHandlogOpen: false,
     roleModalPlayerId: null,
+    heroDetailOpen: false,
     bustPrompt: false,
     lobbyFilter: 'all',
     exitPrompt: false,
@@ -1012,6 +1013,7 @@ function reducedMotion() {
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
+    ui.heroDetailOpen = false;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.handDetailOpen = false;
@@ -1191,6 +1193,7 @@ function reducedMotion() {
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
+    ui.heroDetailOpen = false;
     ui.exitPrompt = false;
     ui.resumePrompt = false;
     ui.upgradePrompt = null;
@@ -1981,11 +1984,52 @@ function reducedMotion() {
     return html;
   }
 
+  function liveHudStripForPlayer(state, playerId) {
+    var PH = global.PTTournamentPlayerHud;
+    if (!PH || !PH.snapshot || !PH.renderStripHtml) return '';
+    try {
+      return PH.renderStripHtml(PH.snapshot(state, playerId));
+    } catch (eHud) { return ''; }
+  }
+
+  /** Stats de sesión en vivo del héroe (nota media + resto) para detalle / Info. */
+  function liveHeroSessionStats(state) {
+    if (!state) return null;
+    var Stats = global.PTTournamentStats;
+    var Bridge = global.PTTournamentSessionBridge;
+    var sum = Stats && Stats.summary ? Stats.summary(state) : null;
+    var hands = (state.sessionHands && state.sessionHands.length)
+      ? state.sessionHands
+      : [];
+    var synth = null;
+    if (Bridge && Bridge.synthesizeStatsFromHands) {
+      try { synth = Bridge.synthesizeStatsFromHands(hands, sum); } catch (eSy) { synth = null; }
+    }
+    var PH = global.PTTournamentPlayerHud;
+    var hud = PH && PH.snapshot ? PH.snapshot(state, 'hero') : null;
+    var out = {
+      nHands: (hud && hud.hands) || (sum && sum.handsPlayed) || hands.length || 0,
+      vpipPct: (hud && hud.vpipPct != null) ? hud.vpipPct : (sum && sum.vpip),
+      pfrPct: (hud && hud.pfrPct != null) ? hud.pfrPct : (sum && sum.pfr),
+      threeBetPct: hud && hud.threeBetPct,
+      accuracy: (synth && synth.accuracy != null) ? synth.accuracy : (sum && sum.gtoAccuracy),
+      avgHandScore: synth && synth.avgHandScore != null ? synth.avgHandScore : null,
+      evLossBB: (synth && synth.evLossBB != null) ? synth.evLossBB : (sum && sum.evLoss),
+      wtsdPct: (synth && synth.wtsdPct != null) ? synth.wtsdPct : (sum && sum.wtsd),
+      wsdPct: (synth && synth.wsdPct != null) ? synth.wsdPct : (sum && sum.wsd),
+      netBB: synth && synth.netBB != null ? synth.netBB : null,
+      bbPer100: synth && synth.bbPer100 != null ? synth.bbPer100 : null,
+      gameKind: (state.config && state.config.kind === 'spin') ? 'spin' : 'mtt',
+      formatKey: 'mtt'
+    };
+    return out;
+  }
+
   function renderHeroArea(hand, bb) {
     if (!hand) {
-      return '<div class="hero-area">' +
+      return '<button type="button" class="hero-area hero-area-btn" data-act="open-hero-detail" title="Ver mis estadísticas">' +
         '<div class="hero-label"><span class="hero-avatar" aria-hidden="true"></span>' + esc(heroDisplayName(ui.state)) + '</div>' +
-        '<div class="hero-cards"></div></div>';
+        '<div class="hero-cards"></div></button>';
     }
     var hero = null;
     for (var i = 0; i < hand.seats.length; i++) {
@@ -2013,7 +2057,8 @@ function reducedMotion() {
       !!(ui.anim && ui.anim.frame && (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed)));
     var eqPct = equityMap && equityMap[hero.id] != null ? equityMap[hero.id] : null;
     var eqHtml = (heroShowdown && eqPct != null) ? equityBesideCardsHtml(eqPct) : '';
-    return '<div class="hero-area' + (folded ? ' is-folded' : '') + '">' +
+    return '<button type="button" class="hero-area hero-area-btn' + (folded ? ' is-folded' : '') +
+      '" data-act="open-hero-detail" title="Ver mis estadísticas">' +
       act +
       '<div class="hero-chips">' + streetChips +
       '<div class="seat-stack">' + esc(fmtBb(hero.stack, bb)) + '</div></div>' +
@@ -2024,7 +2069,7 @@ function reducedMotion() {
       (cards
         ? ('<div class="hero-cards">' + cards + '</div>' + eqHtml)
         : '<div class="hero-cards hero-cards-folded"></div>') +
-      '</div>';
+      '</button>';
   }
 
   function actionBtnClass(id) {
@@ -2222,6 +2267,18 @@ function reducedMotion() {
             '<p class="trn-assist-stats">Cuota restante: <strong>' + esc(quotaLeftLabel()) + '</strong></p>' +
             '</div>';
         })() +
+        '<div class="trn-info-live-hud">' +
+        '<h4>Tus estadísticas en vivo</h4>' +
+        liveHudStripForPlayer(state, 'hero') +
+        (function () {
+          var HEV = global.PTHandEndView;
+          var live = liveHeroSessionStats(state);
+          if (HEV && HEV.renderSessionStatsHtml && live && live.nHands) {
+            return HEV.renderSessionStatsHtml(live, { title: 'Hasta ahora' });
+          }
+          return '';
+        })() +
+        '</div>' +
         roleLegendHtml() +
         '<details class="trn-info-handlog-wrap"' + (ui.infoHandlogOpen ? ' open' : '') + '>' +
         '<summary data-act="toggle-handlog">Histórico de manos' +
@@ -2249,19 +2306,51 @@ function reducedMotion() {
           '<span class="trn-role-opt-sub">' + esc(roleLabel(rid)) + '</span>' +
           '</button>';
       }).join('');
+      var villHud = liveHudStripForPlayer(state, pid);
       roleModal = '<div class="trn-modal-backdrop" data-act="close-role">' +
-        '<div class="trn-modal" role="dialog" aria-modal="true" data-act="noop">' +
+        '<div class="trn-modal trn-modal-player-detail" role="dialog" aria-modal="true" data-act="noop">' +
         '<h3>' + esc(pl && pl.name) + '</h3>' +
         '<p class="trn-player-stack-detail">' +
         esc(String(Math.round(Number(pl && pl.stack) || 0))) + ' fichas · ' +
         esc(fmtBb(Number(pl && pl.stack) || 0, bb)) +
         (pl && pl.alive === false ? ' · Eliminado' : '') +
         '</p>' +
+        (villHud
+          ? ('<div class="trn-player-live-hud">' + villHud +
+            '<p class="muted trn-live-hud-hint">Estadísticas en vivo de este torneo (todas las mesas).</p></div>')
+          : '') +
         '<p class="muted">Elige su tipo de jugador (el nombre no indica el perfil). Se revela al final; +2 Koins por acierto.</p>' +
         (cur ? ('<p class="trn-role-current">Actual: ' + roleChipHtml(cur) + '</p>') : '') +
         '<div class="trn-role-grid" role="group" aria-label="Tipo de rival">' + roleBtns + '</div>' +
         '<button type="button" class="btn" data-act="clear-guess" data-guess-player="' + esc(pid) + '">Quitar guess</button> ' +
         '<button type="button" class="btn" data-act="close-role">Cerrar</button>' +
+        '</div></div>';
+    }
+
+    var heroDetailModal = '';
+    if (ui.heroDetailOpen) {
+      var heroPl = (global.PTTournamentState && PTTournamentState.hero)
+        ? PTTournamentState.hero(state)
+        : (state.players || []).find(function (p) { return p.isHero; });
+      var heroHud = liveHudStripForPlayer(state, 'hero');
+      var liveStats = liveHeroSessionStats(state);
+      var heroStatsBody = '';
+      var HEV2 = global.PTHandEndView;
+      if (HEV2 && HEV2.renderSessionStatsHtml && liveStats && liveStats.nHands) {
+        heroStatsBody = HEV2.renderSessionStatsHtml(liveStats, { title: 'Resto de estadísticas' });
+      } else {
+        heroStatsBody = '<p class="muted">Aún no hay manos puntuadas en este torneo.</p>';
+      }
+      heroDetailModal = '<div class="trn-modal-backdrop" data-act="close-hero-detail">' +
+        '<div class="trn-modal trn-modal-wide trn-modal-player-detail" role="dialog" aria-modal="true" data-act="noop">' +
+        '<h3>' + esc((heroPl && heroPl.name) || heroDisplayName(state)) + '</h3>' +
+        '<p class="trn-player-stack-detail">' +
+        esc(String(Math.round(Number(heroPl && heroPl.stack) || 0))) + ' fichas · ' +
+        esc(fmtBb(Number(heroPl && heroPl.stack) || 0, bb)) +
+        '</p>' +
+        '<div class="trn-player-live-hud">' + heroHud + '</div>' +
+        heroStatsBody +
+        '<button type="button" class="btn btn-primary" data-act="close-hero-detail">Cerrar</button>' +
         '</div></div>';
     }
 
@@ -2371,7 +2460,7 @@ function reducedMotion() {
       '</div></div>' +
       actions +
       '</div>' +
-      infoModal + roleModal + handEndModal + exitModal +
+      infoModal + roleModal + heroDetailModal + handEndModal + exitModal +
       '</div>';
   }
 
@@ -3699,6 +3788,13 @@ function reducedMotion() {
         } else if (act === 'close-role') {
           ui.roleModalPlayerId = null;
           paint();
+        } else if (act === 'open-hero-detail') {
+          ui.heroDetailOpen = true;
+          ui.roleModalPlayerId = null;
+          paint();
+        } else if (act === 'close-hero-detail') {
+          ui.heroDetailOpen = false;
+          paint();
         } else if (act === 'clear-guess') {
           global.PTTournamentRoleGuess.clearGuess(ui.state, btn.getAttribute('data-guess-player'));
           ui.roleModalPlayerId = null;
@@ -3776,8 +3872,18 @@ function reducedMotion() {
         ev.stopPropagation();
         var pid = btn.getAttribute('data-player');
         if (!pid) return;
+        ui.heroDetailOpen = false;
         ui.roleModalPlayerId = pid;
         paint();
+      });
+    });
+
+    root.querySelectorAll('.trn-modal-backdrop[data-act="close-hero-detail"]').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        if (ev.target === el) {
+          ui.heroDetailOpen = false;
+          paint();
+        }
       });
     });
 
