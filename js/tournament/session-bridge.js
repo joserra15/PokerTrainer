@@ -139,11 +139,27 @@
   function normalizeDecision(d, bb) {
     if (!d) return null;
     var chosen = d.chosen || d.action || d.label || 'fold';
-    var cls = mapClass(d.class);
-    var strategy = d.strategy || d.gto || null;
+    var classGto = d.classGto != null ? mapClass(d.classGto) : null;
+    var classExploit = d.classExploit != null ? mapClass(d.classExploit) : null;
+    /* Detalle GTO / paso a paso: primario = veredicto GTO cuando existe. */
+    var cls = mapClass(classGto || d.class);
+    var gtoBaseline = d.gtoBaseline || d.gtoStrategy || null;
+    var strategy = gtoBaseline || d.strategy || d.gto || null;
     var pushFold = !!(d.pushFold || (d.input && d.input.pushFold) || d.mttPhase === 'push'
       || d.preflopMode === 'push');
-    var breakdown = d.optionBreakdown || null;
+    var avail = d.options || d.availableActions
+      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    var breakdown = null;
+    /* Preferir rejilla GTO (no la mezcla explotativa) para coincidir con paso a paso. */
+    if (gtoBaseline) {
+      breakdown = optionBreakdownFromStrategy(gtoBaseline, {
+        pushFold: pushFold,
+        availableActions: avail
+      });
+    }
+    if (!breakdown || !breakdown.length) {
+      breakdown = d.optionBreakdown || null;
+    }
     /* Reconstruir / normalizar labels al estilo paso a paso (FOLD 12%, CALL 40%…). */
     if (breakdown && breakdown.length) {
       breakdown = breakdown.map(function (o) {
@@ -164,28 +180,37 @@
     } else {
       breakdown = optionBreakdownFromStrategy(strategy, {
         pushFold: pushFold,
-        availableActions: d.options || d.availableActions
-          || (d.input && (d.input.availableActions || d.input.options)) || null
+        availableActions: avail
       });
     }
-    var opts = d.options || d.availableActions
-      || (d.input && (d.input.availableActions || d.input.options)) || null;
+    var opts = avail;
     if ((!opts || !opts.length) && breakdown && breakdown.length) {
       opts = breakdown.map(function (o) { return o.id; }).filter(Boolean);
     }
     var input = d.input || null;
+    var freq = d.freqGto != null ? Number(d.freqGto)
+      : (Number(d.frequency) || 0);
+    var best = d.bestGto || d.best || null;
     var out = {
       street: d.street || 'preflop',
       chosen: chosen,
       action: chosen,
       label: d.label || actionLabel(chosen, d.amount, bb),
       class: cls === 'unscored' ? 'aceptable' : cls,
-      best: d.best || null,
+      classGto: classGto || cls,
+      classExploit: classExploit || cls,
+      best: best,
+      bestGto: d.bestGto || best,
+      bestExploit: d.bestExploit || null,
       gto: strategy,
+      gtoBaseline: gtoBaseline,
+      exploitStrategy: d.exploitStrategy || null,
       optionBreakdown: breakdown,
       evLoss: Number(d.evLoss) || 0,
       evErroneous: !!d.evErroneous,
-      frequency: Number(d.frequency) || 0,
+      frequency: freq,
+      freqGto: d.freqGto != null ? Number(d.freqGto) : freq,
+      freqExploit: d.freqExploit != null ? Number(d.freqExploit) : null,
       explanation: d.explanation || null,
       context: d.context || null,
       unscored: !!d.unscored || cls === 'unscored',
@@ -202,11 +227,24 @@
       spotKind: (input && input.spotKind) || d.spotKind || null,
       vsPosition: d.vsPosition || (input && input.vsPosition) || null,
       initiative: d.initiative || (input && input.initiative) || null,
+      inPosition: d.inPosition != null ? d.inPosition
+        : (input && input.inPosition != null ? input.inPosition : null),
+      priorAggressorBet: d.priorAggressorBet != null ? d.priorAggressorBet
+        : (input && input.priorAggressorBet != null ? input.priorAggressorBet : null),
+      delayedCbet: d.delayedCbet != null ? d.delayedCbet
+        : (input && input.delayedCbet != null ? input.delayedCbet : null),
+      villainLastAction: d.villainLastAction || (input && input.villainLastAction) || null,
       formatHub: d.formatHub || (input && input.formatHub) || 'mtt',
       gameType: d.gameType || (input && input.gameType) || null,
       mttPhase: d.mttPhase || (input && input.mttPhase) || null,
       pushFold: pushFold,
       preflopMode: d.preflopMode || (input && input.preflopMode) || null,
+      scoreMode: d.scoreMode || (input && input.scoreMode) || 'gto',
+      villainType: d.villainType || (input && input.villainType) || null,
+      exploitApplied: !!d.exploitApplied,
+      exploitReasons: d.exploitReasons || [],
+      explainDelta: d.explainDelta || [],
+      lineSignals: d.lineSignals || [],
       stackBB: d.stackBB != null ? d.stackBB
         : (input && input.stackBB != null ? input.stackBB : null),
       amount: d.amount != null ? d.amount : null,
@@ -214,7 +252,7 @@
       availableActions: Array.isArray(opts) ? opts.slice() : null,
       input: input
     };
-    if (out.unscored && !d.class) out.class = 'aceptable';
+    if (out.unscored && !d.class && !classGto) out.class = 'aceptable';
     return out;
   }
 
