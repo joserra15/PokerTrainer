@@ -16,6 +16,30 @@
     return W.weightOf(weights, code);
   }
 
+  /** Off-chart / polar 3bet: Ax suited, broadways, SC fuertes — no Q2o. */
+  function speculativeThreeBetOk(code) {
+    if (!code || code.length < 2) return false;
+    if (code.length === 2) {
+      /* Pares medios+ fuera de chart 3bet puro a veces. */
+      const ranks = '23456789TJQKA';
+      return ranks.indexOf(code[0]) >= ranks.indexOf('8');
+    }
+    const ranks = '23456789TJQKA';
+    const hi = code[0];
+    const lo = code[1];
+    const suited = code[2] === 's';
+    const ri = ranks.indexOf(hi);
+    const rj = ranks.indexOf(lo);
+    if (ri < 0 || rj < 0) return false;
+    if (hi === 'A' && (suited || rj >= ranks.indexOf('T'))) return true;
+    if (suited && hi === 'A') return true;
+    if (!suited && ri >= ranks.indexOf('K') && rj >= ranks.indexOf('T')) return true;
+    if (!suited && ri >= ranks.indexOf('Q') && rj >= ranks.indexOf('J')) return true;
+    if (suited && ri >= ranks.indexOf('T') && (ri - rj) <= 2) return true;
+    if (suited && ri >= ranks.indexOf('J') && rj >= ranks.indexOf('9')) return true;
+    return false;
+  }
+
   /** Off-chart BB/SB defend: Ax, suited decentes, broadway — no basura tipo Q2o. */
   function speculativeDefendOk(code) {
     if (!code || code.length < 2) return false;
@@ -304,10 +328,15 @@
 
     /* Identidad de arquetipo: ensancha/aprieta pesos de chart. */
     if (callBias > 0 && wc > 0) wc = Math.min(1, wc + callBias * 1.35);
-    if (threeBias > 0 && w3 > 0) w3 = Math.min(1, w3 + threeBias * 1.25);
-    if (threeBias > 0.04 && wc >= 0.35 && w3 < 0.2) {
+    if (threeBias > 0 && w3 > 0) w3 = Math.min(1, w3 + threeBias * 1.45);
+    if (threeBias > 0.04 && wc >= 0.28 && w3 < 0.35) {
       /* Presión: parte del calling range pasa a 3bet polar/light. */
-      w3 = Math.max(w3, threeBias * 0.9 + stealBias * 0.5);
+      w3 = Math.max(w3, threeBias * 1.25 + stealBias * 0.55);
+    }
+    /* Pro: manos especulativas fuertes → peso 3bet aunque chart diga fold/call mix bajo. */
+    if ((profile && profile.id === 'pro') && threeBias > 0.08 && speculativeThreeBetOk(code)
+      && w3 < 0.55) {
+      w3 = Math.max(w3, 0.38 + threeBias * 0.9 + stealBias * 0.4);
     }
     if (foldBias > 0.05 && wc > 0) wc = Math.max(0, wc - foldBias * 0.8);
     if (foldBias > 0.05 && w3 > 0) w3 = Math.max(0, w3 - foldBias * 0.35);
@@ -325,14 +354,15 @@
       if (allowsLeak(profile, '3bet', r)) return '3bet';
       /* Fish/LAG/pro: defensa especulativa fuera de chart (no solo leakRate). */
       const offChartCall = Math.max(0, callBias * 1.55 - foldBias * 0.6 + huAgg * 0.25);
-      const offChart3 = Math.max(0, threeBias * 0.7 + huAgg * 0.2 - foldBias * 0.4);
+      const offChart3 = Math.max(0, threeBias * 1.05 + huAgg * 0.25 - foldBias * 0.35);
       /* BB: más defend (MDF). SB un poco menos que BB. */
       const blindDef = defenderPos === 'BB' ? 2.45 : (defenderPos === 'SB' ? 1.4 : 1);
       /* Pro/TAG/Nit: no callar basura off-chart (Q2o). Fish/LAG/maniac sí pueden. */
       const pid = profile && profile.id;
       const gateTrash = pid === 'pro' || pid === 'tag' || pid === 'nit';
       const okSpec = !gateTrash || speculativeDefendOk(code);
-      if (offChart3 * blindDef > 0.04 && okSpec && r < offChart3 * blindDef) return '3bet';
+      const ok3 = !gateTrash || speculativeThreeBetOk(code);
+      if (offChart3 * blindDef > 0.04 && ok3 && r < offChart3 * blindDef) return '3bet';
       if (offChartCall * blindDef > 0.04 && okSpec && r < (offChartCall + offChart3) * blindDef) return 'call';
       if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r) && okSpec) return 'call';
       return 'fold';
@@ -347,18 +377,23 @@
     }
 
     if (w3 >= 1) {
-      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.78 : 0.68) + huAgg * 0.2, profile)) return '3bet';
+      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.85 : 0.72) + huAgg * 0.22, profile)) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias + huAgg * 0.15, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
-      const freq = strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.25) : VP.adjustThreeBetProb(0.38 + huAgg * 0.2, profile);
+      const freq = strict >= 0.75
+        ? Math.min(1, w3 + huAgg * 0.28 + threeBias * 0.35)
+        : VP.adjustThreeBetProb(0.45 + huAgg * 0.22, profile);
       if (r < freq) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
-      if (r < (strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.2) : VP.adjustThreeBetProb(w3 * 0.6 + huAgg * 0.15, profile))) return '3bet';
+      const f3 = strict >= 0.75
+        ? Math.min(1, w3 + huAgg * 0.22 + threeBias * 0.4)
+        : VP.adjustThreeBetProb(w3 * 0.7 + huAgg * 0.18, profile);
+      if (r < f3) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }

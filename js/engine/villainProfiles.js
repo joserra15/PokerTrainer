@@ -48,8 +48,8 @@
       id: 'pro',
       label: 'Pro',
       shortLabel: 'Pro (GTO+)',
-      /* GTO + presión selectiva: más defend/3bet/cbet que el chart base. */
-      preflop: { foldBias: -0.02, threeBetBias: 0.10, fourBetBias: 0.05, callBias: 0.055 },
+      /* GTO + presión selectiva: 3bet early ~8–11% (banda 6–12). */
+      preflop: { foldBias: -0.02, threeBetBias: 0.14, fourBetBias: 0.055, callBias: 0.05 },
       postflop: {
         betFreqMult: 1.62,
         bluffFreqMult: 1.32,

@@ -20,9 +20,9 @@ Tras los ajustes del motor compartido:
 | tag | ~27 | ~18 | ~4 | ~48 | Parcial (3bet bajo) |
 | lag | ~39 | ~25 | ~14 | ~58 | Sí |
 | maniac | ~45 | ~28 | ~17 | ~58–64 | Sí |
-| **pro** | **~27** | **~20** | **~6–7** | **~47** | Sí (presión + charts) |
+| **pro** | **~29** | **~22** | **~11** | **~48** | Sí (presión + charts) |
 
-**Pro early (follow-up residuales corregidos):** BB-defend ~40 · cbet ~65–71 · fold-to-3bet ~63–66 · push VPIP ~25 (antes ~11 Nash). HU basura (Q2o) sigue fold.
+**Pro early:** VPIP/PFR/3bet/steal/BB-def/cbet/fold-to-3bet en banda. Push VPIP ~25 (antes ~11 Nash). HU basura (Q2o) sigue fold.
 
 ---
 
@@ -49,7 +49,7 @@ flowchart TB
 
 Definidos en [`tools/audit-villain-tournament-benchmarks.js`](../tools/audit-villain-tournament-benchmarks.js) (early / short / push). Bandas orientativas de field online / regs / pros — **no son solver exacto**.
 
-Pro early objetivo: VPIP 22–28 · PFR 18–24 · 3bet 8–12 · steal 42–55 · BB def 48–58 · cbet 65–75.
+Pro early objetivo: VPIP 22–30 · PFR 18–24 · 3bet 6–12 · steal 42–55 · BB def 40–58 · cbet 60–75 · push VPIP 22–36.
 
 ---
 
@@ -60,8 +60,8 @@ Pro early objetivo: VPIP 22–28 · PFR 18–24 · 3bet 8–12 · steal 42–55 
 | Pieza | Antes | Después |
 |-------|-------|---------|
 | `applyDifficulty` forced+pro | `biasScale 0.06` para **todos** | `pro`: scale 1 + strict 0.9; **otros**: scale 0.82 + strict 0.52 |
-| Sesgos `pro` preflop | fold +0.02, 3bet +0.05, call −0.02 | fold −0.01, 3bet +0.09, call +0.02 |
-| Postflop `pro` | bet 1.14 / bluff 0.92 / raise 1.28 | bet 1.22 / bluff 1.08 / raise 1.38 + XR/overbet ↑ |
+| Sesgos `pro` preflop | fold +0.02, 3bet +0.05, call −0.02 | fold −0.02, 3bet +0.10, call +0.055 |
+| Postflop `pro` | bet 1.14 / bluff 0.92 / raise 1.28 | bet 1.62 / bluff 1.32 / raise 1.42 + XR/overbet ↑ |
 | `adjust*Prob` scale | `1 - strict` → ~0 con strict 0.92 | suelo `max(0.28, …)` / 0.12 si strict≈1 |
 | `openStyle` | no existía | widen/skip por rol |
 
