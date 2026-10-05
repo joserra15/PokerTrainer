@@ -2490,30 +2490,30 @@
   }
 
   /**
-   * Estilos de mesa = sesgo sobre motor Pro+, no pasividad extrema.
-   * Tag/pro: más c-bet / bluff / raise; lag/maniac siguen muy agresivos.
+   * Estilos de mesa sobre motor Pro+: agresivos suben suelo;
+   * fish/nit bajan techo de agresión para no colapsar a TAG.
    */
   function tournamentPostflopFloor(role, postflop) {
     var pf = Object.assign({}, postflop || {});
     var floors = {
-      fish:   { bet: 1.05, bluff: 0.85, raise: 0.95, call: 1.4, fold: 0.7 },
-      nit:    { bet: 0.92, bluff: 0.55, raise: 0.85, call: 0.95, fold: 0.95 },
-      tag:    { bet: 1.35, bluff: 1.2,  raise: 1.4,  call: 1.0, fold: 0.95 },
-      lag:    { bet: 1.55, bluff: 1.55, raise: 1.55, call: 1.1, fold: 0.65 },
-      maniac: { bet: 1.75, bluff: 1.9,  raise: 1.85, call: 1.15, fold: 0.5 },
-      pro:    { bet: 1.35, bluff: 1.25, raise: 1.45, call: 1.0, fold: 0.95 }
+      fish:   { bet: 0.75, bluff: 0.5,  raise: 0.48, call: 1.35, fold: 0.72, betMax: 1.05, bluffMax: 0.85, raiseMax: 0.9 },
+      nit:    { bet: 0.7,  bluff: 0.4,  raise: 0.55, call: 0.88, fold: 1.05, betMax: 1.05, bluffMax: 0.75, raiseMax: 0.95 },
+      tag:    { bet: 1.2,  bluff: 1.05, raise: 1.25, call: 0.98, fold: 0.98 },
+      lag:    { bet: 1.45, bluff: 1.45, raise: 1.45, call: 1.08, fold: 0.7 },
+      maniac: { bet: 1.7,  bluff: 1.85, raise: 1.8,  call: 1.12, fold: 0.48 },
+      pro:    { bet: 1.55, bluff: 1.35, raise: 1.42, call: 1.05, fold: 0.9 }
     };
     var f = floors[role] || floors.tag;
-    function floor(key, minV, maxV) {
+    function clampKey(key, minV, maxV) {
       var cur = Number(pf[key]);
       if (!isFinite(cur)) cur = minV;
       pf[key] = Math.max(minV, Math.min(maxV != null ? maxV : 2.4, cur));
     }
-    floor('betFreqMult', f.bet);
-    floor('bluffFreqMult', f.bluff);
-    floor('raiseFreqMult', f.raise);
-    floor('callMult', f.call);
-    floor('foldMult', 0.35, f.fold);
+    clampKey('betFreqMult', f.bet, f.betMax != null ? f.betMax : 2.4);
+    clampKey('bluffFreqMult', f.bluff, f.bluffMax != null ? f.bluffMax : 2.4);
+    clampKey('raiseFreqMult', f.raise, f.raiseMax != null ? f.raiseMax : 2.4);
+    clampKey('callMult', f.call);
+    clampKey('foldMult', 0.35, f.fold);
     if (pf.betSizeMult == null || pf.betSizeMult < 0.85) pf.betSizeMult = 0.95;
     return pf;
   }
@@ -2672,6 +2672,19 @@
     else if (aiLevel === 'elite') thr += 0.10;
     else if (aiLevel === 'strong') thr += 0.06;
     else if (aiLevel === 'solid') thr += 0.02;
+    return thr;
+  }
+
+  /** Umbral holeStr para jam light en push (late) cuando Nash dice fold. */
+  function pushJamHoleThreshold(role, aiLevel) {
+    var thr = 0.44;
+    if (role === 'maniac') thr = 0.30;
+    else if (role === 'lag') thr = 0.34;
+    else if (role === 'pro') thr = 0.34;
+    else if (role === 'tag') thr = 0.42;
+    else if (role === 'fish') thr = 0.40;
+    else if (role === 'nit') thr = 0.52;
+    if (aiLevel === 'solid') thr -= 0.04;
     return thr;
   }
 
@@ -3013,7 +3026,18 @@
     var r = rnd != null ? rnd : Math.random();
     var m = (FA && typeof FA.multipliers === 'function') ? (FA.multipliers(ctx) || {}) : {};
     var betBoost = ((Number(m.bet) || 1) - 1) + ((Number(m.cbet) || 1) - 1) * (wasAgg ? 1 : 0.4);
-    if (lead === 'check' && betBoost > 0.05 && strength > 0.32 && r < Math.min(0.55, 0.28 + betBoost)) {
+    /* Perfil: cbet más frecuente (pro/tag/lag) cuando tenemos iniciativa. */
+    var pfBet = profile && profile.postflop ? Number(profile.postflop.betFreqMult) || 1 : 1;
+    var pfBluff = profile && profile.postflop ? Number(profile.postflop.bluffFreqMult) || 1 : 1;
+    if (wasAgg && pfBet > 1.05) {
+      betBoost += Math.min(0.7, (pfBet - 1) * 1.05);
+    }
+    if (lead === 'check' && betBoost > 0.04 && strength > 0.22 && r < Math.min(0.82, 0.4 + betBoost)) {
+      return 'bet';
+    }
+    /* Cbet light: aire/semi con iniciativa y bluffFreq alto. */
+    if (lead === 'check' && wasAgg && pfBluff > 1.05 && strength < 0.42 && strength > 0.10
+      && r < Math.min(0.62, 0.28 + (pfBluff - 1) * 0.7)) {
       return 'bet';
     }
     if (lead === 'bet' && (Number(m.bluff) || 1) < 0.7 && strength < 0.35 && r < 0.4) {
@@ -3286,14 +3310,46 @@
             return { id: 'raise', amount: allInTo(seat) };
           }
         } catch (eShove) { /* */ }
-        if (stackBB <= 14 || pushPhase || blindStrong) {
+        /*
+         * No fold inmediato en late/mid: widen jam por perfil / steal-light.
+         * Antes VPIP push colapsaba a ~11% (solo Nash) en todos los roles.
+         */
+        var canPushWiden = isLateStealPos(seat.pos) || seat.pos === 'HJ' || seat.pos === 'MP';
+        if ((stackBB <= 14 || pushPhase || blindStrong) && canPushWiden) {
+          var pushThr = pushJamHoleThreshold(role, aiLvl);
+          if (seat.pos === 'HJ' || seat.pos === 'MP') pushThr += 0.08;
+          if (holeStr > pushThr) {
+            return { id: 'raise', amount: allInTo(seat) };
+          }
+          if (isLateStealPos(seat.pos) && PF.stealOpenStrategy && code) {
+            try {
+              var pushSteal = PF.stealOpenStrategy({
+                handCode: code,
+                position: seat.pos,
+                heroPos: seat.pos,
+                rangeContext: ctx,
+                effStack: effShoveBB,
+                stackBB: stackBB,
+                formatHub: ctx.formatHub,
+                blindPressure: true,
+                blindPressureStrong: !!blindStrong
+              });
+              var psAct = sampleStealAction(pushSteal, Math.random());
+              if (psAct === 'allin' || psAct === 'raise') {
+                return { id: 'raise', amount: allInTo(seat) };
+              }
+            } catch (ePs) { /* */ }
+          }
+        }
+        /* Early seats en push puro: fold si no está en Nash. */
+        if ((stackBB <= 14 || pushPhase || blindStrong) && !canPushWiden) {
           return tc > 0 ? { id: 'fold' } : { id: 'check' };
         }
       }
 
-      /* Steal folded-to late: 12–25 bb, o hasta ~28 bb si suben ciegas pronto. */
+      /* Steal folded-to late: desde ~10bb (antes >12 dejaba fuera el push band). */
       var stealHi = blindPress ? 28 : 25;
-      var stealLo = blindPress ? 10 : 12;
+      var stealLo = 9;
       if (isLateStealPos(seat.pos) && stackBB > stealLo && stackBB <= stealHi
         && PF && typeof PF.stealOpenStrategy === 'function' && code) {
         try {
@@ -3331,7 +3387,11 @@
       }
 
       var open = false;
-      if (VPF && typeof VPF.isInOpenRange === 'function' && code) {
+      if (VPF && typeof VPF.shouldOpen === 'function' && code) {
+        try {
+          open = !!VPF.shouldOpen(code, seat.pos, ctx, profile, holeStr, Math.random());
+        } catch (e) { open = false; }
+      } else if (VPF && typeof VPF.isInOpenRange === 'function' && code) {
         try { open = !!VPF.isInOpenRange(code, seat.pos, ctx); } catch (e) { open = false; }
       } else {
         open = holeStr > 0.58;
@@ -3847,12 +3907,41 @@
     }
 
     var leadFreqs = DC.refineLead(strat, spotCtx);
+    /* Cbet: bajar check freq según betFreqMult del perfil cuando tenemos iniciativa. */
+    if (initiative === 'aggressor' && profile && profile.postflop) {
+      var bmC = Number(profile.postflop.betFreqMult) || 1;
+      var blC = Number(profile.postflop.bluffFreqMult) || 1;
+      if (bmC > 1.08 || blC > 1.08) {
+        var chk0 = Number(leadFreqs.check) || 0;
+        var pull = chk0 * Math.min(0.62, Math.max(0, (bmC - 1) * 0.75 + (blC - 1) * 0.35));
+        if (pull > 0.01) {
+          leadFreqs = Object.assign({}, leadFreqs);
+          leadFreqs.check = Math.max(0, chk0 - pull);
+          var addKeys = ['bet_66', 'bet_33', 'bet_100', 'bet'];
+          var wSum = 0;
+          addKeys.forEach(function (k) { wSum += Number(leadFreqs[k]) || 0; });
+          if (wSum <= 0) {
+            leadFreqs.bet_66 = (leadFreqs.bet_66 || 0) + pull;
+          } else {
+            addKeys.forEach(function (k) {
+              var w = Number(leadFreqs[k]) || 0;
+              leadFreqs[k] = w + pull * (w / wSum);
+            });
+          }
+        }
+      }
+    }
     if (VS && VS.sampleLeadFromStrategy) {
       var sampled = VS.sampleLeadFromStrategy(leadFreqs, potBB, Object.assign({}, spotCtx, {
         preferSizeKey: seat._preferSizeKey || null
       }), rnd);
       seat._preferSizeKey = null;
-      if (sampled.action === 'bet') {
+      var leadAct = sampled.action === 'bet' ? 'bet' : 'check';
+      /* Cbet boost por perfil cuando la strategy samplea check con iniciativa. */
+      if (leadAct === 'check' && initiative === 'aggressor') {
+        leadAct = applyFormatAdjustToLead('check', strength, spotCtx, true, Math.random(), profile);
+      }
+      if (leadAct === 'bet') {
         patchLinePlan(seat, hand.street, { action: 'bet' });
         var FA = global.GTOVillainFormatAdjust;
         if (FA && FA.multipliers) {
@@ -3861,9 +3950,10 @@
             return { id: 'raise', amount: allInTo(seat) };
           }
         }
+        var fracBet = (sampled.action === 'bet' && sampled.frac) ? sampled.frac : sampleBetFrac(profile, hand.street, strength);
         return {
           id: 'bet',
-          amount: Math.min(allInTo(seat), Math.max(hand.bb, r2(pot * (sampled.frac || 0.55))))
+          amount: Math.min(allInTo(seat), Math.max(hand.bb, r2(pot * fracBet)))
         };
       }
       patchLinePlan(seat, hand.street, { action: 'check' });
@@ -4129,6 +4219,7 @@
       else if (strength > 0.5) force = 0.36;
       else if (strength > 0.36) force = 0.22;
       if (role === 'lag' || role === 'maniac') force = Math.min(0.85, force + 0.18);
+      if (role === 'pro') force = Math.min(0.92, force + 0.24);
       if (role === 'nit') force *= 0.75;
       if ((street === 'flop' || street === 'turn')
         && strength >= 0.38 && strength <= 0.52
@@ -12133,26 +12224,20 @@
   function simulateRest(state) {
     var St = global.PTTournamentState;
     var Seat = global.PTTournamentSeating;
-    var Other = global.PTTournamentOtherTables;
     var hero = St.hero(state);
     var guard = 0;
 
     if (state.status === 'busted_pending') state.status = 'running';
 
-    while (St.playersLeft(state) > 1 && hero && !hero.alive && guard++ < 500) {
-      var blinds = blindsFor(state);
-      var sim = Other.simulateRound(state, blinds);
-      if (!sim.tablesSimulated) {
-        // Sin mesas multi-seat: eliminar ponderado
-        eliminateWeighted(state);
-      } else if (!(sim.eliminated && sim.eliminated.length) && St.playersLeft(state) > 1) {
-        // Si no hubo busts en la sim, forzar uno para avanzar
-        eliminateWeighted(state);
+    /* Héroe ya fuera: el puesto está fijado. Liquidar el field con
+       eliminaciones ponderadas (rápido) en lugar de simular manos AI-vs-AI
+       en todas las mesas — eso bloqueaba la UI en MTTs grandes. */
+    if (hero && !hero.alive) {
+      while (St.playersLeft(state) > 1 && guard++ < 5000) {
+        if (!eliminateWeighted(state)) break;
+        Seat.rebalance(state);
       }
-      Seat.rebalance(state);
-      state.handIndex = (Number(state.handIndex) || 0) + 1;
-      syncBlindLevel(state);
-      hero = St.hero(state);
+      return finish(state, { reason: 'simulated_rest' });
     }
 
     // Si Hero sigue vivo pero pedimos simular resto (raro), no-op hacia finish
@@ -12223,8 +12308,75 @@
     heldFramesDone: null,
     assistPrompt: null,
     actionBusy: false,
-    thinkingSeatId: null
+    thinkingSeatId: null,
+    simulatingRest: false
   };
+
+  /** Tras Continuar, ¿se liquidará el field porque el héroe ya está/out en esta mano? */
+  function heroBustedAfterHand(state) {
+    if (!state) return false;
+    var St = global.PTTournamentState;
+    var hero = St && St.hero ? St.hero(state) : null;
+    if (hero && hero.alive === false) return true;
+    var hand = state._liveHand;
+    if (!hand || hand.stage !== 'complete') return false;
+    var seat = null;
+    (hand.seats || []).forEach(function (s) {
+      if (s && s.isHero) seat = s;
+    });
+    if (!seat) return false;
+    if (seat.stack != null && Number(seat.stack) <= 0.02) return true;
+    var deltas = hand.result && hand.result.deltas;
+    var heroId = seat.id || (hero && hero.id);
+    if (deltas && heroId != null && deltas[heroId] != null && seat.startStack != null) {
+      return (Number(seat.startStack) + Number(deltas[heroId])) <= 0.02;
+    }
+    return false;
+  }
+
+  function simulatingRestOverlayHtml() {
+    return '<div class="trn-modal-backdrop trn-sim-rest-backdrop" data-act="noop" role="status" aria-live="polite">' +
+      '<div class="trn-modal trn-sim-rest-modal" data-act="noop">' +
+      '<span class="trn-think-clock" aria-hidden="true"></span>' +
+      '<strong>' + esc(trnT('trn.simulatingRest', 'Simulando el resto del torneo…')) + '</strong>' +
+      '<span class="muted">' + esc(trnT('trn.simulatingRestHint',
+        'Tu puesto ya está fijado. Calculando el final del field.')) + '</span>' +
+      '</div></div>';
+  }
+
+  /** Continuar tras fin de mano; si el héroe está eliminado, muestra aviso y cede un frame. */
+  function continueAfterHandWithNotice() {
+    if (!ui.state || !global.PTTournamentRunner) {
+      afterActionAnimated();
+      return;
+    }
+    ui.actionBusy = true;
+    ui.handDetailOpen = false;
+    var needsNotice = ui.state.status === 'running' && heroBustedAfterHand(ui.state);
+
+    function runContinue() {
+      var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
+      whenReady(cont, function () {
+        ui.simulatingRest = false;
+        persistActive();
+        afterActionAnimated();
+      });
+    }
+
+    if (!needsNotice) {
+      runContinue();
+      return;
+    }
+
+    ui.simulatingRest = true;
+    paint();
+    var yieldFn = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : function (cb) { setTimeout(cb, 0); };
+    yieldFn(function () {
+      setTimeout(runContinue, 0);
+    });
+  }
 
   function trnT(key, fallback) {
     try {
@@ -13193,6 +13345,7 @@ function reducedMotion() {
     if (st.config && !st.config.blindStructure) st.config.blindStructure = 'turbo';
     ui.state = st;
     ui.bustPrompt = false;
+    ui.simulatingRest = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -13373,6 +13526,7 @@ function reducedMotion() {
     ui.state = Runner.create(cfg, opts);
     ui.state.startBannerPending = { at: Date.now() };
     ui.bustPrompt = false;
+    ui.simulatingRest = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -14541,7 +14695,10 @@ function reducedMotion() {
     var heroAlive = St.hero(state);
 
     var handEndModal = '';
-    if (hand && hand.stage === 'complete' && hand.result) {
+    var simRestOverlay = '';
+    if (ui.simulatingRest) {
+      simRestOverlay = simulatingRestOverlayHtml();
+    } else if (hand && hand.stage === 'complete' && hand.result) {
       try {
         var OtherBg = global.PTTournamentOtherTables;
         if (OtherBg && OtherBg.boostPriority) OtherBg.boostPriority(state);
@@ -14643,7 +14800,7 @@ function reducedMotion() {
       '</div></div>' +
       actions +
       '</div>' +
-      infoModal + roleModal + heroDetailModal + handEndModal + exitModal +
+      infoModal + roleModal + heroDetailModal + handEndModal + simRestOverlay + exitModal +
       '</div>';
   }
 
@@ -14770,16 +14927,32 @@ function reducedMotion() {
       }
     }
 
+    var heroOut = false;
+    try {
+      if (hero && Number(hero.stack) <= 0.02) heroOut = true;
+      else if (heroId != null && deltas[heroId] != null && hero && hero.startStack != null) {
+        heroOut = (Number(hero.startStack) + Number(deltas[heroId])) <= 0.02;
+      }
+    } catch (eOut) { /* */ }
+    var continueLabel = heroOut
+      ? trnT('trn.continueSimulateRest', 'Continuar (simular resto) »')
+      : 'Continuar »';
+    var simNote = heroOut
+      ? ('<p class="trn-sim-rest-note muted">' + esc(trnT('trn.simulatingRestHint',
+        'Tu puesto ya está fijado. Al continuar se simula el final del field.')) + '</p>')
+      : '';
+
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
       '<div class="trn-modal trn-hand-end-modal trn-hand-end-modal-rich" role="dialog" aria-modal="true" data-act="noop">' +
-      '<div class="trn-hand-end-scroll">' + rich + '</div>' +
+      '<div class="trn-hand-end-scroll">' + rich + simNote + '</div>' +
       '<div class="trn-hand-end-actions">' +
       '<button type="button" class="btn" data-act="toggle-hand-detail">' +
       (ui.handDetailOpen ? 'Ocultar detalle GTO' : 'Ver detalle GTO') + '</button>' +
       '<button type="button" class="btn" data-act="hand-end-review"' +
       (analyzed && analyzed.id ? (' data-hand-id="' + esc(analyzed.id) + '"') : '') +
       '>Paso a paso</button>' +
-      '<button type="button" class="btn btn-primary" data-act="continue-hand">Continuar »</button>' +
+      '<button type="button" class="btn btn-primary" data-act="continue-hand">' +
+      esc(continueLabel) + '</button>' +
       '</div></div></div>';
   }
 
@@ -15531,6 +15704,7 @@ function reducedMotion() {
   /** Anima lo que acaba de resolver el motor y luego cierra el turno. */
   function afterActionAnimated() {
     ui.actionBusy = false;
+    ui.simulatingRest = false;
     clearThinking();
     animateThen(afterAction);
   }
@@ -15862,18 +16036,9 @@ function reducedMotion() {
           if (pid) startPreset(pid);
           else paint();
         } else if (act === 'continue-hand') {
-          if (ui.actionBusy) return;
-          if (ui.state) {
-            ui.actionBusy = true;
-            var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
-            ui.handDetailOpen = false;
-            whenReady(cont, function () {
-              persistActive();
-              afterActionAnimated();
-            });
-            return;
-          }
-          afterActionAnimated();
+          if (ui.actionBusy || ui.simulatingRest) return;
+          continueAfterHandWithNotice();
+          return;
         } else if (act === 'skip-anim') {
           ui.anim.skip = true;
           if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
@@ -15992,14 +16157,9 @@ function reducedMotion() {
           ui.roleModalPlayerId = null;
           paint();
         } else if (act === 'next-hand') {
-          if (ui.actionBusy) return;
+          if (ui.actionBusy || ui.simulatingRest) return;
           if (ui.state && ui.state.status === 'running') {
-            ui.actionBusy = true;
-            var nx = global.PTTournamentRunner.continueAfterHand(ui.state);
-            whenReady(nx, function () {
-              persistActive();
-              afterActionAnimated();
-            });
+            continueAfterHandWithNotice();
             return;
           }
           afterActionAnimated();

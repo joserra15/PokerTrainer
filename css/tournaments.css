@@ -2261,6 +2261,44 @@ body[data-table-speed="normal"] .trn-think-clock {
   padding: 8px 12px;
 }
 
+.trn-sim-rest-backdrop {
+  z-index: 95;
+}
+
+.trn-sim-rest-modal {
+  max-width: 360px;
+  width: min(360px, 92vw);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 24px;
+}
+
+.trn-sim-rest-modal .trn-think-clock {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 4px;
+}
+
+.trn-sim-rest-modal strong {
+  font-size: 1.05rem;
+  letter-spacing: .02em;
+}
+
+.trn-sim-rest-modal .muted {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.trn-sim-rest-note {
+  margin: 10px 16px 4px;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+}
+
 .trn-anim-actions .btn-skip-anim {
   background: rgba(255, 255, 255, .07);
   border: 1px solid rgba(255, 255, 255, .18);

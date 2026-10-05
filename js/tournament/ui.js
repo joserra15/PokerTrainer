@@ -40,8 +40,75 @@
     heldFramesDone: null,
     assistPrompt: null,
     actionBusy: false,
-    thinkingSeatId: null
+    thinkingSeatId: null,
+    simulatingRest: false
   };
+
+  /** Tras Continuar, ¿se liquidará el field porque el héroe ya está/out en esta mano? */
+  function heroBustedAfterHand(state) {
+    if (!state) return false;
+    var St = global.PTTournamentState;
+    var hero = St && St.hero ? St.hero(state) : null;
+    if (hero && hero.alive === false) return true;
+    var hand = state._liveHand;
+    if (!hand || hand.stage !== 'complete') return false;
+    var seat = null;
+    (hand.seats || []).forEach(function (s) {
+      if (s && s.isHero) seat = s;
+    });
+    if (!seat) return false;
+    if (seat.stack != null && Number(seat.stack) <= 0.02) return true;
+    var deltas = hand.result && hand.result.deltas;
+    var heroId = seat.id || (hero && hero.id);
+    if (deltas && heroId != null && deltas[heroId] != null && seat.startStack != null) {
+      return (Number(seat.startStack) + Number(deltas[heroId])) <= 0.02;
+    }
+    return false;
+  }
+
+  function simulatingRestOverlayHtml() {
+    return '<div class="trn-modal-backdrop trn-sim-rest-backdrop" data-act="noop" role="status" aria-live="polite">' +
+      '<div class="trn-modal trn-sim-rest-modal" data-act="noop">' +
+      '<span class="trn-think-clock" aria-hidden="true"></span>' +
+      '<strong>' + esc(trnT('trn.simulatingRest', 'Simulando el resto del torneo…')) + '</strong>' +
+      '<span class="muted">' + esc(trnT('trn.simulatingRestHint',
+        'Tu puesto ya está fijado. Calculando el final del field.')) + '</span>' +
+      '</div></div>';
+  }
+
+  /** Continuar tras fin de mano; si el héroe está eliminado, muestra aviso y cede un frame. */
+  function continueAfterHandWithNotice() {
+    if (!ui.state || !global.PTTournamentRunner) {
+      afterActionAnimated();
+      return;
+    }
+    ui.actionBusy = true;
+    ui.handDetailOpen = false;
+    var needsNotice = ui.state.status === 'running' && heroBustedAfterHand(ui.state);
+
+    function runContinue() {
+      var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
+      whenReady(cont, function () {
+        ui.simulatingRest = false;
+        persistActive();
+        afterActionAnimated();
+      });
+    }
+
+    if (!needsNotice) {
+      runContinue();
+      return;
+    }
+
+    ui.simulatingRest = true;
+    paint();
+    var yieldFn = typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : function (cb) { setTimeout(cb, 0); };
+    yieldFn(function () {
+      setTimeout(runContinue, 0);
+    });
+  }
 
   function trnT(key, fallback) {
     try {
@@ -1010,6 +1077,7 @@ function reducedMotion() {
     if (st.config && !st.config.blindStructure) st.config.blindStructure = 'turbo';
     ui.state = st;
     ui.bustPrompt = false;
+    ui.simulatingRest = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -1190,6 +1258,7 @@ function reducedMotion() {
     ui.state = Runner.create(cfg, opts);
     ui.state.startBannerPending = { at: Date.now() };
     ui.bustPrompt = false;
+    ui.simulatingRest = false;
     ui.infoOpen = false;
     ui.infoHandlogOpen = false;
     ui.roleModalPlayerId = null;
@@ -2358,7 +2427,10 @@ function reducedMotion() {
     var heroAlive = St.hero(state);
 
     var handEndModal = '';
-    if (hand && hand.stage === 'complete' && hand.result) {
+    var simRestOverlay = '';
+    if (ui.simulatingRest) {
+      simRestOverlay = simulatingRestOverlayHtml();
+    } else if (hand && hand.stage === 'complete' && hand.result) {
       try {
         var OtherBg = global.PTTournamentOtherTables;
         if (OtherBg && OtherBg.boostPriority) OtherBg.boostPriority(state);
@@ -2460,7 +2532,7 @@ function reducedMotion() {
       '</div></div>' +
       actions +
       '</div>' +
-      infoModal + roleModal + heroDetailModal + handEndModal + exitModal +
+      infoModal + roleModal + heroDetailModal + handEndModal + simRestOverlay + exitModal +
       '</div>';
   }
 
@@ -2587,16 +2659,32 @@ function reducedMotion() {
       }
     }
 
+    var heroOut = false;
+    try {
+      if (hero && Number(hero.stack) <= 0.02) heroOut = true;
+      else if (heroId != null && deltas[heroId] != null && hero && hero.startStack != null) {
+        heroOut = (Number(hero.startStack) + Number(deltas[heroId])) <= 0.02;
+      }
+    } catch (eOut) { /* */ }
+    var continueLabel = heroOut
+      ? trnT('trn.continueSimulateRest', 'Continuar (simular resto) »')
+      : 'Continuar »';
+    var simNote = heroOut
+      ? ('<p class="trn-sim-rest-note muted">' + esc(trnT('trn.simulatingRestHint',
+        'Tu puesto ya está fijado. Al continuar se simula el final del field.')) + '</p>')
+      : '';
+
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
       '<div class="trn-modal trn-hand-end-modal trn-hand-end-modal-rich" role="dialog" aria-modal="true" data-act="noop">' +
-      '<div class="trn-hand-end-scroll">' + rich + '</div>' +
+      '<div class="trn-hand-end-scroll">' + rich + simNote + '</div>' +
       '<div class="trn-hand-end-actions">' +
       '<button type="button" class="btn" data-act="toggle-hand-detail">' +
       (ui.handDetailOpen ? 'Ocultar detalle GTO' : 'Ver detalle GTO') + '</button>' +
       '<button type="button" class="btn" data-act="hand-end-review"' +
       (analyzed && analyzed.id ? (' data-hand-id="' + esc(analyzed.id) + '"') : '') +
       '>Paso a paso</button>' +
-      '<button type="button" class="btn btn-primary" data-act="continue-hand">Continuar »</button>' +
+      '<button type="button" class="btn btn-primary" data-act="continue-hand">' +
+      esc(continueLabel) + '</button>' +
       '</div></div></div>';
   }
 
@@ -3348,6 +3436,7 @@ function reducedMotion() {
   /** Anima lo que acaba de resolver el motor y luego cierra el turno. */
   function afterActionAnimated() {
     ui.actionBusy = false;
+    ui.simulatingRest = false;
     clearThinking();
     animateThen(afterAction);
   }
@@ -3679,18 +3768,9 @@ function reducedMotion() {
           if (pid) startPreset(pid);
           else paint();
         } else if (act === 'continue-hand') {
-          if (ui.actionBusy) return;
-          if (ui.state) {
-            ui.actionBusy = true;
-            var cont = global.PTTournamentRunner.continueAfterHand(ui.state);
-            ui.handDetailOpen = false;
-            whenReady(cont, function () {
-              persistActive();
-              afterActionAnimated();
-            });
-            return;
-          }
-          afterActionAnimated();
+          if (ui.actionBusy || ui.simulatingRest) return;
+          continueAfterHandWithNotice();
+          return;
         } else if (act === 'skip-anim') {
           ui.anim.skip = true;
           if (ui.anim.timer && typeof clearTimeout === 'function') clearTimeout(ui.anim.timer);
@@ -3809,14 +3889,9 @@ function reducedMotion() {
           ui.roleModalPlayerId = null;
           paint();
         } else if (act === 'next-hand') {
-          if (ui.actionBusy) return;
+          if (ui.actionBusy || ui.simulatingRest) return;
           if (ui.state && ui.state.status === 'running') {
-            ui.actionBusy = true;
-            var nx = global.PTTournamentRunner.continueAfterHand(ui.state);
-            whenReady(nx, function () {
-              persistActive();
-              afterActionAnimated();
-            });
+            continueAfterHandWithNotice();
             return;
           }
           afterActionAnimated();

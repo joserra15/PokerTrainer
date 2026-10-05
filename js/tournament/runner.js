@@ -822,26 +822,20 @@
   function simulateRest(state) {
     var St = global.PTTournamentState;
     var Seat = global.PTTournamentSeating;
-    var Other = global.PTTournamentOtherTables;
     var hero = St.hero(state);
     var guard = 0;
 
     if (state.status === 'busted_pending') state.status = 'running';
 
-    while (St.playersLeft(state) > 1 && hero && !hero.alive && guard++ < 500) {
-      var blinds = blindsFor(state);
-      var sim = Other.simulateRound(state, blinds);
-      if (!sim.tablesSimulated) {
-        // Sin mesas multi-seat: eliminar ponderado
-        eliminateWeighted(state);
-      } else if (!(sim.eliminated && sim.eliminated.length) && St.playersLeft(state) > 1) {
-        // Si no hubo busts en la sim, forzar uno para avanzar
-        eliminateWeighted(state);
+    /* Héroe ya fuera: el puesto está fijado. Liquidar el field con
+       eliminaciones ponderadas (rápido) en lugar de simular manos AI-vs-AI
+       en todas las mesas — eso bloqueaba la UI en MTTs grandes. */
+    if (hero && !hero.alive) {
+      while (St.playersLeft(state) > 1 && guard++ < 5000) {
+        if (!eliminateWeighted(state)) break;
+        Seat.rebalance(state);
       }
-      Seat.rebalance(state);
-      state.handIndex = (Number(state.handIndex) || 0) + 1;
-      syncBlindLevel(state);
-      hero = St.hero(state);
+      return finish(state, { reason: 'simulated_rest' });
     }
 
     // Si Hero sigue vivo pero pedimos simular resto (raro), no-op hacia finish

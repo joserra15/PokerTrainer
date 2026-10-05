@@ -1174,6 +1174,12 @@ FILES.forEach(function (f) { load(g, f); });
   const cssSrc = fs.readFileSync(path.join(ROOT, 'css/tournaments.css'), 'utf8');
   assert.ok(cssSrc.includes('trn-popup-settled') && cssSrc.includes('trn-ft-banner-settled'),
     'settled banner CSS');
+  assert.ok(uiSrc.includes('simulatingRest') && uiSrc.includes('continueAfterHandWithNotice'),
+    'simulating-rest notice path in ui');
+  assert.ok(uiSrc.includes('trn-sim-rest') && uiSrc.includes('trn.simulatingRest'),
+    'simulating-rest overlay markup');
+  assert.ok(cssSrc.includes('trn-sim-rest-backdrop') && cssSrc.includes('trn-sim-rest-modal'),
+    'simulating-rest CSS');
 }
 console.log('OK blind-popup-source');
 
@@ -1912,6 +1918,44 @@ console.log('OK pushfold-freq-100');
   assert.strictEqual(g.PTTournamentState.playersLeft(state), 1, 'field liquidado a 1');
   assert.ok(state.result && state.result.reason === 'simulated_rest', 'reason simulated_rest');
   console.log('OK bust-auto-simulate-rest');
+}
+
+// --- Bust hero en MTT grande: liquidación rápida (sin simular mesas AI) ---
+{
+  const R = g.PTTournamentRunner;
+  const state = R.create({
+    kind: 'mtt',
+    entries: 180,
+    seatsPerTable: 9,
+    buyInEur: 11,
+    startingStack: 1500,
+    placesPaid: 27,
+    onBust: 'simulate'
+  }, { seed: 42 });
+  const hero = g.PTTournamentState.hero(state);
+  const place = 104;
+  /* Dejar ~103 rivales vivos + héroe busted en puesto 104. */
+  const others = (state.players || []).filter(function (p) { return p && !p.isHero; });
+  assert.ok(others.length >= place - 1, 'field enough for place ' + place);
+  g.PTTournamentSeating.bustPlayer(state, hero.id, place);
+  let bustedExtra = 0;
+  const targetAlive = place - 1;
+  for (let i = 0; i < others.length && g.PTTournamentState.playersLeft(state) > targetAlive; i++) {
+    if (others[i].alive) {
+      g.PTTournamentSeating.bustPlayer(state, others[i].id);
+      bustedExtra += 1;
+    }
+  }
+  assert.strictEqual(hero.bustPlace, place, 'hero bustPlace ' + place);
+  assert.ok(g.PTTournamentState.playersLeft(state) >= 2, 'field still multiplayer before sim');
+  const t0 = Date.now();
+  R.simulateRest(state);
+  const elapsed = Date.now() - t0;
+  assert.strictEqual(state.status, 'finished', 'finished after fast sim');
+  assert.strictEqual(g.PTTournamentState.playersLeft(state), 1, 'one champion');
+  assert.strictEqual(state.result && state.result.place, place, 'place preserved');
+  assert.ok(elapsed < 2000, 'fast liquidation under 2s, got ' + elapsed + 'ms');
+  console.log('OK bust-fast-simulate-rest-mtt (#' + place + ', ' + elapsed + 'ms, extraBusts=' + bustedExtra + ')');
 }
 
 // --- Anillo visual estable durante fotogramas de animación ---
