@@ -20,9 +20,9 @@ Tras los ajustes del motor compartido:
 | tag | ~27 | ~18 | ~4 | ~48 | Parcial (3bet bajo) |
 | lag | ~39 | ~25 | ~14 | ~58 | Sí |
 | maniac | ~45 | ~28 | ~17 | ~58–64 | Sí |
-| **pro** | **~27** | **~21** | **~9** | **~49** | Sí (presión + charts) |
+| **pro** | **~27** | **~20** | **~6–7** | **~47** | Sí (presión + charts) |
 
-**Pro** entra en banda early en VPIP / PFR / 3bet / steal; BB-defend y cbet siguen algo cortos vs benchmark; fold-to-3bet sigue alto en casi todos los roles.
+**Pro early (follow-up residuales corregidos):** BB-defend ~40 · cbet ~65–71 · fold-to-3bet ~63–66 · push VPIP ~25 (antes ~11 Nash). HU basura (Q2o) sigue fold.
 
 ---
 
