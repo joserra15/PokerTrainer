@@ -185,18 +185,62 @@
     if (isExplicitHu(ctx)) return 0;
     const Tax = global.PTFormatTaxonomy;
     if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 0;
+
+    // Preferir risk premium propio (asimetría cubre/cubierto).
+    if (ctx.ownRiskPremium != null && Number(ctx.ownRiskPremium) > 0) {
+      let bias = clamp(Number(ctx.ownRiskPremium) * 1.15, 0, 0.28);
+      const role = ctx.stackRole || '';
+      // Short overfoldea menos que mid en burbuja.
+      if (role === 'short') bias *= 0.7;
+      else if (role === 'cover' || ctx.coversOpponent || ctx.coversHero) bias *= 0.35;
+      else if (role === 'mid') bias *= 1.1;
+      const t = String(ctx.tournamentType || '').toLowerCase();
+      if (bias > 0 && (t === 'pko' || t === 'mystery')) bias *= 0.55;
+      return bias;
+    }
+
     const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
     let bias = 0;
     if (phase === 'bubble') bias = 0.18;
+    else if (phase === 'ft') bias = 0.14;
     else if (phase === 'push') bias = 0.14;
     else if (phase === 'short') bias = 0.08;
+    else if (phase === 'itm') bias = 0.05;
     else {
       if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) bias = 0.1;
     }
+    const role = ctx.stackRole || '';
+    if (role === 'cover' || ctx.coversOpponent || ctx.coversHero) bias *= 0.4;
+    else if (role === 'short') bias *= 0.75;
+    else if (role === 'mid') bias *= 1.1;
     // PKO / mystery: menos overfold (bounty incentive); sin EV bounty real.
     const t = String(ctx.tournamentType || '').toLowerCase();
     if (bias > 0 && (t === 'pko' || t === 'mystery')) bias *= 0.55;
     return bias;
+  }
+
+  /**
+   * Bias de presión/steal cuando el rival tiene risk premium alto (está cubierto).
+   * 0..~0.22 — se suma a 3bet / reduce fold en defensa agresiva.
+   */
+  function tournamentStealBias(ctx) {
+    if (!ctx || !ctx.isTournament) return 0;
+    if (isExplicitHu(ctx)) return 0;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 0;
+
+    if (ctx.opponentRiskPremium != null && Number(ctx.opponentRiskPremium) > 0) {
+      let bias = clamp(Number(ctx.opponentRiskPremium) * 1.05, 0, 0.22);
+      if (ctx.stackRole === 'cover' || ctx.coversOpponent || ctx.coversHero) bias *= 1.15;
+      if (ctx.stackRole === 'mid' || ctx.coveredByOpponent || ctx.coveredByHero) bias *= 0.45;
+      return bias;
+    }
+
+    const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
+    if (phase !== 'bubble' && phase !== 'ft' && phase !== 'itm' && phase !== 'push') return 0;
+    if (ctx.stackRole === 'cover' || ctx.coversOpponent || ctx.coversHero) return 0.12;
+    if (ctx.stackRole === 'short') return 0.04;
+    return 0;
   }
 
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
@@ -209,7 +253,8 @@
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
     const icmBias = tournamentFoldBias(ctx);
-    const huAgg = huAggressionBias(ctx);
+    const stealBias = tournamentStealBias(ctx);
+    const huAgg = huAggressionBias(ctx) + stealBias;
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
@@ -494,6 +539,6 @@
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
-    tournamentFoldBias, isExplicitHu, huAggressionBias
+    tournamentFoldBias, tournamentStealBias, isExplicitHu, huAggressionBias
   };
 })(window);

@@ -75,7 +75,7 @@
 
   /**
    * Bubble factor lite desde contexto (stacks/payouts o heurística de fase).
-   * En burbuja/FT usa al menos el suelo de fase (el BF Harville del short puede ser ~1).
+   * Preferir BF por pareja cuando existe; floors de fase asimétricos por rol.
    */
   function bubbleFactorFromCtx(ctx) {
     ctx = ctx || {};
@@ -87,10 +87,21 @@
     var phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase || '';
     var situ = ctx.mttStructureSituation || '';
     if (phase === 'hu' || situ === 'hu') return 1;
+
+    // BF canónico por pareja (ya calculado) manda sobre floors genéricos.
+    if (ctx.pairBubbleFactor != null && Number(ctx.pairBubbleFactor) > 0) {
+      var pairBf = Number(ctx.pairBubbleFactor);
+      // Soft floor por rol/fase solo si el BF es anormalmente bajo en burbuja mid.
+      var softFloor = 1;
+      if ((phase === 'bubble' || situ === 'bubble') && ctx.stackRole === 'mid') softFloor = 1.25;
+      return Math.max(pairBf, softFloor);
+    }
+
     var phaseFloor = 1;
     if (hub === 'spin') phaseFloor = phase === 'push' ? 1.45 : 1.2;
     else if (phase === 'bubble' || situ === 'bubble') phaseFloor = 1.55;
-    else if (situ === 'ft9' || situ === 'mincash') phaseFloor = 1.28;
+    else if (phase === 'ft' || situ === 'ft9') phaseFloor = 1.32;
+    else if (phase === 'itm' || situ === 'mincash') phaseFloor = 1.18;
     else if (phase === 'push' || phase === 'short') phaseFloor = 1.22;
 
     var computed = 1;
@@ -130,10 +141,17 @@
         }
       } catch (e) { /* fallthrough */ }
     }
-    // Cover/big: BF alto; short en burbuja: sigue el suelo de fase (jobs de mesa).
-    if (ctx.stackRole === 'cover') phaseFloor = Math.max(phaseFloor, 1.35);
-    if (ctx.stackRole === 'short' && (phase === 'bubble' || situ === 'bubble')) {
-      phaseFloor = Math.max(1.15, phaseFloor * 0.85);
+    // Floors/caps asimétricos: cover bajo, mid bubble alto, short intermedio.
+    if (ctx.stackRole === 'cover' || ctx.coversOpponent) {
+      // Chip lead: BF bajo aunque la heurística de fase sea alta.
+      var coverCap = 1.22;
+      var coverFloor = 1.1;
+      return Math.min(coverCap, Math.max(computed || 1, coverFloor, phaseFloor > 1 ? 1.1 : 1));
+    }
+    if (ctx.stackRole === 'mid' && (phase === 'bubble' || situ === 'bubble' || phase === 'ft')) {
+      phaseFloor = Math.max(phaseFloor, 1.6);
+    } else if (ctx.stackRole === 'short' && (phase === 'bubble' || situ === 'bubble')) {
+      phaseFloor = Math.max(1.2, Math.min(phaseFloor, 1.3));
     }
     return Math.max(computed || 1, phaseFloor);
   }
@@ -194,8 +212,14 @@
     var bb = Number(ctx.stackBB) || 0;
     var avg = Number(ctx.avgStackBB) || bb;
     if (!bb) return null;
+    // La cobertura directa manda sobre el ratio contra la media: quien cubre al
+    // rival de la mano puede presionar aunque no sea el chip lead de la mesa.
+    if (ctx.coversOpponent && !ctx.coveredByOpponent && bb >= avg) return 'cover';
     if (bb <= 12 || (avg > 0 && bb / avg <= 0.45)) return 'short';
     if (avg > 0 && bb / avg >= 1.55) return 'cover';
+    if (ctx.coveredByOpponent && (ctx.effectivePhase === 'bubble'
+      || ctx.effectivePhase === 'ft'
+      || ctx.mttStructureSituation === 'bubble')) return 'mid';
     if (ctx.effectivePhase === 'bubble' || ctx.mttStructureSituation === 'bubble') return 'mid';
     return null;
   }
@@ -226,6 +250,11 @@
       multiwayCount: 2,
       potType: 'srp',
       stackRole: null,
+      opponentStackRole: null,
+      coversOpponent: false,
+      coveredByOpponent: false,
+      ownRiskPremium: null,
+      opponentRiskPremium: null,
       bubbleFactor: 1
     }, extra);
     ctx.formatHub = hubOf(ctx);

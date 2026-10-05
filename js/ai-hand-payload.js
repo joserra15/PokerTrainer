@@ -131,6 +131,16 @@
       tournamentType: formatHub === 'mtt' ? (cfg.tournamentType || null) : null,
       playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
       icm: !!(cfg.useIcm || formatHub === 'spin' || formatHub === 'mtt'),
+      stackRole: cfg.stackRole || (hand && hand._pedagogicalStackRole) || null,
+      ownRiskPremium: hand && hand._lastOwnRiskPremium != null ? hand._lastOwnRiskPremium : null,
+      opponentRiskPremium: hand && hand._lastOppRiskPremium != null ? hand._lastOppRiskPremium : null,
+      pairBubbleFactor: hand && hand._lastPairBubbleFactor != null ? hand._lastPairBubbleFactor : null,
+      seatStacks: hand && hand.stacks ? Object.keys(hand.stacks).filter(function (k) {
+        return k !== 'hero' && k !== 'villain';
+      }).reduce(function (acc, k) {
+        acc[k] = hand.stacks[k];
+        return acc;
+      }, {}) : null,
       villainLevel: cfg.villainLevel || null,
       openSize: cfg.preflopOpenSize || null,
       dec: decisions,
@@ -149,8 +159,9 @@
     } else if (formatHub === 'mtt') {
       payload.coachingNote = 'Mano de torneo MTT del entrenador'
         + (phase ? (' (fase ' + phase + ')') : '')
+        + (payload.stackRole ? (' · rol ' + payload.stackRole) : '')
         + (cfg.tournamentType && cfg.tournamentType !== 'unknown' ? (' · ' + cfg.tournamentType) : '')
-        + ': prioriza stack depth / fase / ICM; no trates como cash 6-max 100bb.'
+        + ': prioriza stack depth / fase / cobertura de stacks / ICM; no trates como cash 6-max 100bb.'
         + (cfg.tournamentType === 'pko' || cfg.tournamentType === 'mystery'
           ? ' EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.'
           : '');

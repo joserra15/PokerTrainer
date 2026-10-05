@@ -62,6 +62,27 @@
     return 'deep';
   }
 
+  /**
+   * Rotación pedagógica de rol de stack para fases bubble/ITM/FT.
+   * ~35% cover / 40% mid / 25% short — reproducible con seed externo vía rnd.
+   */
+  function pickPedagogicalStackRole(rnd) {
+    const r = rnd != null ? rnd : Math.random();
+    if (r < 0.35) return 'cover';
+    if (r < 0.75) return 'mid';
+    return 'short';
+  }
+
+  function isIcmTeachingPhase(cfg) {
+    if (!cfg) return false;
+    // Solo fases de mesa con asimetría cubre/cubierto pedagógica.
+    // No usar mttStructureSituation mincash: short/push lo setean sin ser burbuja.
+    const phase = cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase || '';
+    const situ = cfg.mttStructureSituation || '';
+    return phase === 'bubble' || phase === 'itm' || phase === 'ft'
+      || situ === 'bubble' || situ === 'ft9';
+  }
+
   function sampleInRange(lo, hi, rnd) {
     const a = Number(lo);
     const b = Number(hi);
@@ -120,6 +141,19 @@
       return sampleInRange(lo, Math.min(hi, 80), rnd2);
     }
 
+    // mid explícito: al menos un cover en mesa (heroes mid cubiertos)
+    if (role === 'mid') {
+      if (r < 0.55) {
+        const lo = Math.max(h + 6, h * 1.35);
+        const hi = Math.max(lo + 5, h * 2.4);
+        return sampleInRange(lo, Math.min(hi, 120), rnd2);
+      }
+      if (r < 0.8) {
+        return sampleInRange(Math.max(8, h * 0.7), Math.max(h * 0.95, h - 1), rnd2);
+      }
+      return sampleInRange(Math.max(5, h * 0.35), Math.min(h * 0.55, 18), rnd2);
+    }
+
     const bands = tournamentBands(hub, heroBB);
     const band = pickBand(rnd);
     const range = bands[band] || bands.mid;
@@ -160,6 +194,20 @@
     });
   }
 
+  /** Mid vs big: al menos un cover por encima del héroe. */
+  function enforceMidTable(hand, positions, heroSeat, heroBB, rngFn) {
+    if (!hand || !hand.stacks) return;
+    const rnd = rngFn || Math.random;
+    const h = Number(heroBB) || 25;
+    const others = (positions || []).filter(function (p) { return p !== heroSeat; });
+    const hasCover = others.some(function (p) { return hand.stacks[p] >= h * 1.25; });
+    if (!hasCover && others.length) {
+      const target = others.indexOf('BTN') >= 0 ? 'BTN'
+        : (others.indexOf('CO') >= 0 ? 'CO' : others[0]);
+      hand.stacks[target] = round2(sampleInRange(h * 1.4, Math.max(h * 1.4 + 4, h * 2.1), rnd()));
+    }
+  }
+
   function invested(hand, pos) {
     if (!hand || !pos) return 0;
     let inv = (hand.table && hand.table.invested && hand.table.invested[pos]) || 0;
@@ -197,7 +245,12 @@
     const rnd = rngFn || function () { return Math.random(); };
     const cfg = playConfig || (hand && hand.playConfig) || null;
     const hub = formatHubOf(cfg);
-    const role = (cfg && cfg.stackRole) || null;
+    let role = (cfg && cfg.stackRole) || null;
+    // En fases ICM sin rol fijo: rotar cover/mid/short para spots pedagógicos.
+    if (!role && hub !== 'cash' && isIcmTeachingPhase(cfg)) {
+      role = pickPedagogicalStackRole(rnd());
+      if (hand) hand._pedagogicalStackRole = role;
+    }
     const fixed = cfg && cfg.legendaryStacks;
     hand.stacks = {};
     const seatMap = (cfg && cfg.seatStacksBB && typeof cfg.seatStacksBB === 'object')
@@ -227,6 +280,8 @@
       enforceCoverTable(hand, positions, heroSeat, heroBB, rnd);
     } else if (role === 'short') {
       enforceShortTable(hand, positions, heroSeat, heroBB, rnd);
+    } else if (role === 'mid') {
+      enforceMidTable(hand, positions, heroSeat, heroBB, rnd);
     }
     hand.heroStackStart = round2(heroBB);
     // Alias para ICM / scoring (claves por asiento son la fuente de verdad)
@@ -256,8 +311,8 @@
 
   global.PTStacks = {
     round2, heroStackBB, villainStackBB, initHandStacks,
-    tournamentBands, pickBand, formatHubOf,
-    enforceCoverTable, enforceShortTable,
+    tournamentBands, pickBand, pickPedagogicalStackRole, isIcmTeachingPhase, formatHubOf,
+    enforceCoverTable, enforceShortTable, enforceMidTable,
     invested, remaining, effectiveVs, effectiveForHero,
     capToRemaining, capTotalInvest, isAllIn, formatStackBB
   };

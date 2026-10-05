@@ -8,7 +8,7 @@
   const FORMAT_HUBS = ['cash', 'spin', 'mtt'];
   const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
   const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
-  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'hu'];
+  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'itm', 'ft', 'hu'];
   /** Etiquetas de producto (no cambian EV de bounty en este ciclo). */
   const TOURNAMENT_TYPES = ['vanilla', 'pko', 'mystery', 'unknown'];
   const TOURNAMENT_TYPE_LABELS = {
@@ -51,6 +51,8 @@
     short: 'Short',
     push: 'Push/fold',
     bubble: 'Burbuja',
+    itm: 'ITM',
+    ft: 'Mesa final',
     hu: 'Heads Up'
   };
 
@@ -131,6 +133,8 @@
       if (p === 'short') return ['bb25', 'bb20', 'bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb25', 'bb20', 'bb15'];
+      if (p === 'itm') return ['bb40', 'bb25', 'bb20'];
+      if (p === 'ft') return ['bb40', 'bb25', 'bb20', 'bb15'];
       if (p === 'hu') return ['bb40', 'bb25', 'bb20', 'bb15', 'bb10'];
     }
     return null;
@@ -172,6 +176,8 @@
       if (p === 'mid') return prefer('bb25');
       if (p === 'short') return prefer('bb20');
       if (p === 'bubble') return prefer('bb25');
+      if (p === 'itm') return prefer('bb25');
+      if (p === 'ft') return prefer('bb25');
       if (p === 'push') return prefer('bb10');
       if (p === 'hu') return prefer('bb25');
       return list[0];
@@ -293,6 +299,7 @@
     if (phase === 'early') return 0.1;
     if (phase === 'mid') return 0.125;
     if (phase === 'short' || phase === 'bubble') return 0.15;
+    if (phase === 'itm' || phase === 'ft') return 0.14;
     if (phase === 'push') return 0.2;
     if (phase === 'hu') return 0.15;
     return 0.125;
@@ -413,6 +420,8 @@
   function defaultMttStructureForPhase(phase) {
     const p = normalizePhase(phase);
     if (p === 'bubble') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.bubble, { mttStructureSituation: 'bubble' });
+    if (p === 'ft') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.ft9, { mttStructureSituation: 'ft9' });
+    if (p === 'itm') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
     if (p === 'hu') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.hu, { mttStructureSituation: 'hu' });
     if (p === 'push' || p === 'short') {
       return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
@@ -518,7 +527,8 @@
     if (!isTournamentHub(hub)) return false;
     const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
     if (hub === 'spin') return true;
-    if (phase === 'bubble' || phase === 'push' || phase === 'short') return true;
+    if (phase === 'bubble' || phase === 'push' || phase === 'short'
+      || phase === 'itm' || phase === 'ft') return true;
     // Estructura MTT manda: burbuja/ITM numérica aunque la fase sea mid/early.
     if (hub === 'mtt' && mttStructureNearMoney(config)) return true;
     return false;

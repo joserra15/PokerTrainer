@@ -376,7 +376,7 @@
   const FORMAT_HUBS = ['cash', 'spin', 'mtt'];
   const GAME_TYPES = ['cash6', 'cash9', 'spin3', 'mtt'];
   const PRACTICE_INTENTS = ['mixed', 'bluff_make', 'bluff_catch'];
-  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'hu'];
+  const MTT_PHASES = ['auto', 'early', 'mid', 'short', 'push', 'bubble', 'itm', 'ft', 'hu'];
   /** Etiquetas de producto (no cambian EV de bounty en este ciclo). */
   const TOURNAMENT_TYPES = ['vanilla', 'pko', 'mystery', 'unknown'];
   const TOURNAMENT_TYPE_LABELS = {
@@ -419,6 +419,8 @@
     short: 'Short',
     push: 'Push/fold',
     bubble: 'Burbuja',
+    itm: 'ITM',
+    ft: 'Mesa final',
     hu: 'Heads Up'
   };
 
@@ -499,6 +501,8 @@
       if (p === 'short') return ['bb25', 'bb20', 'bb15'];
       if (p === 'push') return ['bb10'];
       if (p === 'bubble') return ['bb25', 'bb20', 'bb15'];
+      if (p === 'itm') return ['bb40', 'bb25', 'bb20'];
+      if (p === 'ft') return ['bb40', 'bb25', 'bb20', 'bb15'];
       if (p === 'hu') return ['bb40', 'bb25', 'bb20', 'bb15', 'bb10'];
     }
     return null;
@@ -540,6 +544,8 @@
       if (p === 'mid') return prefer('bb25');
       if (p === 'short') return prefer('bb20');
       if (p === 'bubble') return prefer('bb25');
+      if (p === 'itm') return prefer('bb25');
+      if (p === 'ft') return prefer('bb25');
       if (p === 'push') return prefer('bb10');
       if (p === 'hu') return prefer('bb25');
       return list[0];
@@ -661,6 +667,7 @@
     if (phase === 'early') return 0.1;
     if (phase === 'mid') return 0.125;
     if (phase === 'short' || phase === 'bubble') return 0.15;
+    if (phase === 'itm' || phase === 'ft') return 0.14;
     if (phase === 'push') return 0.2;
     if (phase === 'hu') return 0.15;
     return 0.125;
@@ -781,6 +788,8 @@
   function defaultMttStructureForPhase(phase) {
     const p = normalizePhase(phase);
     if (p === 'bubble') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.bubble, { mttStructureSituation: 'bubble' });
+    if (p === 'ft') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.ft9, { mttStructureSituation: 'ft9' });
+    if (p === 'itm') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
     if (p === 'hu') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.hu, { mttStructureSituation: 'hu' });
     if (p === 'push' || p === 'short') {
       return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
@@ -886,7 +895,8 @@
     if (!isTournamentHub(hub)) return false;
     const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
     if (hub === 'spin') return true;
-    if (phase === 'bubble' || phase === 'push' || phase === 'short') return true;
+    if (phase === 'bubble' || phase === 'push' || phase === 'short'
+      || phase === 'itm' || phase === 'ft') return true;
     // Estructura MTT manda: burbuja/ITM numérica aunque la fase sea mid/early.
     if (hub === 'mtt' && mttStructureNearMoney(config)) return true;
     return false;
@@ -12966,17 +12976,99 @@ window.PT_NASH_PUSH_JSON = {
     return eq.map((e, i) => Math.round(((chip[i] || 0) * prize - e) * 1000) / 1000);
   }
 
+  const BF_MIN = 0.7;
+  const BF_MAX = 3.5;
+
+  function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+
   /**
-   * Bubble factor aproximado hero vs villain:
-   * BF ≈ (ΔchipEV risk) / (Δ$EV risk) — aquí usamos ratio presión.
+   * Equity ICM de un jugador tolerando stacks a 0.
+   * Un stack eliminado cobra el puesto inmediatamente por debajo de los que siguen vivos
+   * (en burbuja ese puesto paga 0, que es justo lo que queremos).
    */
+  function equityForIndex(stacks, idx, payouts) {
+    const s = (stacks || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    const pays = (payouts || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    if (idx < 0 || idx >= s.length) return 0;
+    const alive = [];
+    for (let i = 0; i < s.length; i++) if (s[i] > 0) alive.push(i);
+    if (!alive.length) return 0;
+    if (s[idx] <= 0) return pays[alive.length] != null ? pays[alive.length] : 0;
+    if (alive.length === 1) return pays[0] || 0;
+    const eq = icmEquities(alive.map(function (i) { return s[i]; }), pays.slice(0, alive.length));
+    if (!eq) return 0;
+    return eq[alive.indexOf(idx)] || 0;
+  }
+
+  /**
+   * Bubble factor canónico por pareja (ICMIZER / GTO Wizard):
+   * BF = ($EV que pierdes si caes) / ($EV que ganas si doblas).
+   * Es asimétrico: el stack que cubre tiene BF bajo; el cubierto, alto.
+   */
+  function bubbleFactorPair(stacks, heroIdx, villainIdx, payouts) {
+    const s = (stacks || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    const i = heroIdx != null ? heroIdx : 0;
+    const j = villainIdx != null ? villainIdx : 1;
+    if (s.length < 2 || i === j || i < 0 || j < 0 || i >= s.length || j >= s.length) return 1;
+    const pays = alignPayoutsToStacks(payouts, s.length);
+    if (!pays || !pays.length) return 1;
+    // El all-in se juega por el stack efectivo entre ambos.
+    const eff = Math.min(s[i], s[j]);
+    if (!(eff > 0)) return 1;
+
+    const lose = s.slice();
+    lose[i] = s[i] - eff;
+    lose[j] = s[j] + eff;
+    const win = s.slice();
+    win[i] = s[i] + eff;
+    win[j] = s[j] - eff;
+
+    const now = equityForIndex(s, i, pays);
+    const risk = now - equityForIndex(lose, i, pays);
+    const reward = equityForIndex(win, i, pays) - now;
+    if (!(reward > 1e-9)) return risk > 1e-9 ? BF_MAX : 1;
+    return Math.round(clamp(risk / reward, BF_MIN, BF_MAX) * 100) / 100;
+  }
+
+  /**
+   * Risk premium: equity extra (0..1) sobre el breakeven de chipEV que exige el ICM.
+   * RP = BF / (BF + 1) − 0.5. BF 1 ⇒ 0; BF 2 ⇒ +0.167.
+   */
+  function riskPremium(bf) {
+    const b = Number(bf);
+    if (!(b > 0)) return 0;
+    return Math.round((b / (b + 1) - 0.5) * 1000) / 1000;
+  }
+
+  /** Equity requerida para pagar un all-in según el BF. */
+  function requiredEquity(bf) {
+    const b = Number(bf);
+    if (!(b > 0)) return 0.5;
+    return Math.round((b / (b + 1)) * 1000) / 1000;
+  }
+
+  function riskPremiumPair(stacks, heroIdx, villainIdx, payouts) {
+    return riskPremium(bubbleFactorPair(stacks, heroIdx, villainIdx, payouts));
+  }
+
+  /** Matriz n×n de bubble factors (fila = quién decide, columna = contra quién). */
+  function bubbleFactorMatrix(stacks, payouts) {
+    const s = (stacks || []).map(function (x) { return Math.max(0, Number(x) || 0); });
+    const n = s.length;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const row = [];
+      for (let j = 0; j < n; j++) {
+        row.push(i === j ? 1 : bubbleFactorPair(s, i, j, payouts));
+      }
+      out.push(row);
+    }
+    return out;
+  }
+
+  /** Bubble factor hero vs villain (alias canónico; antes era un ratio de presión). */
   function bubbleFactor(stacks, heroIdx, villainIdx, payouts) {
-    const pressure = icmPressure(stacks, payouts);
-    if (!pressure) return 1;
-    const pH = pressure[heroIdx] || 0;
-    // Más presión ⇒ BF más alto (llamar/farolear cuesta más en $EV).
-    const bf = 1 + Math.max(0, pH) * 4 + Math.max(0, -(pressure[villainIdx] || 0)) * 1.5;
-    return Math.round(Math.min(3.5, Math.max(0.7, bf)) * 100) / 100;
+    return bubbleFactorPair(stacks, heroIdx, villainIdx, payouts);
   }
 
   function defaultStacks(input) {
@@ -13200,6 +13292,18 @@ window.PT_NASH_PUSH_JSON = {
     } else {
       decision.icmNote = 'Presión moderada: fichas y premio van más o menos alineados.';
     }
+    if (input.stackRole === 'cover' || input.coversVillain) {
+      decision.icmNote += ' Chip lead: BF ' + bf + ' — puedes ampliar opens/faroles.';
+    } else if (input.stackRole === 'mid' || input.coveredByVillain) {
+      decision.icmNote += ' Cubierto: BF ' + bf + ' — rango más tight.';
+    } else if (input.stackRole === 'short') {
+      decision.icmNote += ' Short: BF ' + bf + ' — prioriza shove/steal selectivo.';
+    }
+    if (input.ownRiskPremium != null) {
+      decision.ownRiskPremium = input.ownRiskPremium;
+      decision.opponentRiskPremium = input.opponentRiskPremium != null ? input.opponentRiskPremium : null;
+    }
+    decision.stackRole = input.stackRole || null;
     const pool = prizePoolEstimate(input);
     if (pool != null && input.buyIn != null) {
       decision.icmBuyIn = Number(input.buyIn);
@@ -13298,7 +13402,13 @@ window.PT_NASH_PUSH_JSON = {
   global.GTOIcmEv = {
     icmEquities: icmEquities,
     icmPressure: icmPressure,
+    equityForIndex: equityForIndex,
     bubbleFactor: bubbleFactor,
+    bubbleFactorPair: bubbleFactorPair,
+    bubbleFactorMatrix: bubbleFactorMatrix,
+    riskPremium: riskPremium,
+    riskPremiumPair: riskPremiumPair,
+    requiredEquity: requiredEquity,
     riskMultiplier: riskMultiplier,
     adjustEvLoss: adjustEvLoss,
     annotateDecision: annotateDecision,
@@ -14417,16 +14527,17 @@ window.PT_NASH_PUSH_JSON = {
       )
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
 
-    // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain
+    // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain.
+    // También preflop: opens/defensas en burbuja son el error ICM más frecuente.
     const DC = global.GTODecisionContext;
     const facing = (enriched.toCallBB || 0) > 0;
-    if (DC && enriched.street && enriched.street !== 'preflop') {
+    if (DC) {
       const ctx = DC.buildBase({
         formatHub: enriched.formatHub,
         gameType: enriched.gameType,
         kind: enriched.kind || enriched.tournamentKind,
         tournamentKind: enriched.tournamentKind || enriched.kind,
-        street: enriched.street,
+        street: enriched.street || 'preflop',
         potBB: enriched.potBB,
         stackBB: enriched.heroStackBB != null ? enriched.heroStackBB : enriched.effStack,
         spr: enriched.spr,
@@ -14448,6 +14559,13 @@ window.PT_NASH_PUSH_JSON = {
         multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,
         potType: enriched.potType || 'srp',
         stackRole: enriched.stackRole,
+        opponentStackRole: enriched.opponentStackRole,
+        coversOpponent: enriched.coversVillain,
+        coveredByOpponent: enriched.coveredByVillain,
+        avgStackBB: enriched.avgStackBB,
+        ownRiskPremium: enriched.ownRiskPremium,
+        opponentRiskPremium: enriched.opponentRiskPremium,
+        pairBubbleFactor: enriched.pairBubbleFactor,
         lineIntent: enriched.lineIntent || null
       });
       strategy = DC.applyIcmToFreqs(Object.assign({}, strategy), ctx, facing ? 'facing' : 'lead');
@@ -14526,7 +14644,10 @@ window.PT_NASH_PUSH_JSON = {
             icmStacksBB: enriched.icmStacksBB,
             icmPayouts: enriched.icmPayouts,
             playersLeft: enriched.playersLeft,
-            placesPaid: enriched.placesPaid
+            placesPaid: enriched.placesPaid,
+            stackRole: enriched.stackRole,
+            coversOpponent: enriched.coversVillain,
+            pairBubbleFactor: enriched.pairBubbleFactor
           }),
           stackRole: enriched.stackRole,
           multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2
@@ -14703,17 +14824,37 @@ window.PT_NASH_PUSH_JSON = {
         || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null);
       if (hub === 'spin' || hub === 'mtt') {
         const phase = enriched.mttPhase || enriched.resolvedPhase || null;
+        const role = enriched.stackRole || null;
+        const bf = enriched.pairBubbleFactor != null
+          ? enriched.pairBubbleFactor
+          : (result.evaluation.bubbleFactor != null ? result.evaluation.bubbleFactor : null);
+        const rp = enriched.ownRiskPremium != null ? enriched.ownRiskPremium : null;
         result.evaluation.formatHub = hub;
         result.evaluation.mttPhase = phase;
-        result.evaluation.phaseNote = phase
-          ? ('Rango/evaluación según fase «' + phase + '»'
-            + (enriched.stackDepth || enriched.heroStackBB
-              ? (' · ' + (enriched.heroStackBB != null ? enriched.heroStackBB + 'bb' : String(enriched.stackDepth)))
-              : '')
-            + '.')
+        result.evaluation.stackRole = role;
+        result.evaluation.coversVillain = !!enriched.coversVillain;
+        result.evaluation.coveredByVillain = !!enriched.coveredByVillain;
+        let phaseBits = [];
+        if (phase) phaseBits.push('fase «' + phase + '»');
+        if (role === 'cover') phaseBits.push('rol chip lead (cubres)');
+        else if (role === 'mid') phaseBits.push('rol mid (cubierto)');
+        else if (role === 'short') phaseBits.push('rol short');
+        if (enriched.heroStackBB != null) phaseBits.push(enriched.heroStackBB + 'bb');
+        else if (enriched.stackDepth) phaseBits.push(String(enriched.stackDepth));
+        if (bf != null) phaseBits.push('BF ' + bf);
+        if (rp != null) phaseBits.push('RP ' + Math.round(rp * 1000) / 1000);
+        result.evaluation.phaseNote = phaseBits.length
+          ? ('Rango/evaluación según ' + phaseBits.join(' · ') + '.')
           : (hub === 'spin'
             ? 'Rango/evaluación de Spin (stack-aware).'
             : 'Rango/evaluación de torneo.');
+        if (role === 'cover' || enriched.coversVillain) {
+          result.evaluation.icmNote = (result.evaluation.icmNote ? result.evaluation.icmNote + ' ' : '')
+            + 'Puedes abrir/farolear más ancho: tu bubble factor favorece la presión.';
+        } else if (role === 'mid' || enriched.coveredByVillain) {
+          result.evaluation.icmNote = (result.evaluation.icmNote ? result.evaluation.icmNote + ' ' : '')
+            + 'Aprieta el rango: te cubren y el risk premium propio es alto.';
+        }
         if (result.evaluation.icmLite && chipEvLoss > 0
           && Math.abs((result.evaluation.evLoss || 0) - chipEvLoss) >= 0.01) {
           result.evaluation.icmChangedEv = true;
@@ -16092,34 +16233,67 @@ window.PT_NASH_PUSH_JSON = {
         out.xr = 0.65;
       }
     } else {
-      // MTT
+      // MTT — asimetría ICM: RP propio aprieta; RP del rival permite farolear.
+      const ownRp = ctx.ownRiskPremium != null ? Number(ctx.ownRiskPremium) : null;
+      const oppRp = ctx.opponentRiskPremium != null ? Number(ctx.opponentRiskPremium) : null;
+      const role = ctx.stackRole || '';
+      const covers = !!(ctx.coversOpponent || ctx.coversHero);
+      const covered = !!(ctx.coveredByOpponent || ctx.coveredByHero);
+
       if (phase === 'bubble' || situ === 'bubble') {
-        out.bluff = 0.55;
-        out.xr = 0.45;
-        out.overbet = 0.35;
-        out.fold = 1.22;
-        out.thinValue = 0.7;
-        out.jamBias = 1.15;
+        // Base bubble: mid aprieta; cover/short se reajustan abajo con RP.
+        out.bluff = 0.7;
+        out.xr = 0.55;
+        out.overbet = 0.4;
+        out.fold = 1.12;
+        out.thinValue = 0.78;
+        out.jamBias = 1.12;
+      } else if (phase === 'ft' || situ === 'ft9') {
+        out.bluff = 0.78;
+        out.thinValue = 0.82;
+        out.overbet = 0.75;
+        out.fold = 1.1;
+        out.xr = 0.7;
+      } else if (phase === 'itm' || situ === 'mincash') {
+        out.bluff = 0.85;
+        out.thinValue = 0.88;
+        out.overbet = 0.9;
+        out.fold = 1.05;
       } else if (phase === 'push' || phase === 'short') {
         out.bluff = 0.62;
         out.overbet = 0.3;
         out.xr = 0.5;
         out.jamBias = 1.4;
         out.sizeSimple = true;
-      } else if (situ === 'mincash' || situ === 'ft9') {
-        out.bluff = 0.72;
-        out.thinValue = 0.78;
-        out.overbet = 0.85;
-        out.fold = 1.08;
       } else if (phase === 'early' || phase === 'mid') {
         out.xr = 1.15;
         out.overbet = 1.05;
         out.thinValue = 1.05;
       }
-      if (icm && phase !== 'early') {
-        out.bluff = clamp(out.bluff * 0.88, 0.35, 1.2);
-        out.fold = clamp(out.fold * 1.06, 1, 1.35);
+
+      // Drivers asimétricos: RP propio → más fold; RP rival → más bluff/presión.
+      if (ownRp != null && ownRp > 0.02) {
+        const ownOver = clamp((ownRp - 0.02) / 0.2, 0, 1);
+        out.fold = clamp(out.fold * (1 + 0.28 * ownOver), 0.85, 1.45);
+        out.bluff = clamp(out.bluff * (1 - 0.35 * ownOver), 0.3, 1.25);
+        out.thinValue = clamp(out.thinValue * (1 - 0.25 * ownOver), 0.45, 1.15);
+        out.raise = clamp(out.raise * (1 - 0.15 * ownOver), 0.7, 1.3);
       }
+      if (oppRp != null && oppRp > 0.02) {
+        const oppOver = clamp((oppRp - 0.02) / 0.2, 0, 1);
+        out.bluff = clamp(out.bluff * (1 + 0.55 * oppOver), 0.4, 1.55);
+        out.bet = clamp(out.bet * (1 + 0.18 * oppOver), 0.9, 1.5);
+        out.cbet = clamp(out.cbet * (1 + 0.15 * oppOver), 0.9, 1.45);
+        out.raise = clamp(out.raise * (1 + 0.2 * oppOver), 0.85, 1.45);
+        out.fold = clamp(out.fold * (1 - 0.2 * oppOver), 0.75, 1.35);
+        // Size down with value cuando cubres: menos overbet de value.
+        if (covers) out.overbet = clamp(out.overbet * (1 - 0.25 * oppOver), 0.15, 1.2);
+      } else if (icm && phase !== 'early' && ownRp == null && oppRp == null) {
+        // Fallback legacy solo si no hay RP: no invertir cover.
+        out.bluff = clamp(out.bluff * 0.92, 0.35, 1.2);
+        out.fold = clamp(out.fold * 1.04, 1, 1.35);
+      }
+
       // PKO / mystery: suavizar overfold ICM + bias call/shove por bounty lite.
       const tType = String(ctx.tournamentType || '').toLowerCase();
       if (tType === 'pko' || tType === 'mystery') {
@@ -16132,20 +16306,28 @@ window.PT_NASH_PUSH_JSON = {
           out.jamBias = clamp(out.jamBias * 1.06, 1, 1.85);
         }
       }
-      // Roles de mesa (short / cover / mid) cuando el contexto los aporta
-      const role = ctx.stackRole || '';
+      // Roles de mesa: refinamiento encima del RP.
       if (role === 'short') {
         out.jamBias = clamp(out.jamBias * 1.12, 1, 1.9);
         out.bet = clamp(out.bet * 1.06, 0.9, 1.5);
-        out.bluff = clamp(out.bluff * 0.9, 0.35, 1.2);
-      } else if (role === 'cover') {
-        out.bet = clamp(out.bet * 1.1, 0.9, 1.55);
-        out.cbet = clamp(out.cbet * 1.08, 0.9, 1.5);
-        out.fold = clamp(out.fold * 0.95, 0.8, 1.3);
-      } else if (role === 'mid' && (phase === 'bubble' || situ === 'bubble')) {
-        out.fold = clamp(out.fold * 1.1, 1, 1.4);
-        out.bluff = clamp(out.bluff * 0.85, 0.35, 1.1);
-        out.thinValue = clamp(out.thinValue * 0.85, 0.5, 1.1);
+        // Short overfoldea menos que mid en burbuja.
+        if (phase === 'bubble' || situ === 'bubble') {
+          out.fold = clamp(out.fold * 0.92, 0.85, 1.3);
+          out.bluff = clamp(out.bluff * 0.95, 0.35, 1.25);
+        } else {
+          out.bluff = clamp(out.bluff * 0.9, 0.35, 1.2);
+        }
+      } else if (role === 'cover' || covers) {
+        out.bet = clamp(out.bet * 1.12, 0.9, 1.55);
+        out.cbet = clamp(out.cbet * 1.1, 0.9, 1.5);
+        out.fold = clamp(out.fold * 0.88, 0.75, 1.25);
+        out.bluff = clamp(out.bluff * 1.15, 0.45, 1.55);
+        // Size down with value (correcto): reducir overbet.
+        out.overbet = clamp(out.overbet * 0.85, 0.15, 1.2);
+      } else if ((role === 'mid' || covered) && (phase === 'bubble' || situ === 'bubble' || phase === 'ft')) {
+        out.fold = clamp(out.fold * 1.12, 1, 1.45);
+        out.bluff = clamp(out.bluff * 0.8, 0.3, 1.1);
+        out.thinValue = clamp(out.thinValue * 0.82, 0.45, 1.1);
       }
     }
 
@@ -17168,7 +17350,7 @@ window.PT_NASH_PUSH_JSON = {
 
   /**
    * Bubble factor lite desde contexto (stacks/payouts o heurística de fase).
-   * En burbuja/FT usa al menos el suelo de fase (el BF Harville del short puede ser ~1).
+   * Preferir BF por pareja cuando existe; floors de fase asimétricos por rol.
    */
   function bubbleFactorFromCtx(ctx) {
     ctx = ctx || {};
@@ -17180,10 +17362,21 @@ window.PT_NASH_PUSH_JSON = {
     var phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase || '';
     var situ = ctx.mttStructureSituation || '';
     if (phase === 'hu' || situ === 'hu') return 1;
+
+    // BF canónico por pareja (ya calculado) manda sobre floors genéricos.
+    if (ctx.pairBubbleFactor != null && Number(ctx.pairBubbleFactor) > 0) {
+      var pairBf = Number(ctx.pairBubbleFactor);
+      // Soft floor por rol/fase solo si el BF es anormalmente bajo en burbuja mid.
+      var softFloor = 1;
+      if ((phase === 'bubble' || situ === 'bubble') && ctx.stackRole === 'mid') softFloor = 1.25;
+      return Math.max(pairBf, softFloor);
+    }
+
     var phaseFloor = 1;
     if (hub === 'spin') phaseFloor = phase === 'push' ? 1.45 : 1.2;
     else if (phase === 'bubble' || situ === 'bubble') phaseFloor = 1.55;
-    else if (situ === 'ft9' || situ === 'mincash') phaseFloor = 1.28;
+    else if (phase === 'ft' || situ === 'ft9') phaseFloor = 1.32;
+    else if (phase === 'itm' || situ === 'mincash') phaseFloor = 1.18;
     else if (phase === 'push' || phase === 'short') phaseFloor = 1.22;
 
     var computed = 1;
@@ -17223,10 +17416,17 @@ window.PT_NASH_PUSH_JSON = {
         }
       } catch (e) { /* fallthrough */ }
     }
-    // Cover/big: BF alto; short en burbuja: sigue el suelo de fase (jobs de mesa).
-    if (ctx.stackRole === 'cover') phaseFloor = Math.max(phaseFloor, 1.35);
-    if (ctx.stackRole === 'short' && (phase === 'bubble' || situ === 'bubble')) {
-      phaseFloor = Math.max(1.15, phaseFloor * 0.85);
+    // Floors/caps asimétricos: cover bajo, mid bubble alto, short intermedio.
+    if (ctx.stackRole === 'cover' || ctx.coversOpponent) {
+      // Chip lead: BF bajo aunque la heurística de fase sea alta.
+      var coverCap = 1.22;
+      var coverFloor = 1.1;
+      return Math.min(coverCap, Math.max(computed || 1, coverFloor, phaseFloor > 1 ? 1.1 : 1));
+    }
+    if (ctx.stackRole === 'mid' && (phase === 'bubble' || situ === 'bubble' || phase === 'ft')) {
+      phaseFloor = Math.max(phaseFloor, 1.6);
+    } else if (ctx.stackRole === 'short' && (phase === 'bubble' || situ === 'bubble')) {
+      phaseFloor = Math.max(1.2, Math.min(phaseFloor, 1.3));
     }
     return Math.max(computed || 1, phaseFloor);
   }
@@ -17287,8 +17487,14 @@ window.PT_NASH_PUSH_JSON = {
     var bb = Number(ctx.stackBB) || 0;
     var avg = Number(ctx.avgStackBB) || bb;
     if (!bb) return null;
+    // La cobertura directa manda sobre el ratio contra la media: quien cubre al
+    // rival de la mano puede presionar aunque no sea el chip lead de la mesa.
+    if (ctx.coversOpponent && !ctx.coveredByOpponent && bb >= avg) return 'cover';
     if (bb <= 12 || (avg > 0 && bb / avg <= 0.45)) return 'short';
     if (avg > 0 && bb / avg >= 1.55) return 'cover';
+    if (ctx.coveredByOpponent && (ctx.effectivePhase === 'bubble'
+      || ctx.effectivePhase === 'ft'
+      || ctx.mttStructureSituation === 'bubble')) return 'mid';
     if (ctx.effectivePhase === 'bubble' || ctx.mttStructureSituation === 'bubble') return 'mid';
     return null;
   }
@@ -17319,6 +17525,11 @@ window.PT_NASH_PUSH_JSON = {
       multiwayCount: 2,
       potType: 'srp',
       stackRole: null,
+      opponentStackRole: null,
+      coversOpponent: false,
+      coveredByOpponent: false,
+      ownRiskPremium: null,
+      opponentRiskPremium: null,
       bubbleFactor: 1
     }, extra);
     ctx.formatHub = hubOf(ctx);
@@ -18198,18 +18409,62 @@ window.PT_NASH_PUSH_JSON = {
     if (isExplicitHu(ctx)) return 0;
     const Tax = global.PTFormatTaxonomy;
     if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 0;
+
+    // Preferir risk premium propio (asimetría cubre/cubierto).
+    if (ctx.ownRiskPremium != null && Number(ctx.ownRiskPremium) > 0) {
+      let bias = clamp(Number(ctx.ownRiskPremium) * 1.15, 0, 0.28);
+      const role = ctx.stackRole || '';
+      // Short overfoldea menos que mid en burbuja.
+      if (role === 'short') bias *= 0.7;
+      else if (role === 'cover' || ctx.coversOpponent || ctx.coversHero) bias *= 0.35;
+      else if (role === 'mid') bias *= 1.1;
+      const t = String(ctx.tournamentType || '').toLowerCase();
+      if (bias > 0 && (t === 'pko' || t === 'mystery')) bias *= 0.55;
+      return bias;
+    }
+
     const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
     let bias = 0;
     if (phase === 'bubble') bias = 0.18;
+    else if (phase === 'ft') bias = 0.14;
     else if (phase === 'push') bias = 0.14;
     else if (phase === 'short') bias = 0.08;
+    else if (phase === 'itm') bias = 0.05;
     else {
       if (Tax && Tax.usesIcm && Tax.usesIcm(ctx)) bias = 0.1;
     }
+    const role = ctx.stackRole || '';
+    if (role === 'cover' || ctx.coversOpponent || ctx.coversHero) bias *= 0.4;
+    else if (role === 'short') bias *= 0.75;
+    else if (role === 'mid') bias *= 1.1;
     // PKO / mystery: menos overfold (bounty incentive); sin EV bounty real.
     const t = String(ctx.tournamentType || '').toLowerCase();
     if (bias > 0 && (t === 'pko' || t === 'mystery')) bias *= 0.55;
     return bias;
+  }
+
+  /**
+   * Bias de presión/steal cuando el rival tiene risk premium alto (está cubierto).
+   * 0..~0.22 — se suma a 3bet / reduce fold en defensa agresiva.
+   */
+  function tournamentStealBias(ctx) {
+    if (!ctx || !ctx.isTournament) return 0;
+    if (isExplicitHu(ctx)) return 0;
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(ctx)) return 0;
+
+    if (ctx.opponentRiskPremium != null && Number(ctx.opponentRiskPremium) > 0) {
+      let bias = clamp(Number(ctx.opponentRiskPremium) * 1.05, 0, 0.22);
+      if (ctx.stackRole === 'cover' || ctx.coversOpponent || ctx.coversHero) bias *= 1.15;
+      if (ctx.stackRole === 'mid' || ctx.coveredByOpponent || ctx.coveredByHero) bias *= 0.45;
+      return bias;
+    }
+
+    const phase = ctx.effectivePhase || ctx.resolvedPhase || ctx.mttPhase;
+    if (phase !== 'bubble' && phase !== 'ft' && phase !== 'itm' && phase !== 'push') return 0;
+    if (ctx.stackRole === 'cover' || ctx.coversOpponent || ctx.coversHero) return 0.12;
+    if (ctx.stackRole === 'short') return 0.04;
+    return 0;
   }
 
   /** Defensa BB/SB frente a open del héroe (fold / call / 3bet). */
@@ -18222,7 +18477,8 @@ window.PT_NASH_PUSH_JSON = {
     const wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
     const icmBias = tournamentFoldBias(ctx);
-    const huAgg = huAggressionBias(ctx);
+    const stealBias = tournamentStealBias(ctx);
+    const huAgg = huAggressionBias(ctx) + stealBias;
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
@@ -18507,7 +18763,7 @@ window.PT_NASH_PUSH_JSON = {
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
     isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
-    tournamentFoldBias, isExplicitHu, huAggressionBias
+    tournamentFoldBias, tournamentStealBias, isExplicitHu, huAggressionBias
   };
 })(window);
 
@@ -18984,6 +19240,27 @@ window.PT_NASH_PUSH_JSON = {
     return 'deep';
   }
 
+  /**
+   * Rotación pedagógica de rol de stack para fases bubble/ITM/FT.
+   * ~35% cover / 40% mid / 25% short — reproducible con seed externo vía rnd.
+   */
+  function pickPedagogicalStackRole(rnd) {
+    const r = rnd != null ? rnd : Math.random();
+    if (r < 0.35) return 'cover';
+    if (r < 0.75) return 'mid';
+    return 'short';
+  }
+
+  function isIcmTeachingPhase(cfg) {
+    if (!cfg) return false;
+    // Solo fases de mesa con asimetría cubre/cubierto pedagógica.
+    // No usar mttStructureSituation mincash: short/push lo setean sin ser burbuja.
+    const phase = cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase || '';
+    const situ = cfg.mttStructureSituation || '';
+    return phase === 'bubble' || phase === 'itm' || phase === 'ft'
+      || situ === 'bubble' || situ === 'ft9';
+  }
+
   function sampleInRange(lo, hi, rnd) {
     const a = Number(lo);
     const b = Number(hi);
@@ -19042,6 +19319,19 @@ window.PT_NASH_PUSH_JSON = {
       return sampleInRange(lo, Math.min(hi, 80), rnd2);
     }
 
+    // mid explícito: al menos un cover en mesa (heroes mid cubiertos)
+    if (role === 'mid') {
+      if (r < 0.55) {
+        const lo = Math.max(h + 6, h * 1.35);
+        const hi = Math.max(lo + 5, h * 2.4);
+        return sampleInRange(lo, Math.min(hi, 120), rnd2);
+      }
+      if (r < 0.8) {
+        return sampleInRange(Math.max(8, h * 0.7), Math.max(h * 0.95, h - 1), rnd2);
+      }
+      return sampleInRange(Math.max(5, h * 0.35), Math.min(h * 0.55, 18), rnd2);
+    }
+
     const bands = tournamentBands(hub, heroBB);
     const band = pickBand(rnd);
     const range = bands[band] || bands.mid;
@@ -19082,6 +19372,20 @@ window.PT_NASH_PUSH_JSON = {
     });
   }
 
+  /** Mid vs big: al menos un cover por encima del héroe. */
+  function enforceMidTable(hand, positions, heroSeat, heroBB, rngFn) {
+    if (!hand || !hand.stacks) return;
+    const rnd = rngFn || Math.random;
+    const h = Number(heroBB) || 25;
+    const others = (positions || []).filter(function (p) { return p !== heroSeat; });
+    const hasCover = others.some(function (p) { return hand.stacks[p] >= h * 1.25; });
+    if (!hasCover && others.length) {
+      const target = others.indexOf('BTN') >= 0 ? 'BTN'
+        : (others.indexOf('CO') >= 0 ? 'CO' : others[0]);
+      hand.stacks[target] = round2(sampleInRange(h * 1.4, Math.max(h * 1.4 + 4, h * 2.1), rnd()));
+    }
+  }
+
   function invested(hand, pos) {
     if (!hand || !pos) return 0;
     let inv = (hand.table && hand.table.invested && hand.table.invested[pos]) || 0;
@@ -19119,7 +19423,12 @@ window.PT_NASH_PUSH_JSON = {
     const rnd = rngFn || function () { return Math.random(); };
     const cfg = playConfig || (hand && hand.playConfig) || null;
     const hub = formatHubOf(cfg);
-    const role = (cfg && cfg.stackRole) || null;
+    let role = (cfg && cfg.stackRole) || null;
+    // En fases ICM sin rol fijo: rotar cover/mid/short para spots pedagógicos.
+    if (!role && hub !== 'cash' && isIcmTeachingPhase(cfg)) {
+      role = pickPedagogicalStackRole(rnd());
+      if (hand) hand._pedagogicalStackRole = role;
+    }
     const fixed = cfg && cfg.legendaryStacks;
     hand.stacks = {};
     const seatMap = (cfg && cfg.seatStacksBB && typeof cfg.seatStacksBB === 'object')
@@ -19149,6 +19458,8 @@ window.PT_NASH_PUSH_JSON = {
       enforceCoverTable(hand, positions, heroSeat, heroBB, rnd);
     } else if (role === 'short') {
       enforceShortTable(hand, positions, heroSeat, heroBB, rnd);
+    } else if (role === 'mid') {
+      enforceMidTable(hand, positions, heroSeat, heroBB, rnd);
     }
     hand.heroStackStart = round2(heroBB);
     // Alias para ICM / scoring (claves por asiento son la fuente de verdad)
@@ -19178,12 +19489,232 @@ window.PT_NASH_PUSH_JSON = {
 
   global.PTStacks = {
     round2, heroStackBB, villainStackBB, initHandStacks,
-    tournamentBands, pickBand, formatHubOf,
-    enforceCoverTable, enforceShortTable,
+    tournamentBands, pickBand, pickPedagogicalStackRole, isIcmTeachingPhase, formatHubOf,
+    enforceCoverTable, enforceShortTable, enforceMidTable,
     invested, remaining, effectiveVs, effectiveForHero,
     capToRemaining, capTotalInvest, isAllIn, formatStackBB
   };
 })(window);
+
+/*
+ * stackCoverage.js — Quién cubre a quién en la mesa y rol de stack por asiento.
+ *
+ * El rol gobierna la asimetría ICM: el stack que cubre tiene bubble factor bajo
+ * (puede presionar) y el cubierto lo tiene alto (sobre-foldea). El stack medio es
+ * quien más presión siente; el short, menos de lo que parece.
+ */
+(function (global) {
+  'use strict';
+
+  const ROLE_COVER = 'cover';
+  const ROLE_MID = 'mid';
+  const ROLE_SHORT = 'short';
+  /** Ratio mínimo para que una diferencia de stacks cambie el rol (no el all-in). */
+  const MEANINGFUL = 1.25;
+
+  function round2(x) { return Math.round((Number(x) || 0) * 100) / 100; }
+
+  function ST() { return global.PTStacks; }
+
+  function remainingBB(hand, pos) {
+    const S = ST();
+    if (S && hand && hand.stacks) return S.remaining(hand, pos);
+    if (hand && hand.stacks && hand.stacks[pos] != null) return round2(hand.stacks[pos]);
+    return 0;
+  }
+
+  /** Asientos con fichas: claves de hand.stacks sin los alias hero/villain. */
+  function tableSeats(hand) {
+    if (!hand || !hand.stacks) return [];
+    return Object.keys(hand.stacks).filter(function (k) {
+      return k !== 'hero' && k !== 'villain' && Number(hand.stacks[k]) > 0;
+    });
+  }
+
+  /**
+   * Cobertura entre dos asientos.
+   * @returns {{ aBB:number, bBB:number, covers:boolean, covered:boolean, ratio:number, effBB:number }}
+   *   covers: A cubre a B · covered: A está cubierto por B · ratio: stack de A / stack de B
+   */
+  function coverageFor(hand, posA, posB) {
+    const a = remainingBB(hand, posA);
+    const b = remainingBB(hand, posB);
+    const ratio = b > 0 ? round2(a / b) : (a > 0 ? 99 : 1);
+    return {
+      aBB: a,
+      bBB: b,
+      effBB: round2(Math.min(a, b)),
+      // Margen del 2 % para no etiquetar stacks prácticamente iguales.
+      covers: a > b * 1.02,
+      covered: b > a * 1.02,
+      ratio: ratio
+    };
+  }
+
+  /**
+   * Rol de un stack dado el reparto de la mesa.
+   * @param {number} bb — stack del asiento
+   * @param {number[]} allBB — stacks de todos los asientos vivos (incluido el propio)
+   */
+  function roleForStack(bb, allBB) {
+    const s = Number(bb) || 0;
+    const list = (allBB || []).map(Number).filter(function (x) { return x > 0; });
+    if (!s || list.length < 2) return null;
+    const avg = list.reduce(function (acc, x) { return acc + x; }, 0) / list.length;
+    const max = Math.max.apply(null, list);
+    const others = Math.max(1, list.length - 1);
+    // Para el rol solo cuentan las diferencias que cambian la estrategia (≥25 %):
+    // en una mesa plana de 25bb nadie es cover ni short.
+    const coversBig = list.filter(function (x) { return s >= x * MEANINGFUL; }).length;
+    const coveredByBig = list.filter(function (x) { return x >= s * MEANINGFUL; }).length;
+
+    // Chip lead claro, o cubre a la mayoría con un rival grande como máximo detrás:
+    // ese asiento puede presionar aunque no sea el líder (de facto chip lead de la mano).
+    if (s >= max - 0.01 && s >= avg * 1.2) return ROLE_COVER;
+    if (coversBig / others >= 0.6 && coveredByBig <= 1 && s >= avg * 1.15) return ROLE_COVER;
+    // Corto de verdad: push/fold o muy por debajo de la media.
+    if (s <= 12 || s <= avg * 0.5 || coveredByBig / others >= 0.85) return ROLE_SHORT;
+    return ROLE_MID;
+  }
+
+  /**
+   * Rol y cobertura de cada asiento de la mesa.
+   * @returns {Object<string,{bb:number,role:string,coversCount:number,coveredByCount:number,isChipLead:boolean}>}
+   */
+  function rolesForTable(hand) {
+    const seats = tableSeats(hand);
+    const out = {};
+    if (seats.length < 2) return out;
+    const bbBySeat = {};
+    seats.forEach(function (pos) { bbBySeat[pos] = remainingBB(hand, pos); });
+    const all = seats.map(function (pos) { return bbBySeat[pos]; });
+    const max = Math.max.apply(null, all);
+    seats.forEach(function (pos) {
+      const bb = bbBySeat[pos];
+      out[pos] = {
+        bb: bb,
+        role: roleForStack(bb, all),
+        coversCount: all.filter(function (x) { return bb > x * 1.02; }).length,
+        coveredByCount: all.filter(function (x) { return x > bb * 1.02; }).length,
+        isChipLead: bb >= max - 0.01
+      };
+    });
+    return out;
+  }
+
+  function avgStackBB(hand) {
+    const seats = tableSeats(hand);
+    if (!seats.length) return null;
+    const sum = seats.reduce(function (acc, pos) { return acc + remainingBB(hand, pos); }, 0);
+    return round2(sum / seats.length);
+  }
+
+  /**
+   * Contexto ICM de una pareja de asientos para alimentar las decisiones del villano
+   * y la evaluación del héroe: rol propio, cobertura y risk premium de cada lado.
+   *
+   * @param {object} hand
+   * @param {string} selfPos — quien decide
+   * @param {string} oppPos — su rival en la mano
+   * @param {object} [icmCtx] — { icmStacksBB, icmPayouts, icmHeroIdx, icmVillainIdx }
+   */
+  function pairContext(hand, selfPos, oppPos, icmCtx) {
+    const cov = coverageFor(hand, selfPos, oppPos);
+    const roles = rolesForTable(hand);
+    const selfRole = (roles[selfPos] && roles[selfPos].role) || null;
+    const out = {
+      stackRole: selfRole,
+      opponentStackRole: (roles[oppPos] && roles[oppPos].role) || null,
+      coversOpponent: cov.covers,
+      coveredByOpponent: cov.covered,
+      coverageRatio: cov.ratio,
+      avgStackBB: avgStackBB(hand),
+      isChipLead: !!(roles[selfPos] && roles[selfPos].isChipLead),
+      ownRiskPremium: null,
+      opponentRiskPremium: null,
+      bubbleFactor: null
+    };
+
+    const Icm = global.GTOIcmEv;
+    const stacks = icmCtx && icmCtx.icmStacksBB;
+    const payouts = icmCtx && icmCtx.icmPayouts;
+    if (Icm && Icm.bubbleFactorPair && stacks && stacks.length >= 2 && payouts && payouts.length) {
+      const si = icmCtx.icmHeroIdx != null ? icmCtx.icmHeroIdx : 0;
+      const sj = icmCtx.icmVillainIdx != null ? icmCtx.icmVillainIdx : 1;
+      const bfSelf = Icm.bubbleFactorPair(stacks, si, sj, payouts);
+      const bfOpp = Icm.bubbleFactorPair(stacks, sj, si, payouts);
+      out.bubbleFactor = bfSelf;
+      out.opponentBubbleFactor = bfOpp;
+      out.ownRiskPremium = Icm.riskPremium(bfSelf);
+      out.opponentRiskPremium = Icm.riskPremium(bfOpp);
+    }
+    return out;
+  }
+
+  /**
+   * Risk premium aproximado por rol cuando no hay stacks/payouts para el cálculo exacto.
+   * Sigue la asimetría conocida: medio cubierto > short > quien cubre.
+   */
+  function riskPremiumFromRole(role, phase, covered) {
+    const p = String(phase || '');
+    let base;
+    if (p === 'bubble') base = 0.14;
+    else if (p === 'ft') base = 0.11;
+    else if (p === 'mincash' || p === 'ft9') base = 0.08;
+    else if (p === 'push' || p === 'short') base = 0.06;
+    else if (p === 'itm') base = 0.03;
+    else return 0;
+    let mult;
+    if (role === ROLE_COVER) mult = 0.3;
+    else if (role === ROLE_SHORT) mult = 0.7;
+    else mult = 1;
+    if (covered && role !== ROLE_COVER) mult *= 1.15;
+    return Math.round(base * mult * 1000) / 1000;
+  }
+
+  /**
+   * Explicación corta de por qué el villano juega más/menos agresivo por ICM.
+   */
+  function explainPairPressure(pair, phase) {
+    if (!pair) return null;
+    const role = pair.stackRole || '';
+    const p = String(phase || '');
+    const bf = pair.bubbleFactor;
+    const bits = [];
+    if (role === 'cover' || pair.coversOpponent) {
+      bits.push('cubre al héroe');
+      if (pair.opponentRiskPremium != null && pair.opponentRiskPremium > 0.05) {
+        bits.push('puede farolear más (RP rival alto)');
+      } else {
+        bits.push('puede aplicar presión');
+      }
+    } else if (role === 'mid' || pair.coveredByOpponent) {
+      bits.push('está cubierto');
+      bits.push('rango más tight');
+    } else if (role === 'short') {
+      bits.push('short stack');
+      bits.push('menos overfold que un mid');
+    }
+    if (p === 'bubble' || p === 'ft' || p === 'itm') bits.push('fase ' + p);
+    if (bf != null) bits.push('BF ' + bf);
+    return bits.length ? ('Villano ' + bits.join(' · ')) : null;
+  }
+
+  global.PTStackCoverage = {
+    ROLE_COVER: ROLE_COVER,
+    ROLE_MID: ROLE_MID,
+    ROLE_SHORT: ROLE_SHORT,
+    MEANINGFUL: MEANINGFUL,
+    tableSeats: tableSeats,
+    coverageFor: coverageFor,
+    roleForStack: roleForStack,
+    rolesForTable: rolesForTable,
+    avgStackBB: avgStackBB,
+    pairContext: pairContext,
+    riskPremiumFromRole: riskPremiumFromRole,
+    explainPairPressure: explainPairPressure
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
 
 /*
  * ranges.js — Fachada de compatibilidad sobre engine/ranges.
@@ -19365,8 +19896,13 @@ window.PT_NASH_PUSH_JSON = {
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
     practiceIntent: 'mixed',
-    /** auto | early | mid | short | push | bubble — spins/MTT */
+    /** auto | early | mid | short | push | bubble | itm | ft | hu — spins/MTT */
     mttPhase: 'auto',
+    /**
+     * Rol de stack del héroe en spots ICM: null/'auto' | cover | mid | short.
+     * En bubble/ITM/FT sin rol fijo, stacks.js rota pedagógicamente.
+     */
+    stackRole: null,
     /** vanilla | pko | mystery | unknown — etiqueta; sin EV bounty */
     tournamentType: 'unknown',
     /** Capacidad / jugadores sentados (replay desde análisis) */
@@ -19532,6 +20068,13 @@ window.PT_NASH_PUSH_JSON = {
     c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
+    // Rol de stack: solo cubre/mid/short; auto/null → rotación pedagógica.
+    if (c.stackRole === 'auto' || c.stackRole === '' || c.stackRole === 'chipLead') {
+      c.stackRole = c.stackRole === 'chipLead' ? 'cover' : null;
+    }
+    if (c.stackRole && c.stackRole !== 'cover' && c.stackRole !== 'mid' && c.stackRole !== 'short') {
+      c.stackRole = null;
+    }
 
     // Fase Heads Up: mesa 2-max + WTA (chip-EV). Solo con mttPhase/structure explícitos.
     if (isHuPhase(c) || (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(c) && c.mttPhase === 'hu')) {
@@ -22367,6 +22910,54 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  /**
+   * Contexto ICM por pareja (cobertura, rol de stack y risk premium de cada lado)
+   * desde el punto de vista de quien decide.
+   *
+   * @param {object} hand
+   * @param {boolean} selfIsHero — true: decide el héroe; false: decide el villano
+   */
+  function pairIcmCtx(hand, selfIsHero) {
+    const Cov = global.PTStackCoverage;
+    if (!Cov || !hand || !hand.stacks) return null;
+    const cfg = hand.playConfig || {};
+    const heroSeat = heroStackSeat(hand);
+    const villainSeat = (hand.villain && (villainTableSeat(hand) || hand.villain.pos)) || null;
+    if (!heroSeat || !villainSeat || heroSeat === villainSeat) return null;
+    const selfPos = selfIsHero ? heroSeat : villainSeat;
+    const oppPos = selfIsHero ? villainSeat : heroSeat;
+
+    // contextForHand indexa siempre hero=0 / villain=1: para el villano se invierten.
+    let icmCtx = null;
+    const Icm = global.GTOIcmEv;
+    if (Icm && Icm.contextForHand) {
+      try {
+        const base = Icm.contextForHand(hand, cfg);
+        if (base && base.icmEnabled && base.icmStacksBB && base.icmPayouts) {
+          icmCtx = {
+            icmStacksBB: base.icmStacksBB,
+            icmPayouts: base.icmPayouts,
+            icmHeroIdx: selfIsHero ? 0 : 1,
+            icmVillainIdx: selfIsHero ? 1 : 0
+          };
+        }
+      } catch (e) { /* sin estructura ICM: se cae al RP por rol */ }
+    }
+
+    const pair = Cov.pairContext(hand, selfPos, oppPos, icmCtx);
+    if (pair && pair.ownRiskPremium == null && Cov.riskPremiumFromRole) {
+      // Sin stacks/payouts del field: aproximación por rol y fase.
+      const phase = cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase
+        || cfg.mttStructureSituation || '';
+      pair.ownRiskPremium = Cov.riskPremiumFromRole(pair.stackRole, phase, pair.coveredByOpponent);
+      pair.opponentRiskPremium = Cov.riskPremiumFromRole(
+        pair.opponentStackRole, phase, pair.coversOpponent
+      );
+      pair.riskPremiumEstimated = true;
+    }
+    return pair;
+  }
+
   function buildVillainSpotCtx(hand, extra) {
     extra = extra || {};
     const cfg = hand.playConfig || {};
@@ -22412,10 +23003,39 @@ window.PT_NASH_PUSH_JSON = {
       heroProfile = Ex.profileFromStats(heroStats);
     }
     const heroLine = extra.heroLine || hand.heroLine || heroLineFromTrainerHand(hand);
+    // Asimetría ICM: el rol del villano y el risk premium de cada lado deciden
+    // cuánto presiona (RP del héroe) y cuánto se aprieta (RP propio).
+    const pair = isTournament ? pairIcmCtx(hand, false) : null;
+    if (pair && hand) {
+      hand._lastOwnRiskPremium = pair.ownRiskPremium;
+      hand._lastOppRiskPremium = pair.opponentRiskPremium;
+      hand._lastPairBubbleFactor = pair.bubbleFactor;
+      hand._lastStackRole = pair.stackRole;
+      const Cov = global.PTStackCoverage;
+      if (Cov && Cov.explainPairPressure) {
+        hand._villainIcmWhy = Cov.explainPairPressure(
+          pair,
+          cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase || cfg.mttStructureSituation
+        );
+      }
+    }
+    const heroStackBB = ST() && hand.stacks ? ST().remaining(hand, heroStackSeat(hand)) : null;
     return Object.assign({
       formatHub: hub,
       gameType: cfg.gameType,
       isTournament: isTournament,
+      stackRole: (pair && pair.stackRole) || cfg.stackRole || null,
+      opponentStackRole: (pair && pair.opponentStackRole) || null,
+      coversHero: !!(pair && pair.coversOpponent),
+      coveredByHero: !!(pair && pair.coveredByOpponent),
+      coverageRatio: pair ? pair.coverageRatio : null,
+      isChipLead: !!(pair && pair.isChipLead),
+      avgStackBB: (pair && pair.avgStackBB) != null ? pair.avgStackBB : cfg.avgStackBB,
+      ownRiskPremium: pair ? pair.ownRiskPremium : null,
+      opponentRiskPremium: pair ? pair.opponentRiskPremium : null,
+      pairBubbleFactor: pair ? pair.bubbleFactor : null,
+      heroStackBB: heroStackBB,
+      villainStackBB: stackForAdjust,
       tournamentType: cfg.tournamentType || 'unknown',
       playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
       playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
@@ -23305,6 +23925,24 @@ window.PT_NASH_PUSH_JSON = {
     if (Icm && Icm.contextForHand) {
       const icmCtx = Icm.contextForHand(hand, cfg);
       if (icmCtx) Object.assign(input, icmCtx);
+    }
+    // Rol de stack y risk premium del héroe frente a este villano concreto.
+    const heroPair = input.formatHub && input.formatHub !== 'cash'
+      ? pairIcmCtx(hand, true)
+      : null;
+    if (heroPair) {
+      input.stackRole = heroPair.stackRole || cfg.stackRole || null;
+      input.opponentStackRole = heroPair.opponentStackRole || null;
+      input.coversVillain = !!heroPair.coversOpponent;
+      input.coveredByVillain = !!heroPair.coveredByOpponent;
+      input.coverageRatio = heroPair.coverageRatio;
+      input.isChipLead = !!heroPair.isChipLead;
+      input.ownRiskPremium = heroPair.ownRiskPremium;
+      input.opponentRiskPremium = heroPair.opponentRiskPremium;
+      input.pairBubbleFactor = heroPair.bubbleFactor;
+      if (heroPair.avgStackBB != null) input.avgStackBB = heroPair.avgStackBB;
+    } else if (cfg.stackRole) {
+      input.stackRole = cfg.stackRole;
     }
     const RR = global.GTORangesRegistry;
     if (RR) RR.attachToInput(input, rangeCtx(hand));
@@ -27309,6 +27947,16 @@ window.PT_NASH_PUSH_JSON = {
       tournamentType: formatHub === 'mtt' ? (cfg.tournamentType || null) : null,
       playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
       icm: !!(cfg.useIcm || formatHub === 'spin' || formatHub === 'mtt'),
+      stackRole: cfg.stackRole || (hand && hand._pedagogicalStackRole) || null,
+      ownRiskPremium: hand && hand._lastOwnRiskPremium != null ? hand._lastOwnRiskPremium : null,
+      opponentRiskPremium: hand && hand._lastOppRiskPremium != null ? hand._lastOppRiskPremium : null,
+      pairBubbleFactor: hand && hand._lastPairBubbleFactor != null ? hand._lastPairBubbleFactor : null,
+      seatStacks: hand && hand.stacks ? Object.keys(hand.stacks).filter(function (k) {
+        return k !== 'hero' && k !== 'villain';
+      }).reduce(function (acc, k) {
+        acc[k] = hand.stacks[k];
+        return acc;
+      }, {}) : null,
       villainLevel: cfg.villainLevel || null,
       openSize: cfg.preflopOpenSize || null,
       dec: decisions,
@@ -27327,8 +27975,9 @@ window.PT_NASH_PUSH_JSON = {
     } else if (formatHub === 'mtt') {
       payload.coachingNote = 'Mano de torneo MTT del entrenador'
         + (phase ? (' (fase ' + phase + ')') : '')
+        + (payload.stackRole ? (' · rol ' + payload.stackRole) : '')
         + (cfg.tournamentType && cfg.tournamentType !== 'unknown' ? (' · ' + cfg.tournamentType) : '')
-        + ': prioriza stack depth / fase / ICM; no trates como cash 6-max 100bb.'
+        + ': prioriza stack depth / fase / cobertura de stacks / ICM; no trates como cash 6-max 100bb.'
         + (cfg.tournamentType === 'pko' || cfg.tournamentType === 'mystery'
           ? ' EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.'
           : '');
@@ -32900,7 +33549,8 @@ window.PT_NASH_PUSH_JSON = {
       trainerByHandId: {},
       trainerLeaks: {},
       sessionLeaks: {},
-      sessionLeaksBySession: {}
+      sessionLeaksBySession: {},
+      byPhaseRole: {}
     };
   }
 
@@ -32913,6 +33563,7 @@ window.PT_NASH_PUSH_JSON = {
     if (!a.trainerLeaks) a.trainerLeaks = {};
     if (!a.sessionLeaks) a.sessionLeaks = {};
     if (!a.sessionLeaksBySession) a.sessionLeaksBySession = {};
+    if (!a.byPhaseRole) a.byPhaseRole = {};
     a.version = AGG_VERSION;
     return a;
   }
@@ -33220,11 +33871,25 @@ window.PT_NASH_PUSH_JSON = {
       }
     });
     if (entries.length) agg._trainerLeakIndex[rec.id] = entries;
+    var phase = rec.resolvedPhase || rec.mttPhase || 'auto';
+    var role = rec.stackRole || 'unknown';
+    var prKey = phase + '|' + role;
+    if (!agg.byPhaseRole) agg.byPhaseRole = {};
+    if (!agg.byPhaseRole[prKey]) {
+      agg.byPhaseRole[prKey] = { phase: phase, role: role, hands: 0, decisions: 0, good: 0, evLoss: 0 };
+    }
+    var pr = agg.byPhaseRole[prKey];
+    pr.hands += 1;
+    pr.decisions += decs.length;
+    pr.good += good;
+    pr.evLoss = round2(pr.evLoss + evLoss);
     agg.trainerByHandId[rec.id] = {
       week: weekKey(rec.createdAt || Date.now()),
       decisions: decs.length,
       good: good,
-      evLoss: round2(evLoss)
+      evLoss: round2(evLoss),
+      phase: phase,
+      stackRole: role
     };
   }
 
@@ -42642,6 +43307,7 @@ window.PT_NASH_PUSH_JSON = {
       visibleGt[0].classList.add('active');
     }
     const phaseGroup = $('#setup-group-phase');
+    const stackRoleGroup = $('#setup-group-stack-role');
     const typeGroup = $('#setup-group-tournament-type');
     const payoutGroup = $('#setup-group-spin-payout');
     const mttStructGroup = $('#setup-group-mtt-structure');
@@ -42652,6 +43318,7 @@ window.PT_NASH_PUSH_JSON = {
     if (mttStructGroup) mttStructGroup.hidden = h !== 'mtt';
     if (rakeGroup) rakeGroup.hidden = h !== 'cash';
     if (h === 'mtt') syncMttStructureUI();
+    syncStackRoleUI(h);
 
     $$('#setup-scenario .setup-chip').forEach((chip) => {
       const v = chip.dataset.val;
@@ -42679,6 +43346,21 @@ window.PT_NASH_PUSH_JSON = {
     renderHeroPosChips();
   }
 
+  /** Muestra el chip de rol de stack solo en fases ICM (bubble/ITM/FT). */
+  function syncStackRoleUI(hub, phase) {
+    const h = hub || activeFormatHub();
+    const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+    const p = phase || (phaseEl ? phaseEl.dataset.val : 'auto');
+    const group = $('#setup-group-stack-role');
+    const show = h === 'mtt' && (p === 'bubble' || p === 'itm' || p === 'ft');
+    if (group) group.hidden = !show;
+    if (!show) {
+      $$('#setup-stack-role .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === 'auto');
+      });
+    }
+  }
+
   /** Filtra/ajusta stack del héroe según hub + fase + escenario (push/steal). */
   function syncPhaseStackUI(hub) {
     const h = hub || activeFormatHub();
@@ -42687,6 +43369,7 @@ window.PT_NASH_PUSH_JSON = {
     const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
     const phase = (h !== 'cash' && phaseEl) ? phaseEl.dataset.val : 'auto';
     const scenario = scEl ? scEl.dataset.val : 'random';
+    syncStackRoleUI(h, phase);
     const locked = Tax && Tax.stackSelectionLocked
       ? Tax.stackSelectionLocked(h, phase, scenario)
       : false;
@@ -42990,6 +43673,13 @@ window.PT_NASH_PUSH_JSON = {
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
+      stackRole: (function () {
+        const roleEl = $('#setup-stack-role .setup-chip.active');
+        const roleGroup = $('#setup-group-stack-role');
+        if (roleGroup && roleGroup.hidden) return null;
+        const v = roleEl ? roleEl.dataset.val : 'auto';
+        return (!v || v === 'auto') ? null : v;
+      })(),
       tournamentType: typeEl ? typeEl.dataset.val : 'unknown',
       spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
       buyIn: mttStruct.buyIn,
@@ -43196,6 +43886,21 @@ window.PT_NASH_PUSH_JSON = {
       if (rank != null && cfg.playersLeft != null) {
         rows.push({ label: 'Tu puesto (por stack)', value: '#' + rank + ' / ' + (cfg.playersLeft || '?') });
       }
+      const role = (hand && (hand._lastStackRole || hand._pedagogicalStackRole)) || cfg.stackRole;
+      if (role) {
+        const roleLbl = role === 'cover' ? 'Chip lead (cubres)'
+          : (role === 'mid' ? 'Mid (cubierto)' : (role === 'short' ? 'Short' : role));
+        rows.push({ label: 'Rol de stack', value: roleLbl });
+      }
+      if (hand && hand._lastPairBubbleFactor != null) {
+        rows.push({ label: 'Bubble factor', value: String(hand._lastPairBubbleFactor) });
+      }
+      if (hand && hand._lastOwnRiskPremium != null) {
+        rows.push({ label: 'Risk premium', value: String(hand._lastOwnRiskPremium) });
+      }
+      if (hand && hand._villainIcmWhy) {
+        rows.push({ label: 'Por qué el villano', value: hand._villainIcmWhy });
+      }
     }
     if (cfg.preflopOpenSize) rows.push({ label: 'Open', value: cfg.preflopOpenSize + '×' });
     if (hub === 'cash' && cfg.rakeMode && cfg.rakeMode !== 'none') {
@@ -43259,6 +43964,14 @@ window.PT_NASH_PUSH_JSON = {
           title: 'ICM activo: el premio importa más que las fichas (estudio lite, no solver de field). Detalle en Info.'
         });
       }
+      const role = (hand && hand._pedagogicalStackRole) || cfg.stackRole || null;
+      if (role === 'cover') {
+        chips.push({ text: 'Chip lead', cls: 'is-phase', title: 'Cubres al rival: puedes farolear/abrir más ancho' });
+      } else if (role === 'mid') {
+        chips.push({ text: 'Mid cubierto', cls: 'is-phase', title: 'Te cubren: aprieta el rango en burbuja/ITM' });
+      } else if (role === 'short') {
+        chips.push({ text: 'Short', cls: 'is-phase', title: 'Stack corto: shove/steal selectivo' });
+      }
       if (hub === 'spin' && cfg.spinPayout) {
         chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
       }
@@ -43276,6 +43989,13 @@ window.PT_NASH_PUSH_JSON = {
       if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0
         && cfg.playersLeft != null && cfg.placesPaid != null) {
         chips.push({ text: 'BI €' + cfg.buyIn, cls: '' });
+      }
+      if (hand && hand._lastPairBubbleFactor != null) {
+        chips.push({
+          text: 'BF ' + hand._lastPairBubbleFactor,
+          cls: 'is-icm',
+          title: hand._villainIcmWhy || 'Bubble factor de la pareja héroe–villano'
+        });
       }
     }
     if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
@@ -43729,6 +44449,7 @@ window.PT_NASH_PUSH_JSON = {
     syncFormatHubUI(hub);
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
+    activate('#setup-stack-role', cfg.stackRole || 'auto');
     activate('#setup-tournament-type', cfg.tournamentType || 'unknown');
     activate('#setup-scenario', cfg.scenario);
     activate('#setup-stack-depth', cfg.stackDepth);
@@ -43910,6 +44631,7 @@ window.PT_NASH_PUSH_JSON = {
       }
       syncPhaseStackUI(hub);
     });
+    bindChipGroup('#setup-stack-role', markPresetCustom);
     bindChipGroup('#setup-tournament-type', markPresetCustom);
     bindChipGroup('#setup-open-size', markPresetCustom);
     bindChipGroup('#setup-play-preset', () => {

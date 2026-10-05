@@ -362,6 +362,7 @@
       visibleGt[0].classList.add('active');
     }
     const phaseGroup = $('#setup-group-phase');
+    const stackRoleGroup = $('#setup-group-stack-role');
     const typeGroup = $('#setup-group-tournament-type');
     const payoutGroup = $('#setup-group-spin-payout');
     const mttStructGroup = $('#setup-group-mtt-structure');
@@ -372,6 +373,7 @@
     if (mttStructGroup) mttStructGroup.hidden = h !== 'mtt';
     if (rakeGroup) rakeGroup.hidden = h !== 'cash';
     if (h === 'mtt') syncMttStructureUI();
+    syncStackRoleUI(h);
 
     $$('#setup-scenario .setup-chip').forEach((chip) => {
       const v = chip.dataset.val;
@@ -399,6 +401,21 @@
     renderHeroPosChips();
   }
 
+  /** Muestra el chip de rol de stack solo en fases ICM (bubble/ITM/FT). */
+  function syncStackRoleUI(hub, phase) {
+    const h = hub || activeFormatHub();
+    const phaseEl = $('#setup-mtt-phase .setup-chip.active');
+    const p = phase || (phaseEl ? phaseEl.dataset.val : 'auto');
+    const group = $('#setup-group-stack-role');
+    const show = h === 'mtt' && (p === 'bubble' || p === 'itm' || p === 'ft');
+    if (group) group.hidden = !show;
+    if (!show) {
+      $$('#setup-stack-role .setup-chip').forEach((c) => {
+        c.classList.toggle('active', c.dataset.val === 'auto');
+      });
+    }
+  }
+
   /** Filtra/ajusta stack del héroe según hub + fase + escenario (push/steal). */
   function syncPhaseStackUI(hub) {
     const h = hub || activeFormatHub();
@@ -407,6 +424,7 @@
     const scEl = $('#setup-scenario .setup-chip.active:not([hidden])') || $('#setup-scenario .setup-chip.active');
     const phase = (h !== 'cash' && phaseEl) ? phaseEl.dataset.val : 'auto';
     const scenario = scEl ? scEl.dataset.val : 'random';
+    syncStackRoleUI(h, phase);
     const locked = Tax && Tax.stackSelectionLocked
       ? Tax.stackSelectionLocked(h, phase, scenario)
       : false;
@@ -710,6 +728,13 @@
       // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
       practiceIntent: 'mixed',
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
+      stackRole: (function () {
+        const roleEl = $('#setup-stack-role .setup-chip.active');
+        const roleGroup = $('#setup-group-stack-role');
+        if (roleGroup && roleGroup.hidden) return null;
+        const v = roleEl ? roleEl.dataset.val : 'auto';
+        return (!v || v === 'auto') ? null : v;
+      })(),
       tournamentType: typeEl ? typeEl.dataset.val : 'unknown',
       spinPayout: payoutEl ? payoutEl.dataset.val : '2x',
       buyIn: mttStruct.buyIn,
@@ -916,6 +941,21 @@
       if (rank != null && cfg.playersLeft != null) {
         rows.push({ label: 'Tu puesto (por stack)', value: '#' + rank + ' / ' + (cfg.playersLeft || '?') });
       }
+      const role = (hand && (hand._lastStackRole || hand._pedagogicalStackRole)) || cfg.stackRole;
+      if (role) {
+        const roleLbl = role === 'cover' ? 'Chip lead (cubres)'
+          : (role === 'mid' ? 'Mid (cubierto)' : (role === 'short' ? 'Short' : role));
+        rows.push({ label: 'Rol de stack', value: roleLbl });
+      }
+      if (hand && hand._lastPairBubbleFactor != null) {
+        rows.push({ label: 'Bubble factor', value: String(hand._lastPairBubbleFactor) });
+      }
+      if (hand && hand._lastOwnRiskPremium != null) {
+        rows.push({ label: 'Risk premium', value: String(hand._lastOwnRiskPremium) });
+      }
+      if (hand && hand._villainIcmWhy) {
+        rows.push({ label: 'Por qué el villano', value: hand._villainIcmWhy });
+      }
     }
     if (cfg.preflopOpenSize) rows.push({ label: 'Open', value: cfg.preflopOpenSize + '×' });
     if (hub === 'cash' && cfg.rakeMode && cfg.rakeMode !== 'none') {
@@ -979,6 +1019,14 @@
           title: 'ICM activo: el premio importa más que las fichas (estudio lite, no solver de field). Detalle en Info.'
         });
       }
+      const role = (hand && hand._pedagogicalStackRole) || cfg.stackRole || null;
+      if (role === 'cover') {
+        chips.push({ text: 'Chip lead', cls: 'is-phase', title: 'Cubres al rival: puedes farolear/abrir más ancho' });
+      } else if (role === 'mid') {
+        chips.push({ text: 'Mid cubierto', cls: 'is-phase', title: 'Te cubren: aprieta el rango en burbuja/ITM' });
+      } else if (role === 'short') {
+        chips.push({ text: 'Short', cls: 'is-phase', title: 'Stack corto: shove/steal selectivo' });
+      }
       if (hub === 'spin' && cfg.spinPayout) {
         chips.push({ text: 'Payout ' + String(cfg.spinPayout).toUpperCase(), cls: 'is-icm' });
       }
@@ -996,6 +1044,13 @@
       if (hub === 'mtt' && cfg.buyIn != null && cfg.buyIn > 0
         && cfg.playersLeft != null && cfg.placesPaid != null) {
         chips.push({ text: 'BI €' + cfg.buyIn, cls: '' });
+      }
+      if (hand && hand._lastPairBubbleFactor != null) {
+        chips.push({
+          text: 'BF ' + hand._lastPairBubbleFactor,
+          cls: 'is-icm',
+          title: hand._villainIcmWhy || 'Bubble factor de la pareja héroe–villano'
+        });
       }
     }
     if (cfg.preflopOpenSize) chips.push({ text: 'Open ' + cfg.preflopOpenSize + '×', cls: '' });
@@ -1449,6 +1504,7 @@
     syncFormatHubUI(hub);
     activate('#setup-game-type', cfg.gameType);
     activate('#setup-mtt-phase', cfg.mttPhase || 'auto');
+    activate('#setup-stack-role', cfg.stackRole || 'auto');
     activate('#setup-tournament-type', cfg.tournamentType || 'unknown');
     activate('#setup-scenario', cfg.scenario);
     activate('#setup-stack-depth', cfg.stackDepth);
@@ -1630,6 +1686,7 @@
       }
       syncPhaseStackUI(hub);
     });
+    bindChipGroup('#setup-stack-role', markPresetCustom);
     bindChipGroup('#setup-tournament-type', markPresetCustom);
     bindChipGroup('#setup-open-size', markPresetCustom);
     bindChipGroup('#setup-play-preset', () => {

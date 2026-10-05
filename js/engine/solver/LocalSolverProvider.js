@@ -228,16 +228,17 @@
       )
       : Classifier.filterStrategy(rawStrategy, enriched.availableActions);
 
-    // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain
+    // ICM lite en el mix (antes de exploit) — simétrico Hero↔Villain.
+    // También preflop: opens/defensas en burbuja son el error ICM más frecuente.
     const DC = global.GTODecisionContext;
     const facing = (enriched.toCallBB || 0) > 0;
-    if (DC && enriched.street && enriched.street !== 'preflop') {
+    if (DC) {
       const ctx = DC.buildBase({
         formatHub: enriched.formatHub,
         gameType: enriched.gameType,
         kind: enriched.kind || enriched.tournamentKind,
         tournamentKind: enriched.tournamentKind || enriched.kind,
-        street: enriched.street,
+        street: enriched.street || 'preflop',
         potBB: enriched.potBB,
         stackBB: enriched.heroStackBB != null ? enriched.heroStackBB : enriched.effStack,
         spr: enriched.spr,
@@ -259,6 +260,13 @@
         multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2,
         potType: enriched.potType || 'srp',
         stackRole: enriched.stackRole,
+        opponentStackRole: enriched.opponentStackRole,
+        coversOpponent: enriched.coversVillain,
+        coveredByOpponent: enriched.coveredByVillain,
+        avgStackBB: enriched.avgStackBB,
+        ownRiskPremium: enriched.ownRiskPremium,
+        opponentRiskPremium: enriched.opponentRiskPremium,
+        pairBubbleFactor: enriched.pairBubbleFactor,
         lineIntent: enriched.lineIntent || null
       });
       strategy = DC.applyIcmToFreqs(Object.assign({}, strategy), ctx, facing ? 'facing' : 'lead');
@@ -337,7 +345,10 @@
             icmStacksBB: enriched.icmStacksBB,
             icmPayouts: enriched.icmPayouts,
             playersLeft: enriched.playersLeft,
-            placesPaid: enriched.placesPaid
+            placesPaid: enriched.placesPaid,
+            stackRole: enriched.stackRole,
+            coversOpponent: enriched.coversVillain,
+            pairBubbleFactor: enriched.pairBubbleFactor
           }),
           stackRole: enriched.stackRole,
           multiwayCount: enriched.multiway ? (enriched.multiwayCount || 3) : 2
@@ -514,17 +525,37 @@
         || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null);
       if (hub === 'spin' || hub === 'mtt') {
         const phase = enriched.mttPhase || enriched.resolvedPhase || null;
+        const role = enriched.stackRole || null;
+        const bf = enriched.pairBubbleFactor != null
+          ? enriched.pairBubbleFactor
+          : (result.evaluation.bubbleFactor != null ? result.evaluation.bubbleFactor : null);
+        const rp = enriched.ownRiskPremium != null ? enriched.ownRiskPremium : null;
         result.evaluation.formatHub = hub;
         result.evaluation.mttPhase = phase;
-        result.evaluation.phaseNote = phase
-          ? ('Rango/evaluación según fase «' + phase + '»'
-            + (enriched.stackDepth || enriched.heroStackBB
-              ? (' · ' + (enriched.heroStackBB != null ? enriched.heroStackBB + 'bb' : String(enriched.stackDepth)))
-              : '')
-            + '.')
+        result.evaluation.stackRole = role;
+        result.evaluation.coversVillain = !!enriched.coversVillain;
+        result.evaluation.coveredByVillain = !!enriched.coveredByVillain;
+        let phaseBits = [];
+        if (phase) phaseBits.push('fase «' + phase + '»');
+        if (role === 'cover') phaseBits.push('rol chip lead (cubres)');
+        else if (role === 'mid') phaseBits.push('rol mid (cubierto)');
+        else if (role === 'short') phaseBits.push('rol short');
+        if (enriched.heroStackBB != null) phaseBits.push(enriched.heroStackBB + 'bb');
+        else if (enriched.stackDepth) phaseBits.push(String(enriched.stackDepth));
+        if (bf != null) phaseBits.push('BF ' + bf);
+        if (rp != null) phaseBits.push('RP ' + Math.round(rp * 1000) / 1000);
+        result.evaluation.phaseNote = phaseBits.length
+          ? ('Rango/evaluación según ' + phaseBits.join(' · ') + '.')
           : (hub === 'spin'
             ? 'Rango/evaluación de Spin (stack-aware).'
             : 'Rango/evaluación de torneo.');
+        if (role === 'cover' || enriched.coversVillain) {
+          result.evaluation.icmNote = (result.evaluation.icmNote ? result.evaluation.icmNote + ' ' : '')
+            + 'Puedes abrir/farolear más ancho: tu bubble factor favorece la presión.';
+        } else if (role === 'mid' || enriched.coveredByVillain) {
+          result.evaluation.icmNote = (result.evaluation.icmNote ? result.evaluation.icmNote + ' ' : '')
+            + 'Aprieta el rango: te cubren y el risk premium propio es alto.';
+        }
         if (result.evaluation.icmLite && chipEvLoss > 0
           && Math.abs((result.evaluation.evLoss || 0) - chipEvLoss) >= 0.01) {
           result.evaluation.icmChangedEv = true;

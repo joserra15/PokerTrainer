@@ -186,34 +186,67 @@
         out.xr = 0.65;
       }
     } else {
-      // MTT
+      // MTT — asimetría ICM: RP propio aprieta; RP del rival permite farolear.
+      const ownRp = ctx.ownRiskPremium != null ? Number(ctx.ownRiskPremium) : null;
+      const oppRp = ctx.opponentRiskPremium != null ? Number(ctx.opponentRiskPremium) : null;
+      const role = ctx.stackRole || '';
+      const covers = !!(ctx.coversOpponent || ctx.coversHero);
+      const covered = !!(ctx.coveredByOpponent || ctx.coveredByHero);
+
       if (phase === 'bubble' || situ === 'bubble') {
-        out.bluff = 0.55;
-        out.xr = 0.45;
-        out.overbet = 0.35;
-        out.fold = 1.22;
-        out.thinValue = 0.7;
-        out.jamBias = 1.15;
+        // Base bubble: mid aprieta; cover/short se reajustan abajo con RP.
+        out.bluff = 0.7;
+        out.xr = 0.55;
+        out.overbet = 0.4;
+        out.fold = 1.12;
+        out.thinValue = 0.78;
+        out.jamBias = 1.12;
+      } else if (phase === 'ft' || situ === 'ft9') {
+        out.bluff = 0.78;
+        out.thinValue = 0.82;
+        out.overbet = 0.75;
+        out.fold = 1.1;
+        out.xr = 0.7;
+      } else if (phase === 'itm' || situ === 'mincash') {
+        out.bluff = 0.85;
+        out.thinValue = 0.88;
+        out.overbet = 0.9;
+        out.fold = 1.05;
       } else if (phase === 'push' || phase === 'short') {
         out.bluff = 0.62;
         out.overbet = 0.3;
         out.xr = 0.5;
         out.jamBias = 1.4;
         out.sizeSimple = true;
-      } else if (situ === 'mincash' || situ === 'ft9') {
-        out.bluff = 0.72;
-        out.thinValue = 0.78;
-        out.overbet = 0.85;
-        out.fold = 1.08;
       } else if (phase === 'early' || phase === 'mid') {
         out.xr = 1.15;
         out.overbet = 1.05;
         out.thinValue = 1.05;
       }
-      if (icm && phase !== 'early') {
-        out.bluff = clamp(out.bluff * 0.88, 0.35, 1.2);
-        out.fold = clamp(out.fold * 1.06, 1, 1.35);
+
+      // Drivers asimétricos: RP propio → más fold; RP rival → más bluff/presión.
+      if (ownRp != null && ownRp > 0.02) {
+        const ownOver = clamp((ownRp - 0.02) / 0.2, 0, 1);
+        out.fold = clamp(out.fold * (1 + 0.28 * ownOver), 0.85, 1.45);
+        out.bluff = clamp(out.bluff * (1 - 0.35 * ownOver), 0.3, 1.25);
+        out.thinValue = clamp(out.thinValue * (1 - 0.25 * ownOver), 0.45, 1.15);
+        out.raise = clamp(out.raise * (1 - 0.15 * ownOver), 0.7, 1.3);
       }
+      if (oppRp != null && oppRp > 0.02) {
+        const oppOver = clamp((oppRp - 0.02) / 0.2, 0, 1);
+        out.bluff = clamp(out.bluff * (1 + 0.55 * oppOver), 0.4, 1.55);
+        out.bet = clamp(out.bet * (1 + 0.18 * oppOver), 0.9, 1.5);
+        out.cbet = clamp(out.cbet * (1 + 0.15 * oppOver), 0.9, 1.45);
+        out.raise = clamp(out.raise * (1 + 0.2 * oppOver), 0.85, 1.45);
+        out.fold = clamp(out.fold * (1 - 0.2 * oppOver), 0.75, 1.35);
+        // Size down with value cuando cubres: menos overbet de value.
+        if (covers) out.overbet = clamp(out.overbet * (1 - 0.25 * oppOver), 0.15, 1.2);
+      } else if (icm && phase !== 'early' && ownRp == null && oppRp == null) {
+        // Fallback legacy solo si no hay RP: no invertir cover.
+        out.bluff = clamp(out.bluff * 0.92, 0.35, 1.2);
+        out.fold = clamp(out.fold * 1.04, 1, 1.35);
+      }
+
       // PKO / mystery: suavizar overfold ICM + bias call/shove por bounty lite.
       const tType = String(ctx.tournamentType || '').toLowerCase();
       if (tType === 'pko' || tType === 'mystery') {
@@ -226,20 +259,28 @@
           out.jamBias = clamp(out.jamBias * 1.06, 1, 1.85);
         }
       }
-      // Roles de mesa (short / cover / mid) cuando el contexto los aporta
-      const role = ctx.stackRole || '';
+      // Roles de mesa: refinamiento encima del RP.
       if (role === 'short') {
         out.jamBias = clamp(out.jamBias * 1.12, 1, 1.9);
         out.bet = clamp(out.bet * 1.06, 0.9, 1.5);
-        out.bluff = clamp(out.bluff * 0.9, 0.35, 1.2);
-      } else if (role === 'cover') {
-        out.bet = clamp(out.bet * 1.1, 0.9, 1.55);
-        out.cbet = clamp(out.cbet * 1.08, 0.9, 1.5);
-        out.fold = clamp(out.fold * 0.95, 0.8, 1.3);
-      } else if (role === 'mid' && (phase === 'bubble' || situ === 'bubble')) {
-        out.fold = clamp(out.fold * 1.1, 1, 1.4);
-        out.bluff = clamp(out.bluff * 0.85, 0.35, 1.1);
-        out.thinValue = clamp(out.thinValue * 0.85, 0.5, 1.1);
+        // Short overfoldea menos que mid en burbuja.
+        if (phase === 'bubble' || situ === 'bubble') {
+          out.fold = clamp(out.fold * 0.92, 0.85, 1.3);
+          out.bluff = clamp(out.bluff * 0.95, 0.35, 1.25);
+        } else {
+          out.bluff = clamp(out.bluff * 0.9, 0.35, 1.2);
+        }
+      } else if (role === 'cover' || covers) {
+        out.bet = clamp(out.bet * 1.12, 0.9, 1.55);
+        out.cbet = clamp(out.cbet * 1.1, 0.9, 1.5);
+        out.fold = clamp(out.fold * 0.88, 0.75, 1.25);
+        out.bluff = clamp(out.bluff * 1.15, 0.45, 1.55);
+        // Size down with value (correcto): reducir overbet.
+        out.overbet = clamp(out.overbet * 0.85, 0.15, 1.2);
+      } else if ((role === 'mid' || covered) && (phase === 'bubble' || situ === 'bubble' || phase === 'ft')) {
+        out.fold = clamp(out.fold * 1.12, 1, 1.45);
+        out.bluff = clamp(out.bluff * 0.8, 0.3, 1.1);
+        out.thinValue = clamp(out.thinValue * 0.82, 0.45, 1.1);
       }
     }
 
