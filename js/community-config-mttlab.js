@@ -1,5 +1,14 @@
 /*
  * community-config-mttlab.js — Comunidad MTT LAB (Skool).
+ *
+ * Contrato de producto (compartido con PokerForgeAI):
+ * - Motor GTO, criterio de análisis / paso a paso, villanos MTT y torneos:
+ *   mismo código que PokerForge (js/engine, import.js, tournament/gto-eval,
+ *   tournament/villain-decide). No bifurcar por community id.
+ * - Sí: importación de Sesiones (menus.show → sessions).
+ * - No: menú Análisis dedicado (menus.hide → analysis).
+ * - Independiente por comunidad: ranking de torneos y Koins (wallet/leaderboard).
+ * - Entrenador: solo formato MTT (sin Cash / Spins).
  */
 (function (global) {
   'use strict';
@@ -19,6 +28,7 @@
       kicker: 'Skool Poker Group · 2026'
     },
     menus: {
+      /* Sesiones = import HH; Análisis (hand-analysis) queda oculto a propósito. */
       show: ['play', 'school', 'ranges', 'sessions', 'errors', 'stats', 'contact', 'manager', 'tournaments'],
       hide: ['pricing', 'legendary', 'learn', 'analysis', 'history', 'admin']
     },
