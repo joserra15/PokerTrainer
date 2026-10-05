@@ -43,6 +43,7 @@ const STEPS = [
   ['Test exploit dual verdict', ['node', 'tools/test-exploit-dual-verdict.js']],
   ['Test GTO detalle vs paso a paso torneos', ['node', 'tools/test-gto-detalle-paso-a-paso.js']],
   ['Test villain type trainer', ['node', 'tools/test-villain-type-trainer.js']],
+  ['Test audit villain tournament sim smoke', ['node', 'tools/test-audit-villain-tournament-sim.js']],
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
   ['Test evaluación manos contexto torneo', ['node', 'tools/test-hand-eval-tournament-context.js']],
   ['Test matriz GTO no all-fold push/cash', ['node', 'tools/test-gto-matrix-pushfold-allfold.js']],

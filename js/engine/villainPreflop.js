@@ -120,6 +120,28 @@
     return buckets ? handWeight(buckets, code) > 0 : false;
   }
 
+  /**
+   * Open consciente de perfil (shared torneo + entrenador).
+   * Chart base + widen/skip por arquetipo.
+   * @param {number} [holeStr01] fuerza holística 0–1 para widen fuera de chart
+   */
+  function shouldOpen(code, openerPos, ctx, profile, holeStr01, rnd) {
+    const r = rnd != null ? rnd : Math.random();
+    const inChart = isInOpenRange(code, openerPos, ctx);
+    const style = (VP.openStyle && VP.openStyle(profile)) || { widenThr: null, skipChance: 0 };
+    if (inChart) {
+      if (style.skipChance > 0 && r < style.skipChance) return false;
+      return true;
+    }
+    if (style.widenThr == null) return false;
+    const hs = holeStr01 != null ? Number(holeStr01) : 0;
+    if (!(hs > style.widenThr)) return false;
+    /* Late positions widen más; early más selectivo. */
+    const late = openerPos === 'BTN' || openerPos === 'CO' || openerPos === 'SB';
+    const thr = late ? style.widenThr : style.widenThr + 0.08;
+    return hs > thr;
+  }
+
   function isoDefendBuckets() {
     const data = D.ISO_LIMP;
     if (!data) return null;
@@ -249,15 +271,34 @@
     const buckets = defendBuckets(defenderPos, openerPos, ctx);
     if (!buckets) return 'fold';
 
-    const w3 = handWeight(buckets.threeBet, code);
-    const wc = handWeight(buckets.call, code);
+    let w3 = handWeight(buckets.threeBet, code);
+    let wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
     const icmBias = tournamentFoldBias(ctx);
     const stealBias = tournamentStealBias(ctx);
     const huAgg = huAggressionBias(ctx) + stealBias;
+    const pf = (profile && profile.preflop) || {};
+    const callBias = Number(pf.callBias) || 0;
+    const threeBias = Number(pf.threeBetBias) || 0;
+    const foldBias = Number(pf.foldBias) || 0;
+
+    /* Identidad de arquetipo: ensancha/aprieta pesos de chart. */
+    if (callBias > 0 && wc > 0) wc = Math.min(1, wc + callBias * 1.35);
+    if (threeBias > 0 && w3 > 0) w3 = Math.min(1, w3 + threeBias * 1.25);
+    if (threeBias > 0.04 && wc >= 0.35 && w3 < 0.2) {
+      /* Presión: parte del calling range pasa a 3bet polar/light. */
+      w3 = Math.max(w3, threeBias * 0.9 + stealBias * 0.5);
+    }
+    if (foldBias > 0.05 && wc > 0) wc = Math.max(0, wc - foldBias * 0.8);
+    if (foldBias > 0.05 && w3 > 0) w3 = Math.max(0, w3 - foldBias * 0.35);
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
+      /* Fish/LAG/pro: defensa especulativa fuera de chart (no solo leakRate). */
+      const offChartCall = Math.max(0, callBias * 1.55 - foldBias * 0.6 + huAgg * 0.25);
+      const offChart3 = Math.max(0, threeBias * 0.7 + huAgg * 0.2 - foldBias * 0.4);
+      if (offChart3 > 0.04 && r < offChart3) return '3bet';
+      if (offChartCall > 0.04 && r < offChartCall + offChart3) return 'call';
       if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r)) return 'call';
       return 'fold';
     }
@@ -271,23 +312,23 @@
     }
 
     if (w3 >= 1) {
-      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.72 : 0.68) + huAgg * 0.2, profile)) return '3bet';
+      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.78 : 0.68) + huAgg * 0.2, profile)) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias + huAgg * 0.15, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
-      const freq = strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.25) : VP.adjustThreeBetProb(0.32 + huAgg * 0.2, profile);
+      const freq = strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.25) : VP.adjustThreeBetProb(0.38 + huAgg * 0.2, profile);
       if (r < freq) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
-      if (r < (strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.2) : VP.adjustThreeBetProb(w3 * 0.55 + huAgg * 0.15, profile))) return '3bet';
+      if (r < (strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.2) : VP.adjustThreeBetProb(w3 * 0.6 + huAgg * 0.15, profile))) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.14 + icmBias - huAgg * 0.5), profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5 + huAgg * 0.25, profile) ? 'call' : 'fold';
+    if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.12 + icmBias - huAgg * 0.5 - callBias * 0.3), profile) ? 'fold' : 'call';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.4 - icmBias * 0.5 + huAgg * 0.25 + callBias * 0.35, profile) ? 'call' : 'fold';
     return 'fold';
   }
 
@@ -537,7 +578,7 @@
     limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
     cold4BetAction, squeezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
-    isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
+    isInFourBetRange, isInThreeBetRange, isInOpenRange, shouldOpen, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
     tournamentFoldBias, tournamentStealBias, isExplicitHu, huAggressionBias
   };

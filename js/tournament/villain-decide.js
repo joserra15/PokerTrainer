@@ -49,30 +49,30 @@
   }
 
   /**
-   * Estilos de mesa = sesgo sobre motor Pro+, no pasividad extrema.
-   * Tag/pro: más c-bet / bluff / raise; lag/maniac siguen muy agresivos.
+   * Estilos de mesa sobre motor Pro+: agresivos suben suelo;
+   * fish/nit bajan techo de agresión para no colapsar a TAG.
    */
   function tournamentPostflopFloor(role, postflop) {
     var pf = Object.assign({}, postflop || {});
     var floors = {
-      fish:   { bet: 1.05, bluff: 0.85, raise: 0.95, call: 1.4, fold: 0.7 },
-      nit:    { bet: 0.92, bluff: 0.55, raise: 0.85, call: 0.95, fold: 0.95 },
-      tag:    { bet: 1.35, bluff: 1.2,  raise: 1.4,  call: 1.0, fold: 0.95 },
-      lag:    { bet: 1.55, bluff: 1.55, raise: 1.55, call: 1.1, fold: 0.65 },
-      maniac: { bet: 1.75, bluff: 1.9,  raise: 1.85, call: 1.15, fold: 0.5 },
-      pro:    { bet: 1.35, bluff: 1.25, raise: 1.45, call: 1.0, fold: 0.95 }
+      fish:   { bet: 0.75, bluff: 0.5,  raise: 0.48, call: 1.35, fold: 0.72, betMax: 1.05, bluffMax: 0.85, raiseMax: 0.9 },
+      nit:    { bet: 0.7,  bluff: 0.4,  raise: 0.55, call: 0.88, fold: 1.05, betMax: 1.05, bluffMax: 0.75, raiseMax: 0.95 },
+      tag:    { bet: 1.2,  bluff: 1.05, raise: 1.25, call: 0.98, fold: 0.98 },
+      lag:    { bet: 1.45, bluff: 1.45, raise: 1.45, call: 1.08, fold: 0.7 },
+      maniac: { bet: 1.7,  bluff: 1.85, raise: 1.8,  call: 1.12, fold: 0.48 },
+      pro:    { bet: 1.28, bluff: 1.18, raise: 1.4,  call: 1.0,  fold: 0.96 }
     };
     var f = floors[role] || floors.tag;
-    function floor(key, minV, maxV) {
+    function clampKey(key, minV, maxV) {
       var cur = Number(pf[key]);
       if (!isFinite(cur)) cur = minV;
       pf[key] = Math.max(minV, Math.min(maxV != null ? maxV : 2.4, cur));
     }
-    floor('betFreqMult', f.bet);
-    floor('bluffFreqMult', f.bluff);
-    floor('raiseFreqMult', f.raise);
-    floor('callMult', f.call);
-    floor('foldMult', 0.35, f.fold);
+    clampKey('betFreqMult', f.bet, f.betMax != null ? f.betMax : 2.4);
+    clampKey('bluffFreqMult', f.bluff, f.bluffMax != null ? f.bluffMax : 2.4);
+    clampKey('raiseFreqMult', f.raise, f.raiseMax != null ? f.raiseMax : 2.4);
+    clampKey('callMult', f.call);
+    clampKey('foldMult', 0.35, f.fold);
     if (pf.betSizeMult == null || pf.betSizeMult < 0.85) pf.betSizeMult = 0.95;
     return pf;
   }
@@ -890,7 +890,11 @@
       }
 
       var open = false;
-      if (VPF && typeof VPF.isInOpenRange === 'function' && code) {
+      if (VPF && typeof VPF.shouldOpen === 'function' && code) {
+        try {
+          open = !!VPF.shouldOpen(code, seat.pos, ctx, profile, holeStr, Math.random());
+        } catch (e) { open = false; }
+      } else if (VPF && typeof VPF.isInOpenRange === 'function' && code) {
         try { open = !!VPF.isInOpenRange(code, seat.pos, ctx); } catch (e) { open = false; }
       } else {
         open = holeStr > 0.58;

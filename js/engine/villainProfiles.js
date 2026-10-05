@@ -48,17 +48,18 @@
       id: 'pro',
       label: 'Pro',
       shortLabel: 'Pro (GTO+)',
-      preflop: { foldBias: 0.02, threeBetBias: 0.05, fourBetBias: 0.03, callBias: -0.02 },
+      /* GTO + presión selectiva: 3bet/steal/defend un poco por encima del chart base. */
+      preflop: { foldBias: -0.01, threeBetBias: 0.09, fourBetBias: 0.04, callBias: 0.02 },
       postflop: {
-        betFreqMult: 1.14,
-        bluffFreqMult: 0.92,
-        raiseFreqMult: 1.28,
-        callMult: 0.98,
-        foldMult: 1.06,
-        betSizeMult: 1.06,
-        overbetWeight: 1.2,
-        xrFlopMult: 1.35,
-        riverPolarMult: 1.25
+        betFreqMult: 1.22,
+        bluffFreqMult: 1.08,
+        raiseFreqMult: 1.38,
+        callMult: 1.02,
+        foldMult: 0.98,
+        betSizeMult: 1.08,
+        overbetWeight: 1.28,
+        xrFlopMult: 1.42,
+        riverPolarMult: 1.32
       }
     }
   ];
@@ -166,9 +167,34 @@
     }
 
     const diff = DIFFICULTY[lvl] || DIFFICULTY.fish;
-    // Con tipo forzado + level pro: leak muy sutil (biasScale de pro).
-    const s = (lvl === 'pro' && forcedKeep) ? (DIFFICULTY.pro.biasScale || 0.06) : diff.biasScale;
-    const b = (lvl === 'pro' && forcedKeep) ? 1 : diff.aggroBoost;
+    /*
+     * Tipo forzado + skill pro (torneos elite / entrenador villainType):
+     * - pro: parámetros GTO+ completos, estricto.
+     * - otros: retener identidad del arquetipo (no aplastar a biasScale 0.06).
+     *   Antes todos colapsaban a ~mismo VPIP/PFR en mesas IA.
+     */
+    var s;
+    var b;
+    var strict;
+    var leak;
+    if (lvl === 'pro' && forcedKeep) {
+      if (base.id === 'pro') {
+        s = 1;
+        b = DIFFICULTY.pro.aggroBoost || 1.14;
+        strict = 0.9;
+        leak = 0;
+      } else {
+        s = 0.82;
+        b = 1;
+        strict = 0.52;
+        leak = 0.035;
+      }
+    } else {
+      s = diff.biasScale;
+      b = diff.aggroBoost;
+      strict = diff.preflopStrict;
+      leak = diff.leakRate;
+    }
     const pf = base.preflop || {};
     const po = base.postflop || {};
     const scaled = (s >= 0.99 && b <= 1.01) ? base : {
@@ -190,8 +216,14 @@
         betSizeMult: scaleMult(po.betSizeMult, s, Math.sqrt(b))
       }
     };
-    const strict = (lvl === 'pro' && forcedKeep) ? 0.92 : diff.preflopStrict;
-    const leak = (lvl === 'pro' && forcedKeep) ? 0.01 : diff.leakRate;
+    /* Conservar extras pro (overbet/XR/polar) tras scaleMult. */
+    if (base.id === 'pro' && po) {
+      scaled.postflop = Object.assign({}, scaled.postflop, {
+        overbetWeight: po.overbetWeight,
+        xrFlopMult: po.xrFlopMult,
+        riverPolarMult: po.riverPolarMult
+      });
+    }
     return Object.assign({}, scaled, {
       difficultyLevel: lvl,
       preflopStrict: strict,
@@ -508,28 +540,50 @@
     return clamp(base + (pf.foldBias || 0) + (foldMult - 1) * 0.06, 0.06, 0.88);
   }
 
+  /** Escala de sesgo: incluso con strict alto queda identidad de arquetipo. */
+  function biasScaleFromStrict(strict) {
+    const s = strict != null ? Number(strict) : 0;
+    if (s >= 0.99) return 0.12;
+    return Math.max(0.28, 1 - s * 0.85);
+  }
+
   function adjustThreeBetProb(base, profile) {
     const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
-    if (strict >= 0.99) return base;
+    if (strict >= 0.995) return base;
     const pf = profile.preflop || {};
-    const scale = Math.max(0, 1 - strict);
-    return clamp(base + (pf.threeBetBias || 0) * scale, 0.02, 0.42);
+    const scale = biasScaleFromStrict(strict);
+    return clamp(base + (pf.threeBetBias || 0) * scale, 0.02, 0.48);
   }
 
   function adjustFourBetProb(base, profile) {
     const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
-    if (strict >= 0.99) return base;
+    if (strict >= 0.995) return base;
     const pf = profile.preflop || {};
-    const scale = Math.max(0, 1 - strict);
-    return clamp(base + (pf.fourBetBias || 0) * scale, 0.01, 0.28);
+    const scale = biasScaleFromStrict(strict);
+    return clamp(base + (pf.fourBetBias || 0) * scale, 0.01, 0.32);
   }
 
   function adjustCallProb(base, profile) {
     const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
     const pf = profile.preflop || {};
     const mult = profile.postflop ? profile.postflop.callMult : 1;
-    const scale = Math.max(0, 1 - strict * 0.85);
+    const scale = biasScaleFromStrict(strict);
     return clamp(base * (1 + (mult - 1) * scale) + (pf.callBias || 0) * scale, 0.08, 0.92);
+  }
+
+  /**
+   * Umbral holeStr (0–1) para abrir fuera de chart. null = no widen.
+   * Nit: a veces salta opens de chart (skipChance).
+   */
+  function openStyle(profile) {
+    const id = profile && profile.id;
+    if (id === 'maniac') return { widenThr: 0.36, skipChance: 0 };
+    if (id === 'lag') return { widenThr: 0.42, skipChance: 0 };
+    if (id === 'fish') return { widenThr: 0.52, skipChance: 0.06 };
+    if (id === 'pro') return { widenThr: 0.52, skipChance: 0.03 };
+    if (id === 'tag') return { widenThr: 0.56, skipChance: 0.06 };
+    if (id === 'nit') return { widenThr: null, skipChance: 0.32 };
+    return { widenThr: null, skipChance: 0 };
   }
 
 
@@ -609,6 +663,7 @@
     shouldApplyHuAdjust, applyHuAdjust,
     getProfile, profileForHand, assignTableProfiles,
     postflopFacingBet, postflopLead, betSizeBB,
-    adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb
+    adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb,
+    openStyle
   };
 })(window);
