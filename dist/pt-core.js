@@ -15058,17 +15058,18 @@ window.PT_NASH_PUSH_JSON = {
       id: 'pro',
       label: 'Pro',
       shortLabel: 'Pro (GTO+)',
-      preflop: { foldBias: 0.02, threeBetBias: 0.05, fourBetBias: 0.03, callBias: -0.02 },
+      /* GTO + presión selectiva: 3bet early ~8–11% (banda 6–12). */
+      preflop: { foldBias: -0.02, threeBetBias: 0.14, fourBetBias: 0.055, callBias: 0.05 },
       postflop: {
-        betFreqMult: 1.14,
-        bluffFreqMult: 0.92,
-        raiseFreqMult: 1.28,
-        callMult: 0.98,
-        foldMult: 1.06,
-        betSizeMult: 1.06,
-        overbetWeight: 1.2,
-        xrFlopMult: 1.35,
-        riverPolarMult: 1.25
+        betFreqMult: 1.62,
+        bluffFreqMult: 1.32,
+        raiseFreqMult: 1.42,
+        callMult: 1.05,
+        foldMult: 0.9,
+        betSizeMult: 1.1,
+        overbetWeight: 1.28,
+        xrFlopMult: 1.42,
+        riverPolarMult: 1.32
       }
     }
   ];
@@ -15176,9 +15177,34 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     const diff = DIFFICULTY[lvl] || DIFFICULTY.fish;
-    // Con tipo forzado + level pro: leak muy sutil (biasScale de pro).
-    const s = (lvl === 'pro' && forcedKeep) ? (DIFFICULTY.pro.biasScale || 0.06) : diff.biasScale;
-    const b = (lvl === 'pro' && forcedKeep) ? 1 : diff.aggroBoost;
+    /*
+     * Tipo forzado + skill pro (torneos elite / entrenador villainType):
+     * - pro: parámetros GTO+ completos, estricto.
+     * - otros: retener identidad del arquetipo (no aplastar a biasScale 0.06).
+     *   Antes todos colapsaban a ~mismo VPIP/PFR en mesas IA.
+     */
+    var s;
+    var b;
+    var strict;
+    var leak;
+    if (lvl === 'pro' && forcedKeep) {
+      if (base.id === 'pro') {
+        s = 1;
+        b = DIFFICULTY.pro.aggroBoost || 1.14;
+        strict = 0.9;
+        leak = 0;
+      } else {
+        s = 0.82;
+        b = 1;
+        strict = 0.52;
+        leak = 0.035;
+      }
+    } else {
+      s = diff.biasScale;
+      b = diff.aggroBoost;
+      strict = diff.preflopStrict;
+      leak = diff.leakRate;
+    }
     const pf = base.preflop || {};
     const po = base.postflop || {};
     const scaled = (s >= 0.99 && b <= 1.01) ? base : {
@@ -15200,8 +15226,14 @@ window.PT_NASH_PUSH_JSON = {
         betSizeMult: scaleMult(po.betSizeMult, s, Math.sqrt(b))
       }
     };
-    const strict = (lvl === 'pro' && forcedKeep) ? 0.92 : diff.preflopStrict;
-    const leak = (lvl === 'pro' && forcedKeep) ? 0.01 : diff.leakRate;
+    /* Conservar extras pro (overbet/XR/polar) tras scaleMult. */
+    if (base.id === 'pro' && po) {
+      scaled.postflop = Object.assign({}, scaled.postflop, {
+        overbetWeight: po.overbetWeight,
+        xrFlopMult: po.xrFlopMult,
+        riverPolarMult: po.riverPolarMult
+      });
+    }
     return Object.assign({}, scaled, {
       difficultyLevel: lvl,
       preflopStrict: strict,
@@ -15518,28 +15550,50 @@ window.PT_NASH_PUSH_JSON = {
     return clamp(base + (pf.foldBias || 0) + (foldMult - 1) * 0.06, 0.06, 0.88);
   }
 
+  /** Escala de sesgo: incluso con strict alto queda identidad de arquetipo. */
+  function biasScaleFromStrict(strict) {
+    const s = strict != null ? Number(strict) : 0;
+    if (s >= 0.99) return 0.12;
+    return Math.max(0.28, 1 - s * 0.85);
+  }
+
   function adjustThreeBetProb(base, profile) {
     const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
-    if (strict >= 0.99) return base;
+    if (strict >= 0.995) return base;
     const pf = profile.preflop || {};
-    const scale = Math.max(0, 1 - strict);
-    return clamp(base + (pf.threeBetBias || 0) * scale, 0.02, 0.42);
+    const scale = biasScaleFromStrict(strict);
+    return clamp(base + (pf.threeBetBias || 0) * scale, 0.02, 0.48);
   }
 
   function adjustFourBetProb(base, profile) {
     const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
-    if (strict >= 0.99) return base;
+    if (strict >= 0.995) return base;
     const pf = profile.preflop || {};
-    const scale = Math.max(0, 1 - strict);
-    return clamp(base + (pf.fourBetBias || 0) * scale, 0.01, 0.28);
+    const scale = biasScaleFromStrict(strict);
+    return clamp(base + (pf.fourBetBias || 0) * scale, 0.01, 0.32);
   }
 
   function adjustCallProb(base, profile) {
     const strict = profile.preflopStrict != null ? profile.preflopStrict : 0;
     const pf = profile.preflop || {};
     const mult = profile.postflop ? profile.postflop.callMult : 1;
-    const scale = Math.max(0, 1 - strict * 0.85);
+    const scale = biasScaleFromStrict(strict);
     return clamp(base * (1 + (mult - 1) * scale) + (pf.callBias || 0) * scale, 0.08, 0.92);
+  }
+
+  /**
+   * Umbral holeStr (0–1) para abrir fuera de chart. null = no widen.
+   * Nit: a veces salta opens de chart (skipChance).
+   */
+  function openStyle(profile) {
+    const id = profile && profile.id;
+    if (id === 'maniac') return { widenThr: 0.36, skipChance: 0 };
+    if (id === 'lag') return { widenThr: 0.42, skipChance: 0 };
+    if (id === 'fish') return { widenThr: 0.52, skipChance: 0.06 };
+    if (id === 'pro') return { widenThr: 0.54, skipChance: 0.05 };
+    if (id === 'tag') return { widenThr: 0.56, skipChance: 0.06 };
+    if (id === 'nit') return { widenThr: null, skipChance: 0.32 };
+    return { widenThr: null, skipChance: 0 };
   }
 
 
@@ -15619,7 +15673,8 @@ window.PT_NASH_PUSH_JSON = {
     shouldApplyHuAdjust, applyHuAdjust,
     getProfile, profileForHand, assignTableProfiles,
     postflopFacingBet, postflopLead, betSizeBB,
-    adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb
+    adjustFoldProb, adjustThreeBetProb, adjustFourBetProb, adjustCallProb,
+    openStyle
   };
 })(window);
 
@@ -15643,6 +15698,7 @@ window.PT_NASH_PUSH_JSON = {
     maniac_bluff: 'Vs maniac: casi cero faroles — no foldea.',
     tag_respect: 'Vs TAG: ajuste mínimo — cerca de GTO.',
     pro_gto: 'Vs Pro: juega el mix GTO.',
+    pro_hybrid: 'Vs Pro: GTO + exploit selectivo (vs 3bet/presión: menos bluff, más value/call-down).',
     line_passive_value: 'Vs línea pasiva: más value — el rango rival está capped.',
     line_passive_bluff: 'Vs línea pasiva: menos farol puro — pagan más de lo debido.',
     line_polar_fe: 'Línea polar/delayed: farol con FE representable.',
@@ -15717,16 +15773,17 @@ window.PT_NASH_PUSH_JSON = {
       reasonCall: 'maniac_call'
     },
     pro: {
-      valueBet: 1,
-      thinBet: 1,
-      bluffBet: 1,
-      airRaise: 1,
-      callMedium: 1,
-      foldToBarrel: 1,
-      threeBetBluff: 1,
-      threeBetValue: 1,
-      reasonValue: 'pro_gto',
-      reasonBluff: 'pro_gto'
+      /* GTO + exploit selectivo lite vs pro que 3betea/presiona. */
+      valueBet: 1.12,
+      thinBet: 1.06,
+      bluffBet: 0.88,
+      airRaise: 0.9,
+      callMedium: 1.12,
+      foldToBarrel: 0.92,
+      threeBetBluff: 0.85,
+      threeBetValue: 1.18,
+      reasonValue: 'pro_hybrid',
+      reasonBluff: 'pro_hybrid'
     }
   };
 
@@ -16024,20 +16081,26 @@ window.PT_NASH_PUSH_JSON = {
     let tier = heroTier(input);
     let archetypeApplied = false;
 
-    if (mode === 'exploit' && typeId && typeId !== 'pro') {
+    if (mode === 'exploit' && typeId) {
       const adj = applyMults(gto, input, typeId);
       strategy = adj.strategy;
       explain = adj.explainDelta.slice();
       reasons = adj.reasons.slice();
       tier = adj.tier;
       archetypeApplied = true;
-    } else if (mode === 'exploit' && typeId === 'pro') {
-      reasons = [REASONS.pro_gto];
+      if (typeId === 'pro' && reasons.indexOf(REASONS.pro_hybrid) < 0) {
+        reasons = [REASONS.pro_hybrid].concat(reasons.filter(function (r) {
+          return r !== REASONS.pro_gto;
+        }));
+      }
     }
 
-    /* Línea: full scale con arquetipo; lite (0.55) sin tipo fijo / en modo gto (dual). */
-    const lineScale = archetypeApplied ? 0.85 : 0.55;
-    if (signals.length && (archetypeApplied || mode === 'gto' || !typeId || typeId === 'pro')) {
+    /* Línea: full scale con arquetipo; lite (0.55) sin tipo fijo / en modo gto (dual).
+     * Pro usa scale 0.7 (entre GTO-lite y arquetipo full). */
+    const lineScale = archetypeApplied
+      ? (typeId === 'pro' ? 0.7 : 0.85)
+      : 0.55;
+    if (signals.length && (archetypeApplied || mode === 'gto' || !typeId)) {
       const lineAdj = applyLineLite(strategy, input, signals, lineScale);
       strategy = lineAdj.strategy;
       explain = explain.concat(lineAdj.explainDelta || []);
@@ -16059,7 +16122,7 @@ window.PT_NASH_PUSH_JSON = {
     /* No publicar reasons de línea/arquetipo si el mix se revirtió a GTO. */
     let outReasons = reasons;
     if (!applied) {
-      outReasons = (mode === 'exploit' && typeId === 'pro') ? [REASONS.pro_gto] : [];
+      outReasons = [];
     }
 
     return {
@@ -16076,7 +16139,7 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function shouldApply(input) {
-    return !!(input && input.scoreMode === 'exploit' && resolveType(input) && resolveType(input) !== 'pro');
+    return !!(input && input.scoreMode === 'exploit' && resolveType(input));
   }
 
   global.GTOHeroExploitAdjust = {
@@ -18287,6 +18350,50 @@ window.PT_NASH_PUSH_JSON = {
     return W.weightOf(weights, code);
   }
 
+  /** Off-chart / polar 3bet: Ax suited, broadways, SC fuertes — no Q2o. */
+  function speculativeThreeBetOk(code) {
+    if (!code || code.length < 2) return false;
+    if (code.length === 2) {
+      /* Pares medios+ fuera de chart 3bet puro a veces. */
+      const ranks = '23456789TJQKA';
+      return ranks.indexOf(code[0]) >= ranks.indexOf('8');
+    }
+    const ranks = '23456789TJQKA';
+    const hi = code[0];
+    const lo = code[1];
+    const suited = code[2] === 's';
+    const ri = ranks.indexOf(hi);
+    const rj = ranks.indexOf(lo);
+    if (ri < 0 || rj < 0) return false;
+    if (hi === 'A' && (suited || rj >= ranks.indexOf('T'))) return true;
+    if (suited && hi === 'A') return true;
+    if (!suited && ri >= ranks.indexOf('K') && rj >= ranks.indexOf('T')) return true;
+    if (!suited && ri >= ranks.indexOf('Q') && rj >= ranks.indexOf('J')) return true;
+    if (suited && ri >= ranks.indexOf('T') && (ri - rj) <= 2) return true;
+    if (suited && ri >= ranks.indexOf('J') && rj >= ranks.indexOf('9')) return true;
+    return false;
+  }
+
+  /** Off-chart BB/SB defend: Ax, suited decentes, broadway — no basura tipo Q2o. */
+  function speculativeDefendOk(code) {
+    if (!code || code.length < 2) return false;
+    if (code.length === 2) return true;
+    const ranks = '23456789TJQKA';
+    const hi = code[0];
+    const lo = code[1];
+    const suited = code[2] === 's';
+    const ri = ranks.indexOf(hi);
+    const rj = ranks.indexOf(lo);
+    if (ri < 0 || rj < 0) return false;
+    if (hi === 'A') return true;
+    if (suited && ri >= ranks.indexOf('7')) return true;
+    if (!suited && ri >= ranks.indexOf('K') && rj >= ranks.indexOf('9')) return true;
+    if (!suited && ri >= ranks.indexOf('Q') && rj >= ranks.indexOf('T')) return true;
+    if (!suited && ri >= ranks.indexOf('J') && rj >= ranks.indexOf('T')) return true;
+    if (suited && (ri - rj) <= 2 && ri >= ranks.indexOf('5')) return true;
+    return false;
+  }
+
   function bucketWeights(sets) {
     return W.fromSets(sets || {});
   }
@@ -18389,6 +18496,28 @@ window.PT_NASH_PUSH_JSON = {
     if (!code) return false;
     const buckets = openBuckets(openerPos, ctx);
     return buckets ? handWeight(buckets, code) > 0 : false;
+  }
+
+  /**
+   * Open consciente de perfil (shared torneo + entrenador).
+   * Chart base + widen/skip por arquetipo.
+   * @param {number} [holeStr01] fuerza holística 0–1 para widen fuera de chart
+   */
+  function shouldOpen(code, openerPos, ctx, profile, holeStr01, rnd) {
+    const r = rnd != null ? rnd : Math.random();
+    const inChart = isInOpenRange(code, openerPos, ctx);
+    const style = (VP.openStyle && VP.openStyle(profile)) || { widenThr: null, skipChance: 0 };
+    if (inChart) {
+      if (style.skipChance > 0 && r < style.skipChance) return false;
+      return true;
+    }
+    if (style.widenThr == null) return false;
+    const hs = holeStr01 != null ? Number(holeStr01) : 0;
+    if (!(hs > style.widenThr)) return false;
+    /* Late positions widen más; early más selectivo. */
+    const late = openerPos === 'BTN' || openerPos === 'CO' || openerPos === 'SB';
+    const thr = late ? style.widenThr : style.widenThr + 0.08;
+    return hs > thr;
   }
 
   function isoDefendBuckets() {
@@ -18520,16 +18649,56 @@ window.PT_NASH_PUSH_JSON = {
     const buckets = defendBuckets(defenderPos, openerPos, ctx);
     if (!buckets) return 'fold';
 
-    const w3 = handWeight(buckets.threeBet, code);
-    const wc = handWeight(buckets.call, code);
+    let w3 = handWeight(buckets.threeBet, code);
+    let wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
     const icmBias = tournamentFoldBias(ctx);
     const stealBias = tournamentStealBias(ctx);
     const huAgg = huAggressionBias(ctx) + stealBias;
+    const pf = (profile && profile.preflop) || {};
+    const callBias = Number(pf.callBias) || 0;
+    const threeBias = Number(pf.threeBetBias) || 0;
+    const foldBias = Number(pf.foldBias) || 0;
+
+    /* Identidad de arquetipo: ensancha/aprieta pesos de chart. */
+    if (callBias > 0 && wc > 0) wc = Math.min(1, wc + callBias * 1.35);
+    if (threeBias > 0 && w3 > 0) w3 = Math.min(1, w3 + threeBias * 1.45);
+    if (threeBias > 0.04 && wc >= 0.28 && w3 < 0.35) {
+      /* Presión: parte del calling range pasa a 3bet polar/light. */
+      w3 = Math.max(w3, threeBias * 1.25 + stealBias * 0.55);
+    }
+    /* Pro: manos especulativas fuertes → peso 3bet aunque chart diga fold/call mix bajo. */
+    if ((profile && profile.id === 'pro') && threeBias > 0.08 && speculativeThreeBetOk(code)
+      && w3 < 0.55) {
+      w3 = Math.max(w3, 0.38 + threeBias * 0.9 + stealBias * 0.4);
+    }
+    if (foldBias > 0.05 && wc > 0) wc = Math.max(0, wc - foldBias * 0.8);
+    if (foldBias > 0.05 && w3 > 0) w3 = Math.max(0, w3 - foldBias * 0.35);
+    /* BB: bump extra al calling range in-chart (MDF). */
+    if (defenderPos === 'BB' && callBias >= 0 && wc > 0) {
+      wc = Math.min(1, wc + 0.12 + callBias * 0.8);
+    }
+    if (defenderPos === 'BB' && callBias > 0.02 && w3 <= 0 && wc <= 0
+      && speculativeDefendOk(code)) {
+      /* ≥0.42 para entrar en la rama call (no caer al fold final). */
+      wc = Math.min(0.9, 0.48 + callBias * 2.2);
+    }
 
     if (w3 <= 0 && wc <= 0) {
       if (allowsLeak(profile, '3bet', r)) return '3bet';
-      if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r)) return 'call';
+      /* Fish/LAG/pro: defensa especulativa fuera de chart (no solo leakRate). */
+      const offChartCall = Math.max(0, callBias * 1.55 - foldBias * 0.6 + huAgg * 0.25);
+      const offChart3 = Math.max(0, threeBias * 1.05 + huAgg * 0.25 - foldBias * 0.35);
+      /* BB: más defend (MDF). SB un poco menos que BB. */
+      const blindDef = defenderPos === 'BB' ? 2.45 : (defenderPos === 'SB' ? 1.4 : 1);
+      /* Pro/TAG/Nit: no callar basura off-chart (Q2o). Fish/LAG/maniac sí pueden. */
+      const pid = profile && profile.id;
+      const gateTrash = pid === 'pro' || pid === 'tag' || pid === 'nit';
+      const okSpec = !gateTrash || speculativeDefendOk(code);
+      const ok3 = !gateTrash || speculativeThreeBetOk(code);
+      if (offChart3 * blindDef > 0.04 && ok3 && r < offChart3 * blindDef) return '3bet';
+      if (offChartCall * blindDef > 0.04 && okSpec && r < (offChartCall + offChart3) * blindDef) return 'call';
+      if ((!icmBias || huAgg > 0) && allowsLeak(profile, 'call', r) && okSpec) return 'call';
       return 'fold';
     }
 
@@ -18542,23 +18711,32 @@ window.PT_NASH_PUSH_JSON = {
     }
 
     if (w3 >= 1) {
-      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.72 : 0.68) + huAgg * 0.2, profile)) return '3bet';
+      if (r < VP.adjustThreeBetProb((strict >= 0.75 ? 0.85 : 0.72) + huAgg * 0.22, profile)) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.82 - icmBias + huAgg * 0.15, profile)) return 'call';
       return 'fold';
     }
     if (w3 >= 0.5) {
-      const freq = strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.25) : VP.adjustThreeBetProb(0.32 + huAgg * 0.2, profile);
+      const freq = strict >= 0.75
+        ? Math.min(1, w3 + huAgg * 0.28 + threeBias * 0.35)
+        : VP.adjustThreeBetProb(0.45 + huAgg * 0.22, profile);
       if (r < freq) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.58 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
     if (w3 > 0) {
-      if (r < (strict >= 0.75 ? Math.min(1, w3 + huAgg * 0.2) : VP.adjustThreeBetProb(w3 * 0.55 + huAgg * 0.15, profile))) return '3bet';
+      const f3 = strict >= 0.75
+        ? Math.min(1, w3 + huAgg * 0.22 + threeBias * 0.4)
+        : VP.adjustThreeBetProb(w3 * 0.7 + huAgg * 0.18, profile);
+      if (r < f3) return '3bet';
       if (wc > 0 && r < VP.adjustCallProb(0.42 - icmBias + huAgg * 0.2, profile)) return 'call';
       return 'fold';
     }
-    if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.14 + icmBias - huAgg * 0.5), profile) ? 'fold' : 'call';
-    if (wc >= 0.42) return r < VP.adjustCallProb(0.36 - icmBias * 0.5 + huAgg * 0.25, profile) ? 'call' : 'fold';
+    if (wc >= 1) return r < VP.adjustFoldProb(Math.max(0.05, 0.12 + icmBias - huAgg * 0.5 - callBias * 0.3), profile) ? 'fold' : 'call';
+    if (wc >= 0.42) return r < VP.adjustCallProb(0.4 - icmBias * 0.5 + huAgg * 0.25 + callBias * 0.35 + (defenderPos === 'BB' ? 0.12 : 0), profile) ? 'call' : 'fold';
+    if (defenderPos === 'BB' && speculativeDefendOk(code) && (callBias > 0.02 || (profile && profile.id === 'pro'))
+      && r < Math.min(0.78, 0.42 + callBias * 3 - icmBias * 0.5)) {
+      return 'call';
+    }
     return 'fold';
   }
 
@@ -18566,32 +18744,54 @@ window.PT_NASH_PUSH_JSON = {
   function openerVs3BetAction(code, profile, rnd, ctx) {
     const r = rnd != null ? rnd : Math.random();
     const buckets = vs3betBuckets(ctx);
-    const wf = handWeight(buckets.fourBet, code);
-    const wc = handWeight(buckets.call, code);
+    let wf = handWeight(buckets.fourBet, code);
+    let wc = handWeight(buckets.call, code);
     const strict = strictness(profile);
+    const pf = (profile && profile.preflop) || {};
+    const callBias = Number(pf.callBias) || 0;
+    const threeBias = Number(pf.threeBetBias) || 0;
+    const fourBias = Number(pf.fourBetBias) || 0;
+    const foldBias = Number(pf.foldBias) || 0;
     let act;
+
+    /* Continue vs 3bet: ensanchar call/4bet según perfil (bajar fold-to-3bet). */
+    if (callBias > 0 && wc > 0) wc = Math.min(1, wc + callBias * 1.5);
+    if (fourBias > 0 && wf > 0) wf = Math.min(1, wf + fourBias * 1.3);
+    if (threeBias > 0.04 && wc >= 0.35 && wf < 0.15) {
+      wf = Math.max(wf, threeBias * 0.55);
+    }
 
     if (wf <= 0 && wc <= 0) {
       if (allowsLeak(profile, '4bet', r)) act = '4bet';
-      else act = 'fold';
+      else {
+        /* Off-chart continue: pro/lag/fish no overfoldean tanto vs 3bet. */
+        const off4 = Math.max(0, fourBias * 1.05 + threeBias * 0.4 - foldBias * 0.45);
+        const offCall = Math.max(0, callBias * 2.4 + threeBias * 0.45 - foldBias * 0.35);
+        if (off4 > 0.05 && r < off4) act = '4bet';
+        else if (offCall > 0.05 && r < off4 + offCall) act = 'call';
+        else act = 'fold';
+      }
     } else if (strict >= 0.99) {
-      const mix = gtoMixAction(r, wf, wc, 'call');
+      const mix = gtoMixAction(r, wf, wc * (1 + callBias * 0.55), 'call');
       act = mix === 'aggress' ? '4bet' : (mix === 'pass' ? 'call' : 'fold');
     } else if (wf >= 1) {
-      if (r < VP.adjustFourBetProb(strict >= 0.75 ? 0.55 : 0.58, profile)) act = '4bet';
-      else if (wc > 0 && r < VP.adjustCallProb(0.72, profile)) act = 'call';
+      if (r < VP.adjustFourBetProb(strict >= 0.75 ? 0.58 : 0.62, profile)) act = '4bet';
+      else if (wc > 0 && r < VP.adjustCallProb(0.82 + callBias * 0.5, profile)) act = 'call';
       else act = 'fold';
     } else if (wf > 0) {
-      const freq = strict >= 0.75 ? wf : VP.adjustFourBetProb(Math.min(0.28, wf * 0.65), profile);
+      const freq = strict >= 0.75 ? Math.min(1, wf + fourBias * 0.4) : VP.adjustFourBetProb(Math.min(0.35, wf * 0.7), profile);
       if (r < freq) act = '4bet';
-      else if (wc > 0 && r < VP.adjustCallProb(0.52, profile)) act = 'call';
+      else if (wc > 0 && r < VP.adjustCallProb(0.64 + callBias * 0.55, profile)) act = 'call';
       else act = 'fold';
-    } else if (wc >= 1) act = r < VP.adjustFoldProb(0.18, profile) ? 'fold' : 'call';
-    else if (wc >= 0.42) act = r < VP.adjustCallProb(0.34, profile) ? 'call' : 'fold';
-    else act = 'fold';
+    } else if (wc >= 1) act = r < VP.adjustFoldProb(Math.max(0.05, 0.10 - callBias * 0.45 + foldBias * 0.35), profile) ? 'fold' : 'call';
+    else if (wc >= 0.42) act = r < VP.adjustCallProb(0.5 + callBias * 0.6, profile) ? 'call' : 'fold';
+    else {
+      const lightCall = Math.max(0, callBias * 1.6 + threeBias * 0.2 - foldBias * 0.25);
+      act = (lightCall > 0.05 && r < lightCall) ? 'call' : 'fold';
+    }
 
     if (act === '4bet' && !isInFourBetRange(code, ctx)) {
-      if (wc > 0) return 'call';
+      if (wc > 0 || callBias > 0.03) return 'call';
       return 'fold';
     }
     return act;
@@ -18808,7 +19008,7 @@ window.PT_NASH_PUSH_JSON = {
     limperVsIsoAction, openerVsSqueezeAction, callerVsSqueezeAction,
     cold4BetAction, squeezeAction,
     rangeStrFor3Bet, rangeStrFor4Bet, rangeStrForCall3Bet,
-    isInFourBetRange, isInThreeBetRange, isInOpenRange, isInDefendRange,
+    isInFourBetRange, isInThreeBetRange, isInOpenRange, shouldOpen, isInDefendRange,
     isInLimpRange, isInIsoDefendRange, isInSqueezeContinueRange, strictness,
     tournamentFoldBias, tournamentStealBias, isExplicitHu, huAggressionBias
   };
