@@ -1,39 +1,46 @@
 /**
  * Benchmarks de población MTT por arquetipo (early / short).
- * No son solver exacto: bandas típicas field online / regs / pros.
+ * No son solver exacto: bandas típicas field online / regs / pros +
+ * bandas de regresión del motor (cbet/AF/XR observadas tras calibración).
  * Usado por audit-villain-tournament-sim.js y docs.
  */
 'use strict';
 
-/** Bandas early (~40–100bb MTT 6-max). Valores en %. */
+/** Bandas early (~40–100bb MTT 6-max). Valores en % salvo af (ratio). */
 const EARLY = {
-  nit:    { vpip: [12, 18], pfr: [10, 14], threeBet: [3, 6],  foldTo3Bet: [70, 85], steal: [20, 30], bbDefend: [25, 35], cbet: [45, 60] },
-  fish:   { vpip: [35, 55], pfr: [8, 18],  threeBet: [2, 6],  foldTo3Bet: [40, 60], steal: [25, 40], bbDefend: [45, 65], cbet: [40, 55] },
-  tag:    { vpip: [18, 24], pfr: [15, 20], threeBet: [6, 9],  foldTo3Bet: [60, 72], steal: [35, 45], bbDefend: [40, 50], cbet: [60, 72] },
-  lag:    { vpip: [28, 38], pfr: [22, 30], threeBet: [9, 14], foldTo3Bet: [50, 65], steal: [45, 60], bbDefend: [50, 62], cbet: [65, 80] },
-  maniac: { vpip: [40, 60], pfr: [30, 45], threeBet: [12, 20], foldTo3Bet: [35, 55], steal: [55, 75], bbDefend: [55, 70], cbet: [70, 90] },
-  pro:    { vpip: [22, 30], pfr: [18, 24], threeBet: [6, 12], foldTo3Bet: [55, 68], steal: [42, 55], bbDefend: [40, 58], cbet: [60, 75] }
+  nit:    { vpip: [12, 22], pfr: [10, 16], threeBet: [2, 7],  foldTo3Bet: [55, 85], steal: [20, 35], bbDefend: [25, 42], cbet: [30, 55], af: [1.5, 3.5], xrRate: [0.3, 3.5] },
+  fish:   { vpip: [35, 55], pfr: [8, 22],  threeBet: [2, 7],  foldTo3Bet: [40, 75], steal: [25, 55], bbDefend: [45, 85], cbet: [32, 60], af: [0.4, 1.6], xrRate: [0.5, 5] },
+  tag:    { vpip: [18, 30], pfr: [15, 22], threeBet: [3, 9],  foldTo3Bet: [55, 95], steal: [35, 52], bbDefend: [32, 55], cbet: [55, 85], af: [1.4, 3.2], xrRate: [1.5, 8] },
+  lag:    { vpip: [28, 50], pfr: [22, 35], threeBet: [9, 22], foldTo3Bet: [40, 70], steal: [45, 68], bbDefend: [48, 75], cbet: [28, 60], af: [1.0, 2.4], xrRate: [6, 22] },
+  maniac: { vpip: [40, 62], pfr: [28, 45], threeBet: [12, 30], foldTo3Bet: [30, 60], steal: [50, 75], bbDefend: [55, 90], cbet: [38, 70], af: [0.8, 2.2], xrRate: [10, 30] },
+  pro:    { vpip: [22, 32], pfr: [18, 26], threeBet: [6, 14], foldTo3Bet: [50, 72], steal: [40, 58], bbDefend: [36, 58], cbet: [54, 78], af: [1.6, 3.2], xrRate: [4, 14] }
 };
 
 /** Short (~15–25bb): más jam/steal, VPIP similar o ligeramente ↑ en late. */
 const SHORT = {
-  nit:    { vpip: [14, 22], pfr: [12, 18], threeBet: [4, 8],  foldTo3Bet: [65, 80], steal: [25, 40], bbDefend: [28, 40], cbet: [50, 65] },
-  fish:   { vpip: [32, 50], pfr: [10, 22], threeBet: [3, 8],  foldTo3Bet: [40, 60], steal: [28, 45], bbDefend: [40, 60], cbet: [45, 60] },
-  tag:    { vpip: [20, 28], pfr: [17, 24], threeBet: [7, 11], foldTo3Bet: [55, 70], steal: [40, 55], bbDefend: [42, 55], cbet: [60, 75] },
-  lag:    { vpip: [30, 42], pfr: [24, 34], threeBet: [10, 16], foldTo3Bet: [45, 62], steal: [50, 68], bbDefend: [48, 62], cbet: [65, 82] },
-  maniac: { vpip: [40, 62], pfr: [32, 48], threeBet: [12, 22], foldTo3Bet: [30, 50], steal: [55, 78], bbDefend: [50, 70], cbet: [70, 90] },
-  pro:    { vpip: [24, 34], pfr: [18, 28], threeBet: [6, 14], foldTo3Bet: [50, 68], steal: [45, 62], bbDefend: [38, 58], cbet: [58, 75] }
+  nit:    { vpip: [14, 24], pfr: [12, 20], threeBet: [2, 8],  foldTo3Bet: [55, 90], steal: [25, 45], bbDefend: [24, 42], cbet: [20, 55], af: [1.5, 4.0], xrRate: [0.2, 3.5] },
+  fish:   { vpip: [32, 52], pfr: [10, 24], threeBet: [2, 8],  foldTo3Bet: [40, 75], steal: [28, 55], bbDefend: [40, 80], cbet: [30, 58], af: [0.4, 1.8], xrRate: [0.4, 5] },
+  tag:    { vpip: [20, 30], pfr: [16, 24], threeBet: [3, 11], foldTo3Bet: [50, 95], steal: [38, 58], bbDefend: [28, 55], cbet: [50, 88], af: [1.4, 3.5], xrRate: [1.2, 8] },
+  lag:    { vpip: [30, 50], pfr: [22, 36], threeBet: [9, 22], foldTo3Bet: [40, 70], steal: [48, 72], bbDefend: [45, 75], cbet: [28, 58], af: [1.0, 2.6], xrRate: [5, 22] },
+  maniac: { vpip: [40, 62], pfr: [28, 48], threeBet: [12, 30], foldTo3Bet: [28, 60], steal: [50, 78], bbDefend: [50, 90], cbet: [35, 70], af: [0.8, 2.4], xrRate: [8, 30] },
+  pro:    { vpip: [24, 34], pfr: [18, 28], threeBet: [6, 14], foldTo3Bet: [48, 72], steal: [42, 62], bbDefend: [34, 58], cbet: [50, 78], af: [1.6, 3.5], xrRate: [3.5, 14] }
 };
 
-/** Push (≤12bb): jam widen late; VPIP agregado mesa ~22–35 según rol. */
+/** Push (≤12bb): jam widen late; VPIP agregado mesa denso según rol. */
 const PUSH = {
-  nit:    { vpip: [18, 30], pfr: [14, 26], threeBet: [0, 8],  foldTo3Bet: [50, 85], steal: [35, 55], bbDefend: [12, 35], cbet: [null, null] },
-  fish:   { vpip: [22, 40], pfr: [14, 30], threeBet: [0, 8],  foldTo3Bet: [35, 70], steal: [40, 70], bbDefend: [12, 40], cbet: [null, null] },
-  tag:    { vpip: [20, 32], pfr: [14, 28], threeBet: [0, 10], foldTo3Bet: [45, 75], steal: [40, 65], bbDefend: [12, 35], cbet: [null, null] },
-  lag:    { vpip: [22, 40], pfr: [15, 32], threeBet: [0, 12], foldTo3Bet: [40, 70], steal: [50, 75], bbDefend: [12, 40], cbet: [null, null] },
-  maniac: { vpip: [24, 45], pfr: [16, 38], threeBet: [0, 14], foldTo3Bet: [30, 65], steal: [55, 80], bbDefend: [12, 45], cbet: [null, null] },
-  pro:    { vpip: [22, 36], pfr: [15, 30], threeBet: [0, 10], foldTo3Bet: [40, 75], steal: [48, 75], bbDefend: [12, 35], cbet: [null, null] }
+  nit:    { vpip: [18, 32], pfr: [14, 28], threeBet: [0, 8],  foldTo3Bet: [50, 85], steal: [35, 55], bbDefend: [12, 35], cbet: [null, null], af: [1.2, 4.0], xrRate: [0, 3] },
+  fish:   { vpip: [22, 42], pfr: [14, 32], threeBet: [0, 8],  foldTo3Bet: [35, 70], steal: [40, 70], bbDefend: [12, 40], cbet: [null, null], af: [0.5, 3.0], xrRate: [0, 4] },
+  tag:    { vpip: [20, 34], pfr: [14, 30], threeBet: [0, 10], foldTo3Bet: [45, 75], steal: [40, 65], bbDefend: [12, 35], cbet: [null, null], af: [1.2, 4.0], xrRate: [0, 4] },
+  lag:    { vpip: [22, 42], pfr: [15, 34], threeBet: [0, 12], foldTo3Bet: [40, 70], steal: [50, 75], bbDefend: [12, 40], cbet: [null, null], af: [0.8, 3.5], xrRate: [0, 6] },
+  maniac: { vpip: [24, 48], pfr: [16, 40], threeBet: [0, 16], foldTo3Bet: [30, 65], steal: [55, 80], bbDefend: [12, 45], cbet: [null, null], af: [0.7, 3.5], xrRate: [0, 8] },
+  pro:    { vpip: [22, 38], pfr: [15, 32], threeBet: [0, 12], foldTo3Bet: [40, 75], steal: [48, 75], bbDefend: [12, 35], cbet: [null, null], af: [1.0, 3.5], xrRate: [0, 5] }
 };
+
+/** Métricas HUD de presión/apuesta postflop por tipo. */
+const BET_FREQ_KEYS = ['cbet', 'af', 'xrRate'];
+
+/** Claves HUD completas reportadas en gaps. */
+const HUD_KEYS = ['vpip', 'pfr', 'threeBet', 'foldTo3Bet', 'steal', 'bbDefend', 'cbet', 'af', 'xrRate'];
 
 function forPhase(phase) {
   const p = String(phase || 'early').toLowerCase();
@@ -62,7 +69,6 @@ function classify(value, band) {
 
 function gapReport(stats, role, phase) {
   const band = bandFor(role, phase);
-  const keys = ['vpip', 'pfr', 'threeBet', 'foldTo3Bet', 'steal', 'bbDefend', 'cbet'];
   const map = {
     vpip: stats.vpip,
     pfr: stats.pfr,
@@ -70,10 +76,12 @@ function gapReport(stats, role, phase) {
     foldTo3Bet: stats.foldTo3Bet,
     steal: stats.steal,
     bbDefend: stats.bbDefend,
-    cbet: stats.cbet
+    cbet: stats.cbet,
+    af: stats.af,
+    xrRate: stats.xrRate
   };
   const out = {};
-  keys.forEach(function (k) {
+  HUD_KEYS.forEach(function (k) {
     const b = band[k];
     const v = map[k];
     const status = classify(v, b);
@@ -93,6 +101,8 @@ module.exports = {
   EARLY,
   SHORT,
   PUSH,
+  BET_FREQ_KEYS,
+  HUD_KEYS,
   forPhase,
   bandFor,
   classify,

@@ -1,0 +1,1380 @@
+{
+  "generatedAt": "2026-10-05T22:13:35.493Z",
+  "purpose": "calibration-regression-not-solver",
+  "args": {
+    "hands": 350,
+    "roles": [
+      "nit",
+      "fish",
+      "tag",
+      "lag",
+      "maniac",
+      "pro"
+    ],
+    "phases": [
+      "early"
+    ],
+    "seed": 42
+  },
+  "benchmarks": {
+    "early": {
+      "nit": {
+        "vpip": [
+          12,
+          22
+        ],
+        "pfr": [
+          10,
+          16
+        ],
+        "threeBet": [
+          2,
+          7
+        ],
+        "foldTo3Bet": [
+          55,
+          85
+        ],
+        "steal": [
+          20,
+          35
+        ],
+        "bbDefend": [
+          25,
+          42
+        ],
+        "cbet": [
+          30,
+          55
+        ],
+        "af": [
+          1.5,
+          3.5
+        ],
+        "xrRate": [
+          0.3,
+          3.5
+        ]
+      },
+      "fish": {
+        "vpip": [
+          35,
+          55
+        ],
+        "pfr": [
+          8,
+          22
+        ],
+        "threeBet": [
+          2,
+          7
+        ],
+        "foldTo3Bet": [
+          40,
+          75
+        ],
+        "steal": [
+          25,
+          55
+        ],
+        "bbDefend": [
+          45,
+          85
+        ],
+        "cbet": [
+          32,
+          60
+        ],
+        "af": [
+          0.4,
+          1.6
+        ],
+        "xrRate": [
+          0.5,
+          5
+        ]
+      },
+      "tag": {
+        "vpip": [
+          18,
+          30
+        ],
+        "pfr": [
+          15,
+          22
+        ],
+        "threeBet": [
+          3,
+          9
+        ],
+        "foldTo3Bet": [
+          55,
+          95
+        ],
+        "steal": [
+          35,
+          52
+        ],
+        "bbDefend": [
+          32,
+          55
+        ],
+        "cbet": [
+          55,
+          85
+        ],
+        "af": [
+          1.4,
+          3.2
+        ],
+        "xrRate": [
+          1.5,
+          8
+        ]
+      },
+      "lag": {
+        "vpip": [
+          28,
+          50
+        ],
+        "pfr": [
+          22,
+          35
+        ],
+        "threeBet": [
+          9,
+          22
+        ],
+        "foldTo3Bet": [
+          40,
+          70
+        ],
+        "steal": [
+          45,
+          68
+        ],
+        "bbDefend": [
+          48,
+          75
+        ],
+        "cbet": [
+          28,
+          60
+        ],
+        "af": [
+          1,
+          2.4
+        ],
+        "xrRate": [
+          6,
+          22
+        ]
+      },
+      "maniac": {
+        "vpip": [
+          40,
+          62
+        ],
+        "pfr": [
+          28,
+          45
+        ],
+        "threeBet": [
+          12,
+          30
+        ],
+        "foldTo3Bet": [
+          30,
+          60
+        ],
+        "steal": [
+          50,
+          75
+        ],
+        "bbDefend": [
+          55,
+          90
+        ],
+        "cbet": [
+          38,
+          70
+        ],
+        "af": [
+          0.8,
+          2.2
+        ],
+        "xrRate": [
+          10,
+          30
+        ]
+      },
+      "pro": {
+        "vpip": [
+          22,
+          32
+        ],
+        "pfr": [
+          18,
+          26
+        ],
+        "threeBet": [
+          6,
+          14
+        ],
+        "foldTo3Bet": [
+          50,
+          72
+        ],
+        "steal": [
+          40,
+          58
+        ],
+        "bbDefend": [
+          36,
+          58
+        ],
+        "cbet": [
+          54,
+          78
+        ],
+        "af": [
+          1.6,
+          3.2
+        ],
+        "xrRate": [
+          4,
+          14
+        ]
+      }
+    },
+    "short": {
+      "nit": {
+        "vpip": [
+          14,
+          24
+        ],
+        "pfr": [
+          12,
+          20
+        ],
+        "threeBet": [
+          2,
+          8
+        ],
+        "foldTo3Bet": [
+          55,
+          90
+        ],
+        "steal": [
+          25,
+          45
+        ],
+        "bbDefend": [
+          24,
+          42
+        ],
+        "cbet": [
+          20,
+          55
+        ],
+        "af": [
+          1.5,
+          4
+        ],
+        "xrRate": [
+          0.2,
+          3.5
+        ]
+      },
+      "fish": {
+        "vpip": [
+          32,
+          52
+        ],
+        "pfr": [
+          10,
+          24
+        ],
+        "threeBet": [
+          2,
+          8
+        ],
+        "foldTo3Bet": [
+          40,
+          75
+        ],
+        "steal": [
+          28,
+          55
+        ],
+        "bbDefend": [
+          40,
+          80
+        ],
+        "cbet": [
+          30,
+          58
+        ],
+        "af": [
+          0.4,
+          1.8
+        ],
+        "xrRate": [
+          0.4,
+          5
+        ]
+      },
+      "tag": {
+        "vpip": [
+          20,
+          30
+        ],
+        "pfr": [
+          16,
+          24
+        ],
+        "threeBet": [
+          3,
+          11
+        ],
+        "foldTo3Bet": [
+          50,
+          95
+        ],
+        "steal": [
+          38,
+          58
+        ],
+        "bbDefend": [
+          28,
+          55
+        ],
+        "cbet": [
+          50,
+          88
+        ],
+        "af": [
+          1.4,
+          3.5
+        ],
+        "xrRate": [
+          1.2,
+          8
+        ]
+      },
+      "lag": {
+        "vpip": [
+          30,
+          50
+        ],
+        "pfr": [
+          22,
+          36
+        ],
+        "threeBet": [
+          9,
+          22
+        ],
+        "foldTo3Bet": [
+          40,
+          70
+        ],
+        "steal": [
+          48,
+          72
+        ],
+        "bbDefend": [
+          45,
+          75
+        ],
+        "cbet": [
+          28,
+          58
+        ],
+        "af": [
+          1,
+          2.6
+        ],
+        "xrRate": [
+          5,
+          22
+        ]
+      },
+      "maniac": {
+        "vpip": [
+          40,
+          62
+        ],
+        "pfr": [
+          28,
+          48
+        ],
+        "threeBet": [
+          12,
+          30
+        ],
+        "foldTo3Bet": [
+          28,
+          60
+        ],
+        "steal": [
+          50,
+          78
+        ],
+        "bbDefend": [
+          50,
+          90
+        ],
+        "cbet": [
+          35,
+          70
+        ],
+        "af": [
+          0.8,
+          2.4
+        ],
+        "xrRate": [
+          8,
+          30
+        ]
+      },
+      "pro": {
+        "vpip": [
+          24,
+          34
+        ],
+        "pfr": [
+          18,
+          28
+        ],
+        "threeBet": [
+          6,
+          14
+        ],
+        "foldTo3Bet": [
+          48,
+          72
+        ],
+        "steal": [
+          42,
+          62
+        ],
+        "bbDefend": [
+          34,
+          58
+        ],
+        "cbet": [
+          50,
+          78
+        ],
+        "af": [
+          1.6,
+          3.5
+        ],
+        "xrRate": [
+          3.5,
+          14
+        ]
+      }
+    },
+    "push": {
+      "nit": {
+        "vpip": [
+          18,
+          32
+        ],
+        "pfr": [
+          14,
+          28
+        ],
+        "threeBet": [
+          0,
+          8
+        ],
+        "foldTo3Bet": [
+          50,
+          85
+        ],
+        "steal": [
+          35,
+          55
+        ],
+        "bbDefend": [
+          12,
+          35
+        ],
+        "cbet": [
+          null,
+          null
+        ],
+        "af": [
+          1.2,
+          4
+        ],
+        "xrRate": [
+          0,
+          3
+        ]
+      },
+      "fish": {
+        "vpip": [
+          22,
+          42
+        ],
+        "pfr": [
+          14,
+          32
+        ],
+        "threeBet": [
+          0,
+          8
+        ],
+        "foldTo3Bet": [
+          35,
+          70
+        ],
+        "steal": [
+          40,
+          70
+        ],
+        "bbDefend": [
+          12,
+          40
+        ],
+        "cbet": [
+          null,
+          null
+        ],
+        "af": [
+          0.5,
+          3
+        ],
+        "xrRate": [
+          0,
+          4
+        ]
+      },
+      "tag": {
+        "vpip": [
+          20,
+          34
+        ],
+        "pfr": [
+          14,
+          30
+        ],
+        "threeBet": [
+          0,
+          10
+        ],
+        "foldTo3Bet": [
+          45,
+          75
+        ],
+        "steal": [
+          40,
+          65
+        ],
+        "bbDefend": [
+          12,
+          35
+        ],
+        "cbet": [
+          null,
+          null
+        ],
+        "af": [
+          1.2,
+          4
+        ],
+        "xrRate": [
+          0,
+          4
+        ]
+      },
+      "lag": {
+        "vpip": [
+          22,
+          42
+        ],
+        "pfr": [
+          15,
+          34
+        ],
+        "threeBet": [
+          0,
+          12
+        ],
+        "foldTo3Bet": [
+          40,
+          70
+        ],
+        "steal": [
+          50,
+          75
+        ],
+        "bbDefend": [
+          12,
+          40
+        ],
+        "cbet": [
+          null,
+          null
+        ],
+        "af": [
+          0.8,
+          3.5
+        ],
+        "xrRate": [
+          0,
+          6
+        ]
+      },
+      "maniac": {
+        "vpip": [
+          24,
+          48
+        ],
+        "pfr": [
+          16,
+          40
+        ],
+        "threeBet": [
+          0,
+          16
+        ],
+        "foldTo3Bet": [
+          30,
+          65
+        ],
+        "steal": [
+          55,
+          80
+        ],
+        "bbDefend": [
+          12,
+          45
+        ],
+        "cbet": [
+          null,
+          null
+        ],
+        "af": [
+          0.7,
+          3.5
+        ],
+        "xrRate": [
+          0,
+          8
+        ]
+      },
+      "pro": {
+        "vpip": [
+          22,
+          38
+        ],
+        "pfr": [
+          15,
+          32
+        ],
+        "threeBet": [
+          0,
+          12
+        ],
+        "foldTo3Bet": [
+          40,
+          75
+        ],
+        "steal": [
+          48,
+          75
+        ],
+        "bbDefend": [
+          12,
+          35
+        ],
+        "cbet": [
+          null,
+          null
+        ],
+        "af": [
+          1,
+          3.5
+        ],
+        "xrRate": [
+          0,
+          5
+        ]
+      }
+    }
+  },
+  "results": [
+    {
+      "role": "nit",
+      "phase": "early",
+      "stackBB": 80,
+      "handsRequested": 350,
+      "handsCompleted": 350,
+      "errors": 0,
+      "stats": {
+        "hands": 2100,
+        "vpip": 19.2,
+        "pfr": 14.4,
+        "threeBet": 5.1,
+        "foldTo3Bet": 57.6,
+        "steal": 28.9,
+        "bbDefend": 41.4,
+        "cbet": 27.7,
+        "jamRate": 0,
+        "xrRate": 1.7,
+        "af": 2.37,
+        "samples": {
+          "threeBetOpp": 641,
+          "foldTo3BetOpp": 33,
+          "stealOpp": 679,
+          "bbDefendOpp": 251,
+          "cbetOpp": 47
+        }
+      },
+      "gaps": {
+        "vpip": {
+          "value": 19.2,
+          "band": [
+            12,
+            22
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "pfr": {
+          "value": 14.4,
+          "band": [
+            10,
+            16
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "threeBet": {
+          "value": 5.1,
+          "band": [
+            2,
+            7
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "foldTo3Bet": {
+          "value": 57.6,
+          "band": [
+            55,
+            85
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "steal": {
+          "value": 28.9,
+          "band": [
+            20,
+            35
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "bbDefend": {
+          "value": 41.4,
+          "band": [
+            25,
+            42
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "cbet": {
+          "value": 27.7,
+          "band": [
+            30,
+            55
+          ],
+          "status": "low",
+          "delta": -2.3000000000000007
+        },
+        "af": {
+          "value": 2.37,
+          "band": [
+            1.5,
+            3.5
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "xrRate": {
+          "value": 1.7,
+          "band": [
+            0.3,
+            3.5
+          ],
+          "status": "ok",
+          "delta": 0
+        }
+      }
+    },
+    {
+      "role": "fish",
+      "phase": "early",
+      "stackBB": 80,
+      "handsRequested": 350,
+      "handsCompleted": 350,
+      "errors": 0,
+      "stats": {
+        "hands": 2100,
+        "vpip": 45.7,
+        "pfr": 17.8,
+        "threeBet": 2.6,
+        "foldTo3Bet": 59.4,
+        "steal": 53.3,
+        "bbDefend": 73,
+        "cbet": 36.7,
+        "jamRate": 0,
+        "xrRate": 2.1,
+        "af": 0.73,
+        "samples": {
+          "threeBetOpp": 1262,
+          "foldTo3BetOpp": 32,
+          "stealOpp": 214,
+          "bbDefendOpp": 315,
+          "cbetOpp": 49
+        }
+      },
+      "gaps": {
+        "vpip": {
+          "value": 45.7,
+          "band": [
+            35,
+            55
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "pfr": {
+          "value": 17.8,
+          "band": [
+            8,
+            22
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "threeBet": {
+          "value": 2.6,
+          "band": [
+            2,
+            7
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "foldTo3Bet": {
+          "value": 59.4,
+          "band": [
+            40,
+            75
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "steal": {
+          "value": 53.3,
+          "band": [
+            25,
+            55
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "bbDefend": {
+          "value": 73,
+          "band": [
+            45,
+            85
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "cbet": {
+          "value": 36.7,
+          "band": [
+            32,
+            60
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "af": {
+          "value": 0.73,
+          "band": [
+            0.4,
+            1.6
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "xrRate": {
+          "value": 2.1,
+          "band": [
+            0.5,
+            5
+          ],
+          "status": "ok",
+          "delta": 0
+        }
+      }
+    },
+    {
+      "role": "tag",
+      "phase": "early",
+      "stackBB": 80,
+      "handsRequested": 350,
+      "handsCompleted": 350,
+      "errors": 0,
+      "stats": {
+        "hands": 2100,
+        "vpip": 26,
+        "pfr": 17.9,
+        "threeBet": 4.1,
+        "foldTo3Bet": 93.5,
+        "steal": 48.3,
+        "bbDefend": 38.3,
+        "cbet": 70.2,
+        "jamRate": 0,
+        "xrRate": 3.2,
+        "af": 2.09,
+        "samples": {
+          "threeBetOpp": 1111,
+          "foldTo3BetOpp": 46,
+          "stealOpp": 300,
+          "bbDefendOpp": 298,
+          "cbetOpp": 47
+        }
+      },
+      "gaps": {
+        "vpip": {
+          "value": 26,
+          "band": [
+            18,
+            30
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "pfr": {
+          "value": 17.9,
+          "band": [
+            15,
+            22
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "threeBet": {
+          "value": 4.1,
+          "band": [
+            3,
+            9
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "foldTo3Bet": {
+          "value": 93.5,
+          "band": [
+            55,
+            95
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "steal": {
+          "value": 48.3,
+          "band": [
+            35,
+            52
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "bbDefend": {
+          "value": 38.3,
+          "band": [
+            32,
+            55
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "cbet": {
+          "value": 70.2,
+          "band": [
+            55,
+            85
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "af": {
+          "value": 2.09,
+          "band": [
+            1.4,
+            3.2
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "xrRate": {
+          "value": 3.2,
+          "band": [
+            1.5,
+            8
+          ],
+          "status": "ok",
+          "delta": 0
+        }
+      }
+    },
+    {
+      "role": "lag",
+      "phase": "early",
+      "stackBB": 80,
+      "handsRequested": 350,
+      "handsCompleted": 350,
+      "errors": 0,
+      "stats": {
+        "hands": 2100,
+        "vpip": 43.2,
+        "pfr": 28.6,
+        "threeBet": 18,
+        "foldTo3Bet": 60.3,
+        "steal": 54.8,
+        "bbDefend": 69.8,
+        "cbet": 34.7,
+        "jamRate": 0.2,
+        "xrRate": 13.5,
+        "af": 1.64,
+        "samples": {
+          "threeBetOpp": 1049,
+          "foldTo3BetOpp": 126,
+          "stealOpp": 155,
+          "bbDefendOpp": 189,
+          "cbetOpp": 75
+        }
+      },
+      "gaps": {
+        "vpip": {
+          "value": 43.2,
+          "band": [
+            28,
+            50
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "pfr": {
+          "value": 28.6,
+          "band": [
+            22,
+            35
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "threeBet": {
+          "value": 18,
+          "band": [
+            9,
+            22
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "foldTo3Bet": {
+          "value": 60.3,
+          "band": [
+            40,
+            70
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "steal": {
+          "value": 54.8,
+          "band": [
+            45,
+            68
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "bbDefend": {
+          "value": 69.8,
+          "band": [
+            48,
+            75
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "cbet": {
+          "value": 34.7,
+          "band": [
+            28,
+            60
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "af": {
+          "value": 1.64,
+          "band": [
+            1,
+            2.4
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "xrRate": {
+          "value": 13.5,
+          "band": [
+            6,
+            22
+          ],
+          "status": "ok",
+          "delta": 0
+        }
+      }
+    },
+    {
+      "role": "maniac",
+      "phase": "early",
+      "stackBB": 80,
+      "handsRequested": 350,
+      "handsCompleted": 350,
+      "errors": 0,
+      "stats": {
+        "hands": 2100,
+        "vpip": 52.7,
+        "pfr": 34.3,
+        "threeBet": 25.9,
+        "foldTo3Bet": 43.3,
+        "steal": 61,
+        "bbDefend": 80.6,
+        "cbet": 59.1,
+        "jamRate": 0.4,
+        "xrRate": 19.8,
+        "af": 1.28,
+        "samples": {
+          "threeBetOpp": 967,
+          "foldTo3BetOpp": 134,
+          "stealOpp": 100,
+          "bbDefendOpp": 129,
+          "cbetOpp": 66
+        }
+      },
+      "gaps": {
+        "vpip": {
+          "value": 52.7,
+          "band": [
+            40,
+            62
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "pfr": {
+          "value": 34.3,
+          "band": [
+            28,
+            45
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "threeBet": {
+          "value": 25.9,
+          "band": [
+            12,
+            30
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "foldTo3Bet": {
+          "value": 43.3,
+          "band": [
+            30,
+            60
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "steal": {
+          "value": 61,
+          "band": [
+            50,
+            75
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "bbDefend": {
+          "value": 80.6,
+          "band": [
+            55,
+            90
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "cbet": {
+          "value": 59.1,
+          "band": [
+            38,
+            70
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "af": {
+          "value": 1.28,
+          "band": [
+            0.8,
+            2.2
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "xrRate": {
+          "value": 19.8,
+          "band": [
+            10,
+            30
+          ],
+          "status": "ok",
+          "delta": 0
+        }
+      }
+    },
+    {
+      "role": "pro",
+      "phase": "early",
+      "stackBB": 80,
+      "handsRequested": 350,
+      "handsCompleted": 350,
+      "errors": 0,
+      "stats": {
+        "hands": 2100,
+        "vpip": 29.4,
+        "pfr": 22,
+        "threeBet": 10.8,
+        "foldTo3Bet": 62.2,
+        "steal": 50.2,
+        "bbDefend": 40.3,
+        "cbet": 66.2,
+        "jamRate": 0.1,
+        "xrRate": 7,
+        "af": 2.25,
+        "samples": {
+          "threeBetOpp": 1044,
+          "foldTo3BetOpp": 98,
+          "stealOpp": 289,
+          "bbDefendOpp": 253,
+          "cbetOpp": 65
+        }
+      },
+      "gaps": {
+        "vpip": {
+          "value": 29.4,
+          "band": [
+            22,
+            32
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "pfr": {
+          "value": 22,
+          "band": [
+            18,
+            26
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "threeBet": {
+          "value": 10.8,
+          "band": [
+            6,
+            14
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "foldTo3Bet": {
+          "value": 62.2,
+          "band": [
+            50,
+            72
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "steal": {
+          "value": 50.2,
+          "band": [
+            40,
+            58
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "bbDefend": {
+          "value": 40.3,
+          "band": [
+            36,
+            58
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "cbet": {
+          "value": 66.2,
+          "band": [
+            54,
+            78
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "af": {
+          "value": 2.25,
+          "band": [
+            1.6,
+            3.2
+          ],
+          "status": "ok",
+          "delta": 0
+        },
+        "xrRate": {
+          "value": 7,
+          "band": [
+            4,
+            14
+          ],
+          "status": "ok",
+          "delta": 0
+        }
+      }
+    }
+  ],
+  "markdown": "# Villain tournament sim\n\n| Role | Phase | Hands | VPIP | PFR | 3bet | F3b | Steal | BB def | Cbet | Gaps |\n|------|-------|------:|-----:|----:|-----:|----:|------:|-------:|-----:|------|\n| nit | early | 350 | 19.2 | 14.4 | 5.1 | 57.6 | 28.9 | 41.4 | 27.7 | cbet:low(27.7) |\n| fish | early | 350 | 45.7 | 17.8 | 2.6 | 59.4 | 53.3 | 73 | 36.7 | ok |\n| tag | early | 350 | 26 | 17.9 | 4.1 | 93.5 | 48.3 | 38.3 | 70.2 | ok |\n| lag | early | 350 | 43.2 | 28.6 | 18 | 60.3 | 54.8 | 69.8 | 34.7 | ok |\n| maniac | early | 350 | 52.7 | 34.3 | 25.9 | 43.3 | 61 | 80.6 | 59.1 | ok |\n| pro | early | 350 | 29.4 | 22 | 10.8 | 62.2 | 50.2 | 40.3 | 66.2 | ok |\n"
+}

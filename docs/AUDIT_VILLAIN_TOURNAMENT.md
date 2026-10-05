@@ -140,7 +140,7 @@ Volumen baseline pre-fix: 1200 manos/celda · post-fix: 1500 manos/celda · mono
 **Sí** usarlo para:
 
 1. Calibrar sesgos/floors (este audit).
-2. Bandas de regresión (`--assert-bands` / CI smoke).
+2. Bandas de regresión (`--assert-bands` / CI): VPIP/PFR/3bet **y frecuencias de apuesta por tipo** (cbet / AF / XR + identidad relativa).
 3. Documentar HUD esperado por rol×fase.
 
 La cercanía a solver sigue siendo charts auditados + postflop heurístico consciente de límites ([`AUDIT_RANGES_VS_CONSENSUS.md`](AUDIT_RANGES_VS_CONSENSUS.md), [`DECISION_ENTRENADOR_MTT_SPIN.md`](DECISION_ENTRENADOR_MTT_SPIN.md)).
@@ -151,8 +151,10 @@ La cercanía a solver sigue siendo charts auditados + postflop heurístico consc
 
 ```bash
 npm run audit:villain-tournament          # quick
+npm run audit:villain-tournament:assert   # frecuencias de apuesta por tipo + assert-bands
 node tools/audit-villain-tournament-sim.js --full --out tools/audit-out/villain-calib.json
 node tools/test-audit-villain-tournament-sim.js
+node tools/test-audit-villain-bet-freqs.js
 ```
 
 ---

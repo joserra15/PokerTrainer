@@ -545,40 +545,113 @@ function markdownReport(results) {
   return lines.join('\n');
 }
 
+/**
+ * Slack por métrica (ruido muestral en --quick / CI).
+ * Frecs de apuesta (cbet/af/xr) tienen slack propio: muestras postflop menores.
+ */
+function slackFor(key) {
+  if (key === 'threeBet') return 5;
+  if (key === 'cbet') return 8;
+  if (key === 'af') return 0.45;
+  if (key === 'xrRate') return 3;
+  return 6;
+}
+
+/**
+ * Comprueba bandas HUD + frecuencias de apuesta por tipo (arquetipo).
+ * Incluye identidad relativa VPIP / cbet / AF / XR entre roles.
+ */
 function assertBands(results) {
   const failures = [];
   results.forEach(function (r) {
     const must = [];
     if (r.role === 'pro' && (r.phase === 'early' || r.phase === 'short')) {
-      must.push('vpip', 'pfr', 'threeBet');
+      must.push('vpip', 'pfr', 'threeBet', 'cbet', 'af', 'xrRate');
     }
-    if (r.role === 'nit' && r.phase === 'early') must.push('vpip', 'pfr');
-    if (r.role === 'fish' && r.phase === 'early') must.push('vpip');
-    if (r.role === 'maniac' && r.phase === 'early') must.push('vpip', 'threeBet');
+    if (r.role === 'nit' && r.phase === 'early') {
+      must.push('vpip', 'pfr', 'cbet', 'af', 'xrRate');
+    }
+    if (r.role === 'fish' && r.phase === 'early') {
+      must.push('vpip', 'cbet', 'af');
+    }
+    if (r.role === 'tag' && r.phase === 'early') {
+      must.push('vpip', 'cbet', 'af', 'xrRate');
+    }
+    if (r.role === 'lag' && r.phase === 'early') {
+      must.push('vpip', 'threeBet', 'cbet', 'xrRate');
+    }
+    if (r.role === 'maniac' && r.phase === 'early') {
+      must.push('vpip', 'threeBet', 'cbet', 'xrRate');
+    }
     must.forEach(function (k) {
       const g = r.gaps[k];
       if (!g || g.status === 'skip') return;
-      /* Holgura para ruido muestral en --quick / CI */
-      const slack = (k === 'threeBet') ? 5 : 6;
+      const slack = slackFor(k);
       const b = g.band;
       const v = g.value;
       if (v == null || !b) return;
       if (v < b[0] - slack || v > b[1] + slack) {
-        failures.push(r.role + '/' + r.phase + ' ' + k + '=' + v + ' band=' + b.join('-'));
+        failures.push(r.role + '/' + r.phase + ' ' + k + '=' + v + ' band=' + b.join('-')
+          + ' slack=' + slack);
       }
     });
-    /* Separación mínima: fish VPIP > nit VPIP en early */
   });
+
   const early = {};
+  const earlyBet = {};
   results.forEach(function (r) {
-    if (r.phase === 'early') early[r.role] = r.stats.vpip;
+    if (r.phase !== 'early') return;
+    early[r.role] = r.stats.vpip;
+    earlyBet[r.role] = {
+      cbet: r.stats.cbet,
+      af: r.stats.af,
+      xrRate: r.stats.xrRate,
+      threeBet: r.stats.threeBet
+    };
   });
+
   if (early.fish != null && early.nit != null && early.fish < early.nit + 8) {
     failures.push('identity: fish VPIP (' + early.fish + ') debe superar nit (' + early.nit + ') en ≥8pp');
   }
   if (early.maniac != null && early.pro != null && early.maniac < early.pro) {
     failures.push('identity: maniac VPIP (' + early.maniac + ') debe ≥ pro (' + early.pro + ')');
   }
+
+  /* Frecuencias de apuesta por tipo: separación de identidad postflop. */
+  const nitB = earlyBet.nit;
+  const fishB = earlyBet.fish;
+  const proB = earlyBet.pro;
+  const lagB = earlyBet.lag;
+  const maniacB = earlyBet.maniac;
+  const tagB = earlyBet.tag;
+
+  if (proB && nitB && proB.cbet != null && nitB.cbet != null && proB.cbet < nitB.cbet) {
+    failures.push('identity-bet: pro cbet (' + proB.cbet + ') debe ≥ nit (' + nitB.cbet + ')');
+  }
+  if (proB && fishB && proB.af != null && fishB.af != null && fishB.af > proB.af) {
+    failures.push('identity-bet: fish AF (' + fishB.af + ') debe ≤ pro AF (' + proB.af + ')');
+  }
+  if (maniacB && proB && maniacB.xrRate != null && proB.xrRate != null
+    && maniacB.xrRate < proB.xrRate + 2) {
+    failures.push('identity-bet: maniac XR (' + maniacB.xrRate + ') debe superar pro ('
+      + proB.xrRate + ') en ≥2pp');
+  }
+  if (lagB && nitB && lagB.xrRate != null && nitB.xrRate != null
+    && lagB.xrRate < nitB.xrRate + 3) {
+    failures.push('identity-bet: lag XR (' + lagB.xrRate + ') debe superar nit ('
+      + nitB.xrRate + ') en ≥3pp');
+  }
+  if (proB && tagB && proB.threeBet != null && tagB.threeBet != null
+    && proB.threeBet + 1 < tagB.threeBet) {
+    failures.push('identity-bet: pro 3bet (' + proB.threeBet + ') no debe quedar claramente bajo tag ('
+      + tagB.threeBet + ')');
+  }
+  if (maniacB && lagB && maniacB.threeBet != null && lagB.threeBet != null
+    && maniacB.threeBet + 1 < lagB.threeBet) {
+    failures.push('identity-bet: maniac 3bet (' + maniacB.threeBet + ') debe ≥ lag≈ ('
+      + lagB.threeBet + ')');
+  }
+
   return failures;
 }
 
@@ -661,6 +734,8 @@ module.exports = {
   parseArgs,
   summarize,
   emptyExt,
+  assertBands,
+  slackFor,
   PHASE_PRESETS,
   ALL_ROLES
 };

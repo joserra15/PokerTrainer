@@ -12,6 +12,8 @@ const Sim = require('./audit-villain-tournament-sim');
 const Bench = require('./audit-villain-tournament-benchmarks');
 
 assert.ok(Bench.EARLY.pro.vpip[0] < Bench.EARLY.pro.vpip[1], 'pro early band');
+assert.ok(Bench.EARLY.pro.cbet && Bench.EARLY.pro.af && Bench.EARLY.pro.xrRate, 'pro bet-freq bands');
+assert.ok(Bench.BET_FREQ_KEYS.indexOf('cbet') >= 0 && Bench.BET_FREQ_KEYS.indexOf('af') >= 0);
 assert.strictEqual(Bench.classify(25, [22, 28]), 'ok');
 assert.strictEqual(Bench.classify(10, [22, 28]), 'low');
 assert.strictEqual(Bench.classify(40, [22, 28]), 'high');
@@ -32,6 +34,7 @@ report.results.forEach(function (r) {
   assert.ok(r.stats.hands >= 80, 'seat-hands accumulated');
   assert.ok(r.stats.vpip != null && isFinite(r.stats.vpip), 'vpip finite');
   assert.ok(r.stats.pfr != null && isFinite(r.stats.pfr), 'pfr finite');
+  assert.ok(r.gaps && r.gaps.cbet && r.gaps.af && r.gaps.xrRate, 'bet-freq gaps present');
   assert.ok(r.errors / Math.max(1, r.handsRequested) < 0.25, 'error rate low');
 });
 
