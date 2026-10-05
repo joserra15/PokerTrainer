@@ -112,7 +112,8 @@
       trainerByHandId: {},
       trainerLeaks: {},
       sessionLeaks: {},
-      sessionLeaksBySession: {}
+      sessionLeaksBySession: {},
+      byPhaseRole: {}
     };
   }
 
@@ -125,6 +126,7 @@
     if (!a.trainerLeaks) a.trainerLeaks = {};
     if (!a.sessionLeaks) a.sessionLeaks = {};
     if (!a.sessionLeaksBySession) a.sessionLeaksBySession = {};
+    if (!a.byPhaseRole) a.byPhaseRole = {};
     a.version = AGG_VERSION;
     return a;
   }
@@ -432,11 +434,25 @@
       }
     });
     if (entries.length) agg._trainerLeakIndex[rec.id] = entries;
+    var phase = rec.resolvedPhase || rec.mttPhase || 'auto';
+    var role = rec.stackRole || 'unknown';
+    var prKey = phase + '|' + role;
+    if (!agg.byPhaseRole) agg.byPhaseRole = {};
+    if (!agg.byPhaseRole[prKey]) {
+      agg.byPhaseRole[prKey] = { phase: phase, role: role, hands: 0, decisions: 0, good: 0, evLoss: 0 };
+    }
+    var pr = agg.byPhaseRole[prKey];
+    pr.hands += 1;
+    pr.decisions += decs.length;
+    pr.good += good;
+    pr.evLoss = round2(pr.evLoss + evLoss);
     agg.trainerByHandId[rec.id] = {
       week: weekKey(rec.createdAt || Date.now()),
       decisions: decs.length,
       good: good,
-      evLoss: round2(evLoss)
+      evLoss: round2(evLoss),
+      phase: phase,
+      stackRole: role
     };
   }
 

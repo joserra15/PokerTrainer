@@ -156,8 +156,13 @@
     practiceStreet: 'random',
     /** mixed | bluff_make | bluff_catch */
     practiceIntent: 'mixed',
-    /** auto | early | mid | short | push | bubble — spins/MTT */
+    /** auto | early | mid | short | push | bubble | itm | ft | hu — spins/MTT */
     mttPhase: 'auto',
+    /**
+     * Rol de stack del héroe en spots ICM: null/'auto' | cover | mid | short.
+     * En bubble/ITM/FT sin rol fijo, stacks.js rota pedagógicamente.
+     */
+    stackRole: null,
     /** vanilla | pko | mystery | unknown — etiqueta; sin EV bounty */
     tournamentType: 'unknown',
     /** Capacidad / jugadores sentados (replay desde análisis) */
@@ -323,6 +328,13 @@
     c.practiceIntent = 'mixed';
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
+    // Rol de stack: solo cubre/mid/short; auto/null → rotación pedagógica.
+    if (c.stackRole === 'auto' || c.stackRole === '' || c.stackRole === 'chipLead') {
+      c.stackRole = c.stackRole === 'chipLead' ? 'cover' : null;
+    }
+    if (c.stackRole && c.stackRole !== 'cover' && c.stackRole !== 'mid' && c.stackRole !== 'short') {
+      c.stackRole = null;
+    }
 
     // Fase Heads Up: mesa 2-max + WTA (chip-EV). Solo con mttPhase/structure explícitos.
     if (isHuPhase(c) || (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(c) && c.mttPhase === 'hu')) {

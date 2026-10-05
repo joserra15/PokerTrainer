@@ -670,9 +670,22 @@
               <button type="button" class="setup-chip" data-val="short">Short</button>
               <button type="button" class="setup-chip" data-val="push">Push/fold</button>
               <button type="button" class="setup-chip" data-val="bubble" data-hub-mtt>Burbuja</button>
+              <button type="button" class="setup-chip" data-val="itm" data-hub-mtt>ITM</button>
+              <button type="button" class="setup-chip" data-val="ft" data-hub-mtt>Mesa final</button>
               <button type="button" class="setup-chip" data-val="hu" data-hub-spin data-hub-mtt>Heads Up</button>
             </div>
             <p class="muted-text setup-hint">La fase adapta opens, defensa vs open, <strong>vs 3-bet</strong>, antes e ICM (y el stack permitido). En short/push no se flattean las mismas manos que en cash deep. «Auto (por stack)» elige Early/Mid/Short/Push según tus bb. Heads Up fuerza mesa 2-max chip-EV (sin ICM de burbuja). La estructura MTT (buy-in / puestos) afina el ICM lite en burbuja o ITM. En cada mano verás la fase resuelta en el tapete.</p>
+          </div>
+
+          <div class="setup-group" id="setup-group-stack-role" hidden>
+            <span class="setup-label">Rol de stack</span>
+            <div class="setup-chips" id="setup-stack-role">
+              <button type="button" class="setup-chip active" data-val="auto">Auto (rotar)</button>
+              <button type="button" class="setup-chip" data-val="cover">Chip lead</button>
+              <button type="button" class="setup-chip" data-val="mid">Mid (cubierto)</button>
+              <button type="button" class="setup-chip" data-val="short">Short</button>
+            </div>
+            <p class="muted-text setup-hint">En burbuja / ITM / mesa final el rol decide si puedes farolear (cubres) o debes apretarte (te cubren). «Auto» rota ~35 % chip lead / 40 % mid / 25 % short.</p>
           </div>
 
           <div class="setup-group" id="setup-group-tournament-type" hidden>

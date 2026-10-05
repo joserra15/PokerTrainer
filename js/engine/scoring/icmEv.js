@@ -413,6 +413,18 @@
     } else {
       decision.icmNote = 'Presión moderada: fichas y premio van más o menos alineados.';
     }
+    if (input.stackRole === 'cover' || input.coversVillain) {
+      decision.icmNote += ' Chip lead: BF ' + bf + ' — puedes ampliar opens/faroles.';
+    } else if (input.stackRole === 'mid' || input.coveredByVillain) {
+      decision.icmNote += ' Cubierto: BF ' + bf + ' — rango más tight.';
+    } else if (input.stackRole === 'short') {
+      decision.icmNote += ' Short: BF ' + bf + ' — prioriza shove/steal selectivo.';
+    }
+    if (input.ownRiskPremium != null) {
+      decision.ownRiskPremium = input.ownRiskPremium;
+      decision.opponentRiskPremium = input.opponentRiskPremium != null ? input.opponentRiskPremium : null;
+    }
+    decision.stackRole = input.stackRole || null;
     const pool = prizePoolEstimate(input);
     if (pool != null && input.buyIn != null) {
       decision.icmBuyIn = Number(input.buyIn);

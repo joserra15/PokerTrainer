@@ -299,6 +299,7 @@
     if (phase === 'early') return 0.1;
     if (phase === 'mid') return 0.125;
     if (phase === 'short' || phase === 'bubble') return 0.15;
+    if (phase === 'itm' || phase === 'ft') return 0.14;
     if (phase === 'push') return 0.2;
     if (phase === 'hu') return 0.15;
     return 0.125;
@@ -419,6 +420,8 @@
   function defaultMttStructureForPhase(phase) {
     const p = normalizePhase(phase);
     if (p === 'bubble') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.bubble, { mttStructureSituation: 'bubble' });
+    if (p === 'ft') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.ft9, { mttStructureSituation: 'ft9' });
+    if (p === 'itm') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
     if (p === 'hu') return Object.assign({}, MTT_STRUCTURE_DEFAULTS.hu, { mttStructureSituation: 'hu' });
     if (p === 'push' || p === 'short') {
       return Object.assign({}, MTT_STRUCTURE_DEFAULTS.mincash, { mttStructureSituation: 'mincash' });
@@ -524,7 +527,8 @@
     if (!isTournamentHub(hub)) return false;
     const phase = resolvePhase(Object.assign({}, config || {}, { formatHub: hub }));
     if (hub === 'spin') return true;
-    if (phase === 'bubble' || phase === 'push' || phase === 'short') return true;
+    if (phase === 'bubble' || phase === 'push' || phase === 'short'
+      || phase === 'itm' || phase === 'ft') return true;
     // Estructura MTT manda: burbuja/ITM numérica aunque la fase sea mid/early.
     if (hub === 'mtt' && mttStructureNearMoney(config)) return true;
     return false;

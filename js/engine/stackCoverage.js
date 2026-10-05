@@ -174,6 +174,34 @@
     return Math.round(base * mult * 1000) / 1000;
   }
 
+  /**
+   * Explicación corta de por qué el villano juega más/menos agresivo por ICM.
+   */
+  function explainPairPressure(pair, phase) {
+    if (!pair) return null;
+    const role = pair.stackRole || '';
+    const p = String(phase || '');
+    const bf = pair.bubbleFactor;
+    const bits = [];
+    if (role === 'cover' || pair.coversOpponent) {
+      bits.push('cubre al héroe');
+      if (pair.opponentRiskPremium != null && pair.opponentRiskPremium > 0.05) {
+        bits.push('puede farolear más (RP rival alto)');
+      } else {
+        bits.push('puede aplicar presión');
+      }
+    } else if (role === 'mid' || pair.coveredByOpponent) {
+      bits.push('está cubierto');
+      bits.push('rango más tight');
+    } else if (role === 'short') {
+      bits.push('short stack');
+      bits.push('menos overfold que un mid');
+    }
+    if (p === 'bubble' || p === 'ft' || p === 'itm') bits.push('fase ' + p);
+    if (bf != null) bits.push('BF ' + bf);
+    return bits.length ? ('Villano ' + bits.join(' · ')) : null;
+  }
+
   global.PTStackCoverage = {
     ROLE_COVER: ROLE_COVER,
     ROLE_MID: ROLE_MID,
@@ -185,6 +213,7 @@
     rolesForTable: rolesForTable,
     avgStackBB: avgStackBB,
     pairContext: pairContext,
-    riskPremiumFromRole: riskPremiumFromRole
+    riskPremiumFromRole: riskPremiumFromRole,
+    explainPairPressure: explainPairPressure
   };
 })(typeof window !== 'undefined' ? window : globalThis);

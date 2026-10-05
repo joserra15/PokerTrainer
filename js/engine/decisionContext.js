@@ -141,11 +141,14 @@
         }
       } catch (e) { /* fallthrough */ }
     }
-    // Floors asimétricos: cover bajo, mid bubble alto, short intermedio.
+    // Floors/caps asimétricos: cover bajo, mid bubble alto, short intermedio.
     if (ctx.stackRole === 'cover' || ctx.coversOpponent) {
-      phaseFloor = Math.min(phaseFloor, 1.2);
-      phaseFloor = Math.max(phaseFloor, 1.15);
-    } else if (ctx.stackRole === 'mid' && (phase === 'bubble' || situ === 'bubble' || phase === 'ft')) {
+      // Chip lead: BF bajo aunque la heurística de fase sea alta.
+      var coverCap = 1.22;
+      var coverFloor = 1.1;
+      return Math.min(coverCap, Math.max(computed || 1, coverFloor, phaseFloor > 1 ? 1.1 : 1));
+    }
+    if (ctx.stackRole === 'mid' && (phase === 'bubble' || situ === 'bubble' || phase === 'ft')) {
       phaseFloor = Math.max(phaseFloor, 1.6);
     } else if (ctx.stackRole === 'short' && (phase === 'bubble' || situ === 'bubble')) {
       phaseFloor = Math.max(1.2, Math.min(phaseFloor, 1.3));

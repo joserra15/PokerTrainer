@@ -1198,6 +1198,19 @@
     // Asimetría ICM: el rol del villano y el risk premium de cada lado deciden
     // cuánto presiona (RP del héroe) y cuánto se aprieta (RP propio).
     const pair = isTournament ? pairIcmCtx(hand, false) : null;
+    if (pair && hand) {
+      hand._lastOwnRiskPremium = pair.ownRiskPremium;
+      hand._lastOppRiskPremium = pair.opponentRiskPremium;
+      hand._lastPairBubbleFactor = pair.bubbleFactor;
+      hand._lastStackRole = pair.stackRole;
+      const Cov = global.PTStackCoverage;
+      if (Cov && Cov.explainPairPressure) {
+        hand._villainIcmWhy = Cov.explainPairPressure(
+          pair,
+          cfg.resolvedPhase || cfg.effectivePhase || cfg.mttPhase || cfg.mttStructureSituation
+        );
+      }
+    }
     const heroStackBB = ST() && hand.stacks ? ST().remaining(hand, heroStackSeat(hand)) : null;
     return Object.assign({
       formatHub: hub,

@@ -35,6 +35,7 @@ const STEPS = [
   ['Test villano no foldea full casi-nuts', ['node', 'tools/test-villain-never-fold-fullhouse.js']],
   ['Test decisión Pro equity-first facing', ['node', 'tools/test-villain-equity-first-facing.js']],
   ['Test villanos pro líneas/sizing/formato', ['node', 'tools/test-villain-pro-lines.js']],
+  ['Test asimetría ICM cubre/cubierto (BF/RP/roles)', ['node', 'tools/test-icm-stack-asymmetry.js']],
   ['Test mínimo apuesta abierta 1bb', ['node', 'tools/test-min-open-bet-bb.js']],
   ['Test motor Pro unificado (DecisionContext/ICM/LinePlan/Escuela M3)', ['node', 'tools/test-pro-decision-engine.js']],
   ['Test hero exploit adjust', ['node', 'tools/test-hero-exploit-adjust.js']],
