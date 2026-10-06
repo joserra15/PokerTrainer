@@ -1,8 +1,9 @@
 # Lote 3 — Carruseles educativos
 
-**30 carruseles × 5 slides** (B1–B8, B10–B31; ratio 3:4 ≈ 4:5 Instagram).  
+**45 carruseles × 5 slides** (B1–B8, B10–B46; ratio 3:4 ≈ 4:5 Instagram).  
 Lote sprint FOUNDER: **B15–B21** (ver también [`../07-sprint-founder-oct/CARRUSELES_NUEVOS.md`](../07-sprint-founder-oct/CARRUSELES_NUEVOS.md)).  
-Lote letras grandes: **B22–B31** (ver [`CARRUSELES_B22_B31.md`](CARRUSELES_B22_B31.md)).
+Lote letras grandes: **B22–B31** (ver [`CARRUSELES_B22_B31.md`](CARRUSELES_B22_B31.md)).  
+Lote mes: **B32–B46** (ver [`CARRUSELES_B32_B46.md`](CARRUSELES_B32_B46.md)).
 
 Hashtags base: `#pokertips #pokerstrategy #GTO #pokerespañol #pokerforgeai #estudiopoker`
 
@@ -251,6 +252,32 @@ Captions, tablas de slides y regeneración HTML fallback: [`CARRUSELES_B22_B31.m
 
 ---
 
+## Lote mes — B32–B46 (nuevos)
+
+Mismo formato premium letras grandes. Conceptos nuevos (sin solapar B1–B31).
+
+| # | Tema | Archivos |
+|---|------|----------|
+| B32 | Blind vs blind | `edu-b32-01` … `edu-b32-05` |
+| B33 | Squeeze | `edu-b33-01` … `edu-b33-05` |
+| B34 | Iso vs limp | `edu-b34-01` … `edu-b34-05` |
+| B35 | Board texture | `edu-b35-01` … `edu-b35-05` |
+| B36 | Semi-bluff | `edu-b36-01` … `edu-b36-05` |
+| B37 | Bluff-catcher | `edu-b37-01` … `edu-b37-05` |
+| B38 | Delayed c-bet | `edu-b38-01` … `edu-b38-05` |
+| B39 | Blocking bet | `edu-b39-01` … `edu-b39-05` |
+| B40 | Reverse implied odds | `edu-b40-01` … `edu-b40-05` |
+| B41 | Polar vs linear | `edu-b41-01` … `edu-b41-05` |
+| B42 | Protection bet | `edu-b42-01` … `edu-b42-05` |
+| B43 | Triple barrel | `edu-b43-01` … `edu-b43-05` |
+| B44 | Capped vs uncapped | `edu-b44-01` … `edu-b44-05` |
+| B45 | GTO vs explotativo | `edu-b45-01` … `edu-b45-05` |
+| B46 | Backdoor equity | `edu-b46-01` … `edu-b46-05` |
+
+Captions, tablas y regeneración: [`CARRUSELES_B32_B46.md`](CARRUSELES_B32_B46.md) · `node tools/instagram-edu-carruseles-b32-b46.js` (no sobrescribe sin `--force`).
+
+---
+
 ## Orden sugerido de publicación (1 carrusel / semana educativa)
 
 | Semana | Carrusel | Nivel |
@@ -270,3 +297,4 @@ Captions, tablas de slides y regeneración HTML fallback: [`CARRUSELES_B22_B31.m
 | 13 | B10 Spins | Intermedio |
 | Sprint oct | B15 · B21 · B16 · B17 | Sprint FOUNDER |
 | Post-sprint | B22 → B31 | Letras grandes |
+| Mes | B32 → B46 | Letras grandes (ver orden en `CARRUSELES_B32_B46.md`) |
