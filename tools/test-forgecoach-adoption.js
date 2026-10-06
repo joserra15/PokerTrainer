@@ -51,6 +51,9 @@ assert.ok(/Informe sobre mi juego/.test(onboardingSrc), 'onboarding CTA informe 
 assert.ok(/informe sobre tu juego/.test(onboardingSrc), 'onboarding label sin primer informe');
 assert.ok(/Informe sobre mi juego/.test(aiSrc), 'CTA welcome informe sobre mi juego');
 assert.ok(!/primer informe ForgeCoach/.test(aiSrc), 'sin copy primer informe en welcome');
+assert.ok(!/Gratis incluye 3 consultas\/mes de prueba/.test(aiSrc), 'sin hint fijo Gratis 3/mes');
+assert.ok(/data-home-coach-quota/.test(aiSrc), 'hint cupo dinámico en welcome');
+assert.ok(/formatQuotaLine\(true\)/.test(aiSrc), 'welcome rellena cupo con formatQuotaLine');
 assert.ok(/No pedir consent en el saludo|if \(!hasConsent\(\)\) return null/.test(aiSrc), 'saludo sin modal consent');
 assert.ok(/home-coach-more/.test(aiSrc), 'welcome CTA primero · detalles colapsados');
 assert.ok(/pt_ai_consent_v1/.test(fs.readFileSync(path.join(root, 'e2e/helpers.js'), 'utf8')), 'e2e seed AI consent');
