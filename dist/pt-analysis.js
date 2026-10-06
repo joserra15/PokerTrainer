@@ -491,6 +491,7 @@
   }
 
   function cardHTML(c) {
+    if (global.Cards && global.Cards.cardFaceHTML) return global.Cards.cardFaceHTML(c);
     if (global.Cards && global.Cards.cardToHTML) return global.Cards.cardToHTML(c);
     return '<span class="rec-card">' + esc(c) + '</span>';
   }

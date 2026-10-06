@@ -122,15 +122,6 @@
     return '';
   }
 
-  /** Convierte un código de carta a HTML legible (símbolo + color). */
-  function cardToHTML(code) {
-    const suit = code[1];
-    const red = suit === 'h' || suit === 'd';
-    const rank = code[0] === 'T' ? '10' : code[0];
-    const sc = suitClass(suit);
-    return `<span class="card ${red ? 'red' : 'black'}${sc ? ' ' + sc : ''}">${rank}${SUIT_SYMBOL[suit]}</span>`;
-  }
-
   /**
    * Evalúa la mejor mano de 5 cartas dentro de un conjunto de 5-7 cartas.
    * Devuelve { category, rank, name } donde `rank` es un array comparable
@@ -253,7 +244,8 @@
   }
 
   /**
-   * Carta para la mesa. En mazo normal: rango + palo en dos líneas.
+   * Cara de carta (mesa, resultado, detalles, listados).
+   * En mazo normal: rango + palo en dos líneas.
    * En mazo colored: índice esquina + watermark de palo + rango grande
    * (el CSS muestra/oculta según `data-card-style`).
    */
@@ -269,6 +261,14 @@
       + `<span class="card-rank">${rank}</span>`
       + `<span class="card-suit">${sym}</span>`
       + '</span>';
+  }
+
+  /**
+   * Alias de `cardFaceHTML`: mismo markup en entrenador, resultado y detalles
+   * para que el mazo colored muestre siempre la marca de agua de palo.
+   */
+  function cardToHTML(code) {
+    return cardFaceHTML(code);
   }
 
   /** Carta boca abajo (asiento villano / mesa). */
@@ -42745,6 +42745,9 @@ window.PT_NASH_PUSH_JSON = {
 
   function cardHtml(code) {
     if (!code) return '';
+    if (global.Cards && Cards.cardFaceHTML) {
+      try { return Cards.cardFaceHTML(code); } catch (e) { /* */ }
+    }
     if (global.Cards && Cards.cardToHTML) {
       try { return Cards.cardToHTML(code); } catch (e) { /* */ }
     }

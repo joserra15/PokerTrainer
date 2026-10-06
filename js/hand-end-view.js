@@ -28,6 +28,9 @@
 
   function cardHtml(code) {
     if (!code) return '';
+    if (global.Cards && Cards.cardFaceHTML) {
+      try { return Cards.cardFaceHTML(code); } catch (e) { /* */ }
+    }
     if (global.Cards && Cards.cardToHTML) {
       try { return Cards.cardToHTML(code); } catch (e) { /* */ }
     }
