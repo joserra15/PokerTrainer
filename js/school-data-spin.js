@@ -34,18 +34,18 @@
       rfi('s01-08', 'SB', ['6d', '4c'], 40108, { trapTag: 'dominated', teachBack: '64o SB: fold. Desde SB no stealees basura: quedarás OOP si te pagan.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
       rfi('s01-09', 'BTN', ['Kh', 'Qs'], 40109, { teachBack: 'KQo BTN ~20 bb: open min o shove mixto; aquí open steal ~2,5 bb es sólido con broadway offsuit.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
       rfi('s01-10', 'SB', ['Ah', '4h'], 40110, { teachBack: 'A4s SB ~20 bb: open steal razonable. As suited con jugabilidad; no es auto-shove como AA.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-11', 'BTN', ['Jc', 'Td'], 40111, { teachBack: 'JTo BTN: open steal frecuente a 20 bb. Broadway offsuit en botón — roba ciegas sin shove.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
-      rfi('s01-12', 'BTN', ['2c', '2d'], 40112, { trapTag: 'fancy_play', teachBack: '22 BTN ~20 bb: open min preferible a shove panic. Pareja baja quiere flop barato o robo; no commitees todo sin necesidad.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
+      rfi('s01-11', 'BTN', ['Jh', '9d'], 40111, { teachBack: 'J9o BTN: open steal frecuente a 20 bb. Broadway offsuit en botón — roba ciegas sin shove.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) }),
+      rfi('s01-12', 'BTN', ['4h', '4d'], 40112, { trapTag: 'fancy_play', teachBack: '44 BTN ~20 bb: open min preferible a shove panic. Pareja baja quiere flop barato o robo; no commitees todo sin necesidad.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_VS_STEAL') return [
       vs('s02-01', 'BB_vs_BTN', ['Ah', 'Jh'], 40201, { teachBack: 'AJs vs steal BTN ~20 bb: 3-bet shove (all-in). Mano premium — no 3-bet pequeño que te deja en calle sin salida.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-02', 'BB_vs_BTN', ['Ts', '6c'], 40202, { trapTag: 'dominated', teachBack: 'T6o BB: fold. No overdefiendas las ciegas con basura — en torneo corto un error elimina.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-03', 'BB_vs_SB', ['Qh', 'Js'], 40203, { teachBack: 'QJo vs steal SB ~20 bb: call o 3-bet shove según mezcla; no es auto-shove pero sí defiende. Fold sería demasiado tight.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-04', 'BB_vs_BTN', ['Ad', '8d'], 40204, { teachBack: 'A8s vs steal BTN: 3-bet shove de presión/farol frecuente. Blocker de as — castiga opens wide sin min-3bet.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-04', 'BB_vs_BTN', ['Ah', '5h'], 40204, { teachBack: 'A5s vs steal BTN: 3-bet shove de presión/farol frecuente. Blocker de as — castiga opens wide sin min-3bet. (A8s queda corto vs el chart actual.)', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-05', 'BB_vs_BTN', ['9d', '7h'], 40205, { trapTag: 'fancy_play', teachBack: '97o: fold típico vs steal. Dominada, OOP y stack corto — no hero-call.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-06', 'BB_vs_SB', ['Jh', 'Jc'], 40206, { teachBack: 'JJ vs steal SB ~20 bb: 3-bet shove por valor. Par medio fuerte — shove, no 3-bet pequeño.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-07', 'BB_vs_BTN', ['Ad', 'Kd'], 40207, { teachBack: 'AKs vs steal BTN: 3-bet shove value claro. Mano premium a 20 bb — quieres all-in o fold equity.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
-      vs('s02-08', 'BB_vs_BTN', ['Js', '9h'], 40208, { trapTag: 'dominated', teachBack: 'J9o vs steal BTN: fold frecuente. Dominada y OOP — no overdefend.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
+      vs('s02-08', 'BB_vs_BTN', ['Qh', '9d'], 40208, { trapTag: 'dominated', teachBack: 'Q9o vs steal BTN: fold frecuente. Dominada y OOP — no overdefend.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-09', 'BB_vs_SB', ['Ah', 'Js'], 40209, { teachBack: 'AJo vs steal SB: 3-bet shove o continue sólido. Ax fuerte en spot corto.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-10', 'BB_vs_BTN', ['8d', '6d'], 40210, { teachBack: '86s vs steal BTN: call selectivo posible; no es auto-shove. Jugabilidad si el precio es bueno.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
       vs('s02-11', 'BB_vs_BTN', ['Kd', 'Kh'], 40211, { teachBack: 'KK vs steal: 3-bet shove value. Quieres máximo valor o stack-off favorable.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20' }) }),
@@ -66,7 +66,7 @@
       bb('s04-09', ['Ac', '9c'], 40409, { teachBack: 'A9s BB vs limp SB: iso razonable. Ax suited castiga limps y juega bien postflop.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
       bb('s04-10', ['Td', '9c'], 40410, { trapTag: 'fancy_play', teachBack: 'T9o vs limp SB: check frecuente. Frágil offsuit — no mereces iso automático.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) }),
       iso('s04-11', 'SB', 'BTN', ['Ah', 'Jh'], 40411, { teachBack: 'AJs en SB vs limp BTN: iso value. Broadway suited — aísla y construye bote.', playConfig: spinCfg({ scenario: 'iso', stackDepth: 'bb15' }) }),
-      bb('s04-12', ['Td', '8d'], 40412, { teachBack: 'T8s BB vs limp SB: iso selectivo OK. Conectores suited con plan; sizing ~3–4 bb, no shove.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) })
+      bb('s04-12', ['9h', '8h'], 40412, { teachBack: '98s BB vs limp SB: iso selectivo OK. Conectores suited con plan; sizing ~3–4 bb, no shove.', playConfig: spinCfg({ scenario: 'bbvsb', stackDepth: 'bb20' }) })
     ];
     if (kind === 'SPIN_3BET_SHOVE') return [
       vs('s05-01', 'BB_vs_BTN', ['Jh', 'Jd'], 41501, { teachBack: 'JJ BB vs open BTN ~12 bb: 3-bet shove value. Par medio fuerte — all-in, no 3-bet pequeño ni flat OOP.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) }),
@@ -80,7 +80,7 @@
       vs('s05-09', 'SB_vs_BTN', ['As', '5s'], 41509, { teachBack: 'A5s SB vs open BTN ~12 bb: 3-bet shove polar. Ax suited = blocker + fold equity; no flat.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) }),
       vs('s05-10', 'BB_vs_BTN', ['9s', '9c'], 41510, { teachBack: '99 BB vs open ~14 bb: 3-bet shove value. Par medio — shove limpio, no min-3bet.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb14' }) }),
       vs('s05-11', 'BB_vs_SB', ['Qd', '8c'], 41511, { trapTag: 'dominated', teachBack: 'Q8o vs open SB: fold. Sin equity ni plan postflop a stack corto.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) }),
-      vs('s05-12', 'BB_vs_BTN', ['Kh', 'Kh'], 41512, { teachBack: 'KK vs open: 3-bet shove value. Quieres máximo valor o que folden — no flat «por truco».', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) }),
+      vs('s05-12', 'BB_vs_BTN', ['Kh', 'Kd'], 41512, { teachBack: 'KK vs open: 3-bet shove value. Quieres máximo valor o que folden — no flat «por truco».', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) }),
       vs('s05-13', 'SB_vs_BTN', ['Td', 'Th'], 41513, { teachBack: 'TT SB vs open BTN ~15 bb: 3-bet shove. Par fuerte — all-in, no 3-bet a 3 bb.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb15' }) }),
       vs('s05-14', 'BB_vs_BTN', ['5c', '3d'], 41514, { trapTag: 'fancy_play', teachBack: '53o vs open: fold. Panic flat/shove con basura elimina el torneo sin fold equity.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12' }) })
     ];
@@ -128,7 +128,7 @@
       rfi('shu-03', 'SB', ['Ks', 'Js'], 41803, { teachBack: 'KJs SB HU ~25 bb: open frecuente. En HU el SB abre mucho más wide que en 3-max.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
       vs('shu-04', 'BB_vs_SB', ['Qh', '9s'], 41804, { teachBack: 'Q9o BB vs SB open HU: defensa frecuente. En HU defiendes más wide — no overfold como en bubble 3-max.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', mttPhase: 'hu' }) }),
       vs('shu-05', 'BB_vs_SB', ['4d', '2c'], 41805, { trapTag: 'fancy_play', teachBack: '42o BB HU: fold. Wide no significa pagar basura absoluta.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', mttPhase: 'hu' }) }),
-      vs('shu-06', 'BB_vs_SB', ['Ah', 'Js'], 41806, { teachBack: 'AJo BB HU: 3-bet o call sólido. Chip-EV — presión con Ax fuerte.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
+      vs('shu-06', 'BB_vs_SB', ['Ah', '9d'], 41806, { teachBack: 'A9o BB HU: 3-bet o call sólido. Chip-EV — presión con Ax fuerte.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) })
     ,
       rfi('shu-01b', 'SB', ['Kd', 'Ts'], 41807, { teachBack: 'KTo SB HU ~20 bb: open frecuente chip-EV.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20', mttPhase: 'hu' }) }),
       rfi('shu-01c', 'SB', ['Qs', '9s'], 41808, { teachBack: 'Q9s SB HU: open. Suited broadway gana valor con iniciativa.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
@@ -137,26 +137,26 @@
     ];
     if (kind === 'SPIN_HU_SB_BB') return [
       rfi('shu-07', 'SB', ['9s', '8s'], 41901, { teachBack: '98s SB HU ~25 bb: open estándar. Conectores suited ganan valor con iniciativa en HU.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
-      rfi('shu-08', 'SB', ['Kd', '5c'], 41902, { teachBack: 'K5o SB HU: open frecuente a 20–25 bb. Kx offsuit entra más en HU que en 3-max.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20', mttPhase: 'hu' }) }),
+      rfi('shu-08', 'SB', ['Kh', '6d'], 41902, { teachBack: 'K6o SB HU: open frecuente a 20–25 bb. Kx offsuit entra más en HU que en 3-max (K5o queda fuera del open).', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20', mttPhase: 'hu' }) }),
       vs('shu-09', 'BB_vs_SB', ['Jh', 'Tc'], 41903, { teachBack: 'JTo BB vs SB HU: call/3bet mixto. Defiende broadway offsuit más que en spin 3-handed.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
       vs('shu-10', 'BB_vs_SB', ['Ad', '4d'], 41904, { teachBack: 'A4s BB HU: 3-bet polar frecuente. Blocker de as + pressure chip-EV.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', mttPhase: 'hu' }) }),
-      vs('shu-11', 'BB_vs_SB', ['7h', '7d'], 41905, { teachBack: '77 BB HU: 3-bet value o call. Pares medios ganan valor en HU sin ICM de burbuja.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
-      rfi('shu-12', 'SB', ['Qc', '2h'], 41906, { trapTag: 'dominated', teachBack: 'Q2o SB HU: a menudo fold/open mixto flojo — no spew si el BB 3-betea mucho.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) })
+      vs('shu-11', 'BB_vs_SB', ['6h', '6d'], 41905, { teachBack: '66 BB HU: 3-bet value o call. Pares medios ganan valor en HU sin ICM de burbuja.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
+      rfi('shu-12', 'SB', ['Kh', '6d'], 41906, { trapTag: 'dominated', teachBack: 'K6o SB HU: a menudo fold/open mixto flojo — no spew si el BB 3-betea mucho.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) })
     ,
       rfi('shu-07b', 'SB', ['Ah', '5s'], 41907, { teachBack: 'A5o SB HU: open frecuente.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb20', mttPhase: 'hu' }) }),
       rfi('shu-07c', 'SB', ['Jc', 'Tc'], 41908, { teachBack: 'JTs SB HU: open value.', playConfig: spinCfg({ scenario: 'steal', stackDepth: 'bb25', mttPhase: 'hu' }) }),
       vs('shu-07d', 'BB_vs_SB', ['Kd', 'Qc'], 41909, { teachBack: 'KQo BB HU: 3bet value.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb25', mttPhase: 'hu' }) }),
-      vs('shu-07e', 'BB_vs_SB', ['9h', '9c'], 41910, { teachBack: '99 BB HU: 3bet o call value.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', mttPhase: 'hu' }) })
+      vs('shu-07e', 'BB_vs_SB', ['6h', '6d'], 41910, { teachBack: '66 BB HU: 3bet o call value.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb20', mttPhase: 'hu' }) })
     ];
     if (kind === 'SPIN_HU_SHORT') return [
-      rfi('shu-13', 'SB', ['As', '9c'], 42001, { teachBack: 'A9o SB ~12 bb HU: shove candidato. Zona push/fold chip-EV — no min-raise.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      rfi('shu-13', 'SB', ['Ah', 'Td'], 42001, { teachBack: 'ATo SB ~12 bb HU: shove candidato. Zona push/fold chip-EV — no min-raise (A9o queda corto).', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
       rfi('shu-14', 'SB', ['8h', '5d'], 42002, { trapTag: 'dominated', teachBack: '85o SB corto HU: fold. Sin fold equity real ni equity cuando te pagan.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
       vs('shu-15', 'BB_vs_SB', ['Kh', 'Jd'], 42003, { teachBack: 'KJo BB vs shove SB ~12 bb HU: call frecuente chip-EV. En HU pagas más wide que en bubble 3-max.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12', mttPhase: 'hu' }) }),
       vs('shu-16', 'BB_vs_SB', ['Ts', 'Tc'], 42004, { teachBack: 'TT vs shove HU: call/jamming value claro. Par fuerte — no overfold ICM fantasma.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) }),
       rfi('shu-17', 'SB', ['Ks', 'Ts'], 42005, { teachBack: 'KTs SB ~10 bb HU: shove. Broadway suited en push/fold HU.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
       vs('shu-18', 'BB_vs_SB', ['5c', '3d'], 42006, { trapTag: 'fancy_play', teachBack: '53o vs shove HU: fold. Chip-EV no justifica hero-call basura.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
     ,
-      rfi('shu-13b', 'SB', ['Qd', 'Js'], 42007, { teachBack: 'QJo SB ~12 bb HU: shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
+      rfi('shu-13b', 'SB', ['Kh', 'Qd'], 42007, { teachBack: 'KQo SB ~12 bb HU: shove candidato.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb12', mttPhase: 'hu' }) }),
       rfi('shu-13c', 'SB', ['Ah', '2h'], 42008, { teachBack: 'A2s SB ~10 bb HU: shove frecuente.', playConfig: spinCfg({ scenario: 'push', stackDepth: 'bb10', mttPhase: 'hu' }) }),
       vs('shu-13d', 'BB_vs_SB', ['Ad', '7c'], 42009, { teachBack: 'A7o BB vs shove HU: call frecuente.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb12', mttPhase: 'hu' }) }),
       vs('shu-13e', 'BB_vs_SB', ['Qs', 'Qc'], 42010, { teachBack: 'QQ vs shove HU: call/jamming value.', playConfig: spinCfg({ scenario: '3bet', stackDepth: 'bb10', mttPhase: 'hu' }) })
@@ -232,11 +232,11 @@
       rfi('t09-04', 'CO', ['Jh', 'Jc'], 50904, { teachBack: 'JJ: shove value. Par medio fuerte en short/push.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
       rfi('t09-05', 'BTN', ['Ah', 'Jh'], 50905, { teachBack: 'AJs ~12 bb: shove value. Premium — all-in, no min-raise.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) }),
       rfi('t09-06', 'SB', ['Qh', '6s'], 50906, { trapTag: 'fancy_play', teachBack: 'Q6o SB corto: fold. No shove basura OOP.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-07', 'BTN', ['Jh', 'Td'], 50907, { teachBack: 'JTo BTN ~10–12 bb: shove frecuente desde botón.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-07', 'BTN', ['Qh', 'Jd'], 50907, { teachBack: 'QJo BTN ~10–12 bb: shove frecuente desde botón.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-08', 'CO', ['Th', '5c'], 50908, { trapTag: 'dominated', teachBack: 'T5o CO: fold. Early-ish short tampoco justifica basura.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
-      rfi('t09-09', 'SB', ['7s', '6s'], 50909, { teachBack: '76s SB ~10 bb: shove frecuente. Conectores suited en push/fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
+      rfi('t09-09', 'SB', ['8h', '7h'], 50909, { teachBack: '87s SB ~10 bb: shove frecuente. Conectores suited en push/fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-10', 'BTN', ['Ks', 'Qs'], 50910, { teachBack: 'KQs ~10 bb: shove value. Mano premium — stack-off limpio.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t09-11', 'CO', ['Kh', 'Js'], 50911, { teachBack: 'KJo CO ~12 bb: shove candidato. Broadway offsuit short.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
+      rfi('t09-11', 'CO', ['Kh', 'Qd'], 50911, { teachBack: 'KQo CO ~12 bb: shove candidato. Broadway offsuit short.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'short', stackDepth: 'bb12' }) }),
       rfi('t09-12', 'BTN', ['9s', '8s'], 50912, { teachBack: '98s BTN ~10 bb: shove wide desde botón. Fold equity + jugabilidad.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-13', 'SB', ['2c', '2d'], 50913, { teachBack: '22 SB ~10 bb: shove o fold según chart; muchas líneas shovean pares bajas SB.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
       rfi('t09-14', 'BTN', ['Ad', '9c'], 50914, { teachBack: 'A9o BTN ~12 bb: shove frecuente. Ax offsuit en botón corto entra en charts.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb12' }) })

@@ -1169,6 +1169,39 @@ assert.ok(spotCount >= 70, 'suficientes spots M0 v2: ' + spotCount);
   assert.ok(!hPush.current.options.some(function (o) { return o.id === 'raise'; }), 'S-09 push sin min-raise');
 })();
 
+/* Auditoría Escuela↔motor: spots frágiles tras calibración de charts. */
+(function assertSchoolEngineCoherenceSamples() {
+  function spotById(lessonId, sid) {
+    return Data.getLesson(lessonId).spots.filter(function (s) { return s.id === sid; })[0];
+  }
+  function grade(spot, actionId) {
+    const h = openHand(spot).hand;
+    const res = Engine.act(h, actionId);
+    assert.ok(res && res.decision, 'grade ' + spot.id + ' ' + actionId);
+    return res.decision.class;
+  }
+  const c0002 = spotById('C-00', 'c00-02');
+  assert.ok(c0002, 'c00-02 existe');
+  assert.strictEqual(c0002.forceDeal.heroCards.join(''), 'KhTd', 'c00-02 KTo (fold UTG)');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(c0002, 'fold')) >= 0, 'c00-02 fold alineado con teachBack');
+
+  const s0204 = spotById('S-02', 's02-04');
+  assert.ok(s0204, 's02-04 existe');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0204, 'allin')) >= 0, 's02-04 A5s 3-bet shove alineado');
+
+  const s00105 = spotById('S-00', 's00-05');
+  assert.ok(s00105, 's00-05 existe');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s00105, 'allin')) >= 0, 's00-05 88 shove alineado');
+
+  const s0512 = spotById('S-05', 's05-12');
+  assert.ok(s0512, 's05-12 existe');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(s0512, 'allin')) >= 0, 's05-12 KK shove alineado');
+
+  const c0808 = spotById('C-08', 'c08-08');
+  assert.ok(c0808, 'c08-08 existe');
+  assert.ok(['optima', 'aceptable'].indexOf(grade(c0808, 'raise')) >= 0, 'c08-08 JJ 3-bet alineado');
+})();
+
 /* C-27: rivers (no ríos); mano completa; evalúa check-call vs check-raise. */
 (function assertC27FullHandCheckCallRaise() {
   const lesson = Data.getLesson('C-27');

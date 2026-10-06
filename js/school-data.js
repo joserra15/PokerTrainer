@@ -395,9 +395,9 @@
         rfiSpot('c02-10', 'CO', ['Jd', '8d'], 12010, {
           teachBack: 'J8s en cutoff entra en muchos rangos de open wide.'
         }),
-        rfiSpot('c02-11', 'UTG', ['Kd', 'Js'], 12011, {
+        rfiSpot('c02-11', 'UTG', ['Kh', 'Td'], 12011, {
           trapTag: 'dominated',
-          teachBack: 'KJo desde UTG es frontera o fold en muchos charts. No la trates como open automático.'
+          teachBack: 'KTo desde UTG es frontera o fold en muchos charts. No la trates como open automático.'
         }),
         rfiSpot('c02-12', 'BTN', ['5h', '4h'], 12012, {
           teachBack: '54s en el botón es un open especulativo de posición: poca gente detrás.'
@@ -466,8 +466,8 @@
         rfiSpot('c03-08', 'CO', ['Jh', 'Tc'], 13008, {
           teachBack: 'JTo en cutoff es open común: suficiente fold equity y boards que puedes continuar.'
         }),
-        rfiSpot('c03-09', 'BTN', ['7c', '6d'], 13009, {
-          teachBack: '76o en el botón es frontera; muchas estrategias lo abren casi solo por fold equity. Mira qué dice el motor aquí.'
+        rfiSpot('c03-09', 'BTN', ['9h', '8d'], 13009, {
+          teachBack: '98o en el botón es frontera; muchas estrategias lo abren casi solo por fold equity. Mira qué dice el motor aquí.'
         }),
         rfiSpot('c03-10', 'HJ', ['Kd', 'Kh'], 13010, {
           teachBack: 'KK se abre por valor y por fold equity. Nunca limpees con esto.'
@@ -575,9 +575,9 @@
         rfiSpot('c05-05', 'SB', ['Ad', '8d'], 15005, {
           teachBack: 'A8s desde SB se abre a menudo: blockers y equity decente.'
         }),
-        rfiSpot('c05-06', 'SB', ['Jh', 'Tc'], 15006, {
+        rfiSpot('c05-06', 'SB', ['Jh', '9d'], 15006, {
           trapTag: 'over_open_sb',
-          teachBack: 'JTo desde SB es frontera o fold en muchos charts: fuera de posición duele. No es un open de botón.'
+          teachBack: 'J9o desde SB es frontera o fold en muchos charts: fuera de posición duele. No es un open de botón.'
         }),
         rfiSpot('c05-07', 'SB', ['Ts', 'Th'], 15007, {
           teachBack: 'TT desde SB: open claro. Pareja media, sin discusión.'

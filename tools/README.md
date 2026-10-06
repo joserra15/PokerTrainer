@@ -28,6 +28,8 @@
 
 ```bash
 npm run test:ci          # toda la suite Node
+npm run test:school      # Escuela: structure + lint + audit teachBack↔motor
+npm run audit:school-lessons  # barrido 135 lecciones / ~1644 spots
 npm run test:e2e         # Playwright full (build + test)
 SMOKE=1 npm run test:e2e # solo @smoke (PR)
 ```

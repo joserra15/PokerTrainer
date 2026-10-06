@@ -26,6 +26,11 @@ tools/bin/
 # provoca bucle de reload en build-guard.js (rompe E2E local/CI).
 deploy-info.json
 
+# Auditoría Escuela (generado por tools/audit-school-lessons.js)
+tools/audit-out/school-lessons-audit.json
+tools/audit-out/school-fix-log.json
+tools/audit-out/school-fix-suggestions.json
+
 # Playwright
 /test-results/
 /playwright-report/
