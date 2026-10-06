@@ -1,5 +1,6 @@
 /*
  * school-daily-spot.js — Spot del día + racha Escuela (vehículo viral IG).
+ * Spot compartido vía backend (pt_get_or_create_daily_spot); fallback local parametrizado.
  * Cargar tras school-data-viral-quizzes.js y school.js.
  */
 (function (global) {
@@ -7,7 +8,10 @@
 
   var DAILY_XP = 15;
   var STORAGE_KEY = 'dailySpot';
+  var REMOTE_CACHE_KEY = 'pt_daily_spot_remote_v1';
   var IG_UTM = '?utm_source=instagram&utm_medium=social&utm_campaign=escuela_daily';
+  var TZ = 'Europe/Madrid';
+  var RECENT_DAYS = 7;
 
   var IG_WEEK = [
     { day: 1, kind: 'decisionQuiz', caption: 'Comenta F, C o R 👇' },
@@ -19,6 +23,16 @@
     { day: 0, kind: 'textureQuiz', caption: '¿Seco, wet o monotone? 👇' }
   ];
 
+  var remoteCache = {
+    spot_date: null,
+    spot_id: null,
+    kind: null,
+    source: null,
+    loading: false,
+    loaded: false
+  };
+  var refreshPromise = null;
+
   function esc(s) {
     return String(s || '')
       .replace(/&/g, '&amp;')
@@ -27,19 +41,38 @@
       .replace(/"/g, '&quot;');
   }
 
+  function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
   function dayKey(input) {
+    if (typeof input === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input)) return input;
     var d = input ? new Date(input) : new Date();
     if (isNaN(d.getTime())) d = new Date();
-    var y = d.getFullYear();
-    var m = d.getMonth() + 1;
-    var day = d.getDate();
-    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+    try {
+      var parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: TZ,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(d);
+      var y = '';
+      var m = '';
+      var day = '';
+      for (var i = 0; i < parts.length; i++) {
+        if (parts[i].type === 'year') y = parts[i].value;
+        if (parts[i].type === 'month') m = parts[i].value;
+        if (parts[i].type === 'day') day = parts[i].value;
+      }
+      if (y && m && day) return y + '-' + m + '-' + day;
+    } catch (eTz) { /* fallback below */ }
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
 
   function addDays(iso, delta) {
     var d = new Date(iso + 'T12:00:00');
     d.setDate(d.getDate() + delta);
-    return dayKey(d);
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
 
   function hashDay(iso) {
@@ -56,6 +89,15 @@
     var V = global.PTSchoolViralQuizzes;
     if (V && V.DAILY_POOL && V.DAILY_POOL.length) return V.DAILY_POOL;
     return [];
+  }
+
+  function findSpotById(id) {
+    if (!id) return null;
+    var pool = getPool();
+    for (var i = 0; i < pool.length; i++) {
+      if (pool[i] && pool[i].id === id) return pool[i];
+    }
+    return null;
   }
 
   function kindLabel(kind) {
@@ -151,6 +193,51 @@
     return kindLabel(spot.kind);
   }
 
+  function readLocalRemoteCache() {
+    try {
+      if (!global.localStorage) return null;
+      var raw = global.localStorage.getItem(REMOTE_CACHE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed || !parsed.spot_date || !parsed.spot_id) return null;
+      return parsed;
+    } catch (eLs) {
+      return null;
+    }
+  }
+
+  function writeLocalRemoteCache(row) {
+    try {
+      if (!global.localStorage || !row) return;
+      global.localStorage.setItem(REMOTE_CACHE_KEY, JSON.stringify({
+        spot_date: row.spot_date,
+        spot_id: row.spot_id,
+        kind: row.kind || null,
+        source: row.source || null
+      }));
+    } catch (eWrite) { /* ignore */ }
+  }
+
+  function applyRemoteRow(row) {
+    if (!row || !row.spot_id) return null;
+    remoteCache.spot_date = row.spot_date || null;
+    remoteCache.spot_id = row.spot_id;
+    remoteCache.kind = row.kind || null;
+    remoteCache.source = row.source || null;
+    remoteCache.loaded = true;
+    writeLocalRemoteCache(row);
+    return remoteCache;
+  }
+
+  function hydrateRemoteFromLocal() {
+    if (remoteCache.loaded && remoteCache.spot_id) return remoteCache;
+    var local = readLocalRemoteCache();
+    if (local && local.spot_date === dayKey()) {
+      return applyRemoteRow(local);
+    }
+    return null;
+  }
+
   function readDailyState() {
     var school = global.PTSchool && global.PTSchool.readSchool
       ? global.PTSchool.readSchool()
@@ -182,16 +269,110 @@
     return school[STORAGE_KEY];
   }
 
-  function pickDailySpot(forDay) {
+  /**
+   * Racha viva solo si completaste hoy o ayer.
+   * Si saltaste un día → 0 (no se conserva la cifra antigua en UI).
+   */
+  function effectiveStreak(ds, today) {
+    today = today || dayKey();
+    ds = ds || readDailyState();
+    var streak = Number(ds.streak) || 0;
+    if (!ds.lastDay || !ds.completed) return 0;
+    if (ds.lastDay === today) return streak;
+    if (addDays(ds.lastDay, 1) === today) return streak;
+    return 0;
+  }
+
+  function reconcileBrokenStreak(ds, today) {
+    today = today || dayKey();
+    ds = ds || readDailyState();
+    var eff = effectiveStreak(ds, today);
+    if (eff === 0 && (Number(ds.streak) || 0) > 0) {
+      writeDailyState({ streak: 0 });
+      return Object.assign({}, ds, { streak: 0 });
+    }
+    return Object.assign({}, ds, { streak: eff });
+  }
+
+  function pickFromCandidates(candidates, day) {
+    if (!candidates || !candidates.length) return null;
+    return candidates[hashDay(day) % candidates.length];
+  }
+
+  /** Fallback local: determinista + parámetros (kind IG, anti-repetición). */
+  function pickLocalParameterized(forDay) {
     var pool = getPool();
     if (!pool.length) return null;
     var day = forDay || dayKey();
-    var idx = hashDay(day) % pool.length;
-    if (pool.length > 1) {
-      var prevIdx = hashDay(addDays(day, -1)) % pool.length;
-      if (prevIdx === idx) idx = (idx + 1) % pool.length;
+    var preferred = igPlanForDay(day).kind;
+    var recent = {};
+    var i;
+    for (i = 1; i <= RECENT_DAYS; i++) {
+      var pastDay = addDays(day, -i);
+      var pastIdx = hashDay(pastDay) % pool.length;
+      if (pool[pastIdx] && pool[pastIdx].id) recent[pool[pastIdx].id] = true;
     }
-    return pool[idx];
+    var yesterdayKind = null;
+    var ySpot = pickFromCandidates(pool, addDays(day, -1));
+    if (ySpot) yesterdayKind = ySpot.kind;
+
+    var fresh = pool.filter(function (s) { return s && s.id && !recent[s.id]; });
+    if (!fresh.length) fresh = pool.slice();
+
+    var byKind = fresh.filter(function (s) { return s.kind === preferred; });
+    if (byKind.length) return pickFromCandidates(byKind, day);
+
+    if (yesterdayKind) {
+      var different = fresh.filter(function (s) { return s.kind !== yesterdayKind; });
+      if (different.length) return pickFromCandidates(different, day);
+    }
+
+    var picked = pickFromCandidates(fresh, day);
+    if (pool.length > 1 && ySpot && picked && picked.id === ySpot.id) {
+      var alt = fresh.filter(function (s) { return s.id !== ySpot.id; });
+      if (alt.length) return pickFromCandidates(alt, day + ':alt');
+    }
+    return picked;
+  }
+
+  function pickDailySpot(forDay) {
+    var day = forDay || dayKey();
+    hydrateRemoteFromLocal();
+    if (remoteCache.spot_date === day && remoteCache.spot_id) {
+      var remoteSpot = findSpotById(remoteCache.spot_id);
+      if (remoteSpot) return remoteSpot;
+    }
+    return pickLocalParameterized(day);
+  }
+
+  function refreshRemoteDaily(forDay) {
+    var day = forDay || dayKey();
+    if (refreshPromise && remoteCache.loading) return refreshPromise;
+    var client = global.PTSupabase && global.PTSupabase.getClient
+      ? global.PTSupabase.getClient()
+      : null;
+    if (!client || !client.rpc) {
+      remoteCache.loaded = true;
+      return Promise.resolve(null);
+    }
+    remoteCache.loading = true;
+    refreshPromise = client.rpc('pt_get_or_create_daily_spot', {
+      p_date: day
+    }).then(function (res) {
+      remoteCache.loading = false;
+      if (res && !res.error && res.data) {
+        var row = Array.isArray(res.data) ? res.data[0] : res.data;
+        if (row && typeof row === 'object') {
+          applyRemoteRow(row);
+          return remoteCache;
+        }
+      }
+      return null;
+    }).catch(function () {
+      remoteCache.loading = false;
+      return null;
+    });
+    return refreshPromise;
   }
 
   function buildDailyShareHtmlInline() {
@@ -256,10 +437,10 @@
     var pool = getPool();
     if (!pool.length) return '';
     var today = dayKey();
-    var ds = readDailyState();
+    var ds = reconcileBrokenStreak(readDailyState(), today);
     var spot = pickDailySpot(today);
     var doneToday = ds.lastDay === today && ds.completed;
-    var streak = ds.streak || 0;
+    var streak = effectiveStreak(ds, today);
     var preview = spotPreview(spot);
     var kind = kindLabel(spot && spot.kind);
     var igHint = buildIgCaption(spot, today).split('\n')[0];
@@ -280,7 +461,7 @@
       (doneToday ? 'Vuelve mañana' : 'Jugar spot') + '</button>' +
       buildDailyShareHtmlInline() +
       '</div>' +
-      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · comparte en IG</p>' +
+      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · 1 intento/día · si fallas un día, la racha vuelve a 0</p>' +
       '</section>'
     );
   }
@@ -291,8 +472,12 @@
     if (ds.lastDay === today && ds.completed) {
       return { streak: streak, best: best };
     }
-    if (ds.lastDay && addDays(ds.lastDay, 1) === today) streak += 1;
-    else streak = 1;
+    // Solo cuenta si la racha seguía viva (ayer). Si saltaste un día → reinicia en 1.
+    if (ds.lastDay && ds.completed && addDays(ds.lastDay, 1) === today) {
+      streak = (effectiveStreak(ds, today) || streak) + 1;
+    } else {
+      streak = 1;
+    }
     if (streak > best) best = streak;
     return { streak: streak, best: best };
   }
@@ -311,7 +496,7 @@
 
   function completeDaily(summary, results) {
     var today = dayKey();
-    var ds = readDailyState();
+    var ds = reconcileBrokenStreak(readDailyState(), today);
     if (ds.lastDay === today && ds.completed) return ds;
     var ok = !!(results && results.length && results[0].quizCorrect);
     var streakInfo = updateStreak(ds, today);
@@ -319,7 +504,7 @@
     var spotId = results[0] && (results[0].spotId || results[0].id);
     persistDailyState({
       lastDay: today,
-      lastSpotId: spotId || null,
+      lastSpotId: spotId || (remoteCache.spot_id || null),
       completed: true,
       correct: ok,
       streak: streakInfo.streak,
@@ -330,7 +515,9 @@
       global.PTSchool.trackSchool('daily_spot_complete', {
         correct: ok,
         streak: streakInfo.streak,
-        xp: xpGain
+        xp: xpGain,
+        spotId: spotId || remoteCache.spot_id || null,
+        source: remoteCache.source || 'local'
       });
     }
     return readDailyState();
@@ -341,12 +528,25 @@
     var card = root.querySelector('.school-daily');
     if (!card) return;
     var shareRoot = card.querySelector('.school-share-daily');
-    if (!shareRoot) return;
-    if (!global.PTSchoolShare || !global.PTSchoolShare.mountDailyShare) return;
-    try {
-      var payload = buildSharePayload(pickDailySpot(dayKey()), dayKey());
-      if (payload) global.PTSchoolShare.mountDailyShare(shareRoot, payload);
-    } catch (eDailyShare) { /* ignore */ }
+    if (shareRoot && global.PTSchoolShare && global.PTSchoolShare.mountDailyShare) {
+      try {
+        var payload = buildSharePayload(pickDailySpot(dayKey()), dayKey());
+        if (payload) global.PTSchoolShare.mountDailyShare(shareRoot, payload);
+      } catch (eDailyShare) { /* ignore */ }
+    }
+    refreshRemoteDaily().then(function (row) {
+      if (!row || !root.isConnected) return;
+      var today = dayKey();
+      if (row.spot_date !== today) return;
+      var before = root.querySelector('.school-daily-lead');
+      var spot = findSpotById(row.spot_id);
+      if (!spot || !before) return;
+      var nextPreview = spotPreview(spot);
+      if (before.textContent === nextPreview) return;
+      if (global.PTSchool && global.PTSchool.renderHomeDailySpot) {
+        global.PTSchool.renderHomeDailySpot(root);
+      }
+    });
   }
 
   function dailyPlayFeedback(reason) {
@@ -360,6 +560,11 @@
     dayKey: dayKey,
     getPool: getPool,
     pickDailySpot: pickDailySpot,
+    pickLocalParameterized: pickLocalParameterized,
+    findSpotById: findSpotById,
+    refreshRemoteDaily: refreshRemoteDaily,
+    effectiveStreak: effectiveStreak,
+    reconcileBrokenStreak: reconcileBrokenStreak,
     readDailyState: readDailyState,
     writeDailyState: writeDailyState,
     buildHomeCardHtml: buildHomeCardHtml,
@@ -373,6 +578,7 @@
     mountHub: mountHome,
     dailyPlayFeedback: dailyPlayFeedback,
     DAILY_XP: DAILY_XP,
-    IG_UTM: IG_UTM
+    IG_UTM: IG_UTM,
+    TZ: TZ
   };
 })(typeof window !== 'undefined' ? window : globalThis);

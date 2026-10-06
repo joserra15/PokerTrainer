@@ -119,11 +119,14 @@ Spot donde el alumno elige **Fold**, **Call** o **Raise** tras ver línea + boar
 
 Módulo [`js/school-daily-spot.js`](../js/school-daily-spot.js):
 
-- 1 spot/día determinista (seed = fecha ISO `YYYY-MM-DD`).
-- Pool rotativo desde lecciones virales + rangeAdv + villain (muestra).
-- Racha en `stats.school.dailySpot` (current / best / lastDay).
-- Tarjeta en hub Escuela + share sin spoiler.
+- 1 spot/día **compartido** (mismo para todos): backend `pt_get_or_create_daily_spot` + tabla `pt_daily_spots` (fecha `Europe/Madrid`).
+- Selección aleatoria con parámetros: kind preferido según calendario IG, evita ids de los últimos 7 días y el mismo kind que ayer si hay alternativa.
+- Fallback local parametrizado (hash + mismos filtros) si no hay nube.
+- Pool rotativo desde lecciones virales (`DAILY_POOL`).
+- Racha en `stats.school.dailySpot` (current / best / lastDay): **si se salta un día → 0**.
+- Tarjeta en Inicio + share sin spoiler.
 - +15 XP al acertar (1 intento contado por día).
+- Cron opcional: edge `daily-spot-generate` + workflow `.github/workflows/daily-spot-generate.yml`.
 
 ---
 
@@ -158,7 +161,9 @@ UTM: `?utm_source=instagram&utm_medium=social&utm_campaign=escuela_daily`
 | `js/school-data-viral-quizzes.js` | Lecciones D/O/B + packs + pool daily |
 | `js/school-matrix-drills.js` | Runners MCQ + grading |
 | `js/school-share.js` | Tarjetas 1080 sin spoiler |
-| `js/school-daily-spot.js` | Hub daily + racha |
+| `js/school-daily-spot.js` | Home daily + racha + fetch remoto |
 | `js/school.js` | Integración hub |
+| `supabase/migrations/062_daily_spot.sql` | Tabla + RPC spot compartido |
+| `supabase/functions/daily-spot-generate/` | Cron pre-generación |
 | `tools/test-school.js` | Contratos currículum |
 | `tools/test-school-share.js` | Contratos share |

@@ -27,3 +27,6 @@ verify_jwt = false
 
 [functions.push-dispatch-reengage]
 verify_jwt = false
+
+[functions.daily-spot-generate]
+verify_jwt = false

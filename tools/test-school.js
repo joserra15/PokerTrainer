@@ -676,13 +676,43 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
 (function () {
   var DS = sandbox.PTSchoolDailySpot;
   assert.ok(DS && DS.dayKey, 'daily dayKey export');
-  var localLate = new Date(2026, 7, 28, 23, 45, 0);
-  assert.strictEqual(DS.dayKey(localLate), '2026-08-28', 'dayKey fecha local (no UTC)');
+  assert.ok(DS.TZ === 'Europe/Madrid', 'daily dayKey timezone Madrid');
+  assert.strictEqual(DS.dayKey('2026-08-28'), '2026-08-28', 'dayKey ISO passthrough');
+  var madridNoon = new Date('2026-08-28T12:00:00+02:00');
+  assert.strictEqual(DS.dayKey(madridNoon), '2026-08-28', 'dayKey Europe/Madrid');
   var s1 = DS.pickDailySpot('2026-08-28');
   var s2 = DS.pickDailySpot('2026-08-29');
   assert.ok(s1 && s2 && s1.id && s2.id, 'picker devuelve spots');
   assert.notStrictEqual(s1.id, s2.id, 'spot cambia cada día');
+  assert.ok(typeof DS.effectiveStreak === 'function', 'effectiveStreak export');
+  assert.ok(typeof DS.refreshRemoteDaily === 'function', 'refreshRemoteDaily export');
+  assert.ok(typeof DS.pickLocalParameterized === 'function', 'pickLocalParameterized export');
+  /* Racha rota si lastDay no es hoy ni ayer. */
+  (function assertStreakReset() {
+    var today = '2026-09-10';
+    var alive = DS.effectiveStreak({ lastDay: '2026-09-09', completed: true, streak: 4 }, today);
+    assert.strictEqual(alive, 4, 'racha viva si jugaste ayer');
+    var sameDay = DS.effectiveStreak({ lastDay: today, completed: true, streak: 5 }, today);
+    assert.strictEqual(sameDay, 5, 'racha viva el mismo día');
+    var broken = DS.effectiveStreak({ lastDay: '2026-09-08', completed: true, streak: 4 }, today);
+    assert.strictEqual(broken, 0, 'racha a 0 si saltaste un día');
+    var empty = DS.effectiveStreak({ lastDay: null, completed: false, streak: 3 }, today);
+    assert.strictEqual(empty, 0, 'sin lastDay → racha 0');
+  })();
 })();
+assert.ok(/pt_get_or_create_daily_spot|refreshRemoteDaily/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
+  'cliente pide spot compartido al backend');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/062_daily_spot.sql')),
+  'migración pt_daily_spots');
+assert.ok(/pt_get_or_create_daily_spot/.test(fs.readFileSync(path.join(root, 'supabase/migrations/062_daily_spot.sql'), 'utf8')),
+  'RPC generación compartida');
+assert.ok(fs.existsSync(path.join(root, 'supabase/functions/daily-spot-generate/index.ts')),
+  'edge function daily-spot-generate');
+assert.ok(fs.existsSync(path.join(root, '.github/workflows/daily-spot-generate.yml')),
+  'workflow cron daily spot');
+assert.ok(/si fallas un día, la racha vuelve a 0/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
+  'copy racha a 0 en tarjeta');
+assert.ok(/refreshRemoteDaily/.test(app), 'home refresca spot remoto antes de jugar');
 assert.ok(/buildDailyShareHtmlInline/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
   'share inline en tarjeta home');
 assert.ok(/persistDailyState/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
