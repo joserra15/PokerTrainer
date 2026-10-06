@@ -5,8 +5,9 @@ Estilo: **letras grandes** premium (mismo formato que B22–B31): título blanco
 
 Hashtags: `#pokertips #pokerstrategy #GTO #pokerespañol #pokerforgeai #estudiopoker`
 
-JPG canónicos: `edu-b32-*` … `edu-b46-*` en esta carpeta.  
-Fallback HTML (no sobrescribe sin `--force`): `node tools/instagram-edu-carruseles-b32-b46.js`
+JPG canónicos **premium IA** (864×1152, estilo B31 Steal): `edu-b32-*` … `edu-b46-*` en esta carpeta.  
+Fallback HTML (no sobrescribe premium sin `--force`): `node tools/instagram-edu-carruseles-b32-b46.js`  
+Nota: en slides CTA el botón visual usa «EMPIEZA AHORA»; el caption sigue con «5 manos gratis» / link en bio.
 
 **Terminología:** acciones y jerga en inglés (`call`, `fold`, `raise`, `check`, `bet`, `squeeze`…). Nunca *llamar* por call; si hace falta verbo ES → *pagar*.
 
