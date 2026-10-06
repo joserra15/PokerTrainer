@@ -1040,7 +1040,7 @@
     V('c28-08', 'BB_vs_BTN', ['7d', '5c'], 77208, '75o vs cualquiera: fold. Explotar no es spew.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' }), 'dominated'),
     Fl('c28-09', 'BTN', ['9h', '8h'], ['Ad', '5h', '2c'], 77209, 'Vs fish A-high: c-bet ligero. El fish se tira de más a c-bets pequeños.', { playConfig: cash({ villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit', practiceStreet: 'flop' }) }),
     F3('c28-10', 'BTN_vs_BB', ['Ah', 'Td'], 77210, 'ATo vs 3-bet de reg: fold OOP/borde. Vs fish a veces call; vs reg suelta el thin.', cash({ scenario: 'face3bet', villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto' }), 'dominated'),
-    Fl('c28-11', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 77211, 'KK vs reg en board wet: pot control. No thin loco vs quien defiende.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
+    Fl('c28-11', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 77211, 'KK vs reg en board wet: bet pequeño / merge. No overbet thin loco vs quien defiende.', { trapTag: 'fancy_play', playConfig: cash({ villainLevel: 'pro', villainType: 'pro', scoreMode: 'gto', practiceStreet: 'flop' }) }),
     V('c28-12', 'BB_vs_BTN', ['As', 'Kd'], 77212, 'AKo vs fish steal: 3-bet value. Cobra al que paga de más.', cash({ scenario: '3bet', villainLevel: 'fish', villainType: 'fish', scoreMode: 'exploit' }))
   ];
 

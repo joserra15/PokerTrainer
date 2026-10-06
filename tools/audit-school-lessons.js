@@ -219,37 +219,44 @@ function gradeAction(spot, lesson, actionId) {
 
 /**
  * Enmascarar ruido pedagógico antes de inferir la acción enseñada.
+ * Los tokens MASK_* no deben anular verbos posteriores (Fold tras NO_RAISE).
  */
 function preprocessTeachBack(raw) {
   var tb = String(raw || '');
   tb = tb.replace(/fold\s*equity/gi, 'FE');
-  tb = tb.replace(/GTO\s+(?:mezclaría|mezcla|a\s+menudo|check(?:-back|ea|ear)?|check\s+mix|bluff\s+selectivo)[^.；;]*/gi, 'GTO_ALT');
-  tb = tb.replace(/vs\s+reg\s+más\s+check[^.；;]*/gi, 'GTO_ALT');
-  tb = tb.replace(/el\s+chart\s+a\s+veces\s+checkea[^.；;]*/gi, 'GTO_ALT');
-  tb = tb.replace(/no\s+tiltees\s+si\s+el\s+chart[^.；;]*/gi, 'GTO_ALT');
+  tb = tb.replace(/GTO\s+(?:mezclaría|mezcla|a\s+menudo|check(?:-back|ea|ear)?|check\s+mix|bluff\s+selectivo)[^.；;]*/gi, '«GTO_ALT»');
+  tb = tb.replace(/vs\s+reg\s+más\s+check[^.；;]*/gi, '«GTO_ALT»');
+  tb = tb.replace(/el\s+chart\s+a\s+veces\s+checkea[^.；;]*/gi, '«GTO_ALT»');
+  tb = tb.replace(/no\s+tiltees\s+si\s+el\s+chart[^.；;]*/gi, '«GTO_ALT»');
   tb = tb.replace(/\bancla\.?/gi, '');
-  tb = tb.replace(/no\s+es\s+un\s+open[^\s.]*/gi, 'NO_OPEN');
-  tb = tb.replace(/no\s+(?:la\s+)?trates\s+como\s+open[^\s.]*/gi, 'NO_OPEN');
-  tb = tb.replace(/no\s+entra\s+en\s+open[^\s.]*/gi, 'OUT_BAND');
-  tb = tb.replace(/fuera\s+de\s+(?:todo\s+)?rango\s+de\s+(?:shove|call|open|3-?\s*bet)/gi, 'OUT_BAND');
-  tb = tb.replace(/no\s+está\s+en\s+(?:el\s+)?rango\s+de\s+shove/gi, 'OUT_BAND');
-  tb = tb.replace(/no\s+está\s+en\s+ninguna\s+banda/gi, 'OUT_BAND');
-  tb = tb.replace(/no\s+(?:hagas\s+)?(?:squeeze|3-?\s*bet|4-?\s*bet)\s*(?:spew|bluff\s+war)?/gi, 'NO_RAISE');
-  tb = tb.replace(/no\s+3-?\s*bet(?:ear)?(?:\s+spew|\s+bluff)?/gi, 'NO_RAISE');
-  tb = tb.replace(/no\s+4-?\s*bet/gi, 'NO_RAISE');
-  tb = tb.replace(/sin\s+min-?3bet/gi, 'NO_MIN');
-  tb = tb.replace(/no\s+min-?raise(?:es)?/gi, 'NO_MIN');
-  tb = tb.replace(/preferible\s+a\s+shove[^.；;]*/gi, 'PREFER_OPEN');
-  tb = tb.replace(/sin\s+shove/gi, 'NO_SHOVE');
-  tb = tb.replace(/no\s+commitees[^.；;]*/gi, 'NO_SHOVE');
-  tb = tb.replace(/no\s+shove(?:es|ar)?/gi, 'NO_SHOVE');
-  tb = tb.replace(/shove\s+panic/gi, 'NO_SHOVE');
-  tb = tb.replace(/shove\s+reservado[^.；;]*/gi, 'NO_SHOVE');
-  tb = tb.replace(/3-?\s*bet(?:ear)?\s+aquí\s+suele\s+ser\s+spew[^.；;]*/gi, 'NO_RAISE');
-  tb = tb.replace(/suele\s+ser\s+spew[^.；;]*/gi, 'NO_RAISE');
-  tb = tb.replace(/no\s+mereces\s+iso[^.；;]*/gi, 'NO_RAISE');
-  tb = tb.replace(/no\s+polar\s+sin[^.；;]*/gi, 'NO_RAISE');
-  tb = tb.replace(/no\s+spew\s+bluff[^.；;]*/gi, 'NO_RAISE');
+  tb = tb.replace(/no\s+es\s+un\s+open[^\s.]*/gi, '«NO_OPEN»');
+  tb = tb.replace(/no\s+(?:la\s+)?trates\s+como\s+open[^\s.]*/gi, '«NO_OPEN»');
+  tb = tb.replace(/no\s+entra\s+en\s+open[^\s.]*/gi, '«OUT_BAND»');
+  tb = tb.replace(/fuera\s+de\s+(?:todo\s+)?rango\s+de\s+(?:shove|call|open|3-?\s*bet)/gi, '«OUT_BAND»');
+  tb = tb.replace(/no\s+está\s+en\s+(?:el\s+)?rango\s+de\s+shove/gi, '«OUT_BAND»');
+  tb = tb.replace(/no\s+está\s+en\s+ninguna\s+banda/gi, '«OUT_BAND»');
+  tb = tb.replace(/3-?\s*bet(?:ear)?\s+aquí\s+suele\s+ser\s+spew[^.；;]*/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+(?:hagas\s+)?(?:squeeze|3-?\s*bet|4-?\s*bet)\s*(?:spew|bluff\s+war|ear)?/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+3-?\s*bet(?:ear)?(?:\s+spew|\s+bluff)?/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+4-?\s*bet/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+squeeze(?:\s+spew)?/gi, '«NO_RAISE»');
+  tb = tb.replace(/sin\s+min-?3bet/gi, '«NO_MIN»');
+  tb = tb.replace(/no\s+min-?raise(?:es)?/gi, '«NO_MIN»');
+  tb = tb.replace(/preferible\s+a\s+shove[^.；;]*/gi, '«PREFER_OPEN»');
+  tb = tb.replace(/sin\s+shove/gi, '«NO_SHOVE»');
+  tb = tb.replace(/no\s+commitees[^.；;]*/gi, '«NO_SHOVE»');
+  tb = tb.replace(/no\s+shove(?:es|ar)?/gi, '«NO_SHOVE»');
+  tb = tb.replace(/shove\s+panic/gi, '«NO_SHOVE»');
+  tb = tb.replace(/shove\s+reservado[^.；;]*/gi, '«NO_SHOVE»');
+  tb = tb.replace(/no\s+mereces\s+iso[^.；;]*/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+polar\s+sin[^.；;]*/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+spew\s+bluff(?:\s+war)?[^.；;]*/gi, '«NO_RAISE»');
+  tb = tb.replace(/no\s+autocbet(?:\s+spew|\s+grande)?/gi, '«NO_BET»');
+  tb = tb.replace(/no\s+hinches[^.；;]*/gi, '«NO_BET»');
+  tb = tb.replace(/no\s+overbetees[^.；;]*/gi, '«NO_BET»');
+  tb = tb.replace(/no\s+fuerces\s+barrel[^.；;]*/gi, '«NO_BET»');
+  tb = tb.replace(/no\s+second\s+barrel\s+spew[^.；;]*/gi, '«NO_BET»');
+  tb = tb.replace(/no\s+bluff\s+spew[^.；;]*/gi, '«NO_BET»');
   tb = tb.replace(/menos\s+farol[^.；;]*/gi, '');
   return tb;
 }
@@ -262,29 +269,30 @@ function inferTaughtActions(teachBack, legalIds) {
   if (!raw.trim()) return { actions: [], confidence: 'none', reason: 'empty teachBack' };
 
   const tb = preprocessTeachBack(raw);
-  var outOfBand = /OUT_BAND/.test(tb);
+  var outOfBand = /«OUT_BAND»/.test(tb);
+  var noBet = /«NO_BET»/.test(tb);
 
+  // Lead = tras ':' o primeras 2 frases (para pillar «Fold.» tras «NO_RAISE.»)
   var lead = tb;
   var colon = tb.indexOf(':');
   if (colon >= 0 && colon < 80) lead = tb.slice(colon + 1);
-  var dot = lead.search(/\.\s/);
-  if (dot > 10) lead = lead.slice(0, dot);
-  lead = lead.slice(0, 220);
+  var sentences = lead.split(/\.\s+/);
+  lead = sentences.slice(0, 2).join('. ').slice(0, 280);
 
   var found = [];
   var seen = Object.create(null);
 
   function negatedAt(full, idx) {
-    var before = full.slice(Math.max(0, idx - 48), idx).toLowerCase();
+    var before = full.slice(Math.max(0, idx - 40), idx);
     var after = full.slice(idx, idx + 40).toLowerCase();
-    if (/\bno\s+(?:es\s+)?(?:auto-)?$/.test(before)) return true;
-    if (/\bsin\s+(?:auto-)?$/.test(before)) return true;
-    if (/\bevita(?:r)?\s+$/.test(before)) return true;
-    if (/\bno\s+min-?$/.test(before)) return true;
-    if (/no_raise|no_open|no_shove|no_min|out_band|gto_alt|prefer_open/.test(before)) return true;
+    // Ignorar tokens «MASK» al mirar negación inmediata
+    var beforeClean = before.replace(/«[^»]+»/g, ' ').toLowerCase();
+    if (/\bno\s+(?:es\s+)?(?:auto-)?$/.test(beforeClean)) return true;
+    if (/\bsin\s+(?:auto-)?$/.test(beforeClean)) return true;
+    if (/\bevita(?:r)?\s+$/.test(beforeClean)) return true;
+    if (/\bno\s+min-?$/.test(beforeClean)) return true;
     if (/sería\s+demasiado/.test(after)) return true;
     if (/demasiado\s+tight/.test(after)) return true;
-    if (/spew/.test(after) && /3-?\s*bet|raise|open/.test(full.slice(idx, idx + 12))) return true;
     return false;
   }
 
@@ -292,17 +300,18 @@ function inferTaughtActions(teachBack, legalIds) {
     if (!legalIds || !legalIds.length) return id;
     if (legalIds.indexOf(id) >= 0) return id;
     if (id === 'bet') {
-      var betLike = legalIds.some(function (x) {
-        return x === 'bet' || /^bet_/.test(x) || x === 'overbet';
-      });
-      if (betLike) return 'bet';
+      if (legalIds.some(function (x) { return x === 'bet' || /^bet_/.test(x) || x === 'overbet'; })) return 'bet';
       if (legalIds.indexOf('raise') >= 0) return 'raise';
     }
     if (id === 'raise') {
+      // 3-bet / resteal en stacks cortos: el nodo solo ofrece allin
+      if (legalIds.indexOf('allin') >= 0 && legalIds.indexOf('raise') < 0) return 'allin';
       if (legalIds.indexOf('bet') >= 0) return 'bet';
       if (legalIds.some(function (x) { return /^bet_/.test(x) || x === 'overbet'; })) return 'bet';
     }
+    // BB vs limp: «check» del teachBack = call en el nodo
     if (id === 'check' && legalIds.indexOf('check') < 0 && legalIds.indexOf('call') >= 0) return 'call';
+    // No mapear call→check: «call down» en nodo check/bet es mismatch de street/facingBet
     return null;
   }
 
@@ -314,42 +323,71 @@ function inferTaughtActions(teachBack, legalIds) {
   }
 
   var patterns = [
-    { re: /3-?\s*bet\s*shove|\bshove\b|\ball-?in\b|\bjam\b/gi, id: 'allin', conf: 'high' },
+    { re: /3-?\s*bet\s*shove|\bshove\b|\ball-?in\b|\bjam\b|\bstack-?off\b/gi, id: 'allin', conf: 'high' },
     { re: /\bcheck-raise\b|\bxr\b/gi, id: 'raise', conf: 'high' },
-    { re: /\bfold\b|\bpliega|\bretir(?:arse)?\b|\btirar\b/gi, id: 'fold', conf: 'high' },
-    { re: /\bcall\b|\biguala(?:r)?\b|\bpaga(?:r)?\b|\bdefiende\b|\bdefend\b/gi, id: 'call', conf: 'high' },
-    { re: /\bcheck(?:ea|ear|-call|-back)?\b/gi, id: 'check', conf: 'high' },
-    { re: /\b3-?\s*bet\b|\b4-?\s*bet\b|\braise\b|\bopen(?:\s+steal|\s+min)?\b|\bsteal\b|\biso(?:-?raise)?\b|\bsqueeze\b|\bresteal\b|\bsube\b|\bentra\b|\bse\s+abre\b|\babre(?:s|n)?\b/gi, id: 'raise', conf: 'high' },
-    { re: /\bc-?bet\b|\bvalue\s*bet\b|\bbet(?:ea|ear)?\b|\bapuesta\b|\bcobra/gi, id: 'bet', conf: 'med' }
+    { re: /\bfold\b|\bpliega|\bretir(?:arse)?\b|\btirar\b|\boverfold\b/gi, id: 'fold', conf: 'high' },
+    { re: /\bcall(?:\s*down)?\b|\biguala(?:r)?\b|\bpaga(?:r)?\b|\bdefiende\b|\bdefend(?:e|es|er)?\b|\bdefensa\b|\bcatcher\b/gi, id: 'call', conf: 'high' },
+    { re: /\bcheck(?:ea|ear|-call|-back)?\b|\bpot\s*control\b|\bgive\s*-?\s*up\b|\bcedes?\b|\bcede\b/gi, id: 'check', conf: 'high' },
+    { re: /\b3-?\s*bets?\b|\b4-?\s*bets?\b|\braise\b|\bopen(?:\s+steal|\s+min)?\b|\bsteal\b|\biso(?:-?raise)?\b|\bsqueeze\b|\bresteal\b|\brestéal\b|\bsube\b|\bentra\b|\bse\s+abre\b|\babre(?:s|n)?\b|\brobo\b|\bpressure\b|\bpresión\b/gi, id: 'raise', conf: 'high' },
+    { re: /\bc-?bet\b|\bvalue(?:\s*bet|\s*thin|\s*fat|\s*up|\s*merge)?\b|\bbarrel\b|\bbet(?:ea|ear)?\b|\bapuesta\b|\bcobra|\bthin\b|\boverbet\b|\bsizing\b/gi, id: 'bet', conf: 'med' }
   ];
 
-  patterns.forEach(function (p) {
-    p.re.lastIndex = 0;
-    var m;
-    while ((m = p.re.exec(lead))) {
-      if (negatedAt(lead, m.index)) continue;
-      add(p.id, p.conf);
-    }
-  });
-
-  if (!found.length) {
+  function scan(src, conf) {
     patterns.forEach(function (p) {
       p.re.lastIndex = 0;
       var m;
-      var src = tb.slice(0, 300);
       while ((m = p.re.exec(src))) {
         if (negatedAt(src, m.index)) continue;
-        add(p.id, 'low');
+        // «overfold» no es fold pedagógico
+        if (p.id === 'fold' && /overfold/i.test(m[0])) continue;
+        add(p.id, conf);
       }
     });
   }
 
-  if (!found.length && outOfBand) add('fold', 'med');
+  scan(lead, 'high');
+  if (!found.length) scan(tb.slice(0, 320), 'low');
 
+  if (!found.length && outOfBand) add('fold', 'med');
+  if (!found.length && noBet) add('check', 'med');
+
+  // «no autocbet / selectivo / pot control» sin verbo → check
+  if (!found.length && /\b(?:selectivo|pot\s*control|no\s+autocbet|give\s*-?\s*up|cede)/i.test(raw)) {
+    add('check', 'med');
+  }
+  // «value / barrel» sin check → bet
+  if (!found.length && /\b(?:value|barrel|c-?bet|thin|overbet)\b/i.test(raw)) {
+    add('bet', 'med');
+  }
+  // «mix GTO / según chart / juega el mix / ≈ GTO» → cualquier línea buena
+  if (!found.length && /\b(?:mix\s*GTO|según\s+(?:el\s+)?chart|decisión\s+GTO|≈\s*GTO|juega(?:r)?\s+(?:el\s+)?mix|benchmark|identidad|checklist|node\s*lock)\b/i.test(raw)) {
+    if (legalIds.indexOf('check') >= 0) add('check', 'low');
+    if (legalIds.some(function (x) { return x === 'bet' || /^bet_/.test(x); })) add('bet', 'low');
+    if (legalIds.indexOf('fold') >= 0) add('fold', 'low');
+    if (legalIds.indexOf('call') >= 0) add('call', 'low');
+    if (legalIds.indexOf('raise') >= 0) add('raise', 'low');
+    if (legalIds.indexOf('allin') >= 0) add('allin', 'low');
+  }
+  // «fold o bluff» en river check/bet → check (give up) y/o bet (bluff)
+  if (!found.length && /\bfold\s+o\s+bluff\b|\bbluff\s+solo\b/i.test(raw)) {
+    if (legalIds.indexOf('check') >= 0) add('check', 'med');
+    if (legalIds.some(function (x) { return /^bet_/.test(x) || x === 'bet'; })) add('bet', 'med');
+    if (legalIds.indexOf('fold') >= 0) add('fold', 'med');
+  }
+  // «robo / especulativa pero razonable» RFI → raise
+  if (!found.length && /\b(?:robo|especulativa|razonable)\b/i.test(raw) &&
+      legalIds.indexOf('raise') >= 0) {
+    add('raise', 'low');
+  }
+  // «tampoco / spew / muerto» sin acción → fold
+  if (!found.length && /\b(?:tampoco|spew|muerto)\b/i.test(raw) && legalIds.indexOf('fold') >= 0) {
+    add('fold', 'low');
+  }
+
+  // Contraste GTO check + exploit bet
   if (found.length === 1 && found[0].id === 'check') {
-    if (/\b(?:c-?bet|bet\s*value|value\b|cobras?|hoy\s+bet)\b/i.test(raw) &&
-        !/\bNO\s+farol\b/i.test(raw) &&
-        !/\bCheck\.?\s*(?:Fancy|$)/i.test(raw.slice(0, 140))) {
+    if (/\b(?:c-?bet|bet\s*value|value\b|cobras?|hoy\s+bet|exploit\s+bet)\b/i.test(raw) &&
+        !/\bNO\s+farol\b/i.test(raw)) {
       add('bet', 'high');
     }
   }
@@ -372,6 +410,8 @@ function expandActionIds(taughtId, legalIds) {
     return [];
   }
   if (legalIds.indexOf(taughtId) >= 0) return [taughtId];
+  // raise pedagógico en nodo shove-only
+  if (taughtId === 'raise' && legalIds.indexOf('allin') >= 0) return ['allin'];
   return [];
 }
 
