@@ -304,35 +304,52 @@
     var pool = getPool();
     if (!pool.length) return null;
     var day = forDay || dayKey();
-    var preferred = igPlanForDay(day).kind;
-    var recent = {};
-    var i;
-    for (i = 1; i <= RECENT_DAYS; i++) {
-      var pastDay = addDays(day, -i);
-      var pastIdx = hashDay(pastDay) % pool.length;
-      if (pool[pastIdx] && pool[pastIdx].id) recent[pool[pastIdx].id] = true;
+    var memo = {};
+
+    function pickFor(d) {
+      if (memo[d]) return memo[d];
+      var preferred = igPlanForDay(d).kind;
+      var recent = {};
+      var i;
+      for (i = 1; i <= RECENT_DAYS; i++) {
+        var past = addDays(d, -i);
+        if (memo[past] && memo[past].id) {
+          recent[memo[past].id] = true;
+        } else {
+          var baseIdx = hashDay(past + ':base') % pool.length;
+          if (pool[baseIdx] && pool[baseIdx].id) recent[pool[baseIdx].id] = true;
+        }
+      }
+      var yesterday = addDays(d, -1);
+      var yesterdayKind = memo[yesterday] ? memo[yesterday].kind : null;
+      if (!yesterdayKind) {
+        var yBase = pool[hashDay(yesterday + ':base') % pool.length];
+        if (yBase) yesterdayKind = yBase.kind;
+      }
+
+      var fresh = pool.filter(function (s) { return s && s.id && !recent[s.id]; });
+      if (!fresh.length) fresh = pool.slice();
+
+      var byKind = fresh.filter(function (s) { return s.kind === preferred; });
+      var candidates = byKind.length ? byKind : fresh;
+      if (!byKind.length && yesterdayKind) {
+        var different = fresh.filter(function (s) { return s.kind !== yesterdayKind; });
+        if (different.length) candidates = different;
+      }
+
+      var picked = pickFromCandidates(candidates, d);
+      if (memo[yesterday] && picked && picked.id === memo[yesterday].id && candidates.length > 1) {
+        var alt = candidates.filter(function (s) { return s.id !== picked.id; });
+        if (alt.length) picked = pickFromCandidates(alt, d + ':alt');
+      }
+      memo[d] = picked;
+      return picked;
     }
-    var yesterdayKind = null;
-    var ySpot = pickFromCandidates(pool, addDays(day, -1));
-    if (ySpot) yesterdayKind = ySpot.kind;
 
-    var fresh = pool.filter(function (s) { return s && s.id && !recent[s.id]; });
-    if (!fresh.length) fresh = pool.slice();
-
-    var byKind = fresh.filter(function (s) { return s.kind === preferred; });
-    if (byKind.length) return pickFromCandidates(byKind, day);
-
-    if (yesterdayKind) {
-      var different = fresh.filter(function (s) { return s.kind !== yesterdayKind; });
-      if (different.length) return pickFromCandidates(different, day);
+    for (var j = RECENT_DAYS; j >= 0; j--) {
+      pickFor(addDays(day, -j));
     }
-
-    var picked = pickFromCandidates(fresh, day);
-    if (pool.length > 1 && ySpot && picked && picked.id === ySpot.id) {
-      var alt = fresh.filter(function (s) { return s.id !== ySpot.id; });
-      if (alt.length) return pickFromCandidates(alt, day + ':alt');
-    }
-    return picked;
+    return memo[day] || pickFromCandidates(pool, day);
   }
 
   function pickDailySpot(forDay) {

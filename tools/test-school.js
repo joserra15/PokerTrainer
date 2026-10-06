@@ -684,6 +684,16 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
   var s2 = DS.pickDailySpot('2026-08-29');
   assert.ok(s1 && s2 && s1.id && s2.id, 'picker devuelve spots');
   assert.notStrictEqual(s1.id, s2.id, 'spot cambia cada día');
+  (function assertNoBackToBackRepeat() {
+    var prev = null;
+    for (var i = 0; i < 14; i++) {
+      var iso = '2026-09-' + (i < 9 ? '0' : '') + (i + 1);
+      var spot = DS.pickLocalParameterized(iso);
+      assert.ok(spot && spot.id, 'local pick ' + iso);
+      if (prev) assert.notStrictEqual(spot.id, prev, 'no repetir spot consecutivo ' + iso);
+      prev = spot.id;
+    }
+  })();
   assert.ok(typeof DS.effectiveStreak === 'function', 'effectiveStreak export');
   assert.ok(typeof DS.refreshRemoteDaily === 'function', 'refreshRemoteDaily export');
   assert.ok(typeof DS.pickLocalParameterized === 'function', 'pickLocalParameterized export');
