@@ -94,6 +94,119 @@
     };
   }
 
+  /** Stacks por asiento sin alias hero/villain (para el JSON del coach). */
+  function seatStacksFromHand(hand) {
+    if (!hand || !hand.stacks) return null;
+    const out = {};
+    Object.keys(hand.stacks).forEach(function (k) {
+      if (k === 'hero' || k === 'villain') return;
+      out[k] = hand.stacks[k];
+    });
+    return Object.keys(out).length ? out : null;
+  }
+
+  /**
+   * Cobertura / chip lead / BF·RP para que ForgeCoach no trate MTT/spin como cash nit.
+   * Prefiere PTStackCoverage.pairContext; cae a _last* del motor y a seatStacks.
+   */
+  function coverSignals(hand, cfg, heroPos, villainPos, seatStacks) {
+    cfg = cfg || {};
+    let pair = null;
+    const Cov = global.PTStackCoverage;
+    if (Cov && Cov.pairContext && hand && hand.stacks && heroPos && villainPos) {
+      try { pair = Cov.pairContext(hand, heroPos, villainPos); } catch (e) { pair = null; }
+    }
+    let heroStackBB = null;
+    if (seatStacks && heroPos && seatStacks[heroPos] != null) {
+      heroStackBB = seatStacks[heroPos];
+    } else if (hand && hand.stacks && heroPos && hand.stacks[heroPos] != null) {
+      heroStackBB = hand.stacks[heroPos];
+    }
+    let villainStackBB = null;
+    if (seatStacks && villainPos && seatStacks[villainPos] != null) {
+      villainStackBB = seatStacks[villainPos];
+    } else if (hand && hand.stacks && villainPos && hand.stacks[villainPos] != null) {
+      villainStackBB = hand.stacks[villainPos];
+    }
+
+    const stackRole = (hand && hand._lastStackRole)
+      || (pair && pair.stackRole)
+      || cfg.stackRole
+      || (hand && hand._pedagogicalStackRole)
+      || null;
+    const ownRP = hand && hand._lastOwnRiskPremium != null
+      ? hand._lastOwnRiskPremium
+      : (pair && pair.ownRiskPremium != null ? pair.ownRiskPremium : null);
+    const oppRP = hand && hand._lastOppRiskPremium != null
+      ? hand._lastOppRiskPremium
+      : (pair && pair.opponentRiskPremium != null ? pair.opponentRiskPremium : null);
+    const bf = hand && hand._lastPairBubbleFactor != null
+      ? hand._lastPairBubbleFactor
+      : (pair && pair.bubbleFactor != null ? pair.bubbleFactor : null);
+
+    let coversOpponent = !!(pair && pair.coversOpponent);
+    let coveredByOpponent = !!(pair && pair.coveredByOpponent);
+    let isChipLead = !!(pair && pair.isChipLead);
+    if (!pair && heroStackBB != null && villainStackBB != null) {
+      coversOpponent = heroStackBB > villainStackBB * 1.02;
+      coveredByOpponent = villainStackBB > heroStackBB * 1.02;
+      if (seatStacks) {
+        let max = 0;
+        Object.keys(seatStacks).forEach(function (k) {
+          const v = Number(seatStacks[k]) || 0;
+          if (v > max) max = v;
+        });
+        isChipLead = heroStackBB >= max - 0.01;
+      } else {
+        isChipLead = coversOpponent;
+      }
+    }
+    if (stackRole === 'cover' || stackRole === 'chipLead') {
+      isChipLead = true;
+      if (!coveredByOpponent) coversOpponent = true;
+    }
+
+    return {
+      stackRole: stackRole,
+      isChipLead: isChipLead,
+      coversOpponent: coversOpponent,
+      coveredByOpponent: coveredByOpponent,
+      heroStackBB: heroStackBB,
+      villainStackBB: villainStackBB,
+      ownRiskPremium: ownRP,
+      opponentRiskPremium: oppRP,
+      pairBubbleFactor: bf,
+      BF: bf,
+      RP: ownRP,
+      opponentRP: oppRP
+    };
+  }
+
+  function tournamentCoachingNote(formatHub, phase, signals, extras) {
+    extras = extras || {};
+    const bits = [];
+    if (formatHub === 'spin') {
+      bits.push('Mano de Spin & Go del entrenador: usa bandas stack-aware e ICM lite; no aconsejes como cash 100bb.');
+    } else if (formatHub === 'mtt') {
+      bits.push('Mano de torneo MTT del entrenador'
+        + (phase ? (' (fase ' + phase + ')') : '')
+        + (signals.stackRole ? (' · rol ' + signals.stackRole) : '')
+        + (extras.tournamentType && extras.tournamentType !== 'unknown' ? (' · ' + extras.tournamentType) : '')
+        + ': prioriza stack depth / fase / cobertura de stacks / ICM; no trates como cash 6-max 100bb.');
+    } else {
+      return null;
+    }
+    if (signals.isChipLead || signals.coversOpponent) {
+      bits.push('Chip lead / cover: ensancha steals y presión (p.ej. Axo SB vs BB corto); no nitfold como cash ni como mid en burbuja.');
+    } else if (signals.coveredByOpponent || signals.stackRole === 'mid') {
+      bits.push('Cubierto / mid: prioriza $EV y supervivencia vs covers; no spew opens flojos.');
+    }
+    if (extras.tournamentType === 'pko' || extras.tournamentType === 'mystery') {
+      bits.push('EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.');
+    }
+    return bits.join(' ');
+  }
+
   function fromTrainer(hand) {
     const r = hand.result || {};
     const cfg = hand.playConfig || {};
@@ -104,6 +217,7 @@
     const phase = cfg.resolvedPhase || (cfg.mttPhase && cfg.mttPhase !== 'auto' ? cfg.mttPhase : null);
     const stackBB = cfg.stackBB != null ? cfg.stackBB : (hand.effStack || 100);
     const decisions = (hand.decisions || []).map(slimDecision);
+    const heroPos = hand.displayHeroPos || (hand.hero && hand.hero.pos);
     const villain = {
       pos: hand.villain && hand.villain.pos,
       prof: r.villainProfileShort || r.villainProfile || null,
@@ -111,11 +225,13 @@
       rng: r.villainRangeSummary || null
     };
     if (r.villainCards) villain.show = r.villainCards;
+    const seatStacks = seatStacksFromHand(hand);
+    const signals = coverSignals(hand, cfg, heroPos, villain && villain.pos, seatStacks);
     const payload = {
       src: 'trainer',
       spot: scenarioLabel(hand.scenario),
       hero: {
-        pos: hand.displayHeroPos || (hand.hero && hand.hero.pos),
+        pos: heroPos,
         code: hand.hero && hand.hero.code,
         cards: hand.hero && hand.hero.cards
       },
@@ -130,18 +246,25 @@
       spinPayout: formatHub === 'spin' ? (cfg.spinPayout || null) : null,
       tournamentType: formatHub === 'mtt' ? (cfg.tournamentType || null) : null,
       playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
+      playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
+      placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
       icm: !!(cfg.useIcm || formatHub === 'spin' || formatHub === 'mtt'),
-      stackRole: cfg.stackRole || (hand && hand._pedagogicalStackRole) || null,
-      ownRiskPremium: hand && hand._lastOwnRiskPremium != null ? hand._lastOwnRiskPremium : null,
-      opponentRiskPremium: hand && hand._lastOppRiskPremium != null ? hand._lastOppRiskPremium : null,
-      pairBubbleFactor: hand && hand._lastPairBubbleFactor != null ? hand._lastPairBubbleFactor : null,
-      seatStacks: hand && hand.stacks ? Object.keys(hand.stacks).filter(function (k) {
-        return k !== 'hero' && k !== 'villain';
-      }).reduce(function (acc, k) {
-        acc[k] = hand.stacks[k];
-        return acc;
-      }, {}) : null,
+      stackRole: signals.stackRole,
+      isChipLead: !!signals.isChipLead,
+      coversOpponent: !!signals.coversOpponent,
+      coveredByOpponent: !!signals.coveredByOpponent,
+      heroStackBB: signals.heroStackBB,
+      villainStackBB: signals.villainStackBB,
+      ownRiskPremium: signals.ownRiskPremium,
+      opponentRiskPremium: signals.opponentRiskPremium,
+      pairBubbleFactor: signals.pairBubbleFactor,
+      BF: signals.BF,
+      RP: signals.RP,
+      opponentRP: signals.opponentRP,
+      seatStacks: seatStacks,
       villainLevel: cfg.villainLevel || null,
+      villainType: cfg.villainType || cfg.villainLevel || null,
+      scoreMode: cfg.scoreMode || null,
       openSize: cfg.preflopOpenSize || null,
       dec: decisions,
       vil: villain,
@@ -154,18 +277,10 @@
       gto: buildGtoSummary(decisions),
       solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
-    if (formatHub === 'spin') {
-      payload.coachingNote = 'Mano de Spin & Go del entrenador: usa bandas stack-aware e ICM lite; no aconsejes como cash 100bb.';
-    } else if (formatHub === 'mtt') {
-      payload.coachingNote = 'Mano de torneo MTT del entrenador'
-        + (phase ? (' (fase ' + phase + ')') : '')
-        + (payload.stackRole ? (' · rol ' + payload.stackRole) : '')
-        + (cfg.tournamentType && cfg.tournamentType !== 'unknown' ? (' · ' + cfg.tournamentType) : '')
-        + ': prioriza stack depth / fase / cobertura de stacks / ICM; no trates como cash 6-max 100bb.'
-        + (cfg.tournamentType === 'pko' || cfg.tournamentType === 'mystery'
-          ? ' EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.'
-          : '');
-    }
+    const note = tournamentCoachingNote(formatHub, phase, signals, {
+      tournamentType: cfg.tournamentType
+    });
+    if (note) payload.coachingNote = note;
     return payload;
   }
 
@@ -182,6 +297,16 @@
       || (h.gameKind === 'spin' ? 'spin'
         : ((h.gameKind === 'mtt' || h.gameKind === 'sng' || h.isTournament) ? 'mtt' : 'cash'));
     const phase = (ctx && (ctx.resolvedPhase || ctx.mttPhase)) || h.mttPhase || null;
+    const seatStacks = h.seatStacksBB || h.stacks || null;
+    const signals = coverSignals(h, {
+      stackRole: (ctx && ctx.stackRole) || h.stackRole || null
+    }, h.heroPos, h.villainPos || (h.villain && h.villain.pos), seatStacks);
+    const heroStackBB = signals.heroStackBB != null
+      ? signals.heroStackBB
+      : ((ctx && ctx.heroStackBB) || h.heroStackBB || null);
+    const villainStackBB = signals.villainStackBB != null
+      ? signals.villainStackBB
+      : ((ctx && ctx.villainStackBB) || h.villainStackBB || null);
     const payload = {
       src: 'session',
       spot: 'imported',
@@ -200,6 +325,20 @@
       tableMax: (ctx && ctx.tableMax) || h.tableMax || null,
       playersLeft: h.playersLeft != null ? h.playersLeft : null,
       placesPaid: h.placesPaid != null ? h.placesPaid : null,
+      icm: !!(formatHub === 'spin' || formatHub === 'mtt' || h.isTournament),
+      stackRole: signals.stackRole,
+      isChipLead: !!signals.isChipLead,
+      coversOpponent: !!signals.coversOpponent,
+      coveredByOpponent: !!signals.coveredByOpponent,
+      heroStackBB: heroStackBB,
+      villainStackBB: villainStackBB,
+      ownRiskPremium: signals.ownRiskPremium,
+      opponentRiskPremium: signals.opponentRiskPremium,
+      pairBubbleFactor: signals.pairBubbleFactor,
+      BF: signals.BF,
+      RP: signals.RP,
+      opponentRP: signals.opponentRP,
+      seatStacks: seatStacks,
       multiway: !!h.multiway,
       dec: decisions,
       vil: villain,
@@ -212,15 +351,23 @@
       solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
     if (formatHub === 'mtt' || formatHub === 'spin') {
-      payload.coachingNote = 'Mano de torneo/sesión'
-        + (phase ? (' (fase ' + phase + ')') : '')
-        + (payload.playersSeated ? (' · ' + payload.playersSeated + '-handed') : '')
-        + (payload.tournamentType && payload.tournamentType !== 'unknown'
-          ? (' · ' + payload.tournamentType) : '')
-        + ': prioriza stack depth / fase / ICM; no trates como cash 100bb.'
-        + (payload.tournamentType === 'pko' || payload.tournamentType === 'mystery'
-          ? ' EV de bounty no modelado: comenta el impacto cualitativo sin inventar € de bounty.'
-          : '');
+      const bits = [
+        'Mano de torneo/sesión'
+          + (phase ? (' (fase ' + phase + ')') : '')
+          + (payload.playersSeated ? (' · ' + payload.playersSeated + '-handed') : '')
+          + (payload.tournamentType && payload.tournamentType !== 'unknown'
+            ? (' · ' + payload.tournamentType) : '')
+          + ': prioriza stack depth / fase / ICM; no trates como cash 100bb.'
+      ];
+      if (signals.isChipLead || signals.coversOpponent) {
+        bits.push('Chip lead / cover: ensancha steals (p.ej. Axo SB vs BB); no nitfold por defecto.');
+      } else if (signals.coveredByOpponent || signals.stackRole === 'mid') {
+        bits.push('Cubierto / mid: prioriza supervivencia vs covers.');
+      }
+      if (payload.tournamentType === 'pko' || payload.tournamentType === 'mystery') {
+        bits.push('EV de bounty no modelado: comenta el impacto cualitativo sin inventar € de bounty.');
+      }
+      payload.coachingNote = bits.join(' ');
     }
     return payload;
   }

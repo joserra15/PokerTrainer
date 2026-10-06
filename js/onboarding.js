@@ -11,7 +11,7 @@
     { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales', cta: 'Abrir ejemplo' },
     { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo', cta: 'Calentar 10 manos' },
     { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores', cta: 'Ver mis fugas' },
-    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: 'Cuenta para las 3 consultas de prueba del plan Gratis', cta: 'Probar ForgeCoach' }
+    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: '1 de 3 consultas de prueba · usa un error real', cta: 'Probar ForgeCoach' }
   ];
 
   function userKey() {

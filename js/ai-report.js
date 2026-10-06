@@ -1498,6 +1498,12 @@
       '<p class="home-coach-lead">' + copy.lead + '</p>' +
       coachStatusHtml() +
       '</div></div>' +
+      '<div class="home-coach-foot">' +
+      '<p class="muted-text home-coach-cta-hint">' + escapeHtml(ctaHint) + '</p>' +
+      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>' + escapeHtml(ctaLabel) + '</button>' +
+      '</div>' +
+      '<details class="home-coach-more">' +
+      '<summary>Cómo usarme · Dónde encontrarme</summary>' +
       '<div class="home-coach-steps">' +
       '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Si empiezas de cero</h4><p>Abre <em>Guía básica</em> en el menú: conceptos, qué es el GTO, ejemplos y un mini entrenamiento antes de meterte en spots avanzados.</p></div>' +
       '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>En el resumen de una sesión importada, o al acabar una mano con error, pulsa <em>Informe</em> o <em>¿Por qué fallé?</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
@@ -1511,12 +1517,9 @@
       '<li><strong>Estadísticas</strong> — bloque ForgeCoach con plan de estudio.</li>' +
       '<li><strong>Planes</strong> — Gratis: 3/mes de prueba · Study 40 · Coach 150. También hay bonos.</li>' +
       '</ul></div>' +
-      '<div class="home-coach-foot">' +
       '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
       PRIVACY_NO_PII + ' Las respuestas se guardan en tu historial de manos y sesiones.</p>' +
-      '<p class="muted-text home-coach-cta-hint">' + escapeHtml(ctaHint) + '</p>' +
-      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>' + escapeHtml(ctaLabel) + '</button>' +
-      '</div></div>';
+      '</details></div>';
 
     trackFunnel('ai_coach_impression', { scope: 'home', source: 'welcome' });
 
