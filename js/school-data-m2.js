@@ -41,7 +41,7 @@
           teachBack: 'Board wet conectado: no hagas c-bet grande automático. Check o bet selectivo.'
         }),
         flop('c14-03', 'CO', ['Kd', 'Kh'], ['Qc', 'Jd', 'Ts'], 24003, {
-          teachBack: 'Overpair (pareja por encima del board) en board muy wet: a menudo pot control — no hinches el bote sin necesidad.'
+          teachBack: 'Overpair (pareja por encima del board) en board muy wet: bet pequeño / merge (~33–66 %). Pot control de sizing — no hinches con overbet.'
         }),
         flop('c14-04', 'BTN', ['8h', '7h'], ['As', '4d', '2c'], 24004, {
           teachBack: 'Seco A-high: c-bet ligero IP razonable; tienes backdoors (mejoras en dos calles) con el suited.'

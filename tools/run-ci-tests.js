@@ -130,6 +130,8 @@ const STEPS = [
   ['Test product variants 6-max', ['node', 'tools/test-product-variants.js']],
   ['Test beginner guide', ['node', 'tools/test-beginner-guide.js']],
   ['Test Escuela de Póker M0', ['node', 'tools/test-school.js']],
+  ['Lint school content', ['node', 'tools/lint-school-content.js']],
+  ['Audit Escuela ↔ motor (teachBack)', ['node', 'tools/audit-school-lessons.js']],
   ['Test school exploit line C-32–C-39', ['node', 'tools/test-school-exploit-line.js']],
   ['Test school progress sync', ['node', 'tools/test-school-progress-sync.js']],
   ['Test onboarding cloud sync', ['node', 'tools/test-onboarding-sync.js']],

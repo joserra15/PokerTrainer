@@ -23,7 +23,7 @@
     ],
     'C-08': [
       vs('c08-09', 'BB_vs_BTN', ['Jh', 'Jd'], 18009, { teachBack: 'JJ vs BTN: 3-bet value. Quieres máximo dinero con la mejor mano.' }),
-      vs('c08-10', 'BB_vs_CO', ['Kd', '2d'], 18010, { teachBack: 'K2s vs CO: a veces 3-bet farol con blocker de K; no es spew como KTo.' }),
+      vs('c08-10', 'BB_vs_CO', ['Ah', '3h'], 18010, { teachBack: 'A3s vs CO: a veces 3-bet farol con blocker de K; no es spew como KTo.' }),
       vs('c08-11', 'SB_vs_BTN', ['Qh', 'Td'], 18011, { trapTag: 'fancy_play', teachBack: 'QTo SB vs BTN: no 3-bet spew. Fold o call selectivo — no polar sin blockers claros.' }),
       vs('c08-12', 'BB_vs_BTN', ['Ts', 'Td'], 18012, { teachBack: 'TT vs BTN: 3-bet value. Par medio-fuerte — construye bote; no la trates como farol.' })
     ],
@@ -44,10 +44,10 @@
     'C-11': [
       iso('c11-07', 'BTN', 'CO', ['Ah', 'Qd'], 21007, { teachBack: 'AQo vs limp: iso value. Premium — aísla y cobra.' }),
       iso('c11-08', 'CO', 'HJ', ['Qc', '2h'], 21008, { trapTag: 'dominated', teachBack: 'Q2o vs limp: fold. No overiso basura.' }),
-      iso('c11-09', 'BTN', 'SB', ['Jh', 'Ts'], 21009, { teachBack: 'JTo vs limp: iso razonable. Conectores altos offsuit con iniciativa.' }),
+      iso('c11-09', 'BTN', 'SB', ['Kh', 'Qd'], 21009, { teachBack: 'KQo vs limp: iso razonable. Conectores altos offsuit con iniciativa.' }),
       iso('c11-10', 'SB', 'BTN', ['Qd', '9c'], 21010, { trapTag: 'fancy_play', teachBack: 'Q9o vs limp OOP: fold frecuente. No aísles frágiles offsuit.' }),
       iso('c11-11', 'BTN', 'CO', ['9s', '9c'], 21011, { teachBack: '99 vs limp: iso claro. Par medio — heads-up con ventaja.' }),
-      iso('c11-12', 'CO', 'UTG', ['Ad', '7d'], 21012, { teachBack: 'A7s vs limp: iso OK. Ax suited castiga limps wide.' })
+      iso('c11-12', 'CO', 'UTG', ['Ah', '5h'], 21012, { teachBack: 'A5s vs limp: iso OK. Ax suited castiga limps wide.' })
     ],
     'C-12': [
       bb('c12-07', ['Kd', 'Kh'], 22007, { teachBack: 'KK BB vs SB limp: raise value. Premium — no check raro.' }),
@@ -113,7 +113,7 @@
     ],
     'C-19': [
       flop('c19-07', 'BTN', ['Ah', 'Kd'], ['As', '7h', '2c', '3d', '5s'], 29007, { street: 'river', teachBack: 'TPTK en river seco: value bet. Peores Ax y Kx aún pagan; no check-back por miedo.' }),
-      flop('c19-08', 'BTN', ['8h', '7h'], ['As', 'Kd', '2c', '3s', '5h'], 29008, { street: 'river', trapTag: 'fancy_play', teachBack: 'Air river: fold o bluff solo con blockers. No spew.' }),
+      flop('c19-08', 'BTN', ['8h', '7h'], ['As', 'Kd', '2c', '3s', '5h'], 29008, { street: 'river', trapTag: 'fancy_play', teachBack: 'Air river: check (give up) o bluff solo con blockers. No spew.' }),
       flop('c19-09', 'CO', ['Qh', 'Qd'], ['Js', '8c', '3d', '2h', '5s'], 29009, { street: 'river', teachBack: 'Overpair river seco: value bet. Cobras a Jx (top pair) y peores pares; el board no está paired.' }),
       flop('c19-10', 'BTN', ['Ah', '5d'], ['As', '9c', '4h', '2d', '7s'], 29010, { street: 'river', teachBack: 'Top pair river: value thin OK vs calling range que paga de más.' }),
       flop('c19-11', 'BTN', ['Kh', 'Td'], ['Kd', '7s', '2c', '3h', '5s'], 29011, { street: 'river', teachBack: 'Top pair K river seco: value bet frecuente.' }),
@@ -124,7 +124,7 @@
     'C-20': [
       flop('c20-09', 'BTN', ['Ah', 'Qd'], ['Ks', '7d', '2c'], 30009, { teachBack: 'Examen: seco IP → c-bet pequeño. Aplica C-14/C-15.' }),
       flop('c20-10', 'BB', ['9s', '9c'], ['Ah', '8d', '3c'], 30010, { facingBet: true, teachBack: 'Examen: OOP vs c-bet → call con pareja media frecuente.' }),
-      flop('c20-11', 'BTN', ['8h', '7h'], ['9s', '8s', '7d'], 30011, { trapTag: 'fancy_play', teachBack: 'Examen: wet → no autocbet spew.' }),
+      flop('c20-11', 'BTN', ['8h', '7h'], ['9s', '8s', '7d'], 30011, { trapTag: 'fancy_play', teachBack: 'Examen: wet → c-bet pequeño selectivo, no autocbet spew grande.' }),
       flop('c20-12', 'BTN', ['Kd', 'Kh'], ['Qc', 'Jd', '2s', '3h'], 30012, { street: 'turn', teachBack: 'Examen: overpair turn → barrel value.' }),
       flop('c20-13', 'CO', ['As', '5s'], ['Ah', '9c', '4d', '2s', '7h'], 30013, { street: 'river', teachBack: 'Examen: top pair river → value thin OK.' }),
       flop('c20-14', 'BB', ['Qh', 'Jd'], ['Ts', '8c', '3h'], 30014, { facingBet: true, trapTag: 'dominated', teachBack: 'Examen: sin odds OOP → fold vs c-bet.' }),
