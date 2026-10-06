@@ -1484,7 +1484,7 @@
       title: greet,
       lead: 'Analizo manos y sesiones con el contexto real de lo que jugaste: cartas, board, frecuencias GTO y EV estimado. No invento spots ni uso tu nick de mesa como si fuera tu nombre.'
     };
-    const ctaLabel = options.ctaLabel || 'Ver mi primer informe ForgeCoach';
+    const ctaLabel = options.ctaLabel || 'Informe sobre mi juego';
     const ctaHint = options.ctaHint ||
       'Gratis incluye 3 consultas/mes de prueba. El informe usa 1 consulta.';
 
