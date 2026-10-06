@@ -33,10 +33,10 @@ assert.ok(/hand-end-coach-guest|ForgeCoach te explica/.test(appSrc), 'teaser gue
 assert.ok(/btn-primary" id="hand-end-coach"/.test(appSrc), 'coach CTA primary en miss');
 assert.ok(/openCoachHandModal\(hand,\s*\{\s*source:\s*'hand_end',\s*autoReport:\s*true/.test(appSrc),
   'hand-end usa modal autoReport');
-assert.ok(/__ptForgeCoachAutoReport/.test(appSrc), 'deep-link marca autoReport sesión');
-assert.ok(/autoReport:\s*autoCoachReport/.test(appSrc), 'sesión monta autoReport deep-link');
-assert.ok(/source:\s*'history_deeplink',\s*autoReport:\s*true/.test(appSrc),
-  'deep-link histórico con autoReport');
+assert.ok(/__ptForgeCoachAutoReportStats/.test(appSrc), 'deep-link marca autoReport stats');
+assert.ok(/goToTab\('stats'\)/.test(appSrc), 'deep-link va a estadísticas');
+assert.ok(/__ptForgeCoachAutoReportStats\s*=\s*true/.test(appSrc), 'flag stats autoReport');
+assert.ok(!/history_deeplink/.test(appSrc), 'deep-link ya no abre histórico');
 assert.ok(/nudgeThreshold/.test(appSrc) && /ai_coach_used/.test(appSrc),
   'nudge sesión umbral first-use');
 
@@ -47,6 +47,10 @@ assert.ok(!/Gratis no incluye IA;/.test(haSrc), 'hand-analysis sin Gratis=0');
 
 assert.ok(/id: 'coach'/.test(onboardingSrc), 'onboarding paso coach');
 assert.ok(/1 de 3 consultas de prueba/.test(onboardingSrc), 'onboarding hint trial sin muro cuenta');
+assert.ok(/Informe sobre mi juego/.test(onboardingSrc), 'onboarding CTA informe sobre mi juego');
+assert.ok(/informe sobre tu juego/.test(onboardingSrc), 'onboarding label sin primer informe');
+assert.ok(/Informe sobre mi juego/.test(aiSrc), 'CTA welcome informe sobre mi juego');
+assert.ok(!/primer informe ForgeCoach/.test(aiSrc), 'sin copy primer informe en welcome');
 assert.ok(/No pedir consent en el saludo|if \(!hasConsent\(\)\) return null/.test(aiSrc), 'saludo sin modal consent');
 assert.ok(/home-coach-more/.test(aiSrc), 'welcome CTA primero · detalles colapsados');
 assert.ok(/pt_ai_consent_v1/.test(fs.readFileSync(path.join(root, 'e2e/helpers.js'), 'utf8')), 'e2e seed AI consent');

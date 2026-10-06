@@ -1,6 +1,6 @@
 /*
  * onboarding.js — Checklist de primeras acciones para nuevos usuarios (P0).
- * 1) Abrir sesión demo · 2) Calentamiento 10 manos · 3) Ver fugas / errores · 4) Primer informe ForgeCoach
+ * 1) Abrir sesión demo · 2) Calentamiento 10 manos · 3) Ver fugas / errores · 4) Informe ForgeCoach sobre tu juego
  */
 (function (global) {
   'use strict';
@@ -11,7 +11,7 @@
     { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales', cta: 'Abrir ejemplo' },
     { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo', cta: 'Calentar 10 manos' },
     { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores', cta: 'Ver mis fugas' },
-    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: '1 de 3 consultas de prueba · usa un error real', cta: 'Probar ForgeCoach' }
+    { id: 'coach', label: 'Pide un informe sobre tu juego', hint: '1 de 3 consultas de prueba · estadísticas del entrenador', cta: 'Informe sobre mi juego' }
   ];
 
   function userKey() {
