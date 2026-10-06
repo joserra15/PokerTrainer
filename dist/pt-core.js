@@ -30255,7 +30255,7 @@ window.PT_NASH_PUSH_JSON = {
       title: greet,
       lead: 'Analizo manos y sesiones con el contexto real de lo que jugaste: cartas, board, frecuencias GTO y EV estimado. No invento spots ni uso tu nick de mesa como si fuera tu nombre.'
     };
-    const ctaLabel = options.ctaLabel || 'Ver mi primer informe ForgeCoach';
+    const ctaLabel = options.ctaLabel || 'Informe sobre mi juego';
     const ctaHint = options.ctaHint ||
       'Gratis incluye 3 consultas/mes de prueba. El informe usa 1 consulta.';
 
@@ -40100,7 +40100,7 @@ window.PT_NASH_PUSH_JSON = {
 
 /*
  * onboarding.js — Checklist de primeras acciones para nuevos usuarios (P0).
- * 1) Abrir sesión demo · 2) Calentamiento 10 manos · 3) Ver fugas / errores · 4) Primer informe ForgeCoach
+ * 1) Abrir sesión demo · 2) Calentamiento 10 manos · 3) Ver fugas / errores · 4) Informe ForgeCoach sobre tu juego
  */
 (function (global) {
   'use strict';
@@ -40111,7 +40111,7 @@ window.PT_NASH_PUSH_JSON = {
     { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales', cta: 'Abrir ejemplo' },
     { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo', cta: 'Calentar 10 manos' },
     { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores', cta: 'Ver mis fugas' },
-    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: '1 de 3 consultas de prueba · usa un error real', cta: 'Probar ForgeCoach' }
+    { id: 'coach', label: 'Pide un informe sobre tu juego', hint: '1 de 3 consultas de prueba · estadísticas del entrenador', cta: 'Informe sobre mi juego' }
   ];
 
   function userKey() {
@@ -49588,51 +49588,22 @@ window.PT_NASH_PUSH_JSON = {
     openCoachHandModal(hand, { source: 'hand_end', autoReport: true, scope: 'hand' });
   }
 
-  /** Deep-link desde home / onboarding hacia un informe real (sesión, mano o stats). */
+  /** Deep-link desde home / onboarding → informe de estadísticas (no requiere sesiones importadas). */
   function openForgeCoachDeepLink() {
     if (window.PTLog && PTLog.event) {
-      PTLog.event('ai_coach_cta_click', { source: 'deep_link', scope: 'home' });
+      PTLog.event('ai_coach_cta_click', { source: 'deep_link', scope: 'stats' });
     }
-    const sessions = (Store.getSessions && Store.getSessions()) || [];
-    let best = null;
-    sessions.slice(0, 25).forEach(function (s) {
-      if (!s || !s.id) return;
-      let full = s;
-      try { full = Store.getSession(s.id) || s; } catch (e) { full = s; }
-      const st = (full && full.stats) || s.stats || {};
-      const ev = Number(st.evLossBB) || 0;
-      const hands = (full && full.hands) || [];
-      const errs = hands.filter(function (h) {
-        return h && (h.worstClass === 'error' || h.worstClass === 'imprecisa');
-      }).length;
-      if (ev <= 0 && errs <= 0) return;
-      if (!best || ev > best.ev || (ev === best.ev && errs > best.errs)) {
-        best = { id: s.id, ev: ev, errs: errs };
-      }
-    });
-    if (best) {
-      window.__ptForgeCoachAutoReport = true;
-      goToTab('sessions');
-      setTimeout(function () {
-        if (typeof openSession === 'function') openSession(best.id);
-      }, 120);
-      return;
-    }
-    const hist = ((Store.getHistory && Store.getHistory()) || []).find(function (h) {
-      return handHasCoachWorthyMiss(h && h.decisions);
-    });
-    if (hist) {
-      openCoachHandModal(hist, { source: 'history_deeplink', autoReport: true });
-      return;
-    }
+    window.__ptForgeCoachAutoReportStats = true;
     goToTab('stats');
     setTimeout(function () {
       const el = $('#stats-coach');
       if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      if (el && window.PTAIReport && PTAIReport.trigger) {
+      if (!window.__ptForgeCoachAutoReportStats) return;
+      if (el && window.PTAIReport && PTAIReport.trigger && el.querySelector('.ai-report-panel')) {
+        window.__ptForgeCoachAutoReportStats = false;
         PTAIReport.trigger(el, { mode: 'report', source: 'deep_link' });
       }
-    }, 200);
+    }, 280);
   }
   window.openForgeCoachDeepLink = openForgeCoachDeepLink;
 
@@ -51770,11 +51741,14 @@ window.PT_NASH_PUSH_JSON = {
 
     const coachHost = $('#stats-coach');
     if (coachHost && window.PTAIReport) {
+      const autoStatsReport = !!window.__ptForgeCoachAutoReportStats;
       if (!coachHost.dataset.ptCoachMounted) {
         coachHost.dataset.ptCoachMounted = '1';
+        if (autoStatsReport) window.__ptForgeCoachAutoReportStats = false;
         window.PTAIReport.mount(coachHost, {
           scope: 'statsGlobal',
-          impressionSource: 'stats',
+          impressionSource: autoStatsReport ? 'deep_link' : 'stats',
+          autoReport: autoStatsReport,
           getData: () => {
             const stats = Store.getStats();
             const Agg = window.PTStatsAggregate;
@@ -51796,8 +51770,12 @@ window.PT_NASH_PUSH_JSON = {
           },
           persist: { kind: 'stats' }
         });
-      } else if (window.PTAIReport.refresh) {
-        window.PTAIReport.refresh(coachHost);
+      } else {
+        if (window.PTAIReport.refresh) window.PTAIReport.refresh(coachHost);
+        if (autoStatsReport && window.PTAIReport.trigger) {
+          window.__ptForgeCoachAutoReportStats = false;
+          PTAIReport.trigger(coachHost, { mode: 'report', source: 'deep_link' });
+        }
       }
     }
     bindEmptyStateActions($('#stats-content'));
