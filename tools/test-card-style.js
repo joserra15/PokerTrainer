@@ -66,10 +66,18 @@ const js = Cards.cardFaceHTML('Js');
 assert.ok(/suit-h/.test(ah) && /red/.test(ah), 'Ah suit-h red: ' + ah);
 assert.ok(/suit-d/.test(td) && /card-face/.test(td), 'Td suit-d face: ' + td);
 assert.ok(/card-idx/.test(td) && /card-wm/.test(td) && /card-rank/.test(td), 'Td layout índice+wm+rango');
+assert.ok(/card-face/.test(ah) && /card-wm/.test(ah) && /card-idx/.test(ah),
+  'cardToHTML = cara con watermark (resultado/detalles): ' + ah);
+assert.strictEqual(Cards.cardToHTML('Qd'), Cards.cardFaceHTML('Qd'), 'cardToHTML alias de cardFaceHTML');
 assert.ok(/suit-c/.test(kc) && /black/.test(kc), 'Kc suit-c black: ' + kc);
 assert.ok(/suit-s/.test(js), 'Js suit-s: ' + js);
 assert.ok(/♠/.test(js) && /card-idx/.test(js), 'Js índice con aspe');
 assert.strictEqual(Cards.suitClass('h'), 'suit-h');
+
+const handEndSrc = fs.readFileSync(path.join(__dirname, '..', 'js/hand-end-view.js'), 'utf8');
+assert.ok(/cardFaceHTML/.test(handEndSrc), 'hand-end-view usa cardFaceHTML (resultado de la mano)');
+const analysisSrc = fs.readFileSync(path.join(__dirname, '..', 'js/hand-analysis.js'), 'utf8');
+assert.ok(/cardFaceHTML/.test(analysisSrc), 'hand-analysis usa cardFaceHTML (detalles)');
 
 localStore.pt_card_style_v1 = 'colored';
 const fromUser = PTPlayConfig.normalize({});
