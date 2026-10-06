@@ -216,6 +216,12 @@ const sql51 = read('supabase/migrations/051_tournament_usage_stats.sql');
 assert.ok(/pt_tournament_usage_from_payload/.test(sql51), '051 helper torneos');
 assert.ok(/pt_manager_member_usage[\s\S]*tournaments/.test(sql51), '051 manager tournaments');
 assert.ok(/leaderboard/.test(sql51), '051 leaderboard koins');
+assert.ok(/onCommunitySwitch|pt-community-switch/.test(read('js/tournament/leaderboard.js')),
+  'leaderboard resetea fetch al cambiar comunidad');
+assert.ok(/requestedCid|forCommunityId/.test(read('js/tournament/leaderboard.js')),
+  'leaderboard fija community_id del fetch');
+assert.ok(/pt-community-switch/.test(read('js/tournament/ui.js')),
+  'UI torneos refresca ranking al switch comunidad');
 
 const billing = read('js/billing.js');
 assert.ok(/requireMembership\(\)/.test(billing) && /mountAnnualUpsell/.test(billing), 'upsell oculto en comunidad');

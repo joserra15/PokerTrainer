@@ -9046,7 +9046,9 @@
   var KEY = 'pt_tournament_leaderboard_v1';
   var TOP_N = 10;
   var _fetchInFlight = null;
+  var _fetchInFlightCid = null;
   var _lastFetchAt = 0;
+  var _lastFetchCid = null;
   var _retryTimer = null;
   var _retryAttempts = 0;
   var MAX_CLOUD_RETRIES = 10;
@@ -9067,14 +9069,18 @@
     return 'pokerforge';
   }
 
-  function storageKey() {
-    return KEY + '_' + communityId();
+  function storageKeyFor(cid) {
+    return KEY + '_' + (cid || communityId());
   }
 
-  function readBoard() {
+  function storageKey() {
+    return storageKeyFor(communityId());
+  }
+
+  function readBoard(cid) {
     try {
       if (typeof localStorage === 'undefined') return [];
-      var raw = localStorage.getItem(storageKey());
+      var raw = localStorage.getItem(storageKeyFor(cid || communityId()));
       if (!raw) return [];
       var arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr : [];
@@ -9083,14 +9089,24 @@
     }
   }
 
-  function writeBoard(list) {
+  function writeBoard(list, cid) {
     try {
       if (typeof localStorage === 'undefined') return false;
-      localStorage.setItem(storageKey(), JSON.stringify(list || []));
+      localStorage.setItem(storageKeyFor(cid || communityId()), JSON.stringify(list || []));
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  /** Filtra filas de otra comunidad (contaminación por race al cambiar de app). */
+  function rowsForCommunity(list, cid) {
+    var want = String(cid || communityId());
+    return (list || []).filter(function (r) {
+      if (!r || isFakeSeed(r)) return false;
+      if (r.communityId == null || r.communityId === '') return true;
+      return String(r.communityId) === want;
+    });
   }
 
   function isFakeSeed(row) {
@@ -9163,9 +9179,11 @@
 
   /**
    * Publica el saldo del Hero en el board local y sincroniza cloud.
+   * Fija community_id al inicio para no mezclar Koins PF ↔ MTTLab si hay switch.
    */
   function publishHero(opts) {
     opts = opts || {};
+    var cid = communityId();
     var hero = heroIdentity();
     var bal = 0;
     var played = 0;
@@ -9187,6 +9205,10 @@
         played = 0;
       }
     } catch (e) { /* */ }
+    if (communityId() !== cid) {
+      /* Switch a mitad de publish: no escribir ni upsert en la comunidad nueva. */
+      return readBoard();
+    }
     var row = {
       id: hero.id,
       name: hero.name,
@@ -9195,20 +9217,20 @@
       /* No usar Date.now(): un stamp fresco hacía ganar al hero local frente al ranking cloud. */
       updatedAt: walletUpdatedAt || null,
       isHero: true,
-      communityId: communityId()
+      communityId: cid
     };
-    /* Sustituir fila del héroe (no max con valor viejo del board). */
-    var others = readBoard().filter(function (x) {
-      return !isFakeSeed(x) && String(x.id) !== String(hero.id);
+    /* Sustituir fila del héroe; descartar filas de otra comunidad. */
+    var others = rowsForCommunity(readBoard(cid), cid).filter(function (x) {
+      return String(x.id) !== String(hero.id);
     });
     var list = mergeRows(others, [row]);
-    writeBoard(list);
+    writeBoard(list, cid);
     if (!opts.skipCloud && hasLocalWallet) {
       try {
         var c = supabaseClient();
         if (c && c.rpc) {
           Promise.resolve(c.rpc('pt_upsert_my_tournament_koins', {
-            p_community_id: communityId(),
+            p_community_id: cid,
             p_koins: bal,
             p_display_name: hero.name,
             p_tournaments_played: played
@@ -9250,7 +9272,14 @@
     return true;
   }
 
-  function applyRemoteMembers(members) {
+  /**
+   * Aplica el ranking cloud como fuente de verdad de la comunidad.
+   * No hace merge con peers locales previos (evitaba limpiar jugadores de PF
+   * que llegaron por un fetch stale al cambiar a MTTLab).
+   */
+  function applyRemoteMembers(members, forCommunityId) {
+    var cid = forCommunityId || communityId();
+    if (communityId() !== cid) return null;
     var hero = heroIdentity();
     var rows = (members || []).map(function (m) {
       if (!m) return null;
@@ -9263,7 +9292,8 @@
         koins: Math.round((Number(m.koins != null ? m.koins : m.balance) || 0) * 100) / 100,
         tournamentsPlayed: played,
         updatedAt: m.updated_at || m.updatedAt || null,
-        isHero: false
+        isHero: false,
+        communityId: cid
       };
     }).filter(Boolean);
     var heroCloud = rows.filter(function (r) {
@@ -9272,16 +9302,37 @@
     if (heroCloud) {
       try { adoptHeroWalletFromRanking(heroCloud); } catch (eAd) { /* */ }
     }
-    var list = mergeRows(publishHero({ skipCloud: true }), rows);
-    writeBoard(list);
+    if (communityId() !== cid) return null;
+    /* Vaciar peers locales antes del overlay del hero: si no, publishHero
+       reescribiría jugadores de otra comunidad que contaminaron esta clave. */
+    writeBoard([], cid);
+    var heroList = publishHero({ skipCloud: true });
+    var heroRow = null;
+    (heroList || []).forEach(function (r) {
+      if (r && String(r.id) === String(hero.id)) heroRow = r;
+    });
+    var byId = {};
+    rows.forEach(function (r) { byId[String(r.id)] = r; });
+    if (heroRow) {
+      var prev = byId[String(hero.id)];
+      byId[String(hero.id)] = prev
+        ? Object.assign({}, prev, heroRow, {
+            name: heroRow.name || prev.name,
+            communityId: cid,
+            isHero: true
+          })
+        : Object.assign({}, heroRow, { communityId: cid, isHero: true });
+    }
+    var list = Object.keys(byId).map(function (k) { return byId[k]; });
+    writeBoard(list, cid);
     return list;
   }
 
-  function notifyUpdated() {
+  function notifyUpdated(cid) {
     try {
       if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
         global.dispatchEvent(new CustomEvent('pt-tournament-leaderboard-updated', {
-          detail: { communityId: communityId() }
+          detail: { communityId: cid || communityId() }
         }));
       }
     } catch (e) { /* */ }
@@ -9315,25 +9366,36 @@
    * Trae la clasificación cloud. opts.force omite el throttle de 15s.
    * Solo marca éxito (throttle) si el RPC responde bien — si falla o aún no
    * hay cliente, reintenta con backoff (crítico en app instalada móvil).
+   * Fija p_community_id al inicio; si el usuario cambia de app antes de que
+   * responda, descarta el resultado (no pisa el ranking de MTTLab con PF).
    * Al actualizar el board emite pt-tournament-leaderboard-updated.
    */
   function refreshFromCloud(opts) {
     opts = opts || {};
     var force = !!opts.force;
+    var requestedCid = communityId();
     var now = Date.now();
-    if (_fetchInFlight) return _fetchInFlight;
-    if (!force && _lastFetchAt && now - _lastFetchAt < 15000) {
-      return Promise.resolve(readBoard());
+    if (_fetchInFlight && _fetchInFlightCid === requestedCid) return _fetchInFlight;
+    if (!force && _lastFetchAt && _lastFetchCid === requestedCid && now - _lastFetchAt < 15000) {
+      return Promise.resolve(readBoard(requestedCid));
     }
     var c = supabaseClient();
     if (!c || !c.rpc) {
       scheduleCloudRetry(400);
       return Promise.resolve(publishHero());
     }
+    _fetchInFlightCid = requestedCid;
     _fetchInFlight = Promise.resolve(c.rpc('pt_list_community_tournament_koins', {
-      p_community_id: communityId()
+      p_community_id: requestedCid
     })).then(function (res) {
-      _fetchInFlight = null;
+      if (_fetchInFlightCid === requestedCid) {
+        _fetchInFlight = null;
+        _fetchInFlightCid = null;
+      }
+      /* Switch de comunidad durante el fetch: no aplicar ni notificar. */
+      if (communityId() !== requestedCid) {
+        return readBoard();
+      }
       if (res && !res.error && res.data) {
         var raw = res.data;
         if (typeof raw === 'string') {
@@ -9341,32 +9403,47 @@
         }
         var members = raw && (raw.members || raw.rows || raw);
         if (Array.isArray(members)) {
-          applyRemoteMembers(members);
+          applyRemoteMembers(members, requestedCid);
+          if (communityId() !== requestedCid) return readBoard();
           _lastFetchAt = Date.now();
+          _lastFetchCid = requestedCid;
           _retryAttempts = 0;
           clearRetry();
           /* Siempre notificar tras un fetch OK: la 1ª visita pinta el HTML
              antes de que llegue el cloud; el lobby debe repintarse. */
-          notifyUpdated();
-          return readBoard();
+          notifyUpdated(requestedCid);
+          return readBoard(requestedCid);
         }
       }
       /* Error de auth/RPC o forma inesperada: reintento con backoff. */
       scheduleCloudRetry();
-      return readBoard();
+      return readBoard(requestedCid);
     }).catch(function () {
-      _fetchInFlight = null;
-      scheduleCloudRetry();
+      if (_fetchInFlightCid === requestedCid) {
+        _fetchInFlight = null;
+        _fetchInFlightCid = null;
+      }
+      if (communityId() === requestedCid) scheduleCloudRetry();
       return readBoard();
     });
     return _fetchInFlight;
   }
 
+  /** Al cambiar PF ↔ MTTLab: cancela fetch stale y recarga ranking propio. */
+  function onCommunitySwitch() {
+    clearRetry();
+    _fetchInFlight = null;
+    _fetchInFlightCid = null;
+    _lastFetchAt = 0;
+    _lastFetchCid = null;
+    _retryAttempts = 0;
+    try { refreshFromCloud({ force: true }); } catch (e) { /* */ }
+  }
+
   function sortedBoard() {
+    var cid = communityId();
     var hero = heroIdentity();
-    var list = publishHero({ skipCloud: true }).slice().filter(function (x) {
-      return !isFakeSeed(x);
-    });
+    var list = rowsForCommunity(publishHero({ skipCloud: true }), cid).slice();
     list.sort(function (a, b) {
       if ((b.koins || 0) !== (a.koins || 0)) return (b.koins || 0) - (a.koins || 0);
       return String(a.name || '').localeCompare(String(b.name || ''));
@@ -9466,6 +9543,7 @@
     legendHtml: legendHtml,
     communityId: communityId,
     refreshFromCloud: refreshFromCloud,
+    onCommunitySwitch: onCommunitySwitch,
     TOP_N: TOP_N
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
@@ -12487,9 +12565,15 @@
     } catch (e) { /* */ }
   }
 
-  function onLeaderboardUpdated() {
+  function onLeaderboardUpdated(ev) {
     try {
       if (!ui.root || ui.view !== VIEW.hub) return;
+      var detailCid = ev && ev.detail && ev.detail.communityId;
+      if (detailCid && global.PTTournamentLeaderboard &&
+          typeof PTTournamentLeaderboard.communityId === 'function' &&
+          String(detailCid) !== String(PTTournamentLeaderboard.communityId())) {
+        return;
+      }
       /* Solo refrescar el bloque de clasificación: evita reset de scroll del lobby
          y no vuelve a disparar refreshFromCloud (renderHtml skipRefresh). */
       var host = ui.root.querySelector('.trn-leaderboard');
@@ -12504,6 +12588,17 @@
         }
       }
       paint();
+    } catch (e) { /* */ }
+  }
+
+  function onCommunitySwitchLeaderboard() {
+    try {
+      if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.onCommunitySwitch) {
+        PTTournamentLeaderboard.onCommunitySwitch();
+      }
+      if (ui.root && (ui.view === VIEW.hub || ui.view === VIEW.history || ui.view === VIEW.generalStats)) {
+        paint();
+      }
     } catch (e) { /* */ }
   }
 
@@ -12552,6 +12647,7 @@
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
       global.addEventListener('pt-tournament-leaderboard-updated', onLeaderboardUpdated);
+      global.addEventListener('pt-community-switch', onCommunitySwitchLeaderboard);
       /* Auth / sync suelen terminar ANTES de cargar el chunk en PWA móvil. */
       global.addEventListener('pt-auth-ready', function () { refreshHubLeaderboard(true); });
       global.addEventListener('pt-auth-boot-done', function () { refreshHubLeaderboard(true); });

@@ -20,7 +20,8 @@ assert.ok(Bench.EARLY.maniac.xrRate[0] > Bench.EARLY.nit.xrRate[1]
 const report = Sim.main([
   'node',
   'audit-villain-tournament-sim.js',
-  '--hands', '350',
+  '--hands', '600',
+  '--seed', '42',
   '--roles', 'nit,fish,tag,lag,maniac,pro',
   '--phases', 'early',
   '--quiet',
