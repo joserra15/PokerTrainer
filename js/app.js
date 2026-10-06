@@ -6230,18 +6230,8 @@
   }
 
   function openForgeCoachFromHandEnd() {
-    if (window.PTLog && PTLog.event) {
-      PTLog.event('ai_coach_cta_click', { source: 'hand_end', scope: 'hand', mode: 'report' });
-    }
-    revealHandEndDetails();
-    const host = $('#ai-report-trainer');
-    if (host && window.PTAIReport && PTAIReport.trigger) {
-      setTimeout(function () {
-        const panel = host.querySelector('.ai-report-panel') || host;
-        try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* noop */ }
-        PTAIReport.trigger(host, { mode: 'report', source: 'hand_end' });
-      }, 280);
-    }
+    if (!hand) return;
+    openCoachHandModal(hand, { source: 'hand_end', autoReport: true, scope: 'hand' });
   }
 
   /** Deep-link desde home / onboarding hacia un informe real (sesión, mano o stats). */
@@ -6267,6 +6257,7 @@
       }
     });
     if (best) {
+      window.__ptForgeCoachAutoReport = true;
       goToTab('sessions');
       setTimeout(function () {
         if (typeof openSession === 'function') openSession(best.id);
@@ -6277,13 +6268,16 @@
       return handHasCoachWorthyMiss(h && h.decisions);
     });
     if (hist) {
-      openCoachHandModal(hist, { source: 'history_deeplink' });
+      openCoachHandModal(hist, { source: 'history_deeplink', autoReport: true });
       return;
     }
     goToTab('stats');
     setTimeout(function () {
       const el = $('#stats-coach');
       if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (el && window.PTAIReport && PTAIReport.trigger) {
+        PTAIReport.trigger(el, { mode: 'report', source: 'deep_link' });
+      }
     }, 200);
   }
   window.openForgeCoachDeepLink = openForgeCoachDeepLink;
@@ -6344,8 +6338,9 @@
     modal.classList.remove('hidden');
     const closeBtn = $('#ai-coach-modal-close');
     if (closeBtn) closeBtn.onclick = function () { closeModal(); };
+    const coachScope = opts.scope || 'session';
     PTAIReport.mount($('#ai-coach-modal-mount'), {
-      scope: 'session',
+      scope: coachScope,
       impressionSource: opts.source || 'hand_modal',
       getHand: function () { return handObj; },
       autoReport: !!opts.autoReport,
@@ -6406,11 +6401,12 @@
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
     let coachCta = '';
     if (missWorthy && !guestOn) {
-      coachCta = '<button type="button" class="btn btn-secondary" id="hand-end-coach">¿Por qué fallé? · ForgeCoach</button>';
+      coachCta = '<button type="button" class="btn btn-primary" id="hand-end-coach">¿Por qué fallé? · ForgeCoach</button>';
     } else if (missWorthy && guestOn) {
       coachCta = '<p class="muted-text hand-end-coach-teaser">Con cuenta, <strong>ForgeCoach</strong> te explica este error en español (3 consultas gratis/mes).</p>' +
-        '<button type="button" class="btn btn-secondary" id="hand-end-coach-guest">Crear cuenta para el coach</button>';
+        '<button type="button" class="btn btn-primary" id="hand-end-coach-guest">Crear cuenta para el coach</button>';
     }
+    const nextBtnClass = missWorthy ? 'btn btn-secondary' : 'btn btn-primary';
 
     hideVerdictToast();
     modal.classList.add('hand-end-modal');
@@ -6450,7 +6446,7 @@
       '<div class="hand-end-popup-actions">' +
         coachCta +
         '<button type="button" class="btn btn-ghost" id="hand-end-details">Ver detalles</button>' +
-        '<button type="button" class="btn btn-primary" id="hand-end-next">Siguiente mano &raquo;</button>' +
+        '<button type="button" class="' + nextBtnClass + '" id="hand-end-next">Siguiente mano &raquo;</button>' +
         '<button type="button" class="btn btn-ghost" id="hand-end-replay">&#8635; Repetir esta mano</button>' +
         '<button type="button" class="btn btn-ghost" id="hand-end-new-session">Nueva sesión</button>' +
       '</div>' +
@@ -9653,6 +9649,11 @@
       return;
     }
     if (isTournamentAi && !s._showHandStats) {
+      if (window.__ptForgeCoachAutoReport && (s.hands || []).length) {
+        s._showHandStats = true;
+      }
+    }
+    if (isTournamentAi && !s._showHandStats) {
       const t = s.tournament || {};
       const ts = s.tournamentStats || {};
       const place = st.finishPlace != null ? st.finishPlace : t.place;
@@ -9783,7 +9784,15 @@
     const leakHandsN = (s.hands || []).filter(function (h) {
       return h && (h.worstClass === 'error' || h.worstClass === 'imprecisa' || (Number(h.totalEvLoss) || 0) > 0);
     }).length;
-    const coachNudge = leakHandsN >= 3
+    let neverUsedCoach = true;
+    try {
+      const fu = Store.getFeatureUsage && Store.getFeatureUsage();
+      neverUsedCoach = !(fu && fu.events && Number(fu.events.ai_coach_used) > 0);
+    } catch (eFu) { neverUsedCoach = true; }
+    const nudgeThreshold = neverUsedCoach ? 1 : 3;
+    const autoCoachReport = !!window.__ptForgeCoachAutoReport;
+    if (autoCoachReport) window.__ptForgeCoachAutoReport = false;
+    const coachNudge = leakHandsN >= nudgeThreshold
       ? `<div class="ai-session-nudge" id="ai-session-nudge">
           <p><strong>ForgeCoach</strong> tiene un plan para esta sesión · ${leakHandsN} manos con fuga.</p>
           <button type="button" class="btn btn-secondary btn-sm" id="ai-session-nudge-btn">Pedir informe de la sesión</button>
@@ -9862,8 +9871,9 @@
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-coach-session'), {
         scope: 'sessionGlobal',
-        impressionSource: 'session',
+        impressionSource: autoCoachReport ? 'deep_link' : 'session',
         getData: () => currentSession,
+        autoReport: autoCoachReport,
         persist: { kind: 'session', getSessionId: () => currentSession && currentSession.id },
         onThreadUpdate: (thread) => { if (currentSession) currentSession.coachThread = thread; }
       });

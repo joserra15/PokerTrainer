@@ -277,12 +277,32 @@
     st.gateShown = true;
     writeState(st);
     var sc = streetScore();
+    var why = reason || 'limit';
+    var titleEl = document.getElementById('guest-gate-title');
+    var leadEl = document.getElementById('guest-gate-lead');
     var scoreEl = document.getElementById('guest-gate-score');
-    if (scoreEl) {
-      scoreEl.textContent = sc.hands
-        ? ('Has jugado ' + sc.hands + ' de ' + sc.limit +
-          ' manos. Acierto por calle de esta prueba:')
-        : 'Guarda la cuenta para seguir entrenando.';
+    if (why === 'coach') {
+      if (titleEl) titleEl.textContent = 'ForgeCoach te explica este error';
+      if (scoreEl) {
+        scoreEl.textContent = sc.hands
+          ? ('Has jugado ' + sc.hands + ' de ' + sc.limit +
+            ' manos. Con cuenta, ForgeCoach analiza el error en español (3 consultas gratis/mes).')
+          : 'Con cuenta, ForgeCoach te explica este error en español (3 consultas gratis/mes).';
+      }
+      if (leadEl) {
+        leadEl.textContent = 'Guarda el marcador con Google para pedir el informe ForgeCoach y seguir entrenando.';
+      }
+    } else {
+      if (titleEl) titleEl.textContent = 'Resumen de tu prueba';
+      if (scoreEl) {
+        scoreEl.textContent = sc.hands
+          ? ('Has jugado ' + sc.hands + ' de ' + sc.limit +
+            ' manos. Acierto por calle de esta prueba:')
+          : 'Guarda la cuenta para seguir entrenando.';
+      }
+      if (leadEl) {
+        leadEl.textContent = 'Guarda el marcador con Google y sigue con el entrenador, import y ForgeCoach.';
+      }
     }
     renderStreetSummary();
     var age = document.getElementById('guest-gate-age');
@@ -294,7 +314,7 @@
     if (document.body && document.body.classList) {
       document.body.classList.add('guest-gate-open');
     }
-    track('guest_gate_shown', { reason: reason || 'limit', good: sc.good, total: sc.total, hands: sc.hands });
+    track('guest_gate_shown', { reason: why, good: sc.good, total: sc.total, hands: sc.hands });
   }
 
   function hideGate() {

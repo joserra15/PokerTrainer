@@ -269,6 +269,104 @@ if (typeof P.cacheKey !== 'function' || !P.sessionCacheKey('ses1', 'report')) {
   process.exit(1);
 }
 
+// Chip lead / cover MTT: Axo SB vs BB corto no debe ir como cash-nit
+const chipLeadSb = P.build('hand', {
+  id: 'h-chip-sb',
+  scenario: { type: 'RFI', heroPos: 'SB' },
+  hero: { pos: 'SB', code: 'A5o', cards: ['Ah', '5d'] },
+  displayHeroPos: 'SB',
+  villain: { pos: 'BB' },
+  effStack: 45,
+  stacks: { SB: 48, BB: 18, BTN: 22, CO: 25, HJ: 20, UTG: 19 },
+  _lastStackRole: 'cover',
+  _lastOwnRiskPremium: 0.04,
+  _lastOppRiskPremium: 0.12,
+  _lastPairBubbleFactor: 1.15,
+  playConfig: {
+    formatHub: 'mtt',
+    gameType: 'mtt',
+    stackBB: 45,
+    stackRole: 'cover',
+    resolvedPhase: 'mid',
+    anteBB: 0.125,
+    villainLevel: 'pro',
+    scoreMode: 'gto',
+    useIcm: true,
+    playersLeft: 120,
+    placesPaid: 80
+  },
+  board: [],
+  decisions: [{
+    street: 'preflop', action: 'raise', chosen: 'raise', class: 'error', best: 'fold',
+    evLoss: 0.4, gto: { fold: 0.7, raise: 0.3 }
+  }],
+  result: { heroNet: 1.5, totalEvLoss: 0.4 }
+});
+if (!chipLeadSb || chipLeadSb.formatHub !== 'mtt') {
+  console.error('FAIL chipLead formatHub', chipLeadSb && chipLeadSb.formatHub);
+  process.exit(1);
+}
+if (!chipLeadSb.isChipLead || !chipLeadSb.coversOpponent) {
+  console.error('FAIL chipLead/cover flags', {
+    isChipLead: chipLeadSb.isChipLead,
+    coversOpponent: chipLeadSb.coversOpponent,
+    stackRole: chipLeadSb.stackRole
+  });
+  process.exit(1);
+}
+if (chipLeadSb.stackRole !== 'cover') {
+  console.error('FAIL stackRole from _lastStackRole', chipLeadSb.stackRole);
+  process.exit(1);
+}
+if (chipLeadSb.heroStackBB !== 48 || chipLeadSb.villainStackBB !== 18) {
+  console.error('FAIL hero/villain stacks', chipLeadSb.heroStackBB, chipLeadSb.villainStackBB);
+  process.exit(1);
+}
+if (chipLeadSb.BF == null || chipLeadSb.RP == null || chipLeadSb.pairBubbleFactor == null) {
+  console.error('FAIL BF/RP aliases', { BF: chipLeadSb.BF, RP: chipLeadSb.RP, bf: chipLeadSb.pairBubbleFactor });
+  process.exit(1);
+}
+if (!chipLeadSb.coachingNote || !/chip lead|cover|Axo|ensancha/i.test(chipLeadSb.coachingNote)) {
+  console.error('FAIL chipLead coachingNote', chipLeadSb.coachingNote);
+  process.exit(1);
+}
+if (chipLeadSb.playersLeft !== 120 || chipLeadSb.placesPaid !== 80) {
+  console.error('FAIL playersLeft/placesPaid');
+  process.exit(1);
+}
+if (chipLeadSb.scoreMode !== 'gto' || chipLeadSb.villainType !== 'pro') {
+  console.error('FAIL scoreMode/villainType', chipLeadSb.scoreMode, chipLeadSb.villainType);
+  process.exit(1);
+}
+
+const sessCover = P.build('session', {
+  id: 'sess-cover',
+  heroPos: 'SB',
+  heroCode: 'A9o',
+  heroCards: ['As', '9d'],
+  villainPos: 'BB',
+  gameKind: 'mtt',
+  mttPhase: 'mid',
+  stacks: { SB: 55, BB: 14 },
+  stackRole: 'cover',
+  heroNetBB: 2,
+  totalEvLoss: 0,
+  decisions: [],
+  summary: []
+});
+if (!sessCover || sessCover.formatHub !== 'mtt' || !sessCover.icm) {
+  console.error('FAIL session cover format/icm');
+  process.exit(1);
+}
+if (!sessCover.isChipLead || !sessCover.coversOpponent) {
+  console.error('FAIL session cover flags', sessCover.isChipLead, sessCover.coversOpponent);
+  process.exit(1);
+}
+if (!sessCover.coachingNote || !/chip lead|cover|Axo/i.test(sessCover.coachingNote)) {
+  console.error('FAIL session coachingNote', sessCover.coachingNote);
+  process.exit(1);
+}
+
 console.log('OK test-ai-payload: trainer', trainer.dec.length, 'dec, vil line', session.vil.line,
   'sessionGlobal leaks', sessGlobal.leaks.length, 'bytes', sgJson.length,
-  'stats', statsJson.length);
+  'stats', statsJson.length, 'chipLead', chipLeadSb.heroStackBB + 'v' + chipLeadSb.villainStackBB);

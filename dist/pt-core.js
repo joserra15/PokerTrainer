@@ -28166,6 +28166,119 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  /** Stacks por asiento sin alias hero/villain (para el JSON del coach). */
+  function seatStacksFromHand(hand) {
+    if (!hand || !hand.stacks) return null;
+    const out = {};
+    Object.keys(hand.stacks).forEach(function (k) {
+      if (k === 'hero' || k === 'villain') return;
+      out[k] = hand.stacks[k];
+    });
+    return Object.keys(out).length ? out : null;
+  }
+
+  /**
+   * Cobertura / chip lead / BF·RP para que ForgeCoach no trate MTT/spin como cash nit.
+   * Prefiere PTStackCoverage.pairContext; cae a _last* del motor y a seatStacks.
+   */
+  function coverSignals(hand, cfg, heroPos, villainPos, seatStacks) {
+    cfg = cfg || {};
+    let pair = null;
+    const Cov = global.PTStackCoverage;
+    if (Cov && Cov.pairContext && hand && hand.stacks && heroPos && villainPos) {
+      try { pair = Cov.pairContext(hand, heroPos, villainPos); } catch (e) { pair = null; }
+    }
+    let heroStackBB = null;
+    if (seatStacks && heroPos && seatStacks[heroPos] != null) {
+      heroStackBB = seatStacks[heroPos];
+    } else if (hand && hand.stacks && heroPos && hand.stacks[heroPos] != null) {
+      heroStackBB = hand.stacks[heroPos];
+    }
+    let villainStackBB = null;
+    if (seatStacks && villainPos && seatStacks[villainPos] != null) {
+      villainStackBB = seatStacks[villainPos];
+    } else if (hand && hand.stacks && villainPos && hand.stacks[villainPos] != null) {
+      villainStackBB = hand.stacks[villainPos];
+    }
+
+    const stackRole = (hand && hand._lastStackRole)
+      || (pair && pair.stackRole)
+      || cfg.stackRole
+      || (hand && hand._pedagogicalStackRole)
+      || null;
+    const ownRP = hand && hand._lastOwnRiskPremium != null
+      ? hand._lastOwnRiskPremium
+      : (pair && pair.ownRiskPremium != null ? pair.ownRiskPremium : null);
+    const oppRP = hand && hand._lastOppRiskPremium != null
+      ? hand._lastOppRiskPremium
+      : (pair && pair.opponentRiskPremium != null ? pair.opponentRiskPremium : null);
+    const bf = hand && hand._lastPairBubbleFactor != null
+      ? hand._lastPairBubbleFactor
+      : (pair && pair.bubbleFactor != null ? pair.bubbleFactor : null);
+
+    let coversOpponent = !!(pair && pair.coversOpponent);
+    let coveredByOpponent = !!(pair && pair.coveredByOpponent);
+    let isChipLead = !!(pair && pair.isChipLead);
+    if (!pair && heroStackBB != null && villainStackBB != null) {
+      coversOpponent = heroStackBB > villainStackBB * 1.02;
+      coveredByOpponent = villainStackBB > heroStackBB * 1.02;
+      if (seatStacks) {
+        let max = 0;
+        Object.keys(seatStacks).forEach(function (k) {
+          const v = Number(seatStacks[k]) || 0;
+          if (v > max) max = v;
+        });
+        isChipLead = heroStackBB >= max - 0.01;
+      } else {
+        isChipLead = coversOpponent;
+      }
+    }
+    if (stackRole === 'cover' || stackRole === 'chipLead') {
+      isChipLead = true;
+      if (!coveredByOpponent) coversOpponent = true;
+    }
+
+    return {
+      stackRole: stackRole,
+      isChipLead: isChipLead,
+      coversOpponent: coversOpponent,
+      coveredByOpponent: coveredByOpponent,
+      heroStackBB: heroStackBB,
+      villainStackBB: villainStackBB,
+      ownRiskPremium: ownRP,
+      opponentRiskPremium: oppRP,
+      pairBubbleFactor: bf,
+      BF: bf,
+      RP: ownRP,
+      opponentRP: oppRP
+    };
+  }
+
+  function tournamentCoachingNote(formatHub, phase, signals, extras) {
+    extras = extras || {};
+    const bits = [];
+    if (formatHub === 'spin') {
+      bits.push('Mano de Spin & Go del entrenador: usa bandas stack-aware e ICM lite; no aconsejes como cash 100bb.');
+    } else if (formatHub === 'mtt') {
+      bits.push('Mano de torneo MTT del entrenador'
+        + (phase ? (' (fase ' + phase + ')') : '')
+        + (signals.stackRole ? (' · rol ' + signals.stackRole) : '')
+        + (extras.tournamentType && extras.tournamentType !== 'unknown' ? (' · ' + extras.tournamentType) : '')
+        + ': prioriza stack depth / fase / cobertura de stacks / ICM; no trates como cash 6-max 100bb.');
+    } else {
+      return null;
+    }
+    if (signals.isChipLead || signals.coversOpponent) {
+      bits.push('Chip lead / cover: ensancha steals y presión (p.ej. Axo SB vs BB corto); no nitfold como cash ni como mid en burbuja.');
+    } else if (signals.coveredByOpponent || signals.stackRole === 'mid') {
+      bits.push('Cubierto / mid: prioriza $EV y supervivencia vs covers; no spew opens flojos.');
+    }
+    if (extras.tournamentType === 'pko' || extras.tournamentType === 'mystery') {
+      bits.push('EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.');
+    }
+    return bits.join(' ');
+  }
+
   function fromTrainer(hand) {
     const r = hand.result || {};
     const cfg = hand.playConfig || {};
@@ -28176,6 +28289,7 @@ window.PT_NASH_PUSH_JSON = {
     const phase = cfg.resolvedPhase || (cfg.mttPhase && cfg.mttPhase !== 'auto' ? cfg.mttPhase : null);
     const stackBB = cfg.stackBB != null ? cfg.stackBB : (hand.effStack || 100);
     const decisions = (hand.decisions || []).map(slimDecision);
+    const heroPos = hand.displayHeroPos || (hand.hero && hand.hero.pos);
     const villain = {
       pos: hand.villain && hand.villain.pos,
       prof: r.villainProfileShort || r.villainProfile || null,
@@ -28183,11 +28297,13 @@ window.PT_NASH_PUSH_JSON = {
       rng: r.villainRangeSummary || null
     };
     if (r.villainCards) villain.show = r.villainCards;
+    const seatStacks = seatStacksFromHand(hand);
+    const signals = coverSignals(hand, cfg, heroPos, villain && villain.pos, seatStacks);
     const payload = {
       src: 'trainer',
       spot: scenarioLabel(hand.scenario),
       hero: {
-        pos: hand.displayHeroPos || (hand.hero && hand.hero.pos),
+        pos: heroPos,
         code: hand.hero && hand.hero.code,
         cards: hand.hero && hand.hero.cards
       },
@@ -28202,18 +28318,25 @@ window.PT_NASH_PUSH_JSON = {
       spinPayout: formatHub === 'spin' ? (cfg.spinPayout || null) : null,
       tournamentType: formatHub === 'mtt' ? (cfg.tournamentType || null) : null,
       playersSeated: cfg.playersSeated != null ? cfg.playersSeated : null,
+      playersLeft: cfg.playersLeft != null ? cfg.playersLeft : null,
+      placesPaid: cfg.placesPaid != null ? cfg.placesPaid : null,
       icm: !!(cfg.useIcm || formatHub === 'spin' || formatHub === 'mtt'),
-      stackRole: cfg.stackRole || (hand && hand._pedagogicalStackRole) || null,
-      ownRiskPremium: hand && hand._lastOwnRiskPremium != null ? hand._lastOwnRiskPremium : null,
-      opponentRiskPremium: hand && hand._lastOppRiskPremium != null ? hand._lastOppRiskPremium : null,
-      pairBubbleFactor: hand && hand._lastPairBubbleFactor != null ? hand._lastPairBubbleFactor : null,
-      seatStacks: hand && hand.stacks ? Object.keys(hand.stacks).filter(function (k) {
-        return k !== 'hero' && k !== 'villain';
-      }).reduce(function (acc, k) {
-        acc[k] = hand.stacks[k];
-        return acc;
-      }, {}) : null,
+      stackRole: signals.stackRole,
+      isChipLead: !!signals.isChipLead,
+      coversOpponent: !!signals.coversOpponent,
+      coveredByOpponent: !!signals.coveredByOpponent,
+      heroStackBB: signals.heroStackBB,
+      villainStackBB: signals.villainStackBB,
+      ownRiskPremium: signals.ownRiskPremium,
+      opponentRiskPremium: signals.opponentRiskPremium,
+      pairBubbleFactor: signals.pairBubbleFactor,
+      BF: signals.BF,
+      RP: signals.RP,
+      opponentRP: signals.opponentRP,
+      seatStacks: seatStacks,
       villainLevel: cfg.villainLevel || null,
+      villainType: cfg.villainType || cfg.villainLevel || null,
+      scoreMode: cfg.scoreMode || null,
       openSize: cfg.preflopOpenSize || null,
       dec: decisions,
       vil: villain,
@@ -28226,18 +28349,10 @@ window.PT_NASH_PUSH_JSON = {
       gto: buildGtoSummary(decisions),
       solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
-    if (formatHub === 'spin') {
-      payload.coachingNote = 'Mano de Spin & Go del entrenador: usa bandas stack-aware e ICM lite; no aconsejes como cash 100bb.';
-    } else if (formatHub === 'mtt') {
-      payload.coachingNote = 'Mano de torneo MTT del entrenador'
-        + (phase ? (' (fase ' + phase + ')') : '')
-        + (payload.stackRole ? (' · rol ' + payload.stackRole) : '')
-        + (cfg.tournamentType && cfg.tournamentType !== 'unknown' ? (' · ' + cfg.tournamentType) : '')
-        + ': prioriza stack depth / fase / cobertura de stacks / ICM; no trates como cash 6-max 100bb.'
-        + (cfg.tournamentType === 'pko' || cfg.tournamentType === 'mystery'
-          ? ' EV de bounty no modelado: comenta impacto cualitativo sin inventar € de bounty.'
-          : '');
-    }
+    const note = tournamentCoachingNote(formatHub, phase, signals, {
+      tournamentType: cfg.tournamentType
+    });
+    if (note) payload.coachingNote = note;
     return payload;
   }
 
@@ -28254,6 +28369,16 @@ window.PT_NASH_PUSH_JSON = {
       || (h.gameKind === 'spin' ? 'spin'
         : ((h.gameKind === 'mtt' || h.gameKind === 'sng' || h.isTournament) ? 'mtt' : 'cash'));
     const phase = (ctx && (ctx.resolvedPhase || ctx.mttPhase)) || h.mttPhase || null;
+    const seatStacks = h.seatStacksBB || h.stacks || null;
+    const signals = coverSignals(h, {
+      stackRole: (ctx && ctx.stackRole) || h.stackRole || null
+    }, h.heroPos, h.villainPos || (h.villain && h.villain.pos), seatStacks);
+    const heroStackBB = signals.heroStackBB != null
+      ? signals.heroStackBB
+      : ((ctx && ctx.heroStackBB) || h.heroStackBB || null);
+    const villainStackBB = signals.villainStackBB != null
+      ? signals.villainStackBB
+      : ((ctx && ctx.villainStackBB) || h.villainStackBB || null);
     const payload = {
       src: 'session',
       spot: 'imported',
@@ -28272,6 +28397,20 @@ window.PT_NASH_PUSH_JSON = {
       tableMax: (ctx && ctx.tableMax) || h.tableMax || null,
       playersLeft: h.playersLeft != null ? h.playersLeft : null,
       placesPaid: h.placesPaid != null ? h.placesPaid : null,
+      icm: !!(formatHub === 'spin' || formatHub === 'mtt' || h.isTournament),
+      stackRole: signals.stackRole,
+      isChipLead: !!signals.isChipLead,
+      coversOpponent: !!signals.coversOpponent,
+      coveredByOpponent: !!signals.coveredByOpponent,
+      heroStackBB: heroStackBB,
+      villainStackBB: villainStackBB,
+      ownRiskPremium: signals.ownRiskPremium,
+      opponentRiskPremium: signals.opponentRiskPremium,
+      pairBubbleFactor: signals.pairBubbleFactor,
+      BF: signals.BF,
+      RP: signals.RP,
+      opponentRP: signals.opponentRP,
+      seatStacks: seatStacks,
       multiway: !!h.multiway,
       dec: decisions,
       vil: villain,
@@ -28284,15 +28423,23 @@ window.PT_NASH_PUSH_JSON = {
       solverNote: 'eq/gto/ev son estimaciones heurísticas de la app; la IA debe verificar cartas, acciones y cálculos de poker por su cuenta.'
     };
     if (formatHub === 'mtt' || formatHub === 'spin') {
-      payload.coachingNote = 'Mano de torneo/sesión'
-        + (phase ? (' (fase ' + phase + ')') : '')
-        + (payload.playersSeated ? (' · ' + payload.playersSeated + '-handed') : '')
-        + (payload.tournamentType && payload.tournamentType !== 'unknown'
-          ? (' · ' + payload.tournamentType) : '')
-        + ': prioriza stack depth / fase / ICM; no trates como cash 100bb.'
-        + (payload.tournamentType === 'pko' || payload.tournamentType === 'mystery'
-          ? ' EV de bounty no modelado: comenta el impacto cualitativo sin inventar € de bounty.'
-          : '');
+      const bits = [
+        'Mano de torneo/sesión'
+          + (phase ? (' (fase ' + phase + ')') : '')
+          + (payload.playersSeated ? (' · ' + payload.playersSeated + '-handed') : '')
+          + (payload.tournamentType && payload.tournamentType !== 'unknown'
+            ? (' · ' + payload.tournamentType) : '')
+          + ': prioriza stack depth / fase / ICM; no trates como cash 100bb.'
+      ];
+      if (signals.isChipLead || signals.coversOpponent) {
+        bits.push('Chip lead / cover: ensancha steals (p.ej. Axo SB vs BB); no nitfold por defecto.');
+      } else if (signals.coveredByOpponent || signals.stackRole === 'mid') {
+        bits.push('Cubierto / mid: prioriza supervivencia vs covers.');
+      }
+      if (payload.tournamentType === 'pko' || payload.tournamentType === 'mystery') {
+        bits.push('EV de bounty no modelado: comenta el impacto cualitativo sin inventar € de bounty.');
+      }
+      payload.coachingNote = bits.join(' ');
     }
     return payload;
   }
@@ -30122,6 +30269,12 @@ window.PT_NASH_PUSH_JSON = {
       '<p class="home-coach-lead">' + copy.lead + '</p>' +
       coachStatusHtml() +
       '</div></div>' +
+      '<div class="home-coach-foot">' +
+      '<p class="muted-text home-coach-cta-hint">' + escapeHtml(ctaHint) + '</p>' +
+      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>' + escapeHtml(ctaLabel) + '</button>' +
+      '</div>' +
+      '<details class="home-coach-more">' +
+      '<summary>Cómo usarme · Dónde encontrarme</summary>' +
       '<div class="home-coach-steps">' +
       '<div class="home-coach-step"><span class="home-coach-step-num">1</span><h4>Si empiezas de cero</h4><p>Abre <em>Guía básica</em> en el menú: conceptos, qué es el GTO, ejemplos y un mini entrenamiento antes de meterte en spots avanzados.</p></div>' +
       '<div class="home-coach-step"><span class="home-coach-step-num">2</span><h4>Informe automático</h4><p>En el resumen de una sesión importada, o al acabar una mano con error, pulsa <em>Informe</em> o <em>¿Por qué fallé?</em>. Recibirás fugas, patrones y líneas alternativas.</p></div>' +
@@ -30135,12 +30288,9 @@ window.PT_NASH_PUSH_JSON = {
       '<li><strong>Estadísticas</strong> — bloque ForgeCoach con plan de estudio.</li>' +
       '<li><strong>Planes</strong> — Gratis: 3/mes de prueba · Study 40 · Coach 150. También hay bonos.</li>' +
       '</ul></div>' +
-      '<div class="home-coach-foot">' +
       '<p class="muted-text">Solo se envían datos de poker (cartas, acciones, análisis GTO y estadísticas de sesión) cuando lo solicitas y tras dar tu consentimiento. ' +
       PRIVACY_NO_PII + ' Las respuestas se guardan en tu historial de manos y sesiones.</p>' +
-      '<p class="muted-text home-coach-cta-hint">' + escapeHtml(ctaHint) + '</p>' +
-      '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>' + escapeHtml(ctaLabel) + '</button>' +
-      '</div></div>';
+      '</details></div>';
 
     trackFunnel('ai_coach_impression', { scope: 'home', source: 'welcome' });
 
@@ -39961,7 +40111,7 @@ window.PT_NASH_PUSH_JSON = {
     { id: 'demo', label: 'Revisa la sesión de ejemplo', hint: 'Sin subir ficheros: abre fugas reales', cta: 'Abrir ejemplo' },
     { id: 'warmup', label: 'Calentamiento 10 manos', hint: 'Con avisador en vivo', cta: 'Calentar 10 manos' },
     { id: 'leaks', label: 'Mira tus fugas o errores', hint: 'Stats o banco de errores', cta: 'Ver mis fugas' },
-    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: 'Cuenta para las 3 consultas de prueba del plan Gratis', cta: 'Probar ForgeCoach' }
+    { id: 'coach', label: 'Pide tu primer informe ForgeCoach', hint: '1 de 3 consultas de prueba · usa un error real', cta: 'Probar ForgeCoach' }
   ];
 
   function userKey() {
@@ -49434,18 +49584,8 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function openForgeCoachFromHandEnd() {
-    if (window.PTLog && PTLog.event) {
-      PTLog.event('ai_coach_cta_click', { source: 'hand_end', scope: 'hand', mode: 'report' });
-    }
-    revealHandEndDetails();
-    const host = $('#ai-report-trainer');
-    if (host && window.PTAIReport && PTAIReport.trigger) {
-      setTimeout(function () {
-        const panel = host.querySelector('.ai-report-panel') || host;
-        try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { /* noop */ }
-        PTAIReport.trigger(host, { mode: 'report', source: 'hand_end' });
-      }, 280);
-    }
+    if (!hand) return;
+    openCoachHandModal(hand, { source: 'hand_end', autoReport: true, scope: 'hand' });
   }
 
   /** Deep-link desde home / onboarding hacia un informe real (sesión, mano o stats). */
@@ -49471,6 +49611,7 @@ window.PT_NASH_PUSH_JSON = {
       }
     });
     if (best) {
+      window.__ptForgeCoachAutoReport = true;
       goToTab('sessions');
       setTimeout(function () {
         if (typeof openSession === 'function') openSession(best.id);
@@ -49481,13 +49622,16 @@ window.PT_NASH_PUSH_JSON = {
       return handHasCoachWorthyMiss(h && h.decisions);
     });
     if (hist) {
-      openCoachHandModal(hist, { source: 'history_deeplink' });
+      openCoachHandModal(hist, { source: 'history_deeplink', autoReport: true });
       return;
     }
     goToTab('stats');
     setTimeout(function () {
       const el = $('#stats-coach');
       if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (el && window.PTAIReport && PTAIReport.trigger) {
+        PTAIReport.trigger(el, { mode: 'report', source: 'deep_link' });
+      }
     }, 200);
   }
   window.openForgeCoachDeepLink = openForgeCoachDeepLink;
@@ -49548,8 +49692,9 @@ window.PT_NASH_PUSH_JSON = {
     modal.classList.remove('hidden');
     const closeBtn = $('#ai-coach-modal-close');
     if (closeBtn) closeBtn.onclick = function () { closeModal(); };
+    const coachScope = opts.scope || 'session';
     PTAIReport.mount($('#ai-coach-modal-mount'), {
-      scope: 'session',
+      scope: coachScope,
       impressionSource: opts.source || 'hand_modal',
       getHand: function () { return handObj; },
       autoReport: !!opts.autoReport,
@@ -49610,11 +49755,12 @@ window.PT_NASH_PUSH_JSON = {
       || !!(window.PTGuest && PTGuest.isActive && PTGuest.isActive());
     let coachCta = '';
     if (missWorthy && !guestOn) {
-      coachCta = '<button type="button" class="btn btn-secondary" id="hand-end-coach">¿Por qué fallé? · ForgeCoach</button>';
+      coachCta = '<button type="button" class="btn btn-primary" id="hand-end-coach">¿Por qué fallé? · ForgeCoach</button>';
     } else if (missWorthy && guestOn) {
       coachCta = '<p class="muted-text hand-end-coach-teaser">Con cuenta, <strong>ForgeCoach</strong> te explica este error en español (3 consultas gratis/mes).</p>' +
-        '<button type="button" class="btn btn-secondary" id="hand-end-coach-guest">Crear cuenta para el coach</button>';
+        '<button type="button" class="btn btn-primary" id="hand-end-coach-guest">Crear cuenta para el coach</button>';
     }
+    const nextBtnClass = missWorthy ? 'btn btn-secondary' : 'btn btn-primary';
 
     hideVerdictToast();
     modal.classList.add('hand-end-modal');
@@ -49654,7 +49800,7 @@ window.PT_NASH_PUSH_JSON = {
       '<div class="hand-end-popup-actions">' +
         coachCta +
         '<button type="button" class="btn btn-ghost" id="hand-end-details">Ver detalles</button>' +
-        '<button type="button" class="btn btn-primary" id="hand-end-next">Siguiente mano &raquo;</button>' +
+        '<button type="button" class="' + nextBtnClass + '" id="hand-end-next">Siguiente mano &raquo;</button>' +
         '<button type="button" class="btn btn-ghost" id="hand-end-replay">&#8635; Repetir esta mano</button>' +
         '<button type="button" class="btn btn-ghost" id="hand-end-new-session">Nueva sesión</button>' +
       '</div>' +
@@ -52857,6 +53003,11 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     if (isTournamentAi && !s._showHandStats) {
+      if (window.__ptForgeCoachAutoReport && (s.hands || []).length) {
+        s._showHandStats = true;
+      }
+    }
+    if (isTournamentAi && !s._showHandStats) {
       const t = s.tournament || {};
       const ts = s.tournamentStats || {};
       const place = st.finishPlace != null ? st.finishPlace : t.place;
@@ -52987,7 +53138,15 @@ window.PT_NASH_PUSH_JSON = {
     const leakHandsN = (s.hands || []).filter(function (h) {
       return h && (h.worstClass === 'error' || h.worstClass === 'imprecisa' || (Number(h.totalEvLoss) || 0) > 0);
     }).length;
-    const coachNudge = leakHandsN >= 3
+    let neverUsedCoach = true;
+    try {
+      const fu = Store.getFeatureUsage && Store.getFeatureUsage();
+      neverUsedCoach = !(fu && fu.events && Number(fu.events.ai_coach_used) > 0);
+    } catch (eFu) { neverUsedCoach = true; }
+    const nudgeThreshold = neverUsedCoach ? 1 : 3;
+    const autoCoachReport = !!window.__ptForgeCoachAutoReport;
+    if (autoCoachReport) window.__ptForgeCoachAutoReport = false;
+    const coachNudge = leakHandsN >= nudgeThreshold
       ? `<div class="ai-session-nudge" id="ai-session-nudge">
           <p><strong>ForgeCoach</strong> tiene un plan para esta sesión · ${leakHandsN} manos con fuga.</p>
           <button type="button" class="btn btn-secondary btn-sm" id="ai-session-nudge-btn">Pedir informe de la sesión</button>
@@ -53066,8 +53225,9 @@ window.PT_NASH_PUSH_JSON = {
     if (window.PTAIReport) {
       window.PTAIReport.mount($('#ai-coach-session'), {
         scope: 'sessionGlobal',
-        impressionSource: 'session',
+        impressionSource: autoCoachReport ? 'deep_link' : 'session',
         getData: () => currentSession,
+        autoReport: autoCoachReport,
         persist: { kind: 'session', getSessionId: () => currentSession && currentSession.id },
         onThreadUpdate: (thread) => { if (currentSession) currentSession.coachThread = thread; }
       });

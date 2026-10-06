@@ -15,7 +15,9 @@
 | — | Saludo login (freePromo) | `HOME_GREETING_PROMPT` | Saludo + JSON con `greetingFocus` |
 | — | Guía principiantes | `LEARN_QUESTION_PROMPT` | Pregunta + JSON `beginner`/`src:learn` |
 
-Cada consulta consume 1 crédito (plan o bono). El hilo conversacional (últimas 10 respuestas) se guarda en cliente; **no se reenvía al modelo** hoy.
+Cada consulta consume 1 crédito (plan o bono). El hilo conversacional (últimas 10 respuestas) se guarda en cliente; en modos `question` / `session_question` / `stats_question` el cliente reenvía hasta 8 turnos y el Edge Function usa hasta ~4 en `contents` de Gemini.
+
+Los prompts de mano usan un **marco dual**: baseline GTO/chip-EV + ajuste por `formatHub` / fase / cover / ICM / `scoreMode=exploit`. El payload incluye `isChipLead`, `coversOpponent`, `heroStackBB`/`villainStackBB`, aliases `BF`/`RP` y `coachingNote` anti-nit (p.ej. Axo SB open como chip lead vs BB corto).
 
 ---
 
@@ -25,10 +27,11 @@ Cada consulta consume 1 crédito (plan o bono). El hilo conversacional (últimas
 
 **System (resumen):**
 ```
-Coach NL Hold'em 6-max cash (español). Recibes JSON compacto: cartas, board, decisiones, línea villano…
-NO narres la mano. Evalúa decisiones GTO y lectura del villano.
+Coach NL Hold'em cash/spin/MTT (español). Recibes JSON compacto: cartas, board, decisiones, línea villano, formatHub/phase/stacks/cover…
+NO narres la mano. Evalúa con marco dual: baseline GTO + ajuste formato/ICM/exploit.
 Los números eq/gto/ev del JSON son estimaciones — recalcula lo crítico.
-Estructura: # hero.code hero.pos → ## Decisiones → ## Lectura villano → ## Lección práctica
+Chip lead / cover: no nitfold Axo SB vs BB corto.
+Estructura: # hero.code hero.pos → ## Lectura verificada → ## Decisiones → ## Lectura villano → ## Conclusión
 ```
 
 **User (ejemplo real simplificado):**
@@ -151,20 +154,9 @@ Estadísticas del entrenador (JSON):
 
 ## 4. Debilidades y mejoras recomendadas
 
-### 4.1 Sin memoria conversacional en el backend
+### 4.1 Memoria conversacional en el backend — hecha
 
-**Hoy:** Las 10 respuestas guardadas en cliente no se envían a Gemini.
-
-**Mejora (fase 2):**
-```typescript
-// En analyze-hand, si mode === 'question' y body.thread?.length:
-contents: [
-  ...thread.slice(0, 4).map(t => ({ role: 'user', parts: [{ text: t.question }] })),
-  ...thread.slice(0, 4).map(t => ({ role: 'model', parts: [{ text: t.reportMarkdown }] })),
-  { role: 'user', parts: [{ text: userContent }] }
-]
-```
-Limitar a **2–4 turnos** para no disparar tokens. Solo en `question` / `session_question` / `stats_question`.
+**Estado:** el cliente envía `thread` en preguntas; `analyze-hand` lo incorpora a `contents` (últimos turnos). Documentado arriba en §1.
 
 ---
 
@@ -183,16 +175,9 @@ Generado en `buildStats()` desde histórico — **no PII**. El prompt stats pued
 
 ---
 
-### 4.3 Prompts de mano: poca guía de formato por calle
+### 4.3 Prompts de mano: marco dual GTO + formato/explotativo — hecho
 
-**Mejora en REPORT_PROMPT** — añadir plantilla por decisión:
-```
-Por cada decisión con cl != optima:
-- Calle · Acción elegida vs óptima
-- Pot odds / MDF si hay apuesta
-- 1 frase: por qué GTO prefiere la otra línea
-Máx. 4 bullets en ## Decisiones (solo las relevantes).
-```
+**Estado:** `REPORT_PROMPT` / `QUESTION_PROMPT` / identidad evalúan baseline GTO y ajustan por `formatHub`, cover/chip lead, ICM y exploit. Plantilla por decisión incluye ajuste formato/cover; no fuerza “GTO prefiere la otra línea” cuando el contexto MTT/spin lo contradice.
 
 ---
 
