@@ -1485,8 +1485,7 @@
       lead: 'Analizo manos y sesiones con el contexto real de lo que jugaste: cartas, board, frecuencias GTO y EV estimado. No invento spots ni uso tu nick de mesa como si fuera tu nombre.'
     };
     const ctaLabel = options.ctaLabel || 'Informe sobre mi juego';
-    const ctaHint = options.ctaHint ||
-      'Gratis incluye 3 consultas/mes de prueba. El informe usa 1 consulta.';
+    const fixedHint = options.ctaHint != null ? String(options.ctaHint) : null;
 
     container.innerHTML =
       '<div class="home-coach-panel" role="region" aria-labelledby="' + titleId + '">' +
@@ -1499,7 +1498,10 @@
       coachStatusHtml() +
       '</div></div>' +
       '<div class="home-coach-foot">' +
-      '<p class="muted-text home-coach-cta-hint">' + escapeHtml(ctaHint) + '</p>' +
+      '<p class="muted-text home-coach-cta-hint" data-home-coach-quota' +
+      (fixedHint ? '' : ' hidden') + '>' +
+      (fixedHint ? escapeHtml(fixedHint) : '') +
+      '</p>' +
       '<button type="button" class="btn btn-primary home-coach-cta" data-home-coach-play>' + escapeHtml(ctaLabel) + '</button>' +
       '</div>' +
       '<details class="home-coach-more">' +
@@ -1522,6 +1524,20 @@
       '</details></div>';
 
     trackFunnel('ai_coach_impression', { scope: 'home', source: 'welcome' });
+
+    const quotaEl = container.querySelector('[data-home-coach-quota]');
+    if (quotaEl && !fixedHint) {
+      formatQuotaLine(true).then(function (line) {
+        if (!quotaEl.isConnected) return;
+        if (line) {
+          quotaEl.textContent = line;
+          quotaEl.hidden = false;
+        } else {
+          quotaEl.textContent = '';
+          quotaEl.hidden = true;
+        }
+      }).catch(function () { /* noop */ });
+    }
 
     const playBtn = container.querySelector('[data-home-coach-play]');
     if (playBtn) {
