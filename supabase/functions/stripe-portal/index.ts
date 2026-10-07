@@ -30,6 +30,15 @@ function adminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+async function customerHasLiveSubscription(customerId: string): Promise<boolean> {
+  const data = await stripeRequest(
+    '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=all&limit=20',
+    'GET'
+  );
+  const subs = (data.data as Array<{ status?: string }>) || [];
+  return subs.some((s) => ['active', 'trialing', 'past_due', 'unpaid'].includes(String(s.status || '')));
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -42,7 +51,7 @@ serve(async (req) => {
 
   const { data: profile } = await admin
     .from('pt_user_profiles')
-    .select('stripe_customer_id, email')
+    .select('stripe_customer_id, email, stripe_subscription_id, plan')
     .eq('user_id', auth.user.id)
     .maybeSingle();
 
@@ -53,6 +62,13 @@ serve(async (req) => {
       auth.user.email || (profile?.email as string) || '',
       (profile?.stripe_customer_id as string) || null
     );
+
+    // Promo / manual grants have plan access but no Stripe subscription.
+    // Customer Portal cannot "Actualizar suscripción" without one — client should Checkout.
+    const hasLive = await customerHasLiveSubscription(customerId);
+    if (!hasLive && !(profile?.stripe_subscription_id)) {
+      return json({ error: 'no_subscription', plan: (profile?.plan as string) || 'free' }, 404);
+    }
 
     const portal = await stripeRequest('/billing_portal/sessions', 'POST', {
       customer: customerId,

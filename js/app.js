@@ -5605,10 +5605,17 @@
       window.PTBillingPromo.founderSeatsOpen());
     const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
+    // Promo / asignación manual: plan activo sin suscripción Stripe → checkout, no portal.
+    const hasStripeSub = !!(Billing && Billing.hasStripeSubscription
+      ? Billing.hasStripeSubscription(ent)
+      : ent.stripe_subscription_id);
+    const isStripeManaged = isPaidSub && hasStripeSub;
+    const isPromoGrant = isPaidSub && !hasStripeSub;
     const curInterval = ent.billing_interval === 'year' ? 'year'
       : (ent.billing_interval === 'month' ? 'month' : null);
     const periodEnd = ent.subscription_period_end || null;
-    const canceling = !!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling';
+    const canceling = isStripeManaged &&
+      (!!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling');
     const planLabels = {
       free: 'Gratis',
       pro: plans.pro ? plans.pro.label : 'Study',
@@ -5647,12 +5654,22 @@
             'Compra próximamente</button>';
           btns += founderRequestBlock('coach');
         }
-      } else if (!isPaidSub) {
-        // Usuario Gratis: alta normal por checkout + pedir plaza FOUNDER si sigue abierta.
-        if (c.cta && !isCurrent) {
-          btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-          if (billingOn) {
-            btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+      } else if (!isPaidSub || isPromoGrant) {
+        // Gratis o promo sin Stripe: alta / conversión por Checkout (+ FOUNDER si aplica).
+        if (c.cta && (!isCurrent || isPromoGrant)) {
+          if (isPromoGrant && isCurrent) {
+            btns = '<span class="muted-text">Plan actual · promoción (sin renovación Stripe)</span>';
+            if (billingOn && !paused) {
+              btns += '<button type="button" class="btn btn-primary" data-checkout="' + c.cta +
+                '" data-interval="month">Activar suscripción</button>';
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta +
+                '" data-interval="year">Activar anual</button>';
+            }
+          } else if (!isCurrent) {
+            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+            if (billingOn) {
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+            }
           }
           if (c.id === 'pro') btns += founderRequestBlock('study');
           if (c.id === 'premium') btns += founderRequestBlock('coach');
@@ -5662,10 +5679,10 @@
           if (c.id === 'premium') btns += founderRequestBlock('coach');
         }
       } else if (c.id === 'free') {
-        // Bajar a Gratis = cancelar suscripción.
+        // Bajar a Gratis = cancelar suscripción Stripe.
         if (canceling) {
           btns = '<span class="muted-text">Se cancela al final del periodo</span>';
-        } else if (billingOn) {
+        } else if (billingOn && isStripeManaged) {
           btns = '<button type="button" class="btn btn-ghost" data-plan-change="free" data-interval="month">Cancelar suscripción</button>';
         }
       } else if (isCurrent) {
@@ -5681,7 +5698,7 @@
           btns += '<button type="button" class="btn btn-primary btn-sm" data-plan-portal="1">Reactivar</button>';
         }
       } else if (billingOn && !paused) {
-        // Otro plan de pago: upgrade o downgrade.
+        // Otro plan de pago: upgrade o downgrade vía portal Stripe.
         const verb = c.id === 'premium' ? 'Mejorar a ' : 'Cambiar a ';
         btns = '<button type="button" class="btn btn-primary" data-plan-change="' + c.id + '" data-interval="' + (curInterval || 'month') + '">' + escapeHtml(verb + c.title) + '</button>';
       } else if (paused) {

@@ -158,9 +158,22 @@
     return Math.round((1 - yearly / twelveMonths) * 100);
   }
 
+  function currentEntitlements() {
+    return global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get()
+      : null;
+  }
+
+  /** True solo si hay suscripción Stripe real (no promo/manual grant). */
+  function hasStripeSubscription(ent) {
+    ent = ent || currentEntitlements() || {};
+    return !!(ent.stripe_subscription_id);
+  }
+
   function isMonthlySubscriber(ent) {
     ent = ent || {};
-    return !!(ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium') &&
+    return !!(ent.paid_active && hasStripeSubscription(ent) &&
+      (ent.plan === 'pro' || ent.plan === 'premium') &&
       ent.billing_interval === 'month');
   }
 
@@ -170,15 +183,37 @@
       '¿Abrir el portal ahora?';
   }
 
+  function subscribePromptMessage(planLabel) {
+    return 'Tu acceso actual viene de una promoción o asignación manual: aún no hay suscripción de pago en Stripe.\n\n' +
+      'Para continuar con ' + (planLabel || 'tu plan') + ' de pago, te llevamos al checkout seguro.\n\n' +
+      '¿Continuar?';
+  }
+
   async function openPortalWithHint() {
     if (!enabled()) {
       alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (!hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month');
       return;
     }
     if (typeof window !== 'undefined' && window.confirm && !window.confirm(portalSubscriptionMessage())) {
       return;
     }
     await openPortal();
+  }
+
+  async function subscribeViaCheckout(plan, interval) {
+    var plans = cfg().plans || {};
+    var key = plan === 'premium' ? 'premium' : 'pro';
+    var label = (plans[key] && plans[key].label) || key;
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(subscribePromptMessage(label))) {
+      return;
+    }
+    await startCheckout(key, interval === 'year' ? 'year' : 'month');
   }
 
   function annualUpsellHtml(ent) {
@@ -220,6 +255,12 @@
   }
 
   async function startPlanChange() {
+    var ent = currentEntitlements() || {};
+    if (!hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month');
+      return;
+    }
     await openPortalWithHint();
   }
 
@@ -236,11 +277,20 @@
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
     }
-    var data = await postBillingFunction('/stripe-checkout', {
-      plan: plan === 'premium' ? 'premium' : 'pro',
-      interval: interval === 'year' ? 'year' : 'month'
-    });
-    if (data.url) openInNewTab(data.url);
+    try {
+      var data = await postBillingFunction('/stripe-checkout', {
+        plan: plan === 'premium' ? 'premium' : 'pro',
+        interval: interval === 'year' ? 'year' : 'month'
+      });
+      if (data.url) openInNewTab(data.url);
+    } catch (e) {
+      // Entitlements sin stripe_subscription_id aún, pero Stripe sí tiene sub.
+      if (e && e.message === 'already_subscribed') {
+        await openPortal();
+        return;
+      }
+      throw e;
+    }
   }
 
   async function startBonusCheckout(pack) {
@@ -266,7 +316,9 @@
       if (data.url) openInNewTab(data.url);
     } catch (e) {
       if (e && e.message === 'no_subscription') {
-        showPaywall('no_subscription', 'Aún no tienes una suscripción activa.');
+        var ent = currentEntitlements() || {};
+        var plan = ent.plan === 'premium' ? 'premium' : 'pro';
+        await subscribeViaCheckout(plan, ent.billing_interval === 'year' ? 'year' : 'month');
         return;
       }
       throw e;
@@ -544,6 +596,8 @@
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
+    hasStripeSubscription: hasStripeSubscription,
+    subscribeViaCheckout: subscribeViaCheckout,
     syncPayments: syncPayments,
     syncBonusPurchases: syncBonusPurchases,
     syncMyPayments: syncMyPayments,
