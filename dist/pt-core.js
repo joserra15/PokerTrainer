@@ -43181,12 +43181,29 @@ window.PT_NASH_PUSH_JSON = {
     }).join('') + '</div>';
   }
 
+  function mixToBreakdown(mix) {
+    if (!mix || typeof mix !== 'object') return null;
+    var breakdown = Object.keys(mix).map(function (id) {
+      var freq = Number(mix[id]) || 0;
+      return { id: id, label: String(id).toUpperCase(), pct: Math.round(freq * 1000) / 10, frequency: freq };
+    }).filter(function (o) { return o.frequency >= 0.005; })
+      .sort(function (a, b) { return b.frequency - a.frequency; });
+    return breakdown.length ? breakdown : null;
+  }
+
+  function actionLabel(id) {
+    return id ? String(id).toUpperCase().replace(/_/g, ' ') : '';
+  }
+
   function renderDecisionsHtml(decisions) {
     if (!decisions || !decisions.length) {
       return '<div class="card-box hand-end-decisions"><p class="muted">Sin decisiones del héroe en esta mano.</p></div>';
     }
     var html = '<div class="card-box hand-end-decisions"><h3>' +
-      (decisions.some(function (x) { return x && (x.exploitApplied || x.classExploit || x.scoreMode === 'exploit'); })
+      (decisions.some(function (x) {
+        return x && (x.exploitApplied || x.classExploit || x.scoreMode === 'exploit'
+          || x.bestExploit || (x.explainDelta && x.explainDelta.length));
+      })
         ? 'Evaluación GTO + explotativa'
         : 'Evaluación GTO de la mano') +
       '</h3>';
@@ -43194,24 +43211,14 @@ window.PT_NASH_PUSH_JSON = {
       /* Badge principal = GTO (coherente con paso a paso / «Evaluación GTO»). */
       var cls = d.classGto || d.class || 'unscored';
       var label = d.label || d.chosen || d.action || '';
-      var best = d.bestGto || d.best;
+      var bestGto = d.bestGto || d.best;
+      var bestExploit = d.bestExploit || null;
+      var topFlip = !!(bestGto && bestExploit && bestGto !== bestExploit);
       var gtoMix = d.gtoBaseline || d.gtoStrategy || null;
-      var breakdown = null;
-      if (gtoMix && typeof gtoMix === 'object') {
-        breakdown = Object.keys(gtoMix).map(function (id) {
-          var freq = Number(gtoMix[id]) || 0;
-          return { id: id, label: String(id).toUpperCase(), pct: Math.round(freq * 1000) / 10, frequency: freq };
-        }).filter(function (o) { return o.frequency >= 0.005; })
-          .sort(function (a, b) { return b.frequency - a.frequency; });
-      }
+      var breakdown = mixToBreakdown(gtoMix);
       if (!breakdown || !breakdown.length) breakdown = d.optionBreakdown;
-      if ((!breakdown || !breakdown.length) && d.gto) {
-        breakdown = Object.keys(d.gto).map(function (id) {
-          var freq = Number(d.gto[id]) || 0;
-          return { id: id, label: String(id).toUpperCase(), pct: Math.round(freq * 1000) / 10, frequency: freq };
-        }).filter(function (o) { return o.frequency >= 0.005; })
-          .sort(function (a, b) { return b.frequency - a.frequency; });
-      }
+      if ((!breakdown || !breakdown.length) && d.gto) breakdown = mixToBreakdown(d.gto);
+      var exploitBreakdown = mixToBreakdown(d.exploitStrategy);
       html += '<div class="dec-review">' +
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
@@ -43219,36 +43226,68 @@ window.PT_NASH_PUSH_JSON = {
         html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
       }
       html += '</div>';
-      if (d.classGto || d.classExploit) {
-        var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
-        var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
-        var showDual = d.classExploit && d.classGto && d.classExploit !== d.classGto;
-        if (showDual || (d.exploitReasons && d.exploitReasons.length)) {
-          html += '<div class="dual-verdict-note muted" style="margin-top:4px;font-size:12px">';
-          if (d.classGto) {
-            html += '<span class="verdict ' + esc(d.classGto) + '">GTO: ' + esc(verdictWord(d.classGto))
-              + (gtoPct != null ? ' (' + gtoPct + '%)' : '') + '</span>';
+      var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
+      var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
+      var classDiff = !!(d.classExploit && d.classGto && d.classExploit !== d.classGto);
+      var hasReasons = !!(d.exploitReasons && d.exploitReasons.length);
+      var hasDeltas = !!(d.explainDelta && d.explainDelta.length);
+      var showDual = !!(d.classGto || d.classExploit)
+        && (classDiff || hasReasons || hasDeltas || topFlip || d.exploitApplied);
+      if (showDual) {
+        html += '<div class="dual-verdict-note muted" style="margin-top:4px;font-size:12px">';
+        if (d.classGto) {
+          html += '<span class="verdict ' + esc(d.classGto) + '">GTO: ' + esc(verdictWord(d.classGto))
+            + (gtoPct != null ? ' (' + gtoPct + '%)' : '') + '</span>';
+        }
+        if (d.classGto && d.classExploit) html += ' · ';
+        if (d.classExploit) {
+          html += '<span class="verdict ' + esc(d.classExploit) + '">Explotativo: '
+            + esc(verdictWord(d.classExploit))
+            + (exPct != null ? ' (' + exPct + '%)' : '') + '</span>';
+        }
+        if (bestGto || bestExploit) {
+          html += '<div style="margin-top:2px">';
+          if (bestGto) {
+            html += '<strong>Óptimo GTO:</strong> ' + esc(actionLabel(bestGto));
           }
-          if (d.classGto && d.classExploit) html += ' · ';
-          if (d.classExploit) {
-            html += '<span class="verdict ' + esc(d.classExploit) + '">Explotativo: '
-              + esc(verdictWord(d.classExploit))
-              + (exPct != null ? ' (' + exPct + '%)' : '') + '</span>';
-          }
-          if (d.exploitReasons && d.exploitReasons.length) {
-            html += '<div style="margin-top:2px">' + esc(d.exploitReasons.slice(0, 2).join(' ')) + '</div>';
+          if (bestGto && bestExploit) html += ' · ';
+          if (bestExploit) {
+            html += '<strong>Óptimo explotativo:</strong> ' + esc(actionLabel(bestExploit));
+            if (topFlip) html += ' <span style="opacity:.85">(acción distinta)</span>';
           }
           html += '</div>';
         }
+        if (hasReasons) {
+          html += '<div style="margin-top:2px">' + esc(d.exploitReasons.slice(0, 2).join(' ')) + '</div>';
+        }
+        if (hasDeltas) {
+          html += '<ul style="margin:4px 0 0 16px;padding:0">';
+          d.explainDelta.slice(0, 3).forEach(function (row) {
+            var g = row.gtoFreq != null ? Math.round(Number(row.gtoFreq) * 1000) / 10 : null;
+            var e = row.exploitFreq != null ? Math.round(Number(row.exploitFreq) * 1000) / 10 : null;
+            html += '<li>' + esc(actionLabel(row.action))
+              + ': GTO ' + (g != null ? g + '%' : '—')
+              + ' → exploit ' + (e != null ? e + '%' : '—');
+            if (row.reason) html += ' <span style="opacity:.8">(' + esc(row.reason) + ')</span>';
+            html += '</li>';
+          });
+          html += '</ul>';
+        }
+        html += '</div>';
       }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
       }
       if (breakdown && breakdown.length) {
-        html += optionGridHtml(breakdown, d.action || d.chosen, best);
+        html += '<div class="muted" style="margin-top:6px;font-size:11px">Mezcla GTO</div>';
+        html += optionGridHtml(breakdown, d.action || d.chosen, bestGto);
       } else if (d.gto) {
         html += gtoBarsHtml(d.gto);
+      }
+      if (topFlip && exploitBreakdown && exploitBreakdown.length) {
+        html += '<div class="muted" style="margin-top:8px;font-size:11px">Mezcla explotativa</div>';
+        html += optionGridHtml(exploitBreakdown, d.action || d.chosen, bestExploit);
       }
       html += '</div>';
     });
@@ -49568,8 +49607,11 @@ window.PT_NASH_PUSH_JSON = {
     const exCls = d.classExploit || null;
     const gtoF = pct1(d.freqGto);
     const exF = pct1(d.freqExploit);
+    const bestGto = d.bestGto || null;
+    const bestExploit = d.bestExploit || null;
+    const topFlip = !!(bestGto && bestExploit && bestGto !== bestExploit);
     const hasDual = !!(gtoCls || exCls || d.exploitApplied || (d.explainDelta && d.explainDelta.length)
-      || (d.lineSignals && d.lineSignals.length));
+      || (d.lineSignals && d.lineSignals.length) || topFlip || bestExploit);
     if (!hasDual) return '';
     let html = '<div class="exploit-delta-note dual-verdict-note muted-text" style="margin-top:6px;font-size:12px">';
     if (gtoCls || exCls) {
@@ -49586,6 +49628,18 @@ window.PT_NASH_PUSH_JSON = {
           + escapeHtml(verdictWord(exCls))
           + (exF != null ? ' (' + exF + '%)' : '')
           + '</span>';
+      }
+      html += '</div>';
+    }
+    if (bestGto || bestExploit) {
+      html += '<div style="margin-bottom:4px">';
+      if (bestGto) {
+        html += '<strong>Óptimo GTO:</strong> ' + escapeHtml(actionName(bestGto));
+      }
+      if (bestGto && bestExploit) html += ' <span style="opacity:.5">·</span> ';
+      if (bestExploit) {
+        html += '<strong>Óptimo explotativo:</strong> ' + escapeHtml(actionName(bestExploit));
+        if (topFlip) html += ' <span style="opacity:.85">(acción distinta)</span>';
       }
       html += '</div>';
     }
@@ -49613,6 +49667,9 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (d.gtoBaseline && d.exploitApplied) {
       html += renderGtoBars(d.gtoBaseline, { title: 'Referencia GTO (sin explotación):' });
+    }
+    if (topFlip && d.exploitStrategy) {
+      html += renderGtoBars(d.exploitStrategy, { title: 'Mezcla explotativa:', exploit: true });
     }
     return html + '</div>';
   }

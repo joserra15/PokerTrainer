@@ -93,6 +93,8 @@
     "test:bb-vs-sb": "node tools/test-bb-vs-sb-position.js",
     "test:bluff": "node tools/test-bluff-regression.js",
     "test:exploit-dual": "node tools/test-exploit-dual-verdict.js",
+    "audit:exploit-vs-gto": "node tools/audit-exploit-vs-gto.js",
+    "test:audit-exploit-vs-gto": "node tools/audit-exploit-vs-gto.js",
     "test:best-mix": "node tools/test-best-mix-coherence.js",
     "test:flop-turn-freq": "node tools/test-flop-turn-freq-duplicate.js",
     "test:gto-eval-ui": "node tools/test-gto-eval-ui.js",
