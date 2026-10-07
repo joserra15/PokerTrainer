@@ -5,7 +5,8 @@ window.PT_BILLING = {
   enabled: true,
   /** Si true: no hay checkout ni compra de bonos; planes visibles a título informativo. */
   purchasesPaused: false,
-  functionsUrl: 'https://[REDACTED].supabase.co/functions/v1',
+  /** Base de Edge Functions: se toma de PT_SUPABASE.url (no duplicar project ref aqui). */
+  functionsUrl: '',
   trial: {
     plan: 'pro',
     days: 10,

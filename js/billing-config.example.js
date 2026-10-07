@@ -5,7 +5,8 @@ window.PT_BILLING = {
   enabled: false,
   /** Si true: no hay checkout ni compra de bonos; planes visibles a título informativo. */
   purchasesPaused: false,
-  functionsUrl: 'https://YOUR_PROJECT.supabase.co/functions/v1',
+  /** Opcional. Si vacío, billing.js usa PT_SUPABASE.url + '/functions/v1'. */
+  functionsUrl: '',
   trial: {
     plan: 'pro',
     days: 10,
