@@ -2226,9 +2226,17 @@
         }
         return;
       }
-      const res = PTSchool.startDailySession();
-      if (res && !res.ok && PTSchool.showDailyPlayFlash && host) {
-        PTSchool.showDailyPlayFlash(host, res.reason);
+      function runStart() {
+        const res = PTSchool.startDailySession();
+        if (res && !res.ok && PTSchool.showDailyPlayFlash && host) {
+          PTSchool.showDailyPlayFlash(host, res.reason);
+        }
+      }
+      var DS = window.PTSchoolDailySpot;
+      if (DS && DS.refreshRemoteDaily) {
+        Promise.resolve(DS.refreshRemoteDaily()).then(runStart).catch(runStart);
+      } else {
+        runStart();
       }
     });
   }

@@ -1369,8 +1369,16 @@
         showDailyPlayFlash(root, 'done');
         return;
       }
-      var res = startDailySession();
-      if (res && !res.ok) showDailyPlayFlash(root, res.reason);
+      function runStart() {
+        var res = startDailySession();
+        if (res && !res.ok) showDailyPlayFlash(root, res.reason);
+      }
+      var DS = global.PTSchoolDailySpot;
+      if (DS && DS.refreshRemoteDaily) {
+        Promise.resolve(DS.refreshRemoteDaily()).then(runStart).catch(runStart);
+      } else {
+        runStart();
+      }
     });
   }
 
