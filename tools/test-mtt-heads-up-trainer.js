@@ -126,4 +126,32 @@ const structOnly = PC.normalize({
 assert.notStrictEqual(structOnly.scenario, 'iso', 'iso no aplica en HU');
 assert.strictEqual(PC.is9Max(structOnly), false);
 
+/* Regresión UI/anillo: heroPos=BTN residual (chip de cash/MTT) no debe
+ * dejar al héroe fuera de [SB, BB] — eso tapaba las cartas con el pod SB. */
+assert.strictEqual(PC.huTablePos('BTN'), 'SB');
+assert.strictEqual(PC.clampHeroPosForHu('BTN'), 'SB');
+assert.strictEqual(PC.clampHeroPosForHu('CO'), 'random');
+const btnNorm = PC.normalize({
+  formatHub: 'mtt',
+  gameType: 'mtt',
+  mttPhase: 'hu',
+  stackDepth: 'bb25',
+  scenario: 'rfi',
+  heroPos: 'BTN',
+  villainLevel: 'pro'
+});
+assert.strictEqual(btnNorm.heroPos, 'SB', 'normalize HU mapea BTN→SB');
+const btnSc = PC.pickScenario(btnNorm, null);
+assert.ok(btnSc, 'pickScenario con filtro BTN en HU');
+assert.strictEqual(btnSc.heroPos, 'SB', 'RFI HU con filtro BTN resuelve a SB, got ' + btnSc.heroPos);
+const btnHand = Engine.newHand({ seed: 42 }, btnNorm);
+assert.ok(btnHand && btnHand.hero);
+assert.strictEqual(btnHand.hero.pos, 'SB', 'mano HU no usa hero.pos=BTN');
+assert.ok(!btnHand.displayHeroPos || btnHand.displayHeroPos === 'SB',
+  'displayHeroPos HU no es BTN: ' + btnHand.displayHeroPos);
+assert.ok(btnHand.table && btnHand.table.holeCards.SB,
+  'holeCards en asiento SB (anillo HU)');
+assert.ok(!btnHand.table.holeCards.BTN || !btnHand.table.inHand.has('BTN'),
+  'BTN no debe estar inHand en mesa HU');
+
 console.log('OK: MTT Heads Up trainer (' + handsOk + ' manos, ' + allInOk + ' all-in)');

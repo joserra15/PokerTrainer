@@ -237,7 +237,7 @@
     const positions = PC && hand.playConfig && PC.tablePositions
       ? PC.tablePositions(hand.playConfig)
       : (is9MaxHand(hand) && PC ? PC.POS_9 : DEAL_ORDER);
-    const heroSeat = hand.displayHeroPos || hand.hero.pos;
+    const heroSeat = heroTableSeat(hand) || hand.displayHeroPos || (hand.hero && hand.hero.pos);
     stacks.initHandStacks(hand, positions, heroSeat, heroBB, function () { return C.rng.random(); }, hand.playConfig);
     hand.effStack = heroBB;
   }
@@ -260,7 +260,13 @@
   }
 
   function heroTableSeat(hand) {
-    return hand.displayHeroPos || hand.hero.pos;
+    let pos = hand.displayHeroPos || (hand.hero && hand.hero.pos);
+    const PC = global.PTPlayConfig;
+    if (pos && PC && hand.playConfig && PC.isHuPhase && PC.isHuPhase(hand.playConfig)) {
+      if (PC.huTablePos) pos = PC.huTablePos(pos);
+      else if (pos === 'BTN') pos = 'SB';
+    }
+    return pos;
   }
 
   /** Asiento de mesa del héroe para stacks/caps (9-max: display ≠ engine pos). */
@@ -3418,16 +3424,25 @@
 
   function setupRFI(hand) {
     let pos = scenarioHeroPos(hand) || hand.displayHeroPos || null;
+    const cfg = hand.playConfig;
+    const hu = cfg && global.PTPlayConfig && global.PTPlayConfig.isHuPhase
+      && global.PTPlayConfig.isHuPhase(cfg);
     if (!pos) {
-      const cfg = hand.playConfig;
-      const hu = cfg && global.PTPlayConfig && global.PTPlayConfig.isHuPhase
-        && global.PTPlayConfig.isHuPhase(cfg);
       pos = hu ? 'SB' : 'BTN';
     }
+    // HU: BTN → SB para que el asiento coincida con el anillo [SB, BB].
+    if (hu && global.PTPlayConfig) {
+      if (global.PTPlayConfig.huTablePos) pos = global.PTPlayConfig.huTablePos(pos) || pos;
+      else if (pos === 'BTN') pos = 'SB';
+    }
     hand.hero.pos = pos;
-    const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
+    let displayPos = hand.displayHeroPos || (hand.scenario && hand.scenario.heroPos) || pos;
+    if (hu && global.PTPlayConfig) {
+      if (global.PTPlayConfig.huTablePos) displayPos = global.PTPlayConfig.huTablePos(displayPos) || displayPos;
+      else if (displayPos === 'BTN') displayPos = 'SB';
+    }
     if (hand.scenario && !hand.scenario.heroPos) hand.scenario.heroPos = pos;
-    if (!hand.displayHeroPos) hand.displayHeroPos = displayPos;
+    hand.displayHeroPos = displayPos;
     const openSize = openSizeForPos(hand, pos);
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));

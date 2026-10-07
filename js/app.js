@@ -1307,7 +1307,15 @@
     const cfg = readPlayConfig();
     const positions = PC.heroPositions(cfg);
     const current = box.querySelector('.setup-chip.active');
-    const curVal = current ? current.dataset.val : 'random';
+    let curVal = current ? current.dataset.val : 'random';
+    // HU (u otro anillo reducido): mapear BTN→SB o caer a random si la pos
+    // activa ya no existe en los chips.
+    if (curVal && curVal !== 'random' && positions.indexOf(curVal) < 0) {
+      if (PC.isHuPhase && PC.isHuPhase(cfg) && PC.clampHeroPosForHu) {
+        curVal = PC.clampHeroPosForHu(curVal);
+      }
+      if (positions.indexOf(curVal) < 0) curVal = 'random';
+    }
     let html = '<button type="button" class="setup-chip' + (curVal === 'random' ? ' active' : '') + '" data-val="random">Random</button>';
     positions.forEach((p) => {
       html += '<button type="button" class="setup-chip' + (curVal === p ? ' active' : '') + '" data-val="' + p + '">' + p + '</button>';
@@ -1685,6 +1693,9 @@
         syncMttStructureUI({ skipDefaults: true });
       }
       syncPhaseStackUI(hub);
+      // Al pasar a HU los chips BTN/CO/… deben desaparecer; si no, un BTN
+      // residual fuerza heroPos fuera del anillo SB/BB y tapa las cartas.
+      renderHeroPosChips();
     });
     bindChipGroup('#setup-stack-role', markPresetCustom);
     bindChipGroup('#setup-tournament-type', markPresetCustom);
@@ -3622,14 +3633,14 @@
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     const view = handPresent(hand);
     const pot = view ? view.potBB : (hand.current ? hand.current.potBB : hand.potBB);
-    $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
+    const heroSeatKey = heroSeatOnTable() || hand.displayHeroPos || hand.hero.pos;
+    $('#hero-pos').textContent = heroSeatKey;
     $('#pot').innerHTML = '<span class="pot-chips">' + chipStackHTML(pot || 0) + '</span> '
       + tt('play.pot') + ': <strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardFaceHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(view ? view.heroAction : hand.heroAction);
     const heroTbl = hand.table || {};
-    const heroSeatKey = hand.displayHeroPos || hand.hero.pos;
     const heroStreet = view
       ? ((view.streetBet && (view.streetBet[hand.hero.pos] || view.streetBet[heroSeatKey])) || 0)
       : ((heroTbl.streetBet && hand.hero.pos) ? (heroTbl.streetBet[hand.hero.pos] || 0) : 0);
@@ -3639,7 +3650,7 @@
     const heroChipsEl = $('#hero-chips');
     if (heroChipsEl) {
       let heroHtml = '';
-      const heroSeat = hand.displayHeroPos || hand.hero.pos;
+      const heroSeat = heroSeatKey;
       if (window.PTStacks && hand.stacks && heroSeat) {
         heroHtml += renderSeatStack(hand, heroSeat);
       }
@@ -3668,9 +3679,12 @@
     } else {
       renderTrainHud(null);
     }
-    const heroSeatPos = hand.displayHeroPos || hand.hero.pos;
+    const heroSeatPos = heroSeatKey;
     const heroDealerEl = $('#hero-dealer');
-    if (heroDealerEl) heroDealerEl.classList.toggle('hidden', heroSeatPos !== 'BTN');
+    if (heroDealerEl) {
+      const showDealer = heroSeatPos === 'BTN' || (isHuTable() && heroSeatPos === 'SB');
+      heroDealerEl.classList.toggle('hidden', !showDealer);
+    }
     renderBoard();
     renderSeats();
     $('#spot-context').textContent = view
@@ -3877,7 +3891,15 @@
 
   function heroSeatOnTable() {
     if (!hand) return null;
-    return hand.displayHeroPos || hand.hero.pos;
+    let pos = hand.displayHeroPos || hand.hero.pos;
+    // HU: BTN es alias del SB. Si no mapeamos, ringFromHero cae a idx 0 y el
+    // pod SB (sin .hero) tapa #hero-cards.
+    if (pos && isHuTable() && window.PTPlayConfig && PTPlayConfig.huTablePos) {
+      pos = PTPlayConfig.huTablePos(pos);
+    } else if (pos === 'BTN' && isHuTable()) {
+      pos = 'SB';
+    }
+    return pos;
   }
 
   function villainSeatOnTable() {
@@ -3945,7 +3967,7 @@
       if (isVillain) cls.push('villain');
       if (isCaller && !isVillain) cls.push('caller');
       if (hand.multiway && inPot) cls.push('multiway-alive');
-      if (pos === 'BTN') cls.push('dealer');
+      if (pos === 'BTN' || (isHuTable() && pos === 'SB')) cls.push('dealer');
       if (c.top < 20) cls.push('seat-top');
       if (c.top > 70) cls.push('seat-bottom');
       if (c.left < 22) cls.push('seat-edge-left');
@@ -4038,7 +4060,13 @@
 
   function ringFromHero(heroPos) {
     const list = tablePosRing();
-    let idx = list.indexOf(heroPos);
+    let seat = heroPos;
+    if (seat && isHuTable() && window.PTPlayConfig && PTPlayConfig.huTablePos) {
+      seat = PTPlayConfig.huTablePos(seat);
+    } else if (seat === 'BTN' && isHuTable()) {
+      seat = 'SB';
+    }
+    let idx = list.indexOf(seat);
     if (idx < 0) idx = 0;
     const ring = [];
     for (let i = 0; i < list.length; i++) ring.push(list[(idx + i) % list.length]);

@@ -355,6 +355,8 @@
         c.scenario = 'random';
       }
       c.allowMultiway = false;
+      // Chip BTN (u otra pos 6/9-max) residual del setup → SB o random.
+      c.heroPos = clampHeroPosForHu(c.heroPos);
     }
     if (Tax && Tax.normalizeTournamentType) {
       c.tournamentType = Tax.normalizeTournamentType(c.tournamentType);
@@ -595,6 +597,24 @@
     return false;
   }
 
+  /**
+   * Mesa HU del entrenador es [SB, BB]. BTN es alias pedagógico/rango del SB
+   * (el botón posts SB). Sin esta coerción un filtro heroPos=BTN deja el héroe
+   * fuera del anillo y el asiento SB se pinta encima de las cartas.
+   */
+  function huTablePos(pos) {
+    if (!pos || pos === 'random') return pos;
+    if (pos === 'BTN') return 'SB';
+    return pos;
+  }
+
+  function clampHeroPosForHu(pos) {
+    if (!pos || pos === 'random') return pos || 'random';
+    const mapped = huTablePos(pos);
+    if (mapped === 'SB' || mapped === 'BB') return mapped;
+    return 'random';
+  }
+
   function is9Max(config) {
     const c = config || {};
     // MTT Heads Up es 2-max: no usar anillo/coords/escenarios 9-max.
@@ -657,10 +677,12 @@
       if (scenario.heroPos) return scenario.heroPos;
       if (scenario.displayHeroPos) return scenario.displayHeroPos;
     }
-    return scenario.engineHeroPos
+    let seat = scenario.engineHeroPos
       || (scenario.type === 'RFI' ? enginePos(scenario.heroPos) : null)
       || (scenario.type === 'face3bet' ? parseFace3betKey(scenario.key).opener : null)
       || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
+    if (isHuPhase(config) && seat) seat = huTablePos(seat);
+    return seat;
   }
 
   function openerDealSeat(scenario, config) {
@@ -1140,50 +1162,61 @@
 
   function matchHeroPos(scenario, filterPos, config) {
     if (!filterPos || filterPos === 'random') return true;
-    const eng = enginePos(filterPos);
+    let pos = filterPos;
+    if (isHuPhase(config)) {
+      pos = clampHeroPosForHu(filterPos);
+      if (!pos || pos === 'random') return true;
+    }
+    const eng = enginePos(pos);
     if (scenario.type === 'RFI') {
-      return enginePos(scenario.heroPos) === eng || scenario.heroPos === filterPos;
+      return enginePos(scenario.heroPos) === eng || scenario.heroPos === pos
+        || (isHuPhase(config) && huTablePos(scenario.heroPos) === pos);
     }
     if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
       const h = parseVsKey(scenario.key).hero;
-      return h === eng || h === filterPos;
+      return h === eng || h === pos;
     }
     if (scenario.type === 'face3bet') {
       const o = parseFace3betKey(scenario.key).opener;
-      return o === eng || o === filterPos;
+      return o === eng || o === pos;
     }
     if (scenario.type === 'isoLimp' || scenario.type === 'bbVsSbLimp' || scenario.type === 'sbLimp') {
-      return scenario.heroPos === eng || scenario.heroPos === filterPos;
+      return scenario.heroPos === eng || scenario.heroPos === pos;
     }
     if (scenario.type === 'squeeze') {
-      return scenario.heroPos === eng || scenario.heroPos === filterPos;
+      return scenario.heroPos === eng || scenario.heroPos === pos;
     }
     if (scenario.type === 'srp3way' || scenario.type === 'srp4way' || scenario.type === 'limpPot') {
-      return scenario.heroPos === eng || scenario.heroPos === filterPos;
+      return scenario.heroPos === eng || scenario.heroPos === pos;
     }
     return true;
   }
 
   function applyHeroPosFilter(scenario, filterPos, config) {
     if (!filterPos || filterPos === 'random') return scenario;
+    let pos = filterPos;
+    if (isHuPhase(config)) {
+      pos = clampHeroPosForHu(filterPos);
+      if (!pos || pos === 'random') return scenario;
+    }
     if (scenario.type === 'RFI') {
-      scenario.heroPos = filterPos;
-      scenario.engineHeroPos = enginePos(filterPos);
+      scenario.heroPos = pos;
+      scenario.engineHeroPos = enginePos(pos);
     } else if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
       const pk = parseVsKey(scenario.key);
-      const eng = enginePos(filterPos);
+      const eng = enginePos(pos);
       scenario.key = eng + '_vs_' + pk.opener;
-      scenario.displayHeroPos = filterPos;
+      scenario.displayHeroPos = pos;
       scenario.engineHeroPos = eng;
     } else if (scenario.type === 'face3bet') {
       const pk = parseFace3betKey(scenario.key);
-      const eng = enginePos(filterPos);
+      const eng = enginePos(pos);
       scenario.key = eng + '_vs_' + pk.threeBettor;
-      scenario.displayHeroPos = filterPos;
+      scenario.displayHeroPos = pos;
       scenario.engineHeroPos = eng;
     } else if (scenario.type === 'squeeze' || scenario.type === 'isoLimp' || scenario.type === 'bbVsSbLimp' || scenario.type === 'sbLimp' || scenario.type === 'cold4bet' || scenario.type === 'srp3way' || scenario.type === 'srp4way' || scenario.type === 'limpPot') {
-      scenario.heroPos = filterPos;
-      scenario.engineHeroPos = enginePos(filterPos);
+      scenario.heroPos = pos;
+      scenario.engineHeroPos = enginePos(pos);
     }
     return scenario;
   }
@@ -1444,7 +1477,7 @@
     sampleCallerWeights, sampleColdCallWeights, sampleMultiwayHeroWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, isSpin, isHuPhase,
+    is9Max, isMtt, isSpin, isHuPhase, huTablePos, clampHeroPosForHu,
     POS_HU, DEAL_ORDER_HU, RFI_POS_HU, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
     vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, COLD4BET_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
   };
