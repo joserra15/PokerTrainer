@@ -1,4 +1,4 @@
--- 062_daily_spot.sql
+-- 064_daily_spot.sql
 -- Spot del día compartido: mismo reto para todos (Europe/Madrid).
 -- Generación aleatoria con parámetros (kind preferido, anti-repetición).
 

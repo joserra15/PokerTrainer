@@ -712,9 +712,9 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
 })();
 assert.ok(/pt_get_or_create_daily_spot|refreshRemoteDaily/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
   'cliente pide spot compartido al backend');
-assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/062_daily_spot.sql')),
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/064_daily_spot.sql')),
   'migración pt_daily_spots');
-assert.ok(/pt_get_or_create_daily_spot/.test(fs.readFileSync(path.join(root, 'supabase/migrations/062_daily_spot.sql'), 'utf8')),
+assert.ok(/pt_get_or_create_daily_spot/.test(fs.readFileSync(path.join(root, 'supabase/migrations/064_daily_spot.sql'), 'utf8')),
   'RPC generación compartida');
 assert.ok(fs.existsSync(path.join(root, 'supabase/functions/daily-spot-generate/index.ts')),
   'edge function daily-spot-generate');

@@ -219,9 +219,15 @@
     } catch (e) { /* */ }
   }
 
-  function onLeaderboardUpdated() {
+  function onLeaderboardUpdated(ev) {
     try {
       if (!ui.root || ui.view !== VIEW.hub) return;
+      var detailCid = ev && ev.detail && ev.detail.communityId;
+      if (detailCid && global.PTTournamentLeaderboard &&
+          typeof PTTournamentLeaderboard.communityId === 'function' &&
+          String(detailCid) !== String(PTTournamentLeaderboard.communityId())) {
+        return;
+      }
       /* Solo refrescar el bloque de clasificación: evita reset de scroll del lobby
          y no vuelve a disparar refreshFromCloud (renderHtml skipRefresh). */
       var host = ui.root.querySelector('.trn-leaderboard');
@@ -236,6 +242,17 @@
         }
       }
       paint();
+    } catch (e) { /* */ }
+  }
+
+  function onCommunitySwitchLeaderboard() {
+    try {
+      if (global.PTTournamentLeaderboard && PTTournamentLeaderboard.onCommunitySwitch) {
+        PTTournamentLeaderboard.onCommunitySwitch();
+      }
+      if (ui.root && (ui.view === VIEW.hub || ui.view === VIEW.history || ui.view === VIEW.generalStats)) {
+        paint();
+      }
     } catch (e) { /* */ }
   }
 
@@ -284,6 +301,7 @@
     if (typeof global.addEventListener === 'function') {
       global.addEventListener('pt-cloud-synced', onCloudSynced);
       global.addEventListener('pt-tournament-leaderboard-updated', onLeaderboardUpdated);
+      global.addEventListener('pt-community-switch', onCommunitySwitchLeaderboard);
       /* Auth / sync suelen terminar ANTES de cargar el chunk en PWA móvil. */
       global.addEventListener('pt-auth-ready', function () { refreshHubLeaderboard(true); });
       global.addEventListener('pt-auth-boot-done', function () { refreshHubLeaderboard(true); });

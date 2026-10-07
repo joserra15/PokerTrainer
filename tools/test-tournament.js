@@ -3366,6 +3366,92 @@ console.log('OK pushfold-freq-100');
   g.PTTournamentWallet.setBalance(0, { type: 'test_lb_async_reset' });
   console.log('OK leaderboard-first-load-refresh');
 
+  /* --- Aislamiento ranking: PF no contamina MTTLab (race + merge) --- */
+  {
+    let activeCid = 'pokerforge';
+    g.PTCommunity = {
+      id: function () { return activeCid; },
+      isManager: function () { return false; },
+      requireMembership: function () { return activeCid !== 'pokerforge'; },
+      hasAccess: function () { return true; },
+      bypassPaywalls: function () { return activeCid !== 'pokerforge'; }
+    };
+    g.PTAuth = { getUser: function () { return { id: 'hero-iso', name: 'HeroIso', plan: 'free' }; } };
+    const pfKey = 'pt_tournament_leaderboard_v1_pokerforge';
+    const mtKey = 'pt_tournament_leaderboard_v1_mttlab';
+    g.localStorage.setItem(pfKey, JSON.stringify([]));
+    g.localStorage.setItem(mtKey, JSON.stringify([]));
+
+    const pfMembers = [
+      { user_id: 'pf1', display_name: 'ForgeAce', koins: 200, tournaments_played: 5 },
+      { user_id: 'pf2', display_name: 'ForgeBee', koins: 150, tournaments_played: 3 }
+    ];
+    const mtMembers = [
+      { user_id: 'mt1', display_name: 'LabOne', koins: 40, tournaments_played: 2 },
+      { user_id: 'mt2', display_name: 'LabTwo', koins: 20, tournaments_played: 1 }
+    ];
+
+    let resolvePf;
+    const pendingPf = new Promise(function (resolve) { resolvePf = resolve; });
+    let rpcLog = [];
+    g.PTSupabase = {
+      getClient: function () {
+        return {
+          rpc: function (name, args) {
+            rpcLog.push({ name: name, cid: args && args.p_community_id });
+            if (args && args.p_community_id === 'pokerforge') {
+              return pendingPf.then(function () {
+                return { data: { ok: true, members: pfMembers }, error: null };
+              });
+            }
+            return Promise.resolve({
+              data: { ok: true, members: mtMembers },
+              error: null
+            });
+          }
+        };
+      }
+    };
+
+    activeCid = 'pokerforge';
+    const pfFetch = Lb.refreshFromCloud({ force: true });
+    /* Switch a MTTLab mientras el fetch de PF sigue en vuelo */
+    activeCid = 'mttlab';
+    if (Lb.onCommunitySwitch) Lb.onCommunitySwitch();
+    await Lb.refreshFromCloud({ force: true });
+    resolvePf();
+    await pfFetch.catch(function () { /* stale ok */ });
+    await new Promise(function (r) { setTimeout(r, 20); });
+
+    const mtBoard = Lb.rankings(20);
+    assert.ok(mtBoard.every(function (r) {
+      return r.name !== 'ForgeAce' && r.name !== 'ForgeBee';
+    }), 'MTTLab no muestra jugadores de PokerForge tras race');
+    assert.ok(mtBoard.some(function (r) { return r.name === 'LabOne'; }), 'MTTLab tiene LabOne');
+    assert.ok(mtBoard.some(function (r) { return r.name === 'LabTwo'; }), 'MTTLab tiene LabTwo');
+    assert.ok(rpcLog.some(function (x) { return x.cid === 'pokerforge'; }), 'RPC PF iniciado');
+    assert.ok(rpcLog.some(function (x) { return x.cid === 'mttlab'; }), 'RPC MTTLab tras switch');
+
+    /* Contaminación previa en clave mttlab: un refresh limpia peers ajenos */
+    g.localStorage.setItem(mtKey, JSON.stringify([
+      { id: 'pf1', name: 'ForgeAce', koins: 200, communityId: 'pokerforge' },
+      { id: 'ghost', name: 'GhostPF', koins: 99 },
+      { id: 'mt1', name: 'LabOne', koins: 40, communityId: 'mttlab' }
+    ]));
+    activeCid = 'mttlab';
+    await Lb.refreshFromCloud({ force: true });
+    const cleaned = Lb.rankings(20);
+    assert.ok(cleaned.every(function (r) {
+      return r.name !== 'ForgeAce' && r.name !== 'GhostPF';
+    }), 'refresh reemplaza board contaminado (no merge con PF)');
+    assert.ok(cleaned.some(function (r) { return r.name === 'LabOne'; }), 'tras clean sigue LabOne');
+
+    activeCid = 'pokerforge';
+    g.localStorage.setItem(pfKey, JSON.stringify([]));
+    g.localStorage.setItem(mtKey, JSON.stringify([]));
+    g.PTSupabase = null;
+    console.log('OK leaderboard-community-isolation');
+  }
   /* --- Side pots: empate con all-in corto + fold con más fichas --- */
   {
     const LH = g.PTTournamentLiveHand;

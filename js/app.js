@@ -5613,10 +5613,21 @@
       window.PTBillingPromo.founderSeatsOpen());
     const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
+    // Promo / asignación manual → Checkout (no portal «Actualiza la suscripción»).
+    const isPromoGrant = !!(Billing && Billing.isPromoOrManualGrant
+      ? Billing.isPromoOrManualGrant(ent)
+      : (isPaidSub && !ent.stripe_subscription_id) ||
+        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) ||
+        (isPaidSub && !ent.stripe_last_payment_at));
+    const hasStripeSub = !!(Billing && Billing.hasStripeSubscription
+      ? Billing.hasStripeSubscription(ent)
+      : (ent.stripe_subscription_id && !isPromoGrant));
+    const isStripeManaged = isPaidSub && hasStripeSub && !isPromoGrant;
     const curInterval = ent.billing_interval === 'year' ? 'year'
       : (ent.billing_interval === 'month' ? 'month' : null);
     const periodEnd = ent.subscription_period_end || null;
-    const canceling = !!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling';
+    const canceling = isStripeManaged &&
+      (!!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling');
     const planLabels = {
       free: 'Gratis',
       pro: plans.pro ? plans.pro.label : 'Study',
@@ -5655,12 +5666,22 @@
             'Compra próximamente</button>';
           btns += founderRequestBlock('coach');
         }
-      } else if (!isPaidSub) {
-        // Usuario Gratis: alta normal por checkout + pedir plaza FOUNDER si sigue abierta.
-        if (c.cta && !isCurrent) {
-          btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-          if (billingOn) {
-            btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+      } else if (!isPaidSub || isPromoGrant) {
+        // Gratis o promo sin Stripe: alta / conversión por Checkout (+ FOUNDER si aplica).
+        if (c.cta && (!isCurrent || isPromoGrant)) {
+          if (isPromoGrant && isCurrent) {
+            btns = '<span class="muted-text">Plan actual · promoción (sin renovación Stripe)</span>';
+            if (billingOn && !paused) {
+              btns += '<button type="button" class="btn btn-primary" data-checkout="' + c.cta +
+                '" data-interval="month">Activar suscripción</button>';
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta +
+                '" data-interval="year">Activar anual</button>';
+            }
+          } else if (!isCurrent) {
+            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+            if (billingOn) {
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+            }
           }
           if (c.id === 'pro') btns += founderRequestBlock('study');
           if (c.id === 'premium') btns += founderRequestBlock('coach');
@@ -5670,10 +5691,10 @@
           if (c.id === 'premium') btns += founderRequestBlock('coach');
         }
       } else if (c.id === 'free') {
-        // Bajar a Gratis = cancelar suscripción.
+        // Bajar a Gratis = cancelar suscripción Stripe.
         if (canceling) {
           btns = '<span class="muted-text">Se cancela al final del periodo</span>';
-        } else if (billingOn) {
+        } else if (billingOn && isStripeManaged) {
           btns = '<button type="button" class="btn btn-ghost" data-plan-change="free" data-interval="month">Cancelar suscripción</button>';
         }
       } else if (isCurrent) {
@@ -5689,7 +5710,7 @@
           btns += '<button type="button" class="btn btn-primary btn-sm" data-plan-portal="1">Reactivar</button>';
         }
       } else if (billingOn && !paused) {
-        // Otro plan de pago: upgrade o downgrade.
+        // Otro plan de pago: upgrade o downgrade vía portal Stripe.
         const verb = c.id === 'premium' ? 'Mejorar a ' : 'Cambiar a ';
         btns = '<button type="button" class="btn btn-primary" data-plan-change="' + c.id + '" data-interval="' + (curInterval || 'month') + '">' + escapeHtml(verb + c.title) + '</button>';
       } else if (paused) {
@@ -5724,15 +5745,28 @@
 
     grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        if (!window.PTBilling || !window.PTBilling.startPlanChange) {
-          if (window.PTBilling && window.PTBilling.openPortalWithHint) {
-            window.PTBilling.openPortalWithHint();
-          } else if (window.PTBilling && window.PTBilling.openPortal) {
-            window.PTBilling.openPortal();
+        var B = window.PTBilling;
+        if (!B) return;
+        // Sin sub Stripe (promo): Checkout al plan/intervalo del botón, no portal.
+        if (B.isPromoOrManualGrant && B.isPromoOrManualGrant(ent) && B.startCheckout) {
+          var target = btn.dataset.planChange;
+          if (target === 'free') {
+            alert('Tu acceso promocional termina en la fecha de fin de periodo. Para cancelar antes, contacta con soporte.');
+            return;
           }
+          var plan = target === 'premium' ? 'premium' : 'pro';
+          var interval = btn.dataset.interval === 'year' ? 'year' : 'month';
+          B.startCheckout(plan, interval).catch(function (e) {
+            alert(e.message || 'No se pudo iniciar el pago.');
+          });
           return;
         }
-        window.PTBilling.startPlanChange().catch(function (e) {
+        if (!B.startPlanChange) {
+          if (B.openPortalWithHint) B.openPortalWithHint();
+          else if (B.openPortal) B.openPortal();
+          return;
+        }
+        B.startPlanChange().catch(function (e) {
           alert(e.message || 'No se pudo abrir el portal de suscripción.');
         });
       });

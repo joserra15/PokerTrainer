@@ -10,7 +10,7 @@
 
   function enabled() {
     var c = cfg();
-    return !!(c.enabled && c.functionsUrl && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
+    return !!(c.enabled && functionsBase() && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
   }
 
   function purchasesPaused() {
@@ -78,7 +78,23 @@
   }
 
   function functionsBase() {
-    return String(cfg().functionsUrl || '').replace(/\/$/, '');
+    var fromBilling = String(cfg().functionsUrl || '').trim().replace(/\/$/, '');
+    if (fromBilling && isValidFunctionsBase(fromBilling)) return fromBilling;
+    var sb = global.PT_SUPABASE || {};
+    var fromSb = String(sb.url || '').trim().replace(/\/$/, '');
+    if (fromSb) return fromSb + '/functions/v1';
+    return fromBilling;
+  }
+
+  /** Reject placeholders / scrubbed hosts that break fetch (e.g. literal [REDACTED]). */
+  function isValidFunctionsBase(url) {
+    if (!url || /\[|\]|YOUR_PROJECT|TU_PROYECTO|REDACTED/i.test(url)) return false;
+    try {
+      var u = new URL(url);
+      return (u.protocol === 'https:' || u.protocol === 'http:') && !!u.hostname && !u.username && !u.password;
+    } catch (e) {
+      return false;
+    }
   }
 
   function openInNewTab(url) {
@@ -142,9 +158,59 @@
     return Math.round((1 - yearly / twelveMonths) * 100);
   }
 
+  function currentEntitlements() {
+    return global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get()
+      : null;
+  }
+
+  /**
+   * Promo (trialing + cancel_at_period_end) o plan otorgado sin Stripe
+   * (admin / sin sub id / sin ningún pago Stripe registrado).
+   */
+  function isPromoOrManualGrant(ent) {
+    ent = ent || currentEntitlements() || {};
+    if (!(ent.plan === 'pro' || ent.plan === 'premium')) return false;
+    var status = String(ent.subscription_status || '');
+    var paidLike = !!ent.paid_active || status === 'trialing' || status === 'active';
+    if (!paidLike) return false;
+    if (status === 'trialing' && !!ent.subscription_cancel_at_period_end) return true;
+    if (!ent.stripe_subscription_id) return true;
+    // Id de sub en perfil pero nunca hubo pago Stripe → grant admin / id obsoleto.
+    if (!ent.stripe_last_payment_at && (status === 'active' || status === 'trialing')) {
+      return true;
+    }
+    return false;
+  }
+
+  /** True solo si hay suscripción Stripe real (no promo/manual grant). */
+  function hasStripeSubscription(ent) {
+    ent = ent || currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent)) return false;
+    return !!(ent.stripe_subscription_id);
+  }
+
+  /** Gestionar facturación: Checkout si no hay sub Stripe live; si no, portal. */
+  async function manageBilling() {
+    if (!enabled()) {
+      alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(
+        ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month'
+      );
+      return;
+    }
+    await openPortal();
+  }
+
   function isMonthlySubscriber(ent) {
     ent = ent || {};
-    return !!(ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium') &&
+    return !!(ent.paid_active && hasStripeSubscription(ent) &&
+      (ent.plan === 'pro' || ent.plan === 'premium') &&
       ent.billing_interval === 'month');
   }
 
@@ -154,15 +220,37 @@
       '¿Abrir el portal ahora?';
   }
 
+  function subscribePromptMessage(planLabel) {
+    return 'Tu acceso actual viene de una promoción o asignación manual: aún no hay suscripción de pago en Stripe.\n\n' +
+      'Para continuar con ' + (planLabel || 'tu plan') + ' de pago, te llevamos al checkout seguro.\n\n' +
+      '¿Continuar?';
+  }
+
   async function openPortalWithHint() {
     if (!enabled()) {
       alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month');
       return;
     }
     if (typeof window !== 'undefined' && window.confirm && !window.confirm(portalSubscriptionMessage())) {
       return;
     }
     await openPortal();
+  }
+
+  async function subscribeViaCheckout(plan, interval) {
+    var plans = cfg().plans || {};
+    var key = plan === 'premium' ? 'premium' : 'pro';
+    var label = (plans[key] && plans[key].label) || key;
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(subscribePromptMessage(label))) {
+      return;
+    }
+    await startCheckout(key, interval === 'year' ? 'year' : 'month');
   }
 
   function annualUpsellHtml(ent) {
@@ -204,6 +292,12 @@
   }
 
   async function startPlanChange() {
+    var ent = currentEntitlements() || {};
+    if (!hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month');
+      return;
+    }
     await openPortalWithHint();
   }
 
@@ -220,11 +314,20 @@
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
     }
-    var data = await postBillingFunction('/stripe-checkout', {
-      plan: plan === 'premium' ? 'premium' : 'pro',
-      interval: interval === 'year' ? 'year' : 'month'
-    });
-    if (data.url) openInNewTab(data.url);
+    try {
+      var data = await postBillingFunction('/stripe-checkout', {
+        plan: plan === 'premium' ? 'premium' : 'pro',
+        interval: interval === 'year' ? 'year' : 'month'
+      });
+      if (data.url) openInNewTab(data.url);
+    } catch (e) {
+      // Entitlements sin stripe_subscription_id aún, pero Stripe sí tiene sub.
+      if (e && e.message === 'already_subscribed') {
+        await openPortal();
+        return;
+      }
+      throw e;
+    }
   }
 
   async function startBonusCheckout(pack) {
@@ -250,7 +353,9 @@
       if (data.url) openInNewTab(data.url);
     } catch (e) {
       if (e && e.message === 'no_subscription') {
-        showPaywall('no_subscription', 'Aún no tienes una suscripción activa.');
+        var ent = currentEntitlements() || {};
+        var plan = ent.plan === 'premium' ? 'premium' : 'pro';
+        await subscribeViaCheckout(plan, ent.billing_interval === 'year' ? 'year' : 'month');
         return;
       }
       throw e;
@@ -528,6 +633,10 @@
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
+    manageBilling: manageBilling,
+    hasStripeSubscription: hasStripeSubscription,
+    isPromoOrManualGrant: isPromoOrManualGrant,
+    subscribeViaCheckout: subscribeViaCheckout,
     syncPayments: syncPayments,
     syncBonusPurchases: syncBonusPurchases,
     syncMyPayments: syncMyPayments,

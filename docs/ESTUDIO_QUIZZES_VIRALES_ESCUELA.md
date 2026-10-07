@@ -163,7 +163,7 @@ UTM: `?utm_source=instagram&utm_medium=social&utm_campaign=escuela_daily`
 | `js/school-share.js` | Tarjetas 1080 sin spoiler |
 | `js/school-daily-spot.js` | Home daily + racha + fetch remoto |
 | `js/school.js` | Integración hub |
-| `supabase/migrations/062_daily_spot.sql` | Tabla + RPC spot compartido |
+| `supabase/migrations/064_daily_spot.sql` | Tabla + RPC spot compartido |
 | `supabase/functions/daily-spot-generate/` | Cron pre-generación |
 | `tools/test-school.js` | Contratos currículum |
 | `tools/test-school-share.js` | Contratos share |

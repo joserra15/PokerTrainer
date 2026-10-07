@@ -39338,7 +39338,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function enabled() {
     var c = cfg();
-    return !!(c.enabled && c.functionsUrl && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
+    return !!(c.enabled && functionsBase() && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
   }
 
   function purchasesPaused() {
@@ -39406,7 +39406,23 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function functionsBase() {
-    return String(cfg().functionsUrl || '').replace(/\/$/, '');
+    var fromBilling = String(cfg().functionsUrl || '').trim().replace(/\/$/, '');
+    if (fromBilling && isValidFunctionsBase(fromBilling)) return fromBilling;
+    var sb = global.PT_SUPABASE || {};
+    var fromSb = String(sb.url || '').trim().replace(/\/$/, '');
+    if (fromSb) return fromSb + '/functions/v1';
+    return fromBilling;
+  }
+
+  /** Reject placeholders / scrubbed hosts that break fetch (e.g. literal [REDACTED]). */
+  function isValidFunctionsBase(url) {
+    if (!url || /\[|\]|YOUR_PROJECT|TU_PROYECTO|REDACTED/i.test(url)) return false;
+    try {
+      var u = new URL(url);
+      return (u.protocol === 'https:' || u.protocol === 'http:') && !!u.hostname && !u.username && !u.password;
+    } catch (e) {
+      return false;
+    }
   }
 
   function openInNewTab(url) {
@@ -39470,9 +39486,59 @@ window.PT_NASH_PUSH_JSON = {
     return Math.round((1 - yearly / twelveMonths) * 100);
   }
 
+  function currentEntitlements() {
+    return global.PTEntitlements && global.PTEntitlements.get
+      ? global.PTEntitlements.get()
+      : null;
+  }
+
+  /**
+   * Promo (trialing + cancel_at_period_end) o plan otorgado sin Stripe
+   * (admin / sin sub id / sin ningún pago Stripe registrado).
+   */
+  function isPromoOrManualGrant(ent) {
+    ent = ent || currentEntitlements() || {};
+    if (!(ent.plan === 'pro' || ent.plan === 'premium')) return false;
+    var status = String(ent.subscription_status || '');
+    var paidLike = !!ent.paid_active || status === 'trialing' || status === 'active';
+    if (!paidLike) return false;
+    if (status === 'trialing' && !!ent.subscription_cancel_at_period_end) return true;
+    if (!ent.stripe_subscription_id) return true;
+    // Id de sub en perfil pero nunca hubo pago Stripe → grant admin / id obsoleto.
+    if (!ent.stripe_last_payment_at && (status === 'active' || status === 'trialing')) {
+      return true;
+    }
+    return false;
+  }
+
+  /** True solo si hay suscripción Stripe real (no promo/manual grant). */
+  function hasStripeSubscription(ent) {
+    ent = ent || currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent)) return false;
+    return !!(ent.stripe_subscription_id);
+  }
+
+  /** Gestionar facturación: Checkout si no hay sub Stripe live; si no, portal. */
+  async function manageBilling() {
+    if (!enabled()) {
+      alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(
+        ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month'
+      );
+      return;
+    }
+    await openPortal();
+  }
+
   function isMonthlySubscriber(ent) {
     ent = ent || {};
-    return !!(ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium') &&
+    return !!(ent.paid_active && hasStripeSubscription(ent) &&
+      (ent.plan === 'pro' || ent.plan === 'premium') &&
       ent.billing_interval === 'month');
   }
 
@@ -39482,15 +39548,37 @@ window.PT_NASH_PUSH_JSON = {
       '¿Abrir el portal ahora?';
   }
 
+  function subscribePromptMessage(planLabel) {
+    return 'Tu acceso actual viene de una promoción o asignación manual: aún no hay suscripción de pago en Stripe.\n\n' +
+      'Para continuar con ' + (planLabel || 'tu plan') + ' de pago, te llevamos al checkout seguro.\n\n' +
+      '¿Continuar?';
+  }
+
   async function openPortalWithHint() {
     if (!enabled()) {
       alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month');
       return;
     }
     if (typeof window !== 'undefined' && window.confirm && !window.confirm(portalSubscriptionMessage())) {
       return;
     }
     await openPortal();
+  }
+
+  async function subscribeViaCheckout(plan, interval) {
+    var plans = cfg().plans || {};
+    var key = plan === 'premium' ? 'premium' : 'pro';
+    var label = (plans[key] && plans[key].label) || key;
+    if (typeof window !== 'undefined' && window.confirm && !window.confirm(subscribePromptMessage(label))) {
+      return;
+    }
+    await startCheckout(key, interval === 'year' ? 'year' : 'month');
   }
 
   function annualUpsellHtml(ent) {
@@ -39532,6 +39620,12 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   async function startPlanChange() {
+    var ent = currentEntitlements() || {};
+    if (!hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month');
+      return;
+    }
     await openPortalWithHint();
   }
 
@@ -39548,11 +39642,20 @@ window.PT_NASH_PUSH_JSON = {
       showPaywall('billing_not_configured', 'El pago en línea se activará pronto. Mientras tanto, contacta con soporte.');
       return;
     }
-    var data = await postBillingFunction('/stripe-checkout', {
-      plan: plan === 'premium' ? 'premium' : 'pro',
-      interval: interval === 'year' ? 'year' : 'month'
-    });
-    if (data.url) openInNewTab(data.url);
+    try {
+      var data = await postBillingFunction('/stripe-checkout', {
+        plan: plan === 'premium' ? 'premium' : 'pro',
+        interval: interval === 'year' ? 'year' : 'month'
+      });
+      if (data.url) openInNewTab(data.url);
+    } catch (e) {
+      // Entitlements sin stripe_subscription_id aún, pero Stripe sí tiene sub.
+      if (e && e.message === 'already_subscribed') {
+        await openPortal();
+        return;
+      }
+      throw e;
+    }
   }
 
   async function startBonusCheckout(pack) {
@@ -39578,7 +39681,9 @@ window.PT_NASH_PUSH_JSON = {
       if (data.url) openInNewTab(data.url);
     } catch (e) {
       if (e && e.message === 'no_subscription') {
-        showPaywall('no_subscription', 'Aún no tienes una suscripción activa.');
+        var ent = currentEntitlements() || {};
+        var plan = ent.plan === 'premium' ? 'premium' : 'pro';
+        await subscribeViaCheckout(plan, ent.billing_interval === 'year' ? 'year' : 'month');
         return;
       }
       throw e;
@@ -39856,6 +39961,10 @@ window.PT_NASH_PUSH_JSON = {
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
+    manageBilling: manageBilling,
+    hasStripeSubscription: hasStripeSubscription,
+    isPromoOrManualGrant: isPromoOrManualGrant,
+    subscribeViaCheckout: subscribeViaCheckout,
     syncPayments: syncPayments,
     syncBonusPurchases: syncBonusPurchases,
     syncMyPayments: syncMyPayments,
@@ -41600,7 +41709,23 @@ window.PT_NASH_PUSH_JSON = {
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
+    var grantEnt = {
+      plan: prof.plan,
+      paid_active: prof.plan === 'pro' || prof.plan === 'premium',
+      subscription_status: prof.subscription_status,
+      subscription_cancel_at_period_end: prof.subscription_cancel_at_period_end,
+      stripe_subscription_id: prof.stripe_subscription_id,
+      stripe_last_payment_at: prof.stripe_last_payment_at
+    };
+    var promoGrant = !!(global.PTBilling && global.PTBilling.isPromoOrManualGrant
+      ? global.PTBilling.isPromoOrManualGrant(grantEnt)
+      : ((prof.plan === 'pro' || prof.plan === 'premium') &&
+        ((String(prof.subscription_status) === 'trialing' && !!prof.subscription_cancel_at_period_end) ||
+          !prof.stripe_subscription_id ||
+          !prof.stripe_last_payment_at)));
+    var hasStripeSub = !promoGrant && !!(prof.stripe_subscription_id);
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
+    var billingBtnLabel = hasStripeSub ? 'Gestionar suscripción' : 'Activar suscripción';
     var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&
       global.PTCommunity.config() && global.PTCommunity.config().billing &&
       global.PTCommunity.config().billing.hidePricing);
@@ -41652,7 +41777,8 @@ window.PT_NASH_PUSH_JSON = {
       row('Intervalo', escapeHtml(prof.billing_interval || '—')) +
       (prof.subscription_cancel_at_period_end ? row('Renovación', 'Sin renovación automática') : '') +
       '<div class="account-settings-actions">' +
-      (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">Gestionar suscripción</button>' : '') +
+      (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">' +
+        escapeHtml(billingBtnLabel) + '</button>' : '') +
       '<button type="button" class="btn btn-primary btn-sm" id="settings-upgrade">Ver planes</button>' +
       (!prof.is_founder_study
         ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-study" data-founder-request="study">Solicitar FOUNDER Study</button>'
@@ -41917,11 +42043,13 @@ window.PT_NASH_PUSH_JSON = {
     var billing = $('#settings-billing');
     if (billing) {
       billing.onclick = function () {
-        if (global.PTBilling && global.PTBilling.openPortal) {
-          global.PTBilling.openPortal().catch(function (e) {
-            alert(e.message || 'No se pudo abrir el portal.');
-          });
-        }
+        var B = global.PTBilling;
+        if (!B) return;
+        var run = B.manageBilling || B.openPortalWithHint || B.openPortal;
+        if (!run) return;
+        Promise.resolve(run.call(B)).catch(function (e) {
+          alert((e && e.message) || 'No se pudo abrir el pago.');
+        });
       };
     }
     var upgrade = $('#settings-upgrade');
@@ -48983,10 +49111,21 @@ window.PT_NASH_PUSH_JSON = {
       window.PTBillingPromo.founderSeatsOpen());
     const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
+    // Promo / asignación manual → Checkout (no portal «Actualiza la suscripción»).
+    const isPromoGrant = !!(Billing && Billing.isPromoOrManualGrant
+      ? Billing.isPromoOrManualGrant(ent)
+      : (isPaidSub && !ent.stripe_subscription_id) ||
+        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) ||
+        (isPaidSub && !ent.stripe_last_payment_at));
+    const hasStripeSub = !!(Billing && Billing.hasStripeSubscription
+      ? Billing.hasStripeSubscription(ent)
+      : (ent.stripe_subscription_id && !isPromoGrant));
+    const isStripeManaged = isPaidSub && hasStripeSub && !isPromoGrant;
     const curInterval = ent.billing_interval === 'year' ? 'year'
       : (ent.billing_interval === 'month' ? 'month' : null);
     const periodEnd = ent.subscription_period_end || null;
-    const canceling = !!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling';
+    const canceling = isStripeManaged &&
+      (!!ent.subscription_cancel_at_period_end || ent.subscription_status === 'canceling');
     const planLabels = {
       free: 'Gratis',
       pro: plans.pro ? plans.pro.label : 'Study',
@@ -49025,12 +49164,22 @@ window.PT_NASH_PUSH_JSON = {
             'Compra próximamente</button>';
           btns += founderRequestBlock('coach');
         }
-      } else if (!isPaidSub) {
-        // Usuario Gratis: alta normal por checkout + pedir plaza FOUNDER si sigue abierta.
-        if (c.cta && !isCurrent) {
-          btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
-          if (billingOn) {
-            btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+      } else if (!isPaidSub || isPromoGrant) {
+        // Gratis o promo sin Stripe: alta / conversión por Checkout (+ FOUNDER si aplica).
+        if (c.cta && (!isCurrent || isPromoGrant)) {
+          if (isPromoGrant && isCurrent) {
+            btns = '<span class="muted-text">Plan actual · promoción (sin renovación Stripe)</span>';
+            if (billingOn && !paused) {
+              btns += '<button type="button" class="btn btn-primary" data-checkout="' + c.cta +
+                '" data-interval="month">Activar suscripción</button>';
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta +
+                '" data-interval="year">Activar anual</button>';
+            }
+          } else if (!isCurrent) {
+            btns = '<button type="button" class="btn btn-primary" data-checkout="' + c.cta + '" data-interval="month">Mensual</button>';
+            if (billingOn) {
+              btns += '<button type="button" class="btn btn-ghost" data-checkout="' + c.cta + '" data-interval="year">Anual</button>';
+            }
           }
           if (c.id === 'pro') btns += founderRequestBlock('study');
           if (c.id === 'premium') btns += founderRequestBlock('coach');
@@ -49040,10 +49189,10 @@ window.PT_NASH_PUSH_JSON = {
           if (c.id === 'premium') btns += founderRequestBlock('coach');
         }
       } else if (c.id === 'free') {
-        // Bajar a Gratis = cancelar suscripción.
+        // Bajar a Gratis = cancelar suscripción Stripe.
         if (canceling) {
           btns = '<span class="muted-text">Se cancela al final del periodo</span>';
-        } else if (billingOn) {
+        } else if (billingOn && isStripeManaged) {
           btns = '<button type="button" class="btn btn-ghost" data-plan-change="free" data-interval="month">Cancelar suscripción</button>';
         }
       } else if (isCurrent) {
@@ -49059,7 +49208,7 @@ window.PT_NASH_PUSH_JSON = {
           btns += '<button type="button" class="btn btn-primary btn-sm" data-plan-portal="1">Reactivar</button>';
         }
       } else if (billingOn && !paused) {
-        // Otro plan de pago: upgrade o downgrade.
+        // Otro plan de pago: upgrade o downgrade vía portal Stripe.
         const verb = c.id === 'premium' ? 'Mejorar a ' : 'Cambiar a ';
         btns = '<button type="button" class="btn btn-primary" data-plan-change="' + c.id + '" data-interval="' + (curInterval || 'month') + '">' + escapeHtml(verb + c.title) + '</button>';
       } else if (paused) {
@@ -49094,15 +49243,28 @@ window.PT_NASH_PUSH_JSON = {
 
     grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        if (!window.PTBilling || !window.PTBilling.startPlanChange) {
-          if (window.PTBilling && window.PTBilling.openPortalWithHint) {
-            window.PTBilling.openPortalWithHint();
-          } else if (window.PTBilling && window.PTBilling.openPortal) {
-            window.PTBilling.openPortal();
+        var B = window.PTBilling;
+        if (!B) return;
+        // Sin sub Stripe (promo): Checkout al plan/intervalo del botón, no portal.
+        if (B.isPromoOrManualGrant && B.isPromoOrManualGrant(ent) && B.startCheckout) {
+          var target = btn.dataset.planChange;
+          if (target === 'free') {
+            alert('Tu acceso promocional termina en la fecha de fin de periodo. Para cancelar antes, contacta con soporte.');
+            return;
           }
+          var plan = target === 'premium' ? 'premium' : 'pro';
+          var interval = btn.dataset.interval === 'year' ? 'year' : 'month';
+          B.startCheckout(plan, interval).catch(function (e) {
+            alert(e.message || 'No se pudo iniciar el pago.');
+          });
           return;
         }
-        window.PTBilling.startPlanChange().catch(function (e) {
+        if (!B.startPlanChange) {
+          if (B.openPortalWithHint) B.openPortalWithHint();
+          else if (B.openPortal) B.openPortal();
+          return;
+        }
+        B.startPlanChange().catch(function (e) {
           alert(e.message || 'No se pudo abrir el portal de suscripción.');
         });
       });

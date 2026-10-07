@@ -66,5 +66,10 @@ assert.ok(/missing_auth/.test(portal), 'portal 401');
 assert.ok(/billing_portal\/sessions/.test(portal), 'portal session Stripe');
 assert.ok(/portal=return/.test(portal), 'return_url portal');
 assert.ok(/url:\s*portal\.url|portal\.url/.test(portal), 'portal devuelve url');
+assert.ok(/no_subscription/.test(portal), 'portal 404 sin suscripción Stripe (promo)');
+assert.ok(/customerHasLiveSubscription|status=all/.test(portal), 'portal comprueba subs live');
+assert.ok(/if\s*\(\s*!hasLive\s*\)/.test(portal), 'portal exige sub live (ignora id obsoleto)');
+assert.ok(/stripe_subscription_id:\s*null/.test(portal), 'portal limpia sub id obsoleto');
+assert.ok(/alreadyGrantedPaid|trialing/.test(checkout), 'checkout no ofrece trial si ya hay plan promo');
 
 console.log('*** stripe-edge-contracts OK (webhook + checkout + portal) ***');
