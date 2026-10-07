@@ -39493,19 +39493,22 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /**
-   * Promo / asignación manual: trialing + cancel_at_period_end (pt_redeem_promotion).
-   * Tiene prioridad sobre un stripe_subscription_id obsoleto en el perfil.
+   * Promo (trialing + cancel_at_period_end) o plan otorgado sin Stripe
+   * (admin / sin sub id / sin ningún pago Stripe registrado).
    */
   function isPromoOrManualGrant(ent) {
     ent = ent || currentEntitlements() || {};
     if (!(ent.plan === 'pro' || ent.plan === 'premium')) return false;
-    if (!ent.paid_active && ent.subscription_status !== 'trialing' && ent.subscription_status !== 'active') {
-      return false;
-    }
-    if (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) {
+    var status = String(ent.subscription_status || '');
+    var paidLike = !!ent.paid_active || status === 'trialing' || status === 'active';
+    if (!paidLike) return false;
+    if (status === 'trialing' && !!ent.subscription_cancel_at_period_end) return true;
+    if (!ent.stripe_subscription_id) return true;
+    // Id de sub en perfil pero nunca hubo pago Stripe → grant admin / id obsoleto.
+    if (!ent.stripe_last_payment_at && (status === 'active' || status === 'trialing')) {
       return true;
     }
-    return !ent.stripe_subscription_id && !!ent.paid_active;
+    return false;
   }
 
   /** True solo si hay suscripción Stripe real (no promo/manual grant). */
@@ -39513,6 +39516,23 @@ window.PT_NASH_PUSH_JSON = {
     ent = ent || currentEntitlements() || {};
     if (isPromoOrManualGrant(ent)) return false;
     return !!(ent.stripe_subscription_id);
+  }
+
+  /** Gestionar facturación: Checkout si no hay sub Stripe live; si no, portal. */
+  async function manageBilling() {
+    if (!enabled()) {
+      alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(
+        ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month'
+      );
+      return;
+    }
+    await openPortal();
   }
 
   function isMonthlySubscriber(ent) {
@@ -39540,7 +39560,7 @@ window.PT_NASH_PUSH_JSON = {
       return;
     }
     var ent = currentEntitlements() || {};
-    if (!hasStripeSubscription(ent)) {
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
       await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
         ent.billing_interval === 'year' ? 'year' : 'month');
       return;
@@ -39941,6 +39961,7 @@ window.PT_NASH_PUSH_JSON = {
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
+    manageBilling: manageBilling,
     hasStripeSubscription: hasStripeSubscription,
     isPromoOrManualGrant: isPromoOrManualGrant,
     subscribeViaCheckout: subscribeViaCheckout,
@@ -41688,17 +41709,20 @@ window.PT_NASH_PUSH_JSON = {
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
+    var grantEnt = {
+      plan: prof.plan,
+      paid_active: prof.plan === 'pro' || prof.plan === 'premium',
+      subscription_status: prof.subscription_status,
+      subscription_cancel_at_period_end: prof.subscription_cancel_at_period_end,
+      stripe_subscription_id: prof.stripe_subscription_id,
+      stripe_last_payment_at: prof.stripe_last_payment_at
+    };
     var promoGrant = !!(global.PTBilling && global.PTBilling.isPromoOrManualGrant
-      ? global.PTBilling.isPromoOrManualGrant({
-        plan: prof.plan,
-        paid_active: prof.plan === 'pro' || prof.plan === 'premium',
-        subscription_status: prof.subscription_status,
-        subscription_cancel_at_period_end: prof.subscription_cancel_at_period_end,
-        stripe_subscription_id: prof.stripe_subscription_id
-      })
+      ? global.PTBilling.isPromoOrManualGrant(grantEnt)
       : ((prof.plan === 'pro' || prof.plan === 'premium') &&
         ((String(prof.subscription_status) === 'trialing' && !!prof.subscription_cancel_at_period_end) ||
-          !prof.stripe_subscription_id)));
+          !prof.stripe_subscription_id ||
+          !prof.stripe_last_payment_at)));
     var hasStripeSub = !promoGrant && !!(prof.stripe_subscription_id);
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
     var billingBtnLabel = hasStripeSub ? 'Gestionar suscripción' : 'Activar suscripción';
@@ -42021,16 +42045,7 @@ window.PT_NASH_PUSH_JSON = {
       billing.onclick = function () {
         var B = global.PTBilling;
         if (!B) return;
-        var run = hasStripeSub
-          ? (B.openPortalWithHint || B.openPortal)
-          : (B.subscribeViaCheckout
-            ? function () {
-              return B.subscribeViaCheckout(
-                prof.plan === 'premium' ? 'premium' : 'pro',
-                prof.billing_interval === 'year' ? 'year' : 'month'
-              );
-            }
-            : B.openPortal);
+        var run = B.manageBilling || B.openPortalWithHint || B.openPortal;
         if (!run) return;
         Promise.resolve(run.call(B)).catch(function (e) {
           alert((e && e.message) || 'No se pudo abrir el pago.');

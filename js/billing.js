@@ -165,19 +165,22 @@
   }
 
   /**
-   * Promo / asignación manual: trialing + cancel_at_period_end (pt_redeem_promotion).
-   * Tiene prioridad sobre un stripe_subscription_id obsoleto en el perfil.
+   * Promo (trialing + cancel_at_period_end) o plan otorgado sin Stripe
+   * (admin / sin sub id / sin ningún pago Stripe registrado).
    */
   function isPromoOrManualGrant(ent) {
     ent = ent || currentEntitlements() || {};
     if (!(ent.plan === 'pro' || ent.plan === 'premium')) return false;
-    if (!ent.paid_active && ent.subscription_status !== 'trialing' && ent.subscription_status !== 'active') {
-      return false;
-    }
-    if (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) {
+    var status = String(ent.subscription_status || '');
+    var paidLike = !!ent.paid_active || status === 'trialing' || status === 'active';
+    if (!paidLike) return false;
+    if (status === 'trialing' && !!ent.subscription_cancel_at_period_end) return true;
+    if (!ent.stripe_subscription_id) return true;
+    // Id de sub en perfil pero nunca hubo pago Stripe → grant admin / id obsoleto.
+    if (!ent.stripe_last_payment_at && (status === 'active' || status === 'trialing')) {
       return true;
     }
-    return !ent.stripe_subscription_id && !!ent.paid_active;
+    return false;
   }
 
   /** True solo si hay suscripción Stripe real (no promo/manual grant). */
@@ -185,6 +188,23 @@
     ent = ent || currentEntitlements() || {};
     if (isPromoOrManualGrant(ent)) return false;
     return !!(ent.stripe_subscription_id);
+  }
+
+  /** Gestionar facturación: Checkout si no hay sub Stripe live; si no, portal. */
+  async function manageBilling() {
+    if (!enabled()) {
+      alert('El portal de facturación no está configurado todavía.');
+      return;
+    }
+    var ent = currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
+      await subscribeViaCheckout(
+        ent.plan === 'premium' ? 'premium' : 'pro',
+        ent.billing_interval === 'year' ? 'year' : 'month'
+      );
+      return;
+    }
+    await openPortal();
   }
 
   function isMonthlySubscriber(ent) {
@@ -212,7 +232,7 @@
       return;
     }
     var ent = currentEntitlements() || {};
-    if (!hasStripeSubscription(ent)) {
+    if (isPromoOrManualGrant(ent) || !hasStripeSubscription(ent)) {
       await subscribeViaCheckout(ent.plan === 'premium' ? 'premium' : 'pro',
         ent.billing_interval === 'year' ? 'year' : 'month');
       return;
@@ -613,6 +633,7 @@
     startCheckout: startCheckout,
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
+    manageBilling: manageBilling,
     hasStripeSubscription: hasStripeSubscription,
     isPromoOrManualGrant: isPromoOrManualGrant,
     subscribeViaCheckout: subscribeViaCheckout,

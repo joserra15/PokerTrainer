@@ -63,10 +63,15 @@ serve(async (req) => {
       (profile?.stripe_customer_id as string) || null
     );
 
-    // Promo / manual grants have plan access but no Stripe subscription.
-    // Customer Portal cannot "Actualizar suscripción" without one — client should Checkout.
+    // Solo abrir portal si hay sub live en Stripe. Ids obsoletos en perfil
+    // (promo / grant admin) no cuentan — el cliente debe ir a Checkout.
     const hasLive = await customerHasLiveSubscription(customerId);
-    if (!hasLive && !(profile?.stripe_subscription_id)) {
+    if (!hasLive) {
+      if (profile?.stripe_subscription_id) {
+        await admin.from('pt_user_profiles').update({
+          stripe_subscription_id: null
+        }).eq('user_id', auth.user.id);
+      }
       return json({ error: 'no_subscription', plan: (profile?.plan as string) || 'free' }, 404);
     }
 

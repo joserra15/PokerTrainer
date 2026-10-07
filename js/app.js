@@ -5609,7 +5609,8 @@
     const isPromoGrant = !!(Billing && Billing.isPromoOrManualGrant
       ? Billing.isPromoOrManualGrant(ent)
       : (isPaidSub && !ent.stripe_subscription_id) ||
-        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end));
+        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) ||
+        (isPaidSub && !ent.stripe_last_payment_at));
     const hasStripeSub = !!(Billing && Billing.hasStripeSubscription
       ? Billing.hasStripeSubscription(ent)
       : (ent.stripe_subscription_id && !isPromoGrant));

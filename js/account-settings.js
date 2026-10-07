@@ -248,17 +248,20 @@
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
+    var grantEnt = {
+      plan: prof.plan,
+      paid_active: prof.plan === 'pro' || prof.plan === 'premium',
+      subscription_status: prof.subscription_status,
+      subscription_cancel_at_period_end: prof.subscription_cancel_at_period_end,
+      stripe_subscription_id: prof.stripe_subscription_id,
+      stripe_last_payment_at: prof.stripe_last_payment_at
+    };
     var promoGrant = !!(global.PTBilling && global.PTBilling.isPromoOrManualGrant
-      ? global.PTBilling.isPromoOrManualGrant({
-        plan: prof.plan,
-        paid_active: prof.plan === 'pro' || prof.plan === 'premium',
-        subscription_status: prof.subscription_status,
-        subscription_cancel_at_period_end: prof.subscription_cancel_at_period_end,
-        stripe_subscription_id: prof.stripe_subscription_id
-      })
+      ? global.PTBilling.isPromoOrManualGrant(grantEnt)
       : ((prof.plan === 'pro' || prof.plan === 'premium') &&
         ((String(prof.subscription_status) === 'trialing' && !!prof.subscription_cancel_at_period_end) ||
-          !prof.stripe_subscription_id)));
+          !prof.stripe_subscription_id ||
+          !prof.stripe_last_payment_at)));
     var hasStripeSub = !promoGrant && !!(prof.stripe_subscription_id);
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
     var billingBtnLabel = hasStripeSub ? 'Gestionar suscripción' : 'Activar suscripción';
@@ -581,16 +584,7 @@
       billing.onclick = function () {
         var B = global.PTBilling;
         if (!B) return;
-        var run = hasStripeSub
-          ? (B.openPortalWithHint || B.openPortal)
-          : (B.subscribeViaCheckout
-            ? function () {
-              return B.subscribeViaCheckout(
-                prof.plan === 'premium' ? 'premium' : 'pro',
-                prof.billing_interval === 'year' ? 'year' : 'month'
-              );
-            }
-            : B.openPortal);
+        var run = B.manageBilling || B.openPortalWithHint || B.openPortal;
         if (!run) return;
         Promise.resolve(run.call(B)).catch(function (e) {
           alert((e && e.message) || 'No se pudo abrir el pago.');
