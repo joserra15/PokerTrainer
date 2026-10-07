@@ -164,9 +164,26 @@
       : null;
   }
 
+  /**
+   * Promo / asignación manual: trialing + cancel_at_period_end (pt_redeem_promotion).
+   * Tiene prioridad sobre un stripe_subscription_id obsoleto en el perfil.
+   */
+  function isPromoOrManualGrant(ent) {
+    ent = ent || currentEntitlements() || {};
+    if (!(ent.plan === 'pro' || ent.plan === 'premium')) return false;
+    if (!ent.paid_active && ent.subscription_status !== 'trialing' && ent.subscription_status !== 'active') {
+      return false;
+    }
+    if (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) {
+      return true;
+    }
+    return !ent.stripe_subscription_id && !!ent.paid_active;
+  }
+
   /** True solo si hay suscripción Stripe real (no promo/manual grant). */
   function hasStripeSubscription(ent) {
     ent = ent || currentEntitlements() || {};
+    if (isPromoOrManualGrant(ent)) return false;
     return !!(ent.stripe_subscription_id);
   }
 
@@ -597,6 +614,7 @@
     startBonusCheckout: startBonusCheckout,
     openPortal: openPortal,
     hasStripeSubscription: hasStripeSubscription,
+    isPromoOrManualGrant: isPromoOrManualGrant,
     subscribeViaCheckout: subscribeViaCheckout,
     syncPayments: syncPayments,
     syncBonusPurchases: syncBonusPurchases,

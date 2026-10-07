@@ -248,7 +248,18 @@
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
-    var hasStripeSub = !!(prof.stripe_subscription_id);
+    var promoGrant = !!(global.PTBilling && global.PTBilling.isPromoOrManualGrant
+      ? global.PTBilling.isPromoOrManualGrant({
+        plan: prof.plan,
+        paid_active: prof.plan === 'pro' || prof.plan === 'premium',
+        subscription_status: prof.subscription_status,
+        subscription_cancel_at_period_end: prof.subscription_cancel_at_period_end,
+        stripe_subscription_id: prof.stripe_subscription_id
+      })
+      : ((prof.plan === 'pro' || prof.plan === 'premium') &&
+        ((String(prof.subscription_status) === 'trialing' && !!prof.subscription_cancel_at_period_end) ||
+          !prof.stripe_subscription_id)));
+    var hasStripeSub = !promoGrant && !!(prof.stripe_subscription_id);
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
     var billingBtnLabel = hasStripeSub ? 'Gestionar suscripción' : 'Activar suscripción';
     var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&

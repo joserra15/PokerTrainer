@@ -171,6 +171,12 @@ export async function syncUserSubscription(
 
   const sub = await fetchBestSubscription(customerId, preferredSubId);
   if (!sub) {
+    // Quitar id de sub obsoleto sin tocar el plan (p. ej. acceso promo).
+    if (preferredSubId) {
+      await admin.from('pt_user_profiles').update({
+        stripe_subscription_id: null
+      }).eq('user_id', userId);
+    }
     return { ok: true as const, customerId, plan: null, synced: false };
   }
 

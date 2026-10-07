@@ -131,6 +131,9 @@ assert.ok(/functionsUrl:\s*''/.test(billingCfgSrc), 'functionsUrl vacío; se der
 
 
 assert.ok(/hasStripeSubscription/.test(billingSrc), 'billing.js hasStripeSubscription');
+assert.ok(/isPromoOrManualGrant/.test(billingSrc), 'billing.js isPromoOrManualGrant');
+assert.ok(/trialing/.test(billingSrc) && /subscription_cancel_at_period_end/.test(billingSrc),
+  'promo grant = trialing + cancel_at_period_end');
 assert.ok(/subscribeViaCheckout/.test(billingSrc), 'billing.js subscribeViaCheckout');
 assert.ok(/no_subscription/.test(billingSrc) && /subscribeViaCheckout/.test(billingSrc),
   'openPortal sin sub → checkout');

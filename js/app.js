@@ -5605,12 +5605,15 @@
       window.PTBillingPromo.founderSeatsOpen());
     const founder = (Billing && Billing.founderInfo) ? Billing.founderInfo() : (window.PT_BILLING && window.PT_BILLING.founder) || null;
     const isPaidSub = !!ent.paid_active && (ent.plan === 'pro' || ent.plan === 'premium');
-    // Promo / asignación manual: plan activo sin suscripción Stripe → checkout, no portal.
+    // Promo / asignación manual → Checkout (no portal «Actualiza la suscripción»).
+    const isPromoGrant = !!(Billing && Billing.isPromoOrManualGrant
+      ? Billing.isPromoOrManualGrant(ent)
+      : (isPaidSub && !ent.stripe_subscription_id) ||
+        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end));
     const hasStripeSub = !!(Billing && Billing.hasStripeSubscription
       ? Billing.hasStripeSubscription(ent)
-      : ent.stripe_subscription_id);
-    const isStripeManaged = isPaidSub && hasStripeSub;
-    const isPromoGrant = isPaidSub && !hasStripeSub;
+      : (ent.stripe_subscription_id && !isPromoGrant));
+    const isStripeManaged = isPaidSub && hasStripeSub && !isPromoGrant;
     const curInterval = ent.billing_interval === 'year' ? 'year'
       : (ent.billing_interval === 'month' ? 'month' : null);
     const periodEnd = ent.subscription_period_end || null;
@@ -5733,15 +5736,28 @@
 
     grid.querySelectorAll('[data-plan-change]').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        if (!window.PTBilling || !window.PTBilling.startPlanChange) {
-          if (window.PTBilling && window.PTBilling.openPortalWithHint) {
-            window.PTBilling.openPortalWithHint();
-          } else if (window.PTBilling && window.PTBilling.openPortal) {
-            window.PTBilling.openPortal();
+        var B = window.PTBilling;
+        if (!B) return;
+        // Sin sub Stripe (promo): Checkout al plan/intervalo del botón, no portal.
+        if (B.isPromoOrManualGrant && B.isPromoOrManualGrant(ent) && B.startCheckout) {
+          var target = btn.dataset.planChange;
+          if (target === 'free') {
+            alert('Tu acceso promocional termina en la fecha de fin de periodo. Para cancelar antes, contacta con soporte.');
+            return;
           }
+          var plan = target === 'premium' ? 'premium' : 'pro';
+          var interval = btn.dataset.interval === 'year' ? 'year' : 'month';
+          B.startCheckout(plan, interval).catch(function (e) {
+            alert(e.message || 'No se pudo iniciar el pago.');
+          });
           return;
         }
-        window.PTBilling.startPlanChange().catch(function (e) {
+        if (!B.startPlanChange) {
+          if (B.openPortalWithHint) B.openPortalWithHint();
+          else if (B.openPortal) B.openPortal();
+          return;
+        }
+        B.startPlanChange().catch(function (e) {
           alert(e.message || 'No se pudo abrir el portal de suscripción.');
         });
       });
