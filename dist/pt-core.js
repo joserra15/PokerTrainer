@@ -20582,6 +20582,12 @@ window.PT_NASH_PUSH_JSON = {
     return false;
   }
 
+  /** Anillo HU = [SB, BB]. BTN es etiqueta del botón (= SB), no un asiento extra. */
+  function huRingSeat(pos) {
+    if (pos === 'BTN') return 'SB';
+    return pos;
+  }
+
   function is9Max(config) {
     const c = config || {};
     // MTT Heads Up es 2-max: no usar anillo/coords/escenarios 9-max.
@@ -20644,10 +20650,13 @@ window.PT_NASH_PUSH_JSON = {
       if (scenario.heroPos) return scenario.heroPos;
       if (scenario.displayHeroPos) return scenario.displayHeroPos;
     }
-    return scenario.engineHeroPos
+    let seat = scenario.engineHeroPos
       || (scenario.type === 'RFI' ? enginePos(scenario.heroPos) : null)
       || (scenario.type === 'face3bet' ? parseFace3betKey(scenario.key).opener : null)
       || ((scenario.type === 'vsRFI' || scenario.type === 'face4bet') ? parseVsKey(scenario.key).hero : scenario.heroPos);
+    // HU: repartir al asiento SB aunque la etiqueta sea BTN.
+    if (isHuPhase(config) && seat) seat = huRingSeat(seat);
+    return seat;
   }
 
   function openerDealSeat(scenario, config) {
@@ -21127,9 +21136,13 @@ window.PT_NASH_PUSH_JSON = {
 
   function matchHeroPos(scenario, filterPos, config) {
     if (!filterPos || filterPos === 'random') return true;
-    const eng = enginePos(filterPos);
+    // HU: filtro BTN ≡ SB (misma silla del anillo).
+    const ringFilter = isHuPhase(config) ? huRingSeat(filterPos) : filterPos;
+    const eng = enginePos(ringFilter);
     if (scenario.type === 'RFI') {
-      return enginePos(scenario.heroPos) === eng || scenario.heroPos === filterPos;
+      const scRing = isHuPhase(config) ? huRingSeat(scenario.heroPos) : scenario.heroPos;
+      return enginePos(scenario.heroPos) === eng || scenario.heroPos === filterPos
+        || scRing === ringFilter;
     }
     if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
       const h = parseVsKey(scenario.key).hero;
@@ -21153,6 +21166,31 @@ window.PT_NASH_PUSH_JSON = {
 
   function applyHeroPosFilter(scenario, filterPos, config) {
     if (!filterPos || filterPos === 'random') return scenario;
+    // HU + BTN: etiqueta BTN, asiento de motor/anillo SB (no crear asiento BTN).
+    if (isHuPhase(config) && filterPos === 'BTN') {
+      if (scenario.type === 'RFI' || scenario.type === 'sbLimp' || scenario.type === 'isoLimp'
+        || scenario.type === 'squeeze' || scenario.type === 'cold4bet'
+        || scenario.type === 'srp3way' || scenario.type === 'srp4way' || scenario.type === 'limpPot') {
+        scenario.heroPos = 'SB';
+        scenario.displayHeroPos = 'BTN';
+        scenario.engineHeroPos = 'SB';
+        return scenario;
+      }
+      if (scenario.type === 'vsRFI' || scenario.type === 'face4bet') {
+        const pk = parseVsKey(scenario.key);
+        scenario.key = 'SB_vs_' + pk.opener;
+        scenario.displayHeroPos = 'BTN';
+        scenario.engineHeroPos = 'SB';
+        return scenario;
+      }
+      if (scenario.type === 'face3bet') {
+        const pk = parseFace3betKey(scenario.key);
+        scenario.key = 'SB_vs_' + pk.threeBettor;
+        scenario.displayHeroPos = 'BTN';
+        scenario.engineHeroPos = 'SB';
+        return scenario;
+      }
+    }
     if (scenario.type === 'RFI') {
       scenario.heroPos = filterPos;
       scenario.engineHeroPos = enginePos(filterPos);
@@ -21431,7 +21469,7 @@ window.PT_NASH_PUSH_JSON = {
     sampleCallerWeights, sampleColdCallWeights, sampleMultiwayHeroWeights, sampleThreeBettorWeights, sampleFromWeights,
     getScenarioDeals, extra9MaxPlayerCount, tablePositions, dealOrder,
     heroDealSeat, openerDealSeat, displaySeatForEngine, villainTableSeat,
-    is9Max, isMtt, isSpin, isHuPhase,
+    is9Max, isMtt, isSpin, isHuPhase, huRingSeat,
     POS_HU, DEAL_ORDER_HU, RFI_POS_HU, is3Max, heroPositions, enginePos, parseVsKey, parseFace3betKey, filterWeights, stackBB,
     vsRfiTable, openRaiseTable, vs3betKeys, SQUEEZE_COMBOS, COLD4BET_COMBOS, ISO_COMBOS, buildScenarioPool, mapScenarioType
   };
@@ -22315,7 +22353,17 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function heroTableSeat(hand) {
-    return hand.displayHeroPos || hand.hero.pos;
+    const PC = global.PTPlayConfig;
+    const hu = !!(PC && hand && hand.playConfig && PC.isHuPhase && PC.isHuPhase(hand.playConfig));
+    if (hu) {
+      // Etiqueta BTN ≠ asiento: en HU el botón posts SB.
+      const eng = hand.hero && hand.hero.pos;
+      if (eng === 'SB' || eng === 'BB') return eng;
+      const disp = hand.displayHeroPos;
+      if (disp === 'BTN' || eng === 'BTN') return 'SB';
+      return eng || disp || null;
+    }
+    return hand.displayHeroPos || (hand.hero && hand.hero.pos);
   }
 
   /** Asiento de mesa del héroe para stacks/caps (9-max: display ≠ engine pos). */
@@ -25029,6 +25077,7 @@ window.PT_NASH_PUSH_JSON = {
       playConfig: cfg || null,
       displayHeroPos: dealt.displayHeroPos
         || (force && (force.displayHeroPos || force.heroPos))
+        || (scenario && scenario.displayHeroPos)
         || (scenario && scenario.heroPos)
         || null,
       hero: { cards: [], code: null, pos: null },
@@ -25473,16 +25522,23 @@ window.PT_NASH_PUSH_JSON = {
 
   function setupRFI(hand) {
     let pos = scenarioHeroPos(hand) || hand.displayHeroPos || null;
+    const cfg = hand.playConfig;
+    const hu = cfg && global.PTPlayConfig && global.PTPlayConfig.isHuPhase
+      && global.PTPlayConfig.isHuPhase(cfg);
     if (!pos) {
-      const cfg = hand.playConfig;
-      const hu = cfg && global.PTPlayConfig && global.PTPlayConfig.isHuPhase
-        && global.PTPlayConfig.isHuPhase(cfg);
       pos = hu ? 'SB' : 'BTN';
     }
+    // HU: conservar etiqueta BTN; asiento de motor = SB (ciega + anillo).
+    let displayPos = hand.displayHeroPos || (hand.scenario && hand.scenario.displayHeroPos) || null;
+    if (hu && (pos === 'BTN' || displayPos === 'BTN')) {
+      displayPos = 'BTN';
+      pos = 'SB';
+    } else if (!displayPos) {
+      displayPos = (hand.scenario && hand.scenario.heroPos) || pos;
+    }
     hand.hero.pos = pos;
-    const displayPos = hand.displayHeroPos || hand.scenario.heroPos || pos;
     if (hand.scenario && !hand.scenario.heroPos) hand.scenario.heroPos = pos;
-    if (!hand.displayHeroPos) hand.displayHeroPos = displayPos;
+    hand.displayHeroPos = displayPos;
     const openSize = openSizeForPos(hand, pos);
     const mode = preflopSizingMode(hand);
     const stackBB = round2(effStackForHand(hand));

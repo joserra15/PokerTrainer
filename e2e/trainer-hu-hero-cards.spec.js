@@ -26,14 +26,29 @@ test.describe('Entrenador HU: héroe BTN no tapa cartas @mobile', () => {
     const rfi = page.locator('#setup-scenario [data-val="rfi"]');
     if (await rfi.count() && await rfi.isVisible()) await rfi.click();
 
+    // Forzar chip BTN activo tras HU (simula residual): el anillo sigue SB/BB.
+    await page.evaluate(() => {
+      const box = document.getElementById('setup-hero-pos');
+      if (!box) return;
+      box.querySelectorAll('.setup-chip').forEach((c) => c.classList.remove('active'));
+      let btn = box.querySelector('[data-val="BTN"]');
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'setup-chip';
+        btn.setAttribute('data-val', 'BTN');
+        btn.textContent = 'BTN';
+        box.appendChild(btn);
+      }
+      btn.classList.add('active');
+    });
+
     await page.click('#play-start');
     await page.waitForSelector('#play-active:not(.hidden)', { timeout: 20000 });
     await page.waitForSelector('#hero-cards .card, #hero-cards [class*="card"]', { timeout: 15000 });
 
     const heroLabel = (await page.locator('#hero-pos').innerText()).trim();
-    // Etiqueta puede ser BTN (alias HU) o SB si el filtro se limpió; ambos OK
-    // si las cartas no están tapadas.
-    expect(['BTN', 'SB']).toContain(heroLabel);
+    expect(heroLabel).toBe('BTN');
 
     const heroCards = page.locator('#hero-cards');
     await expect(heroCards).toBeVisible();
