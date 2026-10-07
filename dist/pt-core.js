@@ -39338,7 +39338,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function enabled() {
     var c = cfg();
-    return !!(c.enabled && c.functionsUrl && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
+    return !!(c.enabled && functionsBase() && global.PTSupabase && global.PTSupabase.useAuth && global.PTSupabase.useAuth());
   }
 
   function purchasesPaused() {
@@ -39406,7 +39406,23 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function functionsBase() {
-    return String(cfg().functionsUrl || '').replace(/\/$/, '');
+    var fromBilling = String(cfg().functionsUrl || '').trim().replace(/\/$/, '');
+    if (fromBilling && isValidFunctionsBase(fromBilling)) return fromBilling;
+    var sb = global.PT_SUPABASE || {};
+    var fromSb = String(sb.url || '').trim().replace(/\/$/, '');
+    if (fromSb) return fromSb + '/functions/v1';
+    return fromBilling;
+  }
+
+  /** Reject placeholders / scrubbed hosts that break fetch (e.g. literal [REDACTED]). */
+  function isValidFunctionsBase(url) {
+    if (!url || /\[|\]|YOUR_PROJECT|TU_PROYECTO|REDACTED/i.test(url)) return false;
+    try {
+      var u = new URL(url);
+      return (u.protocol === 'https:' || u.protocol === 'http:') && !!u.hostname && !u.username && !u.password;
+    } catch (e) {
+      return false;
+    }
   }
 
   function openInNewTab(url) {

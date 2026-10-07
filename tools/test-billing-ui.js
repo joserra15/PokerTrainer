@@ -121,4 +121,67 @@ if (trial) {
 assert.ok(/purchasesPaused|founder|seatsOpen/.test(billingCfgEx), 'billing-config.example documenta pause/FOUNDER');
 assert.ok(!/SUMMER26/.test(billingCfgEx), 'billing-config.example sin SUMMER26');
 
-console.log('*** billing-ui OK (paywall markers + no price leak) ***');
+// functionsUrl no debe llevar project ref scrubbed (rompe fetch → stripe-portal)
+const billingCfgSrc = fs.readFileSync(path.join(root, 'js/billing-config.js'), 'utf8');
+assert.ok(!/functionsUrl:\s*'[^']*\[REDACTED\]/.test(billingCfgSrc), 'billing-config sin [REDACTED] en functionsUrl');
+assert.ok(!/functionsUrl:\s*'https:\/\/[^']*supabase\.co/.test(billingCfgSrc),
+  'billing-config no hardcodea project ref (usar PT_SUPABASE.url)');
+assert.ok(/isValidFunctionsBase/.test(billingSrc), 'billing.js valida functionsUrl');
+assert.ok(/functionsUrl:\s*''/.test(billingCfgSrc), 'functionsUrl vacío; se deriva en runtime');
+
+// Derive: functionsUrl vacío o scrubbed → PT_SUPABASE.url/functions/v1
+(async function testFunctionsUrlFallback() {
+  async function runCase(functionsUrl) {
+    const fetchCalls = [];
+    const box = {
+      window: {
+        PT_BILLING: {
+          enabled: true,
+          purchasesPaused: false,
+          functionsUrl: functionsUrl,
+          plans: {},
+          trial: { days: 10, plan: 'pro' }
+        },
+        PT_SUPABASE: { url: 'https://abcdefghijklmnopqr.supabase.co', anonKey: 'test-anon' },
+        PTSupabase: {
+          useAuth: () => true,
+          getAccessToken: async () => 'tok'
+        },
+        open() { return { closed: false }; },
+        location: { href: '' }
+      },
+      console,
+      document: sandbox.document,
+      URL,
+      fetch: async (url) => {
+        fetchCalls.push(String(url));
+        return { ok: true, json: async () => ({ url: 'https://billing.example/portal' }) };
+      },
+      addEventListener() {},
+      dispatchEvent() { return true; }
+    };
+    box.global = box;
+    box.window.document = box.document;
+    box.window.addEventListener = box.addEventListener;
+    box.window.dispatchEvent = box.dispatchEvent;
+    box.window.URL = URL;
+    box.window.fetch = box.fetch;
+    vm.createContext(box);
+    vm.runInContext(billingSrc, box, { filename: 'billing.js' });
+    assert.ok(box.window.PTBilling.enabled(), 'billing enabled con derive');
+    await box.window.PTBilling.openPortal();
+    assert.strictEqual(
+      fetchCalls[0],
+      'https://abcdefghijklmnopqr.supabase.co/functions/v1/stripe-portal',
+      'openPortal deriva PT_SUPABASE.url cuando functionsUrl=' + JSON.stringify(functionsUrl)
+    );
+  }
+
+  await runCase('');
+  await runCase('https://[REDACTED].supabase.co/functions/v1');
+})().then(function () {
+  console.log('*** billing-ui OK (paywall markers + no price leak) ***');
+}).catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
