@@ -47120,26 +47120,29 @@ window.PT_NASH_PUSH_JSON = {
     const fmt = window.GTOPotMath ? window.GTOPotMath.formatBB : (x) => String(x);
     const view = handPresent(hand);
     const pot = view ? view.potBB : (hand.current ? hand.current.potBB : hand.potBB);
-    $('#hero-pos').textContent = hand.displayHeroPos || hand.hero.pos;
+    const heroLabel = hand.displayHeroPos || hand.hero.pos;
+    const heroSeatKey = heroRingSeat() || heroLabel;
+    $('#hero-pos').textContent = heroLabel;
     $('#pot').innerHTML = '<span class="pot-chips">' + chipStackHTML(pot || 0) + '</span> '
       + tt('play.pot') + ': <strong class="pot-amt">' + (pot != null ? fmt(pot) : '-') + ' bb</strong>';
     $('#hero-cards').innerHTML = hand.hero.cards.map(Cards.cardFaceHTML).join('');
     $('#hero-handname').textContent = handNameOnBoard();
     $('#hero-action').innerHTML = actionBadgeHTML(view ? view.heroAction : hand.heroAction);
     const heroTbl = hand.table || {};
-    const heroSeatKey = hand.displayHeroPos || hand.hero.pos;
     const heroStreet = view
-      ? ((view.streetBet && (view.streetBet[hand.hero.pos] || view.streetBet[heroSeatKey])) || 0)
+      ? ((view.streetBet && (view.streetBet[hand.hero.pos] || view.streetBet[heroSeatKey] || view.streetBet[heroLabel])) || 0)
       : ((heroTbl.streetBet && hand.hero.pos) ? (heroTbl.streetBet[hand.hero.pos] || 0) : 0);
     const heroInv = view
-      ? ((view.invested && (view.invested[hand.hero.pos] || view.invested[heroSeatKey])) || 0)
+      ? ((view.invested && (view.invested[hand.hero.pos] || view.invested[heroSeatKey] || view.invested[heroLabel])) || 0)
       : (hand.heroInvested || 0);
     const heroChipsEl = $('#hero-chips');
     if (heroChipsEl) {
       let heroHtml = '';
-      const heroSeat = hand.displayHeroPos || hand.hero.pos;
-      if (window.PTStacks && hand.stacks && heroSeat) {
-        heroHtml += renderSeatStack(hand, heroSeat);
+      if (window.PTStacks && hand.stacks && heroSeatKey) {
+        heroHtml += renderSeatStack(hand, heroSeatKey);
+        if (!heroHtml && heroLabel && heroLabel !== heroSeatKey) {
+          heroHtml += renderSeatStack(hand, heroLabel);
+        }
       }
       if (heroInv > 0 || heroStreet > 0) heroHtml += renderSeatChips(heroInv, heroStreet);
       heroChipsEl.innerHTML = heroHtml;
@@ -47378,6 +47381,26 @@ window.PT_NASH_PUSH_JSON = {
     return hand.displayHeroPos || hand.hero.pos;
   }
 
+  /**
+   * Asiento del anillo de mesa del héroe.
+   * En HU el anillo es [SB, BB] pero el héroe puede etiquetarse BTN (botón = SB).
+   * Si no resolvemos BTN→SB, ringFromHero cae a idx 0 y el pod SB (sin .hero)
+   * se pinta encima de #hero-cards.
+   */
+  function heroRingSeat() {
+    const pos = heroSeatOnTable();
+    if (pos && isHuTable() && pos === 'BTN') return 'SB';
+    return pos;
+  }
+
+  function isHeroTableSeat(pos) {
+    if (!pos) return false;
+    const hero = heroSeatOnTable();
+    if (!hero) return false;
+    if (pos === hero) return true;
+    return !!(isHuTable() && hero === 'BTN' && pos === 'SB');
+  }
+
   function villainSeatOnTable() {
     if (!hand || !hand.villain || !hand.villain.pos) return null;
     const tbl = hand.table || {};
@@ -47412,7 +47435,7 @@ window.PT_NASH_PUSH_JSON = {
   function renderSeats() {
     const mobile = isMobileLayout();
     const coords = seatCoordsForTable();
-    const ring = ringFromHero(heroSeatOnTable());
+    const ring = ringFromHero(heroRingSeat());
     const villainPos = villainSeatOnTable();
     const view = handPresent(hand);
     const tbl = hand.table || {};
@@ -47429,7 +47452,7 @@ window.PT_NASH_PUSH_JSON = {
     let html = '';
     ring.forEach((pos, i) => {
       const c = coords[i];
-      const isHero = pos === heroSeatOnTable();
+      const isHero = isHeroTableSeat(pos);
       const isVillain = villainPos && pos === villainPos;
       const isCaller = hand.scenario && (
         hand.scenario.callerPos === pos
@@ -47536,7 +47559,10 @@ window.PT_NASH_PUSH_JSON = {
 
   function ringFromHero(heroPos) {
     const list = tablePosRing();
-    let idx = list.indexOf(heroPos);
+    let seat = heroPos;
+    // HU: BTN no está en el anillo; es el asiento SB.
+    if (seat === 'BTN' && list.indexOf('BTN') < 0 && list.indexOf('SB') >= 0) seat = 'SB';
+    let idx = list.indexOf(seat);
     if (idx < 0) idx = 0;
     const ring = [];
     for (let i = 0; i < list.length; i++) ring.push(list[(idx + i) % list.length]);
@@ -49107,7 +49133,8 @@ window.PT_NASH_PUSH_JSON = {
     const isPromoGrant = !!(Billing && Billing.isPromoOrManualGrant
       ? Billing.isPromoOrManualGrant(ent)
       : (isPaidSub && !ent.stripe_subscription_id) ||
-        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end));
+        (String(ent.subscription_status) === 'trialing' && !!ent.subscription_cancel_at_period_end) ||
+        (isPaidSub && !ent.stripe_last_payment_at));
     const hasStripeSub = !!(Billing && Billing.hasStripeSubscription
       ? Billing.hasStripeSubscription(ent)
       : (ent.stripe_subscription_id && !isPromoGrant));
