@@ -127,8 +127,13 @@ serve(async (req) => {
 
     // Trial Study 10 días: solo plan pro, una vez por cliente Stripe
     // (si ya tuvo suscripción active/trialing, no volver a ofrecer trial).
+    // Tampoco si ya tiene plan de pago por promo/manual (sin Stripe sub).
     let offerTrial = false;
-    if (plan === 'pro') {
+    const profilePlan = (profile?.plan as string) || 'free';
+    const profileStatus = (profile?.subscription_status as string) || '';
+    const alreadyGrantedPaid = profilePlan !== 'free' &&
+      ['active', 'trialing', 'canceling', 'past_due'].includes(profileStatus);
+    if (plan === 'pro' && !alreadyGrantedPaid) {
       try {
         const hist = await stripeRequest(
           '/subscriptions?customer=' + encodeURIComponent(customerId) + '&status=all&limit=20',
@@ -141,7 +146,7 @@ serve(async (req) => {
         offerTrial = !hadPaidOrTrial;
       } catch (e) {
         console.warn('[stripe-checkout] trial eligibility check failed', e);
-        offerTrial = (profile?.plan as string) === 'free' && !profile?.stripe_subscription_id;
+        offerTrial = profilePlan === 'free' && !profile?.stripe_subscription_id;
       }
     }
 

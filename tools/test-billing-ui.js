@@ -129,6 +129,12 @@ assert.ok(!/functionsUrl:\s*'https:\/\/[^']*supabase\.co/.test(billingCfgSrc),
 assert.ok(/isValidFunctionsBase/.test(billingSrc), 'billing.js valida functionsUrl');
 assert.ok(/functionsUrl:\s*''/.test(billingCfgSrc), 'functionsUrl vacío; se deriva en runtime');
 
+
+assert.ok(/hasStripeSubscription/.test(billingSrc), 'billing.js hasStripeSubscription');
+assert.ok(/subscribeViaCheckout/.test(billingSrc), 'billing.js subscribeViaCheckout');
+assert.ok(/no_subscription/.test(billingSrc) && /subscribeViaCheckout/.test(billingSrc),
+  'openPortal sin sub → checkout');
+
 // Derive: functionsUrl vacío o scrubbed → PT_SUPABASE.url/functions/v1
 (async function testFunctionsUrlFallback() {
   async function runCase(functionsUrl) {

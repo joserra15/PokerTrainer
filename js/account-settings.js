@@ -248,7 +248,9 @@
     var payments = (data && data.payments) || [];
     var bonus = (data && data.bonus_ledger) || [];
     var billingOn = global.PTBilling && global.PTBilling.enabled && global.PTBilling.enabled();
+    var hasStripeSub = !!(prof.stripe_subscription_id);
     var showBilling = billingOn && (prof.plan !== 'free' || prof.subscription_status === 'active');
+    var billingBtnLabel = hasStripeSub ? 'Gestionar suscripción' : 'Activar suscripción';
     var hideCommunityBilling = !!(global.PTCommunity && global.PTCommunity.config &&
       global.PTCommunity.config() && global.PTCommunity.config().billing &&
       global.PTCommunity.config().billing.hidePricing);
@@ -300,7 +302,8 @@
       row('Intervalo', escapeHtml(prof.billing_interval || '—')) +
       (prof.subscription_cancel_at_period_end ? row('Renovación', 'Sin renovación automática') : '') +
       '<div class="account-settings-actions">' +
-      (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">Gestionar suscripción</button>' : '') +
+      (showBilling ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-billing">' +
+        escapeHtml(billingBtnLabel) + '</button>' : '') +
       '<button type="button" class="btn btn-primary btn-sm" id="settings-upgrade">Ver planes</button>' +
       (!prof.is_founder_study
         ? '<button type="button" class="btn btn-ghost btn-sm" id="settings-founder-study" data-founder-request="study">Solicitar FOUNDER Study</button>'
@@ -565,11 +568,22 @@
     var billing = $('#settings-billing');
     if (billing) {
       billing.onclick = function () {
-        if (global.PTBilling && global.PTBilling.openPortal) {
-          global.PTBilling.openPortal().catch(function (e) {
-            alert(e.message || 'No se pudo abrir el portal.');
-          });
-        }
+        var B = global.PTBilling;
+        if (!B) return;
+        var run = hasStripeSub
+          ? (B.openPortalWithHint || B.openPortal)
+          : (B.subscribeViaCheckout
+            ? function () {
+              return B.subscribeViaCheckout(
+                prof.plan === 'premium' ? 'premium' : 'pro',
+                prof.billing_interval === 'year' ? 'year' : 'month'
+              );
+            }
+            : B.openPortal);
+        if (!run) return;
+        Promise.resolve(run.call(B)).catch(function (e) {
+          alert((e && e.message) || 'No se pudo abrir el pago.');
+        });
       };
     }
     var upgrade = $('#settings-upgrade');
