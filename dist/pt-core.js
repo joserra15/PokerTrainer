@@ -38935,10 +38935,23 @@ window.PT_NASH_PUSH_JSON = {
   function localFallback() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
     var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
+    var admin = !demoActive() && isAdmin();
+    var limits = Object.assign({}, DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free);
+    if (admin) {
+      limits = {
+        trainer_hands_per_day: null,
+        import_sessions_per_month: null,
+        max_hands_per_import: null,
+        ai_reports_per_month: null,
+        history_days: null,
+        analysis_hands_max: 1000
+      };
+    }
     return {
       plan: plan,
       plan_label: PLAN_LABELS[plan] || plan,
-      is_admin: false,
+      is_admin: admin,
+      unlimited: admin || plan === 'pro' || plan === 'premium',
       is_founder: !!(u && u.isFounder),
       is_founder_study: !!(u && u.isFounderStudy),
       is_founder_coach: !!(u && u.isFounderCoach),
@@ -38948,7 +38961,7 @@ window.PT_NASH_PUSH_JSON = {
       demo_mode: demoActive(),
       subscription_status: 'none',
       paid_active: plan === 'pro' || plan === 'premium',
-      limits: DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free,
+      limits: limits,
       usage: {
         trainer_hands_today: 0,
         import_sessions_month: 0,
@@ -38987,7 +39000,14 @@ window.PT_NASH_PUSH_JSON = {
     data.founder_coach_requested_at = data.founder_coach_requested_at || null;
     if (!data.is_admin && isAdmin()) data.is_admin = true;
     if (data.is_admin) {
+      data.limits.trainer_hands_per_day = null;
+      data.limits.import_sessions_per_month = null;
+      data.limits.max_hands_per_import = null;
       data.limits.ai_reports_per_month = null;
+      data.limits.history_days = null;
+      if (data.limits.analysis_hands_max == null) data.limits.analysis_hands_max = 1000;
+      data.unlimited = true;
+    } else if (data.plan === 'pro' || data.plan === 'premium') {
       data.unlimited = true;
     } else if (data.limits && data.limits.ai_reports_per_month == null) {
       data.unlimited = true;
@@ -39092,7 +39112,9 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function unlimited(ent) {
-    return ent.is_admin || ent.plan === 'pro' || ent.plan === 'premium';
+    ent = ent || state || localFallback();
+    return !!(ent.is_admin || ent.unlimited || isAdmin() ||
+      ent.plan === 'pro' || ent.plan === 'premium');
   }
 
   function bonusActive(ent) {
@@ -39287,6 +39309,13 @@ window.PT_NASH_PUSH_JSON = {
   function recordTrainerHandAsync() {
     /* Invitados no ganan Koins ni consumen cupo autenticado. */
     if (isGuestUser()) return { ok: true };
+    /* Study/Coach/admin: sin techo diario. No bloquear por un RPC fallido previo
+       (p.ej. red) ni mostrar «Mejora tu plan» a quien ya tiene plan de pago. */
+    if (unlimited(state || localFallback())) {
+      trainerQuotaBlockedReason = null;
+      awardTrainerKoins();
+      return { ok: true };
+    }
     if (trainerQuotaBlockedReason) {
       return { ok: false, error: trainerQuotaBlockedReason };
     }
@@ -39305,25 +39334,50 @@ window.PT_NASH_PUSH_JSON = {
 
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
     Promise.resolve(c.rpc(rpc)).then(function (res) {
+      if (unlimited(state || localFallback())) {
+        trainerQuotaBlockedReason = null;
+        return;
+      }
       if (res && res.error) {
         bumpLocalTrainerUsage(-1);
-        trainerQuotaBlockedReason = res.error.message || 'trainer_limit';
+        /* Excepción PostgREST/red: no tratar como techo freemium. */
+        var errMsg = (res.error && res.error.message) || '';
+        if (isTrainerQuotaError(errMsg)) {
+          trainerQuotaBlockedReason = 'trainer_limit';
+        }
         return;
       }
       var data = res && res.data;
       if (data && data.ok === false) {
         bumpLocalTrainerUsage(-1);
-        trainerQuotaBlockedReason = data.error || data.reason || 'trainer_limit';
+        if (isTrainerQuotaError(data.error || data.reason)) {
+          trainerQuotaBlockedReason = 'trainer_limit';
+        }
         return;
       }
       /* Usage ya incrementado en local; no volver a sumar. */
       try { scheduleRefresh(); } catch (eRefresh) { /* ignore */ }
-    }).catch(function (e) {
+    }).catch(function () {
+      if (unlimited(state || localFallback())) {
+        trainerQuotaBlockedReason = null;
+        return;
+      }
+      /* Fallo de red: revertir contador optimista, sin paywall de upgrade. */
       bumpLocalTrainerUsage(-1);
-      trainerQuotaBlockedReason = (e && e.message) || 'trainer_limit';
     });
 
     return { ok: true };
+  }
+
+  /** Solo respuestas de cupo del RPC (no JWT/red) bloquean la siguiente mano. */
+  function isTrainerQuotaError(reason) {
+    var r = String(reason || '').trim().toLowerCase();
+    if (!r) return false;
+    if (r === 'trainer_limit') return true;
+    if (/not_authenticated|jwt|login|session|forbidden|network|fetch|timeout/.test(r)) {
+      return false;
+    }
+    return /trainer_limit|quota/.test(r);
   }
 
   function canImportSession(handCount, ent) {
@@ -39824,6 +39878,13 @@ window.PT_NASH_PUSH_JSON = {
     if (global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive()) {
       if (global.PTGuest.showGate) global.PTGuest.showGate(reason === 'guest_gate' ? 'limit' : (reason || 'tab'));
       return;
+    }
+    /* Study/Coach/admin no deben ver el muro freemium (p.ej. tras un RPC de cupo fallido). */
+    var Ent = global.PTEntitlements;
+    if (Ent && (reason === 'trainer_limit' || reason === 'import_limit' || reason === 'import_hands_limit')) {
+      var ent = Ent.get ? Ent.get() : null;
+      if (ent && Ent.unlimited && Ent.unlimited(ent)) return;
+      if (Ent.isAdmin && Ent.isAdmin()) return;
     }
     var modal = document.getElementById('paywall-modal');
     if (!modal) {

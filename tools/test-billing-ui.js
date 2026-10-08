@@ -109,6 +109,18 @@ assert.ok(/plan|manos|Gratis|FOUNDER|octubre|plazas limitadas/i.test(docEls['pay
 assert.ok(/para siempre|31 de octubre|solo octubre/i.test(docEls['paywall-body'].innerHTML),
   'paywall urgencia FOUNDER octubre');
 
+B.closePaywall();
+sandbox.window.PTEntitlements = {
+  get: function () { return { plan: 'premium', is_admin: false }; },
+  unlimited: function () { return true; },
+  isAdmin: function () { return false; }
+};
+docEls['paywall-modal'].classList.add('hidden');
+bodyClass.delete('paywall-open');
+B.showPaywall('trainer_limit');
+assert.ok(docEls['paywall-modal'].classList.contains('hidden'), 'coach/admin no ven paywall trainer');
+delete sandbox.window.PTEntitlements;
+
 B.showPaywall('ai_limit');
 assert.ok(/ForgeCoach|IA|FOUNDER|consultas/i.test(docEls['paywall-body'].innerHTML), 'ai_limit menciona IA/FOUNDER');
 
