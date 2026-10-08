@@ -16765,7 +16765,8 @@
       street: 'river'
     }),
     flop('bl03-07', 'BTN', ['Kh', '4h'], ['Ah', '9h', '2c', '7d', '3s'], 96207, {
-      teachBack: 'Missed FD con K♥: bet river (farol) con blocker de nuts — conversión semi→farol.',
+      trapTag: 'fancy_play',
+      teachBack: 'Missed FD con K♥ en A-high: check / give up. El blocker no basta si GTO casi no barre — no spew river.',
       street: 'river'
     }),
     flop('bl03-08', 'BTN', ['5c', '4c'], ['Qs', 'Jd', '2h', '8d', '7s'], 96208, {
@@ -16783,7 +16784,8 @@
       street: 'turn'
     }),
     flop('bl03-11', 'CO', ['Qh', 'Jh'], ['Th', '9c', '2d', '5h', '3c'], 96211, {
-      teachBack: 'Missed FD + gutshot: bet river con QJ (bloquea nuts en T9x) — farol plausible.',
+      trapTag: 'fancy_play',
+      teachBack: 'Missed FD + gutshot en T9x: check river. Aunque QJ bloquea algo, aquí la línea correcta es give up, no inventar farol.',
       street: 'river'
     }),
     flop('bl03-12', 'BTN', ['9s', '8s'], ['As', 'Kd', '4c', '2h', '7d'], 96212, {
