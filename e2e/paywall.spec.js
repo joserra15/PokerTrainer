@@ -3,13 +3,26 @@ const { goTab, mockAuthenticatedUser, waitForAppShell } = require('./helpers');
 
 test.describe('Paywall free @smoke', () => {
   test('techo trainer muestra paywall', async ({ page }) => {
-    await mockAuthenticatedUser(page);
+    /* Plan free: Study/Coach/admin ya no abren el muro trainer_limit. */
+    await mockAuthenticatedUser(page, { plan: 'free' });
     await waitForAppShell(page);
 
     await page.evaluate(() => {
       if (!window.PTEntitlements) throw new Error('PTEntitlements missing');
       window.PTEntitlements.canStartTrainerHand = function () {
         return { ok: false, reason: 'trainer_limit', used: 15, limit: 15 };
+      };
+      window.PTEntitlements.unlimited = function () { return false; };
+      window.PTEntitlements.isAdmin = function () { return false; };
+      window.PTEntitlements.get = function () {
+        return {
+          plan: 'free',
+          plan_label: 'Gratis',
+          is_admin: false,
+          unlimited: false,
+          limits: { trainer_hands_per_day: 15 },
+          usage: { trainer_hands_today: 15 }
+        };
       };
       window.PTEntitlements.canUseAI = function () {
         return { ok: false, reason: 'ai_limit', used: 3, limit: 3 };
