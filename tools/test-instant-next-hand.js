@@ -150,6 +150,52 @@ async function flush() {
   Ent.clearTrainerQuotaBlock();
   assert.strictEqual(Ent.canStartTrainerHand(Ent.get()).ok, true, 'clear desbloquea');
 
+  // Error de red/auth: revierte usage pero NO deja paywall de upgrade
+  rpcImpl = async () => ({ error: { message: 'Failed to fetch' } });
+  const beforeNet = Ent.get().usage.trainer_hands_today;
+  Ent.recordTrainerHandAsync();
+  await flush();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.strictEqual(Ent.get().usage.trainer_hands_today, beforeNet, 'revert tras error red');
+  assert.strictEqual(Ent.trainerQuotaBlocked(), null, 'red no bloquea con paywall');
+  assert.strictEqual(Ent.canStartTrainerHand(Ent.get()).ok, true, 'sigue pudiendo jugar tras error red');
+
+  // Bloqueo residual free + admin en auth: no paywall (limpia bloqueo)
+  rpcImpl = async () => ({ error: { message: 'trainer_limit' } });
+  Ent.recordTrainerHandAsync();
+  await flush();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.ok(Ent.trainerQuotaBlocked(), 'precondición: bloqueo free');
+  sandbox.window.PTAuth = { getUser: () => ({ plan: 'premium', isAdmin: true }) };
+  sandbox.PTAuth = sandbox.window.PTAuth;
+  let coachRpc = 0;
+  rpcImpl = async () => { coachRpc += 1; return { error: { message: 'trainer_limit' } }; };
+  const adminRec = Ent.recordTrainerHandAsync();
+  assert.strictEqual(adminRec.ok, true, 'admin acepta pese a bloqueo residual');
+  assert.strictEqual(coachRpc, 0, 'admin no llama RPC de cupo');
+  assert.strictEqual(Ent.trainerQuotaBlocked(), null, 'admin limpia bloqueo residual');
+
+  // Plan Coach (entitlements): skip RPC de cupo
+  sandbox.window.PTAuth = { getUser: () => ({ plan: 'premium', isAdmin: false }) };
+  sandbox.PTAuth = sandbox.window.PTAuth;
+  rpcImpl = async () => ({
+    data: {
+      plan: 'premium',
+      plan_label: 'Coach',
+      is_admin: false,
+      paid_active: true,
+      limits: { trainer_hands_per_day: null, ai_reports_per_month: 150 },
+      usage: { trainer_hands_today: 40, import_sessions_month: 0, ai_reports_month: 0 },
+      bonus: { balance: 0 }
+    }
+  });
+  await Ent.refresh();
+  coachRpc = 0;
+  rpcImpl = async () => { coachRpc += 1; return { data: { ok: false, error: 'trainer_limit' } }; };
+  assert.strictEqual(Ent.recordTrainerHandAsync().ok, true, 'coach paid ok');
+  assert.strictEqual(coachRpc, 0, 'coach paid no RPC cupo');
+  assert.strictEqual(Ent.canStartTrainerHand(Ent.get()).ok, true, 'coach puede siguiente mano');
+
   // Guest no llama RPC ni Koins
   sandbox.window.PTGuest = { isActive: () => true, remaining: () => 3 };
   sandbox.PTGuest = sandbox.window.PTGuest;

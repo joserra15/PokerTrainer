@@ -102,6 +102,12 @@ t = Ent.canStartTrainerHand(ent('premium'));
 assert.strictEqual(t.ok, true, 'premium trainer ilimitado');
 t = Ent.canStartTrainerHand(ent('free', { trainer_hands_today: 99 }, { is_admin: true }));
 assert.strictEqual(t.ok, true, 'admin trainer ilimitado');
+t = Ent.canStartTrainerHand(ent('premium', { trainer_hands_today: 99 }));
+assert.strictEqual(t.ok, true, 'coach trainer ilimitado con usage alto');
+assert.strictEqual(Ent.unlimited(ent('premium')), true, 'unlimited(coach)');
+assert.strictEqual(Ent.unlimited(ent('pro')), true, 'unlimited(study)');
+assert.strictEqual(Ent.unlimited(ent('free')), false, 'free no unlimited');
+assert.strictEqual(Ent.unlimited(ent('free', null, { is_admin: true })), true, 'admin unlimited');
 
 let imp = Ent.canImportSession(50, ent('free', { import_sessions_month: 0 }));
 assert.strictEqual(imp.ok, true, 'free import ok');

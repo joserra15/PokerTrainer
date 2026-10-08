@@ -408,6 +408,13 @@
       if (global.PTGuest.showGate) global.PTGuest.showGate(reason === 'guest_gate' ? 'limit' : (reason || 'tab'));
       return;
     }
+    /* Study/Coach/admin no deben ver el muro freemium (p.ej. tras un RPC de cupo fallido). */
+    var Ent = global.PTEntitlements;
+    if (Ent && (reason === 'trainer_limit' || reason === 'import_limit' || reason === 'import_hands_limit')) {
+      var ent = Ent.get ? Ent.get() : null;
+      if (ent && Ent.unlimited && Ent.unlimited(ent)) return;
+      if (Ent.isAdmin && Ent.isAdmin()) return;
+    }
     var modal = document.getElementById('paywall-modal');
     if (!modal) {
       if (customMsg) alert(customMsg);
