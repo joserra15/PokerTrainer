@@ -12427,12 +12427,12 @@ window.PT_NASH_PUSH_JSON = {
     else if (blk < 0.12) { score -= 0.08; reasons.push('Blockers pobres.'); }
 
     if (input.inPosition) { score += 0.08; reasons.push('En posición.'); }
-    if (street === 'river') { score += 0.1; reasons.push('River: nodo polarizado típico.'); }
+    if (street === 'river') { score += 0.1; reasons.push('River: nodo a menudo polarizado.'); }
     if (street === 'turn') score += 0.05;
 
     const gtoBluff = strategyBluffFreq(input);
-    if (gtoBluff >= 0.2) { score += 0.15; reasons.push('Estrategia mezcla bet/raise con frecuencia útil.'); }
-    else if (gtoBluff > 0 && gtoBluff < 0.08) { score -= 0.12; reasons.push('GTO casi nunca farolea aquí.'); }
+    if (gtoBluff >= 0.2) { score += 0.15; reasons.push('Mezcla GTO incluye bet/raise con frecuencia útil.'); }
+    else if (gtoBluff > 0 && gtoBluff < 0.08) { score -= 0.12; reasons.push('Mezcla GTO casi sin bet/raise en este nodo.'); }
 
     const pen = icmPenalty(input);
     if (pen > 0) { score -= pen; reasons.push('Penalización ICM / burbuja.'); }
@@ -12459,13 +12459,13 @@ window.PT_NASH_PUSH_JSON = {
     const band = bandOf(input);
     if (band === 'bluffcatch' || band === 'merge') {
       score += 0.35;
-      reasons.push('Mano tipo bluffcatch / medium showdown.');
+      reasons.push('Mano tipo showdown medio (categoría bluffcatch).');
     } else if (band === 'air') {
       score -= 0.15;
-      reasons.push('Air puro: no es bluffcatch.');
+      reasons.push('Air puro: fuera de categoría bluffcatch.');
     } else if (band === 'value') {
       score -= 0.1;
-      reasons.push('Valor fuerte: decisión trivial de call/raise.');
+      reasons.push('Valor fuerte: call/raise suele ser trivial.');
     }
 
     const ratio = input.villainBetRatio != null ? input.villainBetRatio : (toCall / Math.max(input.potBeforeBB || input.potBB || 1, 0.1));
@@ -12474,13 +12474,14 @@ window.PT_NASH_PUSH_JSON = {
       reasons.push('Línea polarizada del villano.');
     } else if (ratio >= 0.4) {
       score += 0.12;
-      reasons.push('Bet mediano-grande.');
+      reasons.push('Bet mediano-grande del villano.');
     }
 
     const blk = blockerScore(input);
-    if (blk >= 0.3) { score += 0.12; reasons.push('Blockers ayudan a call/fold.'); }
+    if (blk >= 0.3) { score += 0.12; reasons.push('Blockers relevantes para la decisión call/fold.'); }
 
-    if (street === 'river') { score += 0.15; reasons.push('River: decisión de bluffcatch clásica.'); }
+    /* River suma score de spot; el texto pedagógico va en bluffAnalysis post-decisión. */
+    if (street === 'river') { score += 0.15; reasons.push('River: spot de showdown vs apuesta.'); }
     if (street === 'turn') score += 0.06;
 
     const eq = input.heroEquity;
@@ -12775,11 +12776,17 @@ window.PT_NASH_PUSH_JSON = {
     if ((opts.foldEquity != null ? opts.foldEquity : 0) >= 0.30) goodBluffSignals++;
     if ((opts.blockerScore != null ? opts.blockerScore : 0) >= 0.28) goodBluffSignals++;
     if (opts.boardPaired || opts.boardDry) goodBluffSignals++;
-    if (chosen === 'overbet' || (opts.betSizeBB > 0 && opts.potBB > 0
-      && opts.betSizeBB >= opts.potBB * 0.75)) goodBluffSignals++;
-    /* Solo river con lead delayed + al menos otra señal (FE/blockers/texture/sizing). */
+    const potForSize = opts.potBB > 0 ? opts.potBB : 0;
+    const sizeRatio = (opts.betSizeBB > 0 && potForSize > 0) ? opts.betSizeBB / potForSize : 0;
+    /* Sizing polar (≈55–200% pot); tiny bets no cuentan como farol creíble. */
+    const polarSizing = chosen === 'overbet'
+      || (sizeRatio >= 0.55 && sizeRatio <= 2.0);
+    const tinyBluffSizing = sizeRatio > 0 && sizeRatio < 0.35;
+    if (polarSizing) goodBluffSignals++;
+    /* Solo river con lead delayed + polar sizing + otra señal (FE/blockers/texture). */
     const goodBluffAggro = !!(valueAggro && bandAirish && delayedLead
-      && opts.street === 'river' && goodBluffSignals >= 3);
+      && opts.street === 'river' && polarSizing && !tinyBluffSizing
+      && goodBluffSignals >= 3);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }
@@ -14327,6 +14334,438 @@ window.PT_NASH_PUSH_JSON = {
 })(window);
 
 /*
+ * bluffAnalysis.js — Análisis post-decisión de faroles (make / catch).
+ * No se usa como pista previa: coherente con clase GTO, sizing y formato.
+ */
+(function (global) {
+  'use strict';
+
+  function pct(x) {
+    return Math.round((Number(x) || 0) * 100);
+  }
+
+  function round2(x) {
+    return Math.round(Number(x) * 100) / 100;
+  }
+
+  function cap(s) {
+    s = String(s || '');
+    return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+  }
+
+  function actionLabel(id) {
+    if (!id) return '—';
+    const names = {
+      fold: 'fold', check: 'check', call: 'call', bet: 'bet', raise: 'raise',
+      overbet: 'overbet', allin: 'all-in',
+      bet_33: 'bet 33%', bet_50: 'bet 50%', bet_66: 'bet 66%', bet_75: 'bet 75%',
+      bet_100: 'bet pot'
+    };
+    if (names[id]) return names[id];
+    if (String(id).indexOf('bet_') === 0) return 'bet ' + String(id).slice(4) + '%';
+    return String(id);
+  }
+
+  function isAggro(action) {
+    if (!action) return false;
+    return action === 'bet' || action === 'raise' || action === 'overbet' || action === 'allin'
+      || String(action).indexOf('bet_') === 0;
+  }
+
+  function formatHubLabel(hub) {
+    if (hub === 'spin') return 'Spins';
+    if (hub === 'mtt') return 'MTT';
+    return 'Cash';
+  }
+
+  function phaseLabel(phase) {
+    const Tax = global.PTFormatTaxonomy;
+    if (Tax && Tax.PHASE_LABELS && Tax.PHASE_LABELS[phase]) return Tax.PHASE_LABELS[phase];
+    return phase || null;
+  }
+
+  function sizingRatio(input) {
+    const pot = Number(input.potBeforeBB != null ? input.potBeforeBB : input.potBB) || 0;
+    const size = Number(input.betSizeBB) || 0;
+    if (pot <= 0 || size <= 0) return null;
+    return size / pot;
+  }
+
+  /**
+   * Evalúa si el sizing del farol es polar creíble.
+   * @returns {{ ok: boolean, ratio: number|null, note: string, tier: string }}
+   */
+  function assessBluffSizing(input, opts) {
+    opts = opts || {};
+    const ratio = sizingRatio(input);
+    const hub = input.formatHub || 'cash';
+    const icm = !!(opts.icmLite || input.icmLite || hub === 'spin' || hub === 'mtt');
+    if (ratio == null) {
+      return { ok: false, ratio: null, note: 'Sin sizing de apuesta para evaluar.', tier: 'none' };
+    }
+    const r = Math.round(ratio * 100) / 100;
+    // Polar típico river: ~55–150% pot; overbet hasta ~200% en cash.
+    if (ratio < 0.35) {
+      return {
+        ok: false,
+        ratio: r,
+        note: 'Sizing demasiado pequeño para un farol polar (' + pct(ratio) + '% pot): parece merge, no presión.',
+        tier: 'tiny'
+      };
+    }
+    if (ratio < 0.55) {
+      return {
+        ok: false,
+        ratio: r,
+        note: 'Sizing medio (' + pct(ratio) + '% pot): poco polar; el rivales pagan más fácil.',
+        tier: 'small'
+      };
+    }
+    if (icm && ratio > 1.75) {
+      return {
+        ok: false,
+        ratio: r,
+        note: 'Overbet muy grande en ' + formatHubLabel(hub)
+          + ' (' + pct(ratio) + '% pot): el ICM castiga stacks comprometidos.',
+        tier: 'huge_icm'
+      };
+    }
+    if (ratio > 2.2) {
+      return {
+        ok: false,
+        ratio: r,
+        note: 'Overbet extremo (' + pct(ratio) + '% pot): suele ser spew salvo blockers fuertes.',
+        tier: 'huge'
+      };
+    }
+    if (ratio >= 0.9 && ratio <= 1.35) {
+      return {
+        ok: true,
+        ratio: r,
+        note: 'Sizing pot (~' + pct(ratio) + '%): alineado con farol polar de river.',
+        tier: 'pot'
+      };
+    }
+    if (ratio > 1.35) {
+      return {
+        ok: true,
+        ratio: r,
+        note: 'Overbet polar (' + pct(ratio) + '% pot): fuerza folds de medias; correcto si FE/blockers acompañan.',
+        tier: 'overbet'
+      };
+    }
+    return {
+      ok: true,
+      ratio: r,
+      note: 'Sizing polar medio-grande (' + pct(ratio) + '% pot): razonable para farol.',
+      tier: 'mid_polar'
+    };
+  }
+
+  function contextLine(input) {
+    const hub = input.formatHub || (input.gameType && global.PTFormatTaxonomy
+      && global.PTFormatTaxonomy.hubFromGameType
+      ? global.PTFormatTaxonomy.hubFromGameType(input.gameType)
+      : 'cash');
+    const parts = [formatHubLabel(hub)];
+    const phase = input.mttPhase || input.resolvedPhase || input.phase;
+    if (phase && hub !== 'cash') {
+      const pl = phaseLabel(phase);
+      if (pl) parts.push('fase ' + pl);
+    }
+    const pot = input.potBB != null ? round2(input.potBB) : null;
+    if (pot != null) parts.push('bote ' + pot + 'bb');
+    const toCall = Number(input.toCallBB) || 0;
+    if (toCall > 0) {
+      const ratio = input.villainBetRatio != null
+        ? input.villainBetRatio
+        : (toCall / Math.max((input.potBeforeBB != null ? input.potBeforeBB : (pot - toCall)) || 1, 0.1));
+      parts.push('rival apuesta ' + round2(toCall) + 'bb'
+        + (ratio != null && isFinite(ratio) ? ' (~' + pct(ratio) + '% pot)' : ''));
+    } else if (input.villainLastAction) {
+      parts.push('rival ' + String(input.villainLastAction));
+    }
+    if (input.inPosition === true) parts.push('IP');
+    else if (input.inPosition === false) parts.push('OOP');
+    if (input.street) parts.push(cap(input.street));
+    return parts.join(' · ');
+  }
+
+  function villainLineNote(input) {
+    const toCall = Number(input.toCallBB) || 0;
+    if (toCall > 0) {
+      const ratio = input.villainBetRatio != null
+        ? Number(input.villainBetRatio)
+        : toCall / Math.max(Number(input.potBeforeBB || input.potBB) || 1, 0.1);
+      if (input.facingNode === 'shove' || ratio >= 1) {
+        return 'Línea rival polarizada (shove / overbet).';
+      }
+      if (ratio >= 0.6) return 'Línea rival polarizada (bet grande ~' + pct(ratio) + '% pot).';
+      if (ratio >= 0.4) return 'Línea rival con bet mediano-grande (~' + pct(ratio) + '% pot).';
+      return 'Línea rival con bet pequeño-medio (~' + pct(ratio) + '% pot).';
+    }
+    if (input.villainLastAction === 'check') {
+      if (input.delayedCbet || input.priorAggressorBet === false) {
+        return 'Rival checkea; nodo de delayed lead / probe.';
+      }
+      return 'Rival checkea; te cede la iniciativa.';
+    }
+    return '';
+  }
+
+  function bandLabel(band) {
+    if (band === 'air') return 'aire';
+    if (band === 'bluffcatch') return 'bluffcatch / showdown medio-débil';
+    if (band === 'merge') return 'merge / showdown medio';
+    if (band === 'value' || band === 'nuts') return 'valor';
+    return band || 'mano media';
+  }
+
+  /**
+   * Análisis post-decisión. Requiere chosenAction + evaluación GTO.
+   */
+  function analyze(raw) {
+    const input = raw || {};
+    const Tax = global.PTFormatTaxonomy;
+    const intent = Tax && Tax.normalizeIntent
+      ? Tax.normalizeIntent(input.practiceIntent || (input.bluffSpot && input.bluffSpot.intent) || 'mixed')
+      : (input.practiceIntent || 'mixed');
+    const chosen = input.chosenAction || input.action || null;
+    const best = input.best || (input.evaluation && input.evaluation.best) || null;
+    const cls = input.class || (input.evaluation && input.evaluation.class) || null;
+    const strategy = input.strategy || input.gto || {};
+    const spot = input.bluffSpot || null;
+    const band = (spot && spot.band) || input.band
+      || (input.handRank && input.handRank.band)
+      || (input.madeHandInfo && input.madeHandInfo.tier) || null;
+    const street = input.street || 'river';
+    const facing = (Number(input.toCallBB) || 0) > 0;
+    const ctx = contextLine(input);
+    const lineNote = villainLineNote(input);
+    const bestPct = pct(strategy[best] || 0);
+    const chosenPct = pct(strategy[chosen] || 0);
+    const fe = spot && spot.foldEquity != null ? spot.foldEquity
+      : (input.foldEquity != null ? input.foldEquity : null);
+    const blk = spot && spot.blockers != null ? spot.blockers
+      : (input.blockerScore != null ? input.blockerScore : null);
+
+    const paragraphs = [];
+    const bullets = [];
+    let headline = '';
+    let sizing = { ok: null, ratio: null, note: '', tier: 'none' };
+    let acceptableBluff = false;
+    let catchCoherent = null;
+
+    paragraphs.push(ctx + (lineNote ? '. ' + lineNote : '.'));
+
+    if (intent === 'bluff_catch' || (facing && (band === 'bluffcatch' || band === 'merge'))) {
+      // --- CAZAR FAROLES (post-decisión) ---
+      const gtoCalls = best === 'call' || (strategy.call || 0) >= 0.25;
+      const gtoFolds = best === 'fold' || ((strategy.fold || 0) >= 0.45 && (strategy.call || 0) < 0.20);
+      const callIsError = chosen === 'call' && (cls === 'error' || (gtoFolds && !gtoCalls));
+      const foldIsOpt = chosen === 'fold' && (cls === 'optima' || cls === 'aceptable');
+
+      if (callIsError) {
+        catchCoherent = false;
+        headline = 'No es un bluffcatch GTO';
+        paragraphs.push(
+          'Aunque la mano es tipo ' + bandLabel(band)
+          + ', GTO prefiere ' + actionLabel(best) + ' (' + bestPct
+          + '%). Call aquí es ' + (cls || 'error')
+          + ': el sizing/línea del rival o tu equity no justifican cazar.'
+        );
+        bullets.push('Tipo de mano: ' + bandLabel(band) + ' (parecido a bluffcatch, no mandato de call).');
+        if (lineNote) bullets.push(lineNote);
+        bullets.push('Veredicto GTO: ' + actionLabel(best) + ' (' + bestPct + '%), no call automático.');
+        if (input.heroEquity != null) {
+          const eq = Number(input.heroEquity);
+          const eqPct = eq <= 1 ? pct(eq) : Math.round(eq);
+          bullets.push('Equity ~' + eqPct + '% frente al rango que apuesta.');
+        }
+        if (input.formatHub === 'mtt' || input.formatHub === 'spin' || input.icmLite) {
+          bullets.push('En ' + formatHubLabel(input.formatHub || 'mtt')
+            + ' el ICM suele castigar calls marginales de bluffcatch.');
+        }
+      } else if (chosen === 'call' && (cls === 'optima' || cls === 'aceptable' || gtoCalls)) {
+        catchCoherent = true;
+        headline = 'Bluffcatch alineado con GTO';
+        paragraphs.push(
+          'Call correcto como bluffcatch: ' + bandLabel(band)
+          + ' frente a ' + (lineNote || 'la apuesta rival')
+          + ' GTO mezcla call ~' + pct(strategy.call || 0) + '%.'
+        );
+        bullets.push('Mano: ' + bandLabel(band));
+        if (lineNote) bullets.push(lineNote);
+        bullets.push('Frecuencia call GTO: ' + pct(strategy.call || 0) + '%.');
+      } else if (foldIsOpt || (chosen === 'fold' && gtoFolds)) {
+        catchCoherent = true;
+        headline = 'Fold correcto (no cazamos)';
+        paragraphs.push(
+          'Fold es la línea GTO (' + bestPct
+          + '%). El spot puede parecer bluffcatch por la categoría de mano, pero la combinación de sizing, bote y formato no justifica pagar.'
+        );
+        bullets.push('Mano tipo ' + bandLabel(band) + ' — categoría ≠ obligación de call.');
+        bullets.push('GTO: ' + actionLabel(best) + ' (' + bestPct + '%).');
+      } else if (facing) {
+        headline = 'Decisión de bluffcatch';
+        paragraphs.push(
+          'Spot de showdown medio frente a apuesta. Elegiste ' + actionLabel(chosen)
+          + ' (' + chosenPct + '%); GTO lidera con ' + actionLabel(best) + ' (' + bestPct + '%).'
+        );
+        bullets.push('Mano: ' + bandLabel(band));
+        if (lineNote) bullets.push(lineNote);
+      }
+    }
+
+    if (intent === 'bluff_make' || (!facing && isAggro(chosen) && (band === 'air' || band === 'bluffcatch' || band === 'weak'))) {
+      // --- HACER FAROLES (post-decisión) ---
+      sizing = assessBluffSizing(input, { icmLite: input.icmLite });
+      const gtoChecks = best === 'check' || ((strategy.check || 0) >= 0.5 && !isAggro(best));
+      const choseAggro = isAggro(chosen);
+      const feOk = fe != null && fe >= 0.28;
+      const blkOk = blk != null && blk >= 0.28;
+      const delayed = !!(input.delayedCbet
+        || (input.priorAggressorBet === false && input.villainLastAction === 'check'));
+      const polarOk = sizing.ok === true && (sizing.tier === 'pot' || sizing.tier === 'overbet'
+        || sizing.tier === 'mid_polar');
+
+      let signals = [];
+      if (delayed) signals.push('delayed / check-check del rival');
+      if (feOk) signals.push('fold equity ~' + pct(fe) + '%');
+      else if (fe != null) signals.push('fold equity baja (~' + pct(fe) + '%)');
+      if (blkOk) signals.push('blockers útiles (' + round2(blk) + ')');
+      else if (blk != null && blk < 0.15) signals.push('blockers pobres (' + round2(blk) + ')');
+      if (polarOk) signals.push('sizing polar OK');
+      else if (sizing.note) signals.push(sizing.note);
+
+      const signalScore = (delayed ? 2 : 0) + (feOk ? 1 : 0) + (blkOk ? 1 : 0) + (polarOk ? 1 : 0)
+        + (street === 'river' ? 1 : 0);
+      acceptableBluff = !!(choseAggro && gtoChecks && street === 'river'
+        && (band === 'air' || band === 'bluffcatch' || band === 'weak')
+        && delayed && polarOk && (feOk || blkOk) && signalScore >= 4
+        && (cls === 'error' || cls === 'imprecisa' || cls === 'aceptable' || cls === 'optima'));
+
+      if (choseAggro && gtoChecks) {
+        if (acceptableBluff || cls === 'aceptable' || cls === 'optima') {
+          headline = headline || 'Farol aceptable (GTO mezcla check)';
+          paragraphs.push(
+            'GTO prioriza ' + actionLabel(best) + ' (' + bestPct
+            + '%), pero un farol aquí es aceptable: '
+            + signals.slice(0, 4).join('; ') + '.'
+          );
+          acceptableBluff = true;
+        } else {
+          headline = headline || 'Farol no justificado';
+          paragraphs.push(
+            'GTO es ' + actionLabel(best) + ' (' + bestPct
+            + '%). Farolear con ' + actionLabel(chosen)
+            + ' no está justificado en este contexto: '
+            + (signals.length ? signals.slice(0, 3).join('; ') : 'faltan FE, blockers o sizing polar') + '.'
+          );
+        }
+        if (sizing.note) {
+          bullets.push('Sizing: ' + sizing.note);
+        }
+        signals.forEach(function (s) {
+          if (bullets.indexOf(s) < 0 && bullets.indexOf('Sizing: ' + s) < 0) bullets.push(s);
+        });
+      } else if (choseAggro && isAggro(best)) {
+        headline = headline || 'Farol / agresión en la mezcla';
+        paragraphs.push(
+          actionLabel(chosen) + ' está en la mezcla GTO (' + chosenPct
+          + '%); la línea principal es ' + actionLabel(best) + ' (' + bestPct + '%).'
+        );
+        if (sizing.note) bullets.push('Sizing: ' + sizing.note);
+      } else if (!choseAggro && gtoChecks && (band === 'air' || band === 'bluffcatch')) {
+        headline = headline || 'Check correcto (sin farol)';
+        paragraphs.push(
+          'Check es la línea GTO (' + bestPct
+          + '%). Un farol habría sido '
+          + (feOk && blkOk && delayed ? 'aceptable con sizing polar' : 'sospechoso sin FE/blockers/historia')
+          + '.'
+        );
+      }
+    }
+
+    // Detector reasons: solo descriptivos filtrados (nunca mandatos de call/bluff).
+    if (spot && Array.isArray(spot.reasons)) {
+      spot.reasons.forEach(function (r) {
+        if (!r) return;
+        const low = String(r).toLowerCase();
+        if (low.indexOf('clásica') >= 0 || low.indexOf('clasica') >= 0) return;
+        if (low.indexOf('debes') >= 0 || low.indexOf('haz ') >= 0) return;
+        if (catchCoherent === false && low.indexOf('bluffcatch') >= 0) return;
+        if (bullets.length < 6) bullets.push(r);
+      });
+    }
+
+    if (!headline) {
+      if (intent === 'bluff_make') headline = 'Análisis de farol';
+      else if (intent === 'bluff_catch') headline = 'Análisis de bluffcatch';
+      else headline = 'Análisis de agresión';
+    }
+
+    return {
+      intent: intent,
+      headline: headline,
+      paragraphs: paragraphs,
+      bullets: bullets.slice(0, 6),
+      contextLine: ctx,
+      sizing: sizing,
+      acceptableBluff: acceptableBluff,
+      catchCoherent: catchCoherent,
+      band: band,
+      summary: paragraphs.join(' ')
+    };
+  }
+
+  /** HTML compacto para feedback / hand-end / advisor. */
+  function renderHtml(analysis, escapeFn) {
+    if (!analysis) return '';
+    const esc = typeof escapeFn === 'function' ? escapeFn : function (s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    };
+    let html = '<div class="bluff-analysis">';
+    html += '<strong>' + esc(analysis.headline) + '</strong>';
+    if (analysis.paragraphs && analysis.paragraphs.length) {
+      html += '<div class="bluff-analysis-body">' + esc(analysis.paragraphs.join(' ')) + '</div>';
+    }
+    if (analysis.bullets && analysis.bullets.length) {
+      html += '<ul class="bluff-analysis-bullets">';
+      analysis.bullets.forEach(function (b) {
+        html += '<li>' + esc(b) + '</li>';
+      });
+      html += '</ul>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  /**
+   * ¿El farol elegido merece clase «aceptable»?
+   * Usado por el classifier / LocalSolverProvider.
+   */
+  function shouldMarkAcceptable(input, cls) {
+    if (cls === 'optima' || cls === 'aceptable') return false;
+    if (!isAggro(input.chosenAction || input.action)) return false;
+    const a = analyze(Object.assign({}, input, { class: cls }));
+    return !!a.acceptableBluff;
+  }
+
+  global.GTOBluffAnalysis = {
+    analyze: analyze,
+    renderHtml: renderHtml,
+    assessBluffSizing: assessBluffSizing,
+    shouldMarkAcceptable: shouldMarkAcceptable,
+    contextLine: contextLine,
+    isAggro: isAggro
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
  * LocalSolverProvider.js — Solver local EV-based (Fase 1/2).
  */
 (function (global) {
@@ -14790,6 +15229,60 @@ window.PT_NASH_PUSH_JSON = {
         evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction }));
       }
 
+      const Bluff = global.GTOBluffSpotDetector;
+      const bluffInfo = Bluff && enriched.street && enriched.street !== 'preflop'
+        ? Bluff.scoreForIntent(Object.assign({}, enriched, { strategy: strategy }), enriched.practiceIntent || 'mixed')
+        : null;
+
+      /* Farol polar post-análisis: subir error→aceptable cuando sizing/FE/historia lo respaldan. */
+      const BA = global.GTOBluffAnalysis;
+      let bluffAnalysis = null;
+      if (BA && enriched.street && enriched.street !== 'preflop') {
+        try {
+          let blkScore = bluffInfo && bluffInfo.blockers != null ? bluffInfo.blockers : null;
+          if (blkScore == null && global.GTOBlockers && enriched.heroCards && enriched.board) {
+            try {
+              blkScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
+            } catch (eBlk2) { blkScore = null; }
+          }
+          bluffAnalysis = BA.analyze({
+            practiceIntent: enriched.practiceIntent || 'mixed',
+            chosenAction: chosenAction,
+            best: finalBest,
+            class: finalCls,
+            strategy: strategy,
+            bluffSpot: bluffInfo,
+            street: enriched.street,
+            potBB: enriched.potBB,
+            potBeforeBB: enriched.potBeforeBB,
+            toCallBB: enriched.toCallBB,
+            betSizeBB: enriched.betSizeBB || input.betSizeBB,
+            formatHub: enriched.formatHub,
+            gameType: enriched.gameType,
+            mttPhase: enriched.mttPhase || enriched.resolvedPhase,
+            villainLastAction: enriched.villainLastAction,
+            villainBetRatio: enriched.villainBetRatio,
+            facingNode: enriched.facingNode,
+            delayedCbet: enriched.delayedCbet,
+            priorAggressorBet: enriched.priorAggressorBet,
+            inPosition: enriched.inPosition,
+            foldEquity: (mathParams && mathParams.foldEquityPct != null)
+              ? mathParams.foldEquityPct / 100
+              : enriched.foldEquity,
+            blockerScore: blkScore,
+            band: enriched.handRank && enriched.handRank.band,
+            madeHandInfo: enriched.madeHandInfo,
+            heroEquity: enriched.heroEquity,
+            icmLite: !!(Icm && Icm.shouldApply(enriched)),
+            errors: stratErrors
+          });
+          if (bluffAnalysis && bluffAnalysis.acceptableBluff
+            && (finalCls === 'error' || finalCls === 'imprecisa')) {
+            finalCls = 'aceptable';
+          }
+        } catch (eBA) { bluffAnalysis = null; }
+      }
+
       const scoring = Scoring.scoreDecision({
         strategy, chosenAction, classification: finalCls,
         evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
@@ -14807,11 +15300,6 @@ window.PT_NASH_PUSH_JSON = {
         riverShove: !!enriched.riverShove,
         multiway: !!enriched.multiway
       });
-
-      const Bluff = global.GTOBluffSpotDetector;
-      const bluffInfo = Bluff && enriched.street && enriched.street !== 'preflop'
-        ? Bluff.scoreForIntent(Object.assign({}, enriched, { strategy: strategy }), enriched.practiceIntent || 'mixed')
-        : null;
 
       result.evaluation = {
         class: finalCls,
@@ -14843,14 +15331,24 @@ window.PT_NASH_PUSH_JSON = {
         errors: stratErrors,
         legalStrategy: cls.legalStrategy,
         icmMultiplier: icmMult,
-        bluffSpot: bluffInfo
+        bluffSpot: bluffInfo,
+        bluffAnalysis: bluffAnalysis,
+        betSizeBB: enriched.betSizeBB || input.betSizeBB || 0,
+        delayedCbet: !!enriched.delayedCbet,
+        priorAggressorBet: enriched.priorAggressorBet != null ? !!enriched.priorAggressorBet : null,
+        inPosition: enriched.inPosition != null ? !!enriched.inPosition : null,
+        villainBetRatio: enriched.villainBetRatio != null ? enriched.villainBetRatio : null,
+        facingNode: enriched.facingNode || null,
+        practiceIntent: enriched.practiceIntent || 'mixed'
       };
       if (Icm && Icm.shouldApply(enriched)) {
         Icm.annotateDecision(result.evaluation, enriched);
       }
       const Tax = global.PTFormatTaxonomy;
       const hub = enriched.formatHub
-        || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null);
+        || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null)
+        || 'cash';
+      result.evaluation.formatHub = hub;
       if (hub === 'spin' || hub === 'mtt') {
         const phase = enriched.mttPhase || enriched.resolvedPhase || null;
         const role = enriched.stackRole || null;
@@ -21588,6 +22086,40 @@ window.PT_NASH_PUSH_JSON = {
     if (!decision) return null;
     var thr = threshold != null ? Number(threshold) : loadThreshold();
     if (isNaN(thr)) thr = loadThreshold();
+    var bluffHtml = '';
+    var BA = global.GTOBluffAnalysis;
+    var analysis = decision.bluffAnalysis || null;
+    if (!analysis && BA && typeof BA.analyze === 'function'
+      && (decision.bluffSpot || decision.practiceIntent === 'bluff_make'
+        || decision.practiceIntent === 'bluff_catch')) {
+      try {
+        analysis = BA.analyze({
+          practiceIntent: decision.practiceIntent || (decision.bluffSpot && decision.bluffSpot.intent),
+          chosenAction: decision.action || decision.chosen,
+          best: decision.best,
+          class: decision.class,
+          strategy: decision.gto || decision.strategy,
+          bluffSpot: decision.bluffSpot,
+          street: decision.street,
+          potBB: decision.potBB,
+          potBeforeBB: decision.potBeforeBB,
+          toCallBB: decision.toCallBB,
+          betSizeBB: decision.betSizeBB,
+          formatHub: decision.formatHub,
+          mttPhase: decision.mttPhase,
+          villainLastAction: decision.villainLastAction,
+          villainBetRatio: decision.villainBetRatio,
+          delayedCbet: decision.delayedCbet,
+          priorAggressorBet: decision.priorAggressorBet,
+          inPosition: decision.inPosition,
+          icmLite: decision.icmLite,
+          errors: decision.errors
+        });
+      } catch (eA) { analysis = null; }
+    }
+    if (analysis && BA && BA.renderHtml) {
+      bluffHtml = BA.renderHtml(analysis, escapeHtml);
+    }
     pendingAlert = {
       street: decision.street || '',
       label: decision.label || decision.chosen || decision.action || '',
@@ -21595,7 +22127,9 @@ window.PT_NASH_PUSH_JSON = {
       evLoss: Number(decision.evLoss) || 0,
       threshold: thr,
       best: decision.best || '',
-      explanation: decision.explanation || ''
+      explanation: decision.explanation || '',
+      bluffAnalysisHtml: bluffHtml,
+      bluffHeadline: analysis && analysis.headline || ''
     };
     return pendingAlert;
   }
@@ -21722,18 +22256,79 @@ window.PT_NASH_PUSH_JSON = {
     host.classList.remove('hidden', 'live-advisor-silent');
     host.classList.add('live-advisor-alert');
     var street = alert.street ? cap(alert.street) + ': ' : '';
+    var isReview = alert.kind === 'bluff_review';
+    var badge = isReview ? escapeHtml(t('advisor.live')) : escapeHtml(t('advisor.alert'));
+    var hint = isReview
+      ? escapeHtml(alert.bluffHeadline || 'Revisión farol')
+      : escapeHtml(t('advisor.alertHint', { n: fmtBB(alert.threshold != null ? alert.threshold : loadThreshold()) }));
     host.innerHTML =
       '<div class="live-advisor-head">' +
-      '<span class="live-advisor-badge live-advisor-badge-alert">' + escapeHtml(t('advisor.alert')) + '</span>' +
-      '<span class="muted-text">' + escapeHtml(t('advisor.alertHint', { n: fmtBB(alert.threshold != null ? alert.threshold : loadThreshold()) })) + '</span>' +
+      '<span class="live-advisor-badge' + (isReview ? '' : ' live-advisor-badge-alert') + '">' + badge + '</span>' +
+      '<span class="muted-text">' + hint + '</span>' +
       '<button type="button" class="live-advisor-disable" data-dismiss-advisor-alert title="' +
       escapeHtml(t('advisor.dismissAlert')) + '" aria-label="' + escapeHtml(t('advisor.dismissAlert')) + '">×</button>' +
       '</div>' +
       '<div class="live-advisor-alert-body">' +
-      '<div class="live-advisor-rec-action net-neg">-' + escapeHtml(fmtBB(alert.evLoss)) + ' bb</div>' +
+      (alert.evLoss > 0
+        ? '<div class="live-advisor-rec-action net-neg">-' + escapeHtml(fmtBB(alert.evLoss)) + ' bb</div>'
+        : '') +
       '<div class="live-advisor-alert-detail">' + escapeHtml(street + (alert.label || '')) + '</div>' +
       (alert.explanation ? '<p class="live-advisor-expl">' + escapeHtml(alert.explanation) + '</p>' : '') +
+      (alert.bluffAnalysisHtml
+        ? '<div class="live-advisor-bluff-analysis">' + alert.bluffAnalysisHtml + '</div>'
+        : '') +
       '</div>';
+  }
+
+  /**
+   * Revisión post-decisión de farol (modo always): no da pistas previas;
+   * solo tras actuar, con el análisis coherente GTO/sizing/formato.
+   */
+  function recordBluffReview(decision) {
+    if (!decision) return null;
+    var analysis = decision.bluffAnalysis || null;
+    var BA = global.GTOBluffAnalysis;
+    if (!analysis && BA && typeof BA.analyze === 'function') {
+      try {
+        analysis = BA.analyze({
+          practiceIntent: decision.practiceIntent || (decision.bluffSpot && decision.bluffSpot.intent),
+          chosenAction: decision.action || decision.chosen,
+          best: decision.best,
+          class: decision.class,
+          strategy: decision.gto || decision.strategy,
+          bluffSpot: decision.bluffSpot,
+          street: decision.street,
+          potBB: decision.potBB,
+          potBeforeBB: decision.potBeforeBB,
+          toCallBB: decision.toCallBB,
+          betSizeBB: decision.betSizeBB,
+          formatHub: decision.formatHub,
+          mttPhase: decision.mttPhase,
+          villainLastAction: decision.villainLastAction,
+          villainBetRatio: decision.villainBetRatio,
+          delayedCbet: decision.delayedCbet,
+          priorAggressorBet: decision.priorAggressorBet,
+          inPosition: decision.inPosition,
+          icmLite: decision.icmLite,
+          errors: decision.errors
+        });
+      } catch (eR) { analysis = null; }
+    }
+    if (!analysis || !analysis.headline) return null;
+    var html = BA && BA.renderHtml ? BA.renderHtml(analysis, escapeHtml) : '';
+    pendingAlert = {
+      kind: 'bluff_review',
+      street: decision.street || '',
+      label: decision.label || decision.chosen || decision.action || '',
+      class: decision.class || '',
+      evLoss: Number(decision.evLoss) || 0,
+      threshold: loadThreshold(),
+      best: decision.best || '',
+      explanation: decision.explanation || '',
+      bluffAnalysisHtml: html,
+      bluffHeadline: analysis.headline || ''
+    };
+    return pendingAlert;
   }
 
   function renderDrivers(drivers) {
@@ -21795,13 +22390,26 @@ window.PT_NASH_PUSH_JSON = {
       host.innerHTML = '';
       return;
     }
-    // Tras error grave: mantener el aviso visible también al completar la mano.
+    // Revisión de farol: solo al cerrar la mano (o sin nodo activo). En la
+    // siguiente calle se limpia para no tapar el avisador ni dar pistas previas.
+    if (pendingAlert && pendingAlert.kind === 'bluff_review') {
+      if (hand.stage === 'complete' || !hand.current) {
+        renderAlertPanel(host, pendingAlert);
+        return;
+      }
+      pendingAlert = null;
+    }
+    // Tras error grave: mantener el aviso también al completar la mano.
     if (pendingAlert && !isPreActionVisible()) {
       renderAlertPanel(host, pendingAlert);
       return;
     }
     if (hand.stage === 'complete' || !hand.current) {
       matrixJob++;
+      if (pendingAlert) {
+        renderAlertPanel(host, pendingAlert);
+        return;
+      }
       host.classList.add('hidden');
       host.classList.remove('live-advisor-alert', 'live-advisor-silent');
       host.innerHTML = '';
@@ -21831,6 +22439,7 @@ window.PT_NASH_PUSH_JSON = {
     isPreActionVisible: isPreActionVisible,
     DEFAULT_THRESHOLD: DEFAULT_THRESHOLD,
     recordSeriousAlert: recordSeriousAlert,
+    recordBluffReview: recordBluffReview,
     clearPendingAlert: clearPendingAlert,
     getPendingAlert: getPendingAlert,
     setPendingAlert: setPendingAlert,
@@ -25853,6 +26462,16 @@ window.PT_NASH_PUSH_JSON = {
       potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
       context: node.context,
       bluffSpot: ev.bluffSpot || null,
+      bluffAnalysis: ev.bluffAnalysis || null,
+      betSizeBB: ev.betSizeBB != null ? ev.betSizeBB
+        : ((node.options && (node.options.find(function (o) { return o.id === actionId; }) || {}).size) || 0),
+      delayedCbet: !!ev.delayedCbet,
+      priorAggressorBet: ev.priorAggressorBet != null ? !!ev.priorAggressorBet : null,
+      inPosition: ev.inPosition != null ? !!ev.inPosition : null,
+      villainBetRatio: ev.villainBetRatio != null ? ev.villainBetRatio : null,
+      facingNode: ev.facingNode || null,
+      practiceIntent: ev.practiceIntent
+        || (hand.playConfig && hand.playConfig.practiceIntent) || 'mixed',
       icmMultiplier: ev.icmMultiplier != null ? ev.icmMultiplier : null,
       icmPressure: ev.icmPressure != null ? ev.icmPressure : null,
       bubbleFactor: ev.bubbleFactor != null ? ev.bubbleFactor : null,
@@ -43370,8 +43989,11 @@ window.PT_NASH_PUSH_JSON = {
         html += '</div>';
       }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
-      if (d.bluffSpot && Array.isArray(d.bluffSpot.reasons) && d.bluffSpot.reasons.length) {
-        html += '<div class="dec-expl bluff-feedback-hints"><strong>Farol · porqués:</strong> ' +
+      if (d.bluffAnalysis && global.GTOBluffAnalysis && global.GTOBluffAnalysis.renderHtml) {
+        html += '<div class="dec-expl bluff-feedback-hints">' +
+          global.GTOBluffAnalysis.renderHtml(d.bluffAnalysis, esc) + '</div>';
+      } else if (d.bluffSpot && Array.isArray(d.bluffSpot.reasons) && d.bluffSpot.reasons.length) {
+        html += '<div class="dec-expl bluff-feedback-hints"><strong>Farol · revisión:</strong> ' +
           esc(d.bluffSpot.reasons.slice(0, 3).join(' · ')) + '</div>';
       }
       if (d.context && typeof d.context === 'string') {
@@ -47461,61 +48083,17 @@ window.PT_NASH_PUSH_JSON = {
     el.classList.remove('hidden');
   }
 
+  /**
+   * Badge de mesa desactivado: las pistas de farol/bluffcatch no deben
+   * aparecer antes de decidir. El análisis vive en feedback, hand-end y avisador.
+   */
   function renderBluffSpotBadge() {
-    let el = $('#bluff-spot-badge');
+    const el = $('#bluff-spot-badge');
     if (!el) return;
-    const cfg = (hand && hand.playConfig) || playSessionConfig;
-    const intent = cfg && cfg.practiceIntent;
-    if (!hand || !intent || intent === 'mixed' || (cfg && cfg.schoolMode)) {
-      el.classList.add('hidden');
-      el.textContent = '';
-      el.removeAttribute('data-intent');
-      return;
-    }
-    const Tax = window.PTFormatTaxonomy;
-    const label = (Tax && Tax.INTENT_LABELS && Tax.INTENT_LABELS[intent])
-      || (intent === 'bluff_catch' ? 'Cazar faroles' : 'Hacer faroles');
-    const node = hand.current;
-    let reasons = [];
-    let score = null;
-    const lastDec = (hand.decisions && hand.decisions.length)
-      ? hand.decisions[hand.decisions.length - 1]
-      : null;
-    const spot = (lastDec && lastDec.bluffSpot)
-      || (node && node.evaluation && node.evaluation.bluffSpot)
-      || null;
-    if (spot) {
-      reasons = (spot.reasons || []).slice(0, 3);
-      if (spot.score != null) score = spot.score;
-    } else if (window.GTOBluffSpotDetector && node && hand.hero) {
-      try {
-        const Det = window.GTOBluffSpotDetector;
-        const scored = Det.scoreForIntent({
-          street: node.street || hand.stage,
-          heroCards: hand.hero.cards,
-          board: hand.board,
-          toCallBB: node.toCallBB || 0,
-          potBB: node.potBB,
-          inPosition: !!(hand.hero.inPosition),
-          practiceIntent: intent,
-          strategy: node.gto || node.strategy
-        }, intent);
-        if (scored) {
-          reasons = (scored.reasons || []).slice(0, 3);
-          score = scored.score;
-        }
-      } catch (eBadge) { /* ignore */ }
-    }
-    const checklist = intent === 'bluff_catch'
-      ? '¿Showdown medio? ¿Sizing polar? ¿Blockers de value?'
-      : '¿FE? ¿Blockers? ¿Historia? ¿Calle polar?';
-    let html = '<strong>' + escapeHtml(label) + '</strong>';
-    if (score != null) html += ' · score ' + Math.round(Number(score) * 100) + '%';
-    if (reasons.length) html += '<span class="bluff-spot-reasons"> — ' + escapeHtml(reasons.join(' · ')) + '</span>';
-    else html += '<span class="bluff-spot-reasons"> — ' + escapeHtml(checklist) + '</span>';
-    el.innerHTML = html;
-    el.setAttribute('data-intent', intent);
-    el.classList.remove('hidden');
+    el.classList.add('hidden');
+    el.textContent = '';
+    el.innerHTML = '';
+    el.removeAttribute('data-intent');
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb).
@@ -47929,9 +48507,16 @@ window.PT_NASH_PUSH_JSON = {
         const mode = advisorModeForFeedback();
         if (mode === 'serious' && window.PTLiveAdvisor && PTLiveAdvisor.recordSeriousAlert) {
           PTLiveAdvisor.recordSeriousAlert(d, advisorThresholdForFeedback());
+        } else if (mode !== 'serious' && d.bluffAnalysis && window.PTLiveAdvisor
+          && PTLiveAdvisor.recordBluffReview) {
+          /* Post-decisión: análisis de farol en avisador (nunca pistas previas). */
+          PTLiveAdvisor.recordBluffReview(d);
         }
         // Feedback óptima/error primero; al ocultarse sigue la acción en mesa.
         await showVerdictToast(d, mode === 'serious');
+      } else if (d.bluffAnalysis && window.PTLiveAdvisor && PTLiveAdvisor.recordBluffReview
+        && advisorModeForFeedback() !== 'serious') {
+        PTLiveAdvisor.recordBluffReview(d);
       }
       $('#feedback').classList.add('hidden');
 
@@ -48370,12 +48955,16 @@ window.PT_NASH_PUSH_JSON = {
     const toast = $('#verdict-toast');
     if (!toast) return Promise.resolve();
     const pct = Math.round((d.frequency || 0) * 100);
+    const bluffHead = d.bluffAnalysis && d.bluffAnalysis.headline
+      ? `<div class="vt-bluff muted-text">${escapeHtml(d.bluffAnalysis.headline)}</div>`
+      : '';
     toast.className = 'verdict-toast visible ' + d.class;
     toast.innerHTML = `<div class="vt-verdict">${verdictWord(d.class)}</div>
       <div class="vt-freq">${pct}% GTO</div>
-      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
+      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}
+      ${bluffHead}`;
     clearTimeout(showVerdictToast._t);
-    const ms = stickySerious ? 1400 : 550;
+    const ms = stickySerious ? 1400 : (bluffHead ? 1100 : 550);
     return new Promise(function (resolve) {
       showVerdictToast._t = setTimeout(function () {
         toast.classList.remove('visible');
@@ -49742,23 +50331,67 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
-  /** Porqués pedagógicos de farol (detector + códigos de error) junto al feedback GTO. */
+  /** Análisis post-decisión de farol/bluffcatch (coherente con GTO + sizing + formato). */
   function renderBluffFeedbackHints(d) {
     if (!d) return '';
+    const BA = window.GTOBluffAnalysis;
+    let analysis = d.bluffAnalysis || null;
+    if (!analysis && BA && typeof BA.analyze === 'function') {
+      try {
+        const cfg = (hand && hand.playConfig) || playSessionConfig || {};
+        analysis = BA.analyze({
+          practiceIntent: cfg.practiceIntent || (d.bluffSpot && d.bluffSpot.intent) || 'mixed',
+          chosenAction: d.action || d.chosen,
+          best: d.best,
+          class: d.class,
+          strategy: d.gto || d.strategy,
+          bluffSpot: d.bluffSpot,
+          street: d.street,
+          potBB: d.potBB,
+          potBeforeBB: d.potBeforeBB,
+          toCallBB: d.toCallBB,
+          betSizeBB: d.betSizeBB,
+          formatHub: d.formatHub || cfg.formatHub,
+          gameType: cfg.gameType,
+          mttPhase: d.mttPhase || cfg.resolvedPhase || cfg.mttPhase,
+          villainLastAction: d.villainLastAction,
+          villainBetRatio: d.villainBetRatio,
+          facingNode: d.facingNode,
+          delayedCbet: d.delayedCbet,
+          priorAggressorBet: d.priorAggressorBet,
+          inPosition: d.inPosition,
+          foldEquity: d.mathParams && d.mathParams.foldEquityPct != null
+            ? d.mathParams.foldEquityPct / 100
+            : null,
+          heroEquity: d.heroEquity,
+          icmLite: d.icmLite,
+          errors: d.errors
+        });
+      } catch (eAna) { analysis = null; }
+    }
+    if (analysis && BA && BA.renderHtml) {
+      const extra = [];
+      (d.errors || []).forEach(function (e) {
+        if (!e || !e.type) return;
+        if (e.type === 'bluff_excesivo') {
+          extra.push('GTO casi no farolea aquí: revisa blockers, FE e historia.');
+        } else if (e.type === 'bluff_sin_fold_equity') {
+          extra.push('Poca fold equity: no farolees vs rangos polarizados sin blockers.');
+        }
+      });
+      let html = '<div class="spot-context bluff-feedback-hints" style="margin-top:8px;font-size:13px">'
+        + BA.renderHtml(analysis, escapeHtml);
+      if (extra.length) {
+        html += extra.map(function (p) { return '<div>' + escapeHtml(p) + '</div>'; }).join('');
+      }
+      return html + '</div>';
+    }
+    /* Fallback legacy si no hay módulo de análisis. */
     const parts = [];
     const spot = d.bluffSpot;
     if (spot && Array.isArray(spot.reasons) && spot.reasons.length) {
-      parts.push('<strong>Farol · porqués:</strong> ' + escapeHtml(spot.reasons.slice(0, 3).join(' · ')));
+      parts.push('<strong>Farol · revisión:</strong> ' + escapeHtml(spot.reasons.slice(0, 3).join(' · ')));
     }
-    const errs = d.errors || [];
-    errs.forEach(function (e) {
-      if (!e || !e.type) return;
-      if (e.type === 'bluff_excesivo') {
-        parts.push('GTO casi no farolea aquí: revisa blockers, FE e historia.');
-      } else if (e.type === 'bluff_sin_fold_equity') {
-        parts.push('Poca fold equity: no farolees vs rangos polarizados sin blockers.');
-      }
-    });
     if (!parts.length) return '';
     return '<div class="spot-context bluff-feedback-hints" style="margin-top:8px;font-size:13px">' +
       parts.map(function (p) { return '<div>' + p + '</div>'; }).join('') + '</div>';

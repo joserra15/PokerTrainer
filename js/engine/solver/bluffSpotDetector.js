@@ -96,12 +96,12 @@
     else if (blk < 0.12) { score -= 0.08; reasons.push('Blockers pobres.'); }
 
     if (input.inPosition) { score += 0.08; reasons.push('En posición.'); }
-    if (street === 'river') { score += 0.1; reasons.push('River: nodo polarizado típico.'); }
+    if (street === 'river') { score += 0.1; reasons.push('River: nodo a menudo polarizado.'); }
     if (street === 'turn') score += 0.05;
 
     const gtoBluff = strategyBluffFreq(input);
-    if (gtoBluff >= 0.2) { score += 0.15; reasons.push('Estrategia mezcla bet/raise con frecuencia útil.'); }
-    else if (gtoBluff > 0 && gtoBluff < 0.08) { score -= 0.12; reasons.push('GTO casi nunca farolea aquí.'); }
+    if (gtoBluff >= 0.2) { score += 0.15; reasons.push('Mezcla GTO incluye bet/raise con frecuencia útil.'); }
+    else if (gtoBluff > 0 && gtoBluff < 0.08) { score -= 0.12; reasons.push('Mezcla GTO casi sin bet/raise en este nodo.'); }
 
     const pen = icmPenalty(input);
     if (pen > 0) { score -= pen; reasons.push('Penalización ICM / burbuja.'); }
@@ -128,13 +128,13 @@
     const band = bandOf(input);
     if (band === 'bluffcatch' || band === 'merge') {
       score += 0.35;
-      reasons.push('Mano tipo bluffcatch / medium showdown.');
+      reasons.push('Mano tipo showdown medio (categoría bluffcatch).');
     } else if (band === 'air') {
       score -= 0.15;
-      reasons.push('Air puro: no es bluffcatch.');
+      reasons.push('Air puro: fuera de categoría bluffcatch.');
     } else if (band === 'value') {
       score -= 0.1;
-      reasons.push('Valor fuerte: decisión trivial de call/raise.');
+      reasons.push('Valor fuerte: call/raise suele ser trivial.');
     }
 
     const ratio = input.villainBetRatio != null ? input.villainBetRatio : (toCall / Math.max(input.potBeforeBB || input.potBB || 1, 0.1));
@@ -143,13 +143,14 @@
       reasons.push('Línea polarizada del villano.');
     } else if (ratio >= 0.4) {
       score += 0.12;
-      reasons.push('Bet mediano-grande.');
+      reasons.push('Bet mediano-grande del villano.');
     }
 
     const blk = blockerScore(input);
-    if (blk >= 0.3) { score += 0.12; reasons.push('Blockers ayudan a call/fold.'); }
+    if (blk >= 0.3) { score += 0.12; reasons.push('Blockers relevantes para la decisión call/fold.'); }
 
-    if (street === 'river') { score += 0.15; reasons.push('River: decisión de bluffcatch clásica.'); }
+    /* River suma score de spot; el texto pedagógico va en bluffAnalysis post-decisión. */
+    if (street === 'river') { score += 0.15; reasons.push('River: spot de showdown vs apuesta.'); }
     if (street === 'turn') score += 0.06;
 
     const eq = input.heroEquity;
