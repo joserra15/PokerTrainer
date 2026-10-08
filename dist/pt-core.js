@@ -31269,6 +31269,13 @@ window.PT_NASH_PUSH_JSON = {
   function sliceCloudForActive(fullPayload) {
     var p = fullPayload || {};
     var s = communityDataSuffix();
+    function walletFor(suffix) {
+      var w = suffix ? p['tournamentWallet' + suffix] : p.tournamentWallet;
+      if (!w) return null;
+      /* Descartar wallet contaminado (communityId de otra app bajo esta clave). */
+      if (cloudWalletCommunityMismatch(w, suffix || '')) return null;
+      return w;
+    }
     if (!s) {
       return {
         stats: p.stats || null,
@@ -31276,7 +31283,7 @@ window.PT_NASH_PUSH_JSON = {
         errors: Array.isArray(p.errors) ? p.errors : [],
         clearedAt: p.clearedAt || {},
         onboarding: p.onboarding || null,
-        tournamentWallet: p.tournamentWallet || null,
+        tournamentWallet: walletFor(''),
         tournamentHistory: Array.isArray(p.tournamentHistory) ? p.tournamentHistory : null,
         tournamentActive: p.tournamentActive || null
       };
@@ -31288,7 +31295,7 @@ window.PT_NASH_PUSH_JSON = {
       clearedAt: p['clearedAt' + s] || {},
       school: p['school' + s] || null,
       onboarding: null,
-      tournamentWallet: p['tournamentWallet' + s] || null,
+      tournamentWallet: walletFor(s),
       tournamentHistory: Array.isArray(p['tournamentHistory' + s]) ? p['tournamentHistory' + s] : null,
       tournamentActive: p['tournamentActive' + s] || null
     };
@@ -31334,6 +31341,12 @@ window.PT_NASH_PUSH_JSON = {
    * Torneos en push completo: no inventar wallet default ni pisar histórico
    * remoto con [] local. Active se borra en nube si local no tiene.
    */
+  function cloudWalletCommunityMismatch(cloudW, suffix) {
+    if (!cloudW || cloudW.communityId == null || cloudW.communityId === '') return false;
+    var expect = (!suffix || suffix === '') ? 'pokerforge' : String(suffix).replace(/^_/, '');
+    return String(cloudW.communityId) !== expect;
+  }
+
   function mergeTournamentFieldsIntoCloud(out, snap, s) {
     s = s || '';
     var wKey = 'tournamentWallet' + s;
@@ -31342,6 +31355,8 @@ window.PT_NASH_PUSH_JSON = {
     if (snap.tournamentWallet && !snap.tournamentWallet.isDefault) {
       var localW = snap.tournamentWallet;
       var cloudW = out[wKey];
+      /* Wallet nube con communityId de otra app: no conservar (contaminación). */
+      if (cloudWalletCommunityMismatch(cloudW, s)) cloudW = null;
       var preferCloudAdmin = false;
       try {
         if (cloudW && global.PTTournamentWallet && PTTournamentWallet.shouldAdoptAdminCredit) {
@@ -33625,6 +33640,50 @@ window.PT_NASH_PUSH_JSON = {
     };
   }
 
+  /**
+   * Resuelve una dirty key a { logical, suffix, cloudKey }.
+   * Torneos (wallet/history/active): el sufijo va en la propia key
+   * (`tournamentWallet` = PokerForge, `tournamentWallet_mttlab` = MTTLab).
+   * Nunca se reinterpreta con la comunidad activa — evita que un push tras
+   * switch PF→MTTLab escriba el wallet de una app en la clave de la otra.
+   * Stats/history/errors: claves lógicas se atan a la comunidad activa.
+   */
+  function parseDirtyDataKey(k, activeSuffix) {
+    var tournamentBases = ['tournamentWallet', 'tournamentHistory', 'tournamentActive'];
+    var i;
+    for (i = 0; i < tournamentBases.length; i++) {
+      var b = tournamentBases[i];
+      if (k === b) return { logical: b, suffix: '', cloudKey: b };
+      if (k.length > b.length + 1 && k.indexOf(b + '_') === 0) {
+        return { logical: b, suffix: k.slice(b.length), cloudKey: k };
+      }
+    }
+    var s = activeSuffix || '';
+    if (s && k.length > s.length && k.slice(-s.length) === s) {
+      return { logical: k.slice(0, -s.length), suffix: s, cloudKey: k };
+    }
+    return { logical: k, suffix: s, cloudKey: k + s };
+  }
+
+  function tournamentWalletStorageKeyFor(communityId) {
+    var s = (!communityId || communityId === 'pokerforge') ? '' : ('_' + communityId);
+    var uid = userId ? ('_' + userId) : '';
+    return 'pt_tournament_wallet_v1' + s + uid;
+  }
+
+  function loadLocalTournamentWalletFor(communityId) {
+    try {
+      if (typeof localStorage === 'undefined') return null;
+      var raw = localStorage.getItem(tournamentWalletStorageKeyFor(communityId));
+      if (!raw) return null;
+      var w = JSON.parse(raw);
+      if (!w || typeof w.balance !== 'number') return null;
+      return w;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /** Fusiona solo las claves tocadas antes de subir a la nube (evita pisar datos de otros dispositivos / comunidades). */
   function mergeDirtyKeysIntoCloud(cloudPayload, dirtyKeys) {
     const cloud = cloudPayload || {};
@@ -33634,15 +33693,11 @@ window.PT_NASH_PUSH_JSON = {
     const local = getCloudSnapshot();
     const localCa = getClearedAt();
     const cloudCaBucket = s ? (cloud['clearedAt' + s] || {}) : (cloud.clearedAt || {});
-    const keys = (dirtyKeys || []).filter(function (k) {
+    const parsedKeys = (dirtyKeys || []).filter(function (k) {
       return k && k !== 'sessions';
-    }).map(function (k) {
-      /* Acepta claves ya namespaced o lógicas */
-      if (s && k.length > s.length && k.slice(-s.length) === s) return k.slice(0, -s.length);
-      return k;
-    });
+    }).map(function (k) { return parseDirtyDataKey(k, s); });
 
-    if (!keys.length) return out;
+    if (!parsedKeys.length) return out;
 
     const outCa = Object.assign({}, cloudCaBucket, localCa);
     if (s) out['clearedAt' + s] = outCa;
@@ -33654,9 +33709,14 @@ window.PT_NASH_PUSH_JSON = {
       stats: s ? (cloud['stats' + s] || null) : (cloud.stats || null)
     };
 
-    keys.forEach(function (key) {
-      if (key === 'onboarding' && s) return;
-      const cloudDataKey = key + s;
+    parsedKeys.forEach(function (parsed) {
+      const key = parsed.logical;
+      const keySuffix = parsed.suffix || '';
+      const cloudDataKey = parsed.cloudKey;
+      /* onboarding solo PokerForge */
+      if (key === 'onboarding' && keySuffix) return;
+      /* stats/history/errors de otra comunidad: no usar snapshot activo. */
+      if ((key === 'history' || key === 'errors' || key === 'stats') && keySuffix !== s) return;
       if (key === 'history') {
         const merged = mergeArrayKeyForCloud('history', local, cloudView, cloudCaBucket, localCa, MAX_HISTORY);
         out[cloudDataKey || 'history'] = merged.data;
@@ -33707,11 +33767,17 @@ window.PT_NASH_PUSH_JSON = {
         }
         out[cloudDataKey || 'stats'] = nextStats;
         if (s) out['school' + s] = getSchoolProgress();
-      } else if (key === 'onboarding' && !s) {
+      } else if (key === 'onboarding' && !keySuffix) {
         out.onboarding = mergeOnboardingStates(local.onboarding, cloud.onboarding);
       } else if (key === 'tournamentWallet') {
-        const localW = local.tournamentWallet;
-        const cloudW = s ? cloud['tournamentWallet' + s] : cloud.tournamentWallet;
+        var walletCid = keySuffix ? String(keySuffix).replace(/^_/, '') : 'pokerforge';
+        var localW = (keySuffix === s)
+          ? local.tournamentWallet
+          : loadLocalTournamentWalletFor(walletCid);
+        var cloudW = keySuffix
+          ? cloud['tournamentWallet' + keySuffix]
+          : cloud.tournamentWallet;
+        if (cloudWalletCommunityMismatch(cloudW, keySuffix)) cloudW = null;
         if (localW && !localW.isDefault) {
           var preferCloudAdmin = false;
           try {
@@ -33733,26 +33799,41 @@ window.PT_NASH_PUSH_JSON = {
           }
         }
       } else if (key === 'tournamentHistory') {
-        const localH = Array.isArray(local.tournamentHistory) ? local.tournamentHistory : [];
-        const cloudH = s
-          ? (Array.isArray(cloud['tournamentHistory' + s]) ? cloud['tournamentHistory' + s] : [])
+        const localH = (keySuffix === s && Array.isArray(local.tournamentHistory))
+          ? local.tournamentHistory
+          : [];
+        const cloudH = keySuffix
+          ? (Array.isArray(cloud['tournamentHistory' + keySuffix]) ? cloud['tournamentHistory' + keySuffix] : [])
           : (Array.isArray(cloud.tournamentHistory) ? cloud.tournamentHistory : []);
-        out[cloudDataKey || key] = mergeTournamentHistoryLists(cloudH, localH);
+        /* Solo fusionar history local de la comunidad activa; dirty de otra
+           comunidad conserva cloud (mergeAll no aplica aquí). */
+        if (keySuffix === s) {
+          out[cloudDataKey || key] = mergeTournamentHistoryLists(cloudH, localH);
+        }
       } else if (key === 'tournamentActive') {
-        const cloudAct = s ? cloud['tournamentActive' + s] : cloud.tournamentActive;
-        if (local.tournamentActive) {
+        const cloudAct = keySuffix
+          ? cloud['tournamentActive' + keySuffix]
+          : cloud.tournamentActive;
+        var localAct = null;
+        if (keySuffix === s) {
+          localAct = local.tournamentActive || null;
+        } else {
+          var actCid = keySuffix ? String(keySuffix).replace(/^_/, '') : 'pokerforge';
+          localAct = loadLocalTournamentActiveFor(actCid);
+        }
+        if (localAct) {
           var preferLocalAct = !cloudAct;
           if (!preferLocalAct && global.PTTournamentStore && PTTournamentStore.isPreferableActive) {
-            preferLocalAct = PTTournamentStore.isPreferableActive(local.tournamentActive, cloudAct);
+            preferLocalAct = PTTournamentStore.isPreferableActive(localAct, cloudAct);
           } else if (!preferLocalAct) {
             preferLocalAct = true;
           }
           if (preferLocalAct) {
-            out[cloudDataKey || key] = local.tournamentActive;
+            out[cloudDataKey || key] = localAct;
           } else {
             out[cloudDataKey || key] = cloudAct;
             try {
-              if (global.PTTournamentStore && PTTournamentStore.saveActive) {
+              if (keySuffix === s && global.PTTournamentStore && PTTournamentStore.saveActive) {
                 PTTournamentStore.saveActive(cloudAct, { silent: true, fromCloud: true });
               }
               if (typeof global.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
@@ -33762,11 +33843,11 @@ window.PT_NASH_PUSH_JSON = {
               }
             } catch (eActPref) { /* */ }
           }
-        } else {
-          /* clearActive local → borrar en nube */
+        } else if (keySuffix === s) {
+          /* clearActive local → borrar en nube (solo comunidad activa) */
           delete out[cloudDataKey || key];
         }
-      } else if (local[key] != null) {
+      } else if (keySuffix === s && local[key] != null) {
         out[cloudDataKey || key] = local[key];
       }
     });
@@ -34551,6 +34632,8 @@ window.PT_NASH_PUSH_JSON = {
     mergeActiveIntoCloudPayload, mergeAllLocalTournamentActivesIntoCloud,
     adoptBestCloudTournamentActive, listCloudTournamentActives,
     sliceCloudForActive, communityDataSuffix, cloudDataKeys,
+    parseDirtyDataKey, cloudWalletCommunityMismatch,
+    loadLocalTournamentWalletFor,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
     getFeatureUsage, trackFeatureUsage,
@@ -38842,6 +38925,7 @@ window.PT_NASH_PUSH_JSON = {
     opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
+      if (data && typeof data === 'object') data.communityId = communityId();
       localStorage.setItem(storageKey(), JSON.stringify(data));
       if (!opts.silent) markDirty();
       return true;
@@ -39013,7 +39097,14 @@ window.PT_NASH_PUSH_JSON = {
     return 0;
   }
 
+  /** true si el remoto declara otra comunidad (no aplicar: evita mezclar PF ↔ MTTLab). */
+  function remoteCommunityMismatch(remote) {
+    if (!remote || remote.communityId == null || remote.communityId === '') return false;
+    return String(remote.communityId) !== String(communityId());
+  }
+
   function applyRemote(remote, local) {
+    if (remoteCommunityMismatch(remote)) return toSnapshot(local) || snapshot();
     var adminAt = adminCreditTs(remote);
     var data = {
       balance: Math.max(0, Number(remote.balance) || 0),
@@ -39035,7 +39126,8 @@ window.PT_NASH_PUSH_JSON = {
       ),
       last: (remote.last && remote.last.type === 'admin_set_koins')
         ? remote.last
-        : { type: 'cloud_merge' }
+        : { type: 'cloud_merge' },
+      communityId: communityId()
     };
     if (adminAt) {
       data.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
@@ -39067,6 +39159,8 @@ window.PT_NASH_PUSH_JSON = {
 
   function mergeFromCloud(remote) {
     if (!remote || typeof remote.balance !== 'number') return snapshot();
+    /* Wallet de otra comunidad (p.ej. PF bajo clave mttlab): no aplicar. */
+    if (remoteCommunityMismatch(remote)) return snapshot();
     var local = peek();
     if (!local) return applyRemote(remote, null);
 
@@ -39093,7 +39187,8 @@ window.PT_NASH_PUSH_JSON = {
           remote.trainerHands != null ? Number(remote.trainerHands) || 0 : 0
         ),
         lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
-        last: { type: 'cloud_merge_tie' }
+        last: { type: 'cloud_merge_tie' },
+        communityId: communityId()
       });
       if (adminCreditTs(remote) > adminCreditTs(local)) {
         tied.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
@@ -39131,6 +39226,10 @@ window.PT_NASH_PUSH_JSON = {
     var remoteAdminSeen = adminCreditTs(remote);
     if (remoteAdminSeen > adminCreditTs(local)) {
       local.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+      dirtyLocal = true;
+    }
+    if (!local.communityId) {
+      local.communityId = communityId();
       dirtyLocal = true;
     }
     if (dirtyLocal) writeRaw(local, { silent: true });
@@ -39187,7 +39286,9 @@ window.PT_NASH_PUSH_JSON = {
     communitySuffix: communitySuffix,
     storageKey: storageKey,
     adminCreditTs: adminCreditTs,
-    shouldAdoptAdminCredit: shouldAdoptAdminCredit
+    shouldAdoptAdminCredit: shouldAdoptAdminCredit,
+    remoteCommunityMismatch: remoteCommunityMismatch,
+    communityId: communityId
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);
 

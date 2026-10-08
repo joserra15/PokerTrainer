@@ -229,4 +229,55 @@ Store.mergeFromCloud({
 assert.ok(TStore.list().some(function (h) { return h.id === 'trn_mt_2'; }),
   'merge namespaced sí aporta torneo mttlab');
 
+/* --- Koins: wallet PF no debe pisar MTTLab (communityId mismatch) --- */
+ACTIVE = 'pokerforge';
+Object.keys(localStore).forEach(function (k) {
+  if (/pt_tournament_wallet/.test(k)) delete localStore[k];
+});
+Wallet.setBalance(500, { type: 'pf_iso' });
+ACTIVE = 'mttlab';
+Wallet.setBalance(12, { type: 'mt_iso' });
+assert.strictEqual(Wallet.getBalance(), 12, 'mttlab 12 antes de merge hostil');
+Wallet.mergeFromCloud({
+  balance: 500,
+  updatedAt: new Date().toISOString(),
+  communityId: 'pokerforge',
+  tournamentsPlayed: 0,
+  trainerHands: 0,
+  lessonAwards: {},
+  last: { type: 'admin_set_koins', at: new Date().toISOString() }
+});
+assert.strictEqual(Wallet.getBalance(), 12, 'merge PF→mttlab rechazado por communityId');
+
+ACTIVE = 'mttlab';
+Store.mergeFromCloud({
+  tournamentWallet_mttlab: {
+    balance: 999,
+    updatedAt: new Date().toISOString(),
+    communityId: 'pokerforge',
+    last: { type: 'admin_set_koins', at: new Date().toISOString() }
+  }
+});
+assert.strictEqual(Wallet.getBalance(), 12, 'slice descarta wallet_mttlab contaminado con communityId PF');
+
+/* Dirty key PF no debe escribirse en tournamentWallet_mttlab tras switch */
+ACTIVE = 'pokerforge';
+Wallet.setBalance(500, { type: 'pf_dirty' });
+const pfWalletSnap = Wallet.snapshot();
+ACTIVE = 'mttlab';
+Wallet.setBalance(12, { type: 'mt_dirty' });
+const dirtyOut = Store.mergeDirtyKeysIntoCloud({
+  tournamentWallet: { balance: 100, updatedAt: '2020-01-01T00:00:00.000Z', communityId: 'pokerforge' },
+  tournamentWallet_mttlab: { balance: 5, updatedAt: '2020-01-01T00:00:00.000Z', communityId: 'mttlab' }
+}, ['tournamentWallet']);
+assert.ok(dirtyOut.tournamentWallet, 'dirty PF actualiza clave PF');
+assert.strictEqual(dirtyOut.tournamentWallet.balance, 500, 'push PF usa saldo PF');
+assert.strictEqual(dirtyOut.tournamentWallet_mttlab.balance, 5,
+  'dirty PF no pisa tournamentWallet_mttlab');
+assert.ok(Store.parseDirtyDataKey('tournamentWallet', '_mttlab').suffix === '',
+  'tournamentWallet bare = PokerForge aunque active sea mttlab');
+assert.ok(Store.parseDirtyDataKey('tournamentWallet_mttlab', '').cloudKey === 'tournamentWallet_mttlab',
+  'tournamentWallet_mttlab conserva sufijo');
+void pfWalletSnap;
+
 console.log('*** community-data-isolation OK ***');

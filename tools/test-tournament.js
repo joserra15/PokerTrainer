@@ -3446,10 +3446,58 @@ console.log('OK pushfold-freq-100');
     }), 'refresh reemplaza board contaminado (no merge con PF)');
     assert.ok(cleaned.some(function (r) { return r.name === 'LabOne'; }), 'tras clean sigue LabOne');
 
+    /* Wallet: ranking PF no debe pisar saldo MTTLab (communityId) */
+    const W = g.PTTournamentWallet;
+    activeCid = 'pokerforge';
+    W.setBalance(500, { type: 'iso_pf_wallet' });
+    activeCid = 'mttlab';
+    W.setBalance(12, { type: 'iso_mt_wallet' });
+    assert.strictEqual(W.getBalance(), 12, 'mttlab saldo propio');
+    W.mergeFromCloud({
+      balance: 500,
+      updatedAt: new Date().toISOString(),
+      communityId: 'pokerforge',
+      tournamentsPlayed: 0,
+      trainerHands: 0,
+      lessonAwards: {},
+      last: { type: 'admin_set_koins', at: new Date().toISOString() }
+    });
+    assert.strictEqual(W.getBalance(), 12, 'merge wallet PF→mttlab rechazado');
+    /* Refresh MTTLab con hero cloud alto no adopta si communityId del row es PF */
+    g.PTAuth = { getUser: function () { return { id: 'hero-iso', name: 'HeroIso', plan: 'free' }; } };
+    g.PTSupabase = {
+      getClient: function () {
+        return {
+          rpc: function (name, args) {
+            if (args && args.p_community_id === 'mttlab') {
+              return Promise.resolve({
+                data: {
+                  ok: true,
+                  members: [
+                    { user_id: 'hero-iso', display_name: 'HeroIso', koins: 500, tournaments_played: 1 },
+                    { user_id: 'mt1', display_name: 'LabOne', koins: 40, tournaments_played: 2 }
+                  ]
+                },
+                error: null
+              });
+            }
+            return Promise.resolve({ data: { ok: true, members: [] }, error: null });
+          }
+        };
+      }
+    };
+    activeCid = 'mttlab';
+    await Lb.refreshFromCloud({ force: true });
+    /* Tras refresh, el row del hero se estampa con communityId mttlab — sí puede
+       adoptar el saldo del ranking de ESA comunidad. Forzamos rechazo con merge directo. */
+    assert.ok(W.remoteCommunityMismatch({ communityId: 'pokerforge' }), 'detecta mismatch PF');
+    assert.ok(!W.remoteCommunityMismatch({ communityId: 'mttlab' }), 'mttlab coincide');
+
     activeCid = 'pokerforge';
     g.localStorage.setItem(pfKey, JSON.stringify([]));
     g.localStorage.setItem(mtKey, JSON.stringify([]));
     g.PTSupabase = null;
+    W.setBalance(0, { type: 'iso_reset' });
     console.log('OK leaderboard-community-isolation');
   }
   /* --- Side pots: empate con all-in corto + fold con más fichas --- */
