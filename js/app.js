@@ -6014,8 +6014,11 @@
     const exCls = d.classExploit || null;
     const gtoF = pct1(d.freqGto);
     const exF = pct1(d.freqExploit);
+    const bestGto = d.bestGto || null;
+    const bestExploit = d.bestExploit || null;
+    const topFlip = !!(bestGto && bestExploit && bestGto !== bestExploit);
     const hasDual = !!(gtoCls || exCls || d.exploitApplied || (d.explainDelta && d.explainDelta.length)
-      || (d.lineSignals && d.lineSignals.length));
+      || (d.lineSignals && d.lineSignals.length) || topFlip || bestExploit);
     if (!hasDual) return '';
     let html = '<div class="exploit-delta-note dual-verdict-note muted-text" style="margin-top:6px;font-size:12px">';
     if (gtoCls || exCls) {
@@ -6032,6 +6035,18 @@
           + escapeHtml(verdictWord(exCls))
           + (exF != null ? ' (' + exF + '%)' : '')
           + '</span>';
+      }
+      html += '</div>';
+    }
+    if (bestGto || bestExploit) {
+      html += '<div style="margin-bottom:4px">';
+      if (bestGto) {
+        html += '<strong>Óptimo GTO:</strong> ' + escapeHtml(actionName(bestGto));
+      }
+      if (bestGto && bestExploit) html += ' <span style="opacity:.5">·</span> ';
+      if (bestExploit) {
+        html += '<strong>Óptimo explotativo:</strong> ' + escapeHtml(actionName(bestExploit));
+        if (topFlip) html += ' <span style="opacity:.85">(acción distinta)</span>';
       }
       html += '</div>';
     }
@@ -6059,6 +6074,9 @@
     }
     if (d.gtoBaseline && d.exploitApplied) {
       html += renderGtoBars(d.gtoBaseline, { title: 'Referencia GTO (sin explotación):' });
+    }
+    if (topFlip && d.exploitStrategy) {
+      html += renderGtoBars(d.exploitStrategy, { title: 'Mezcla explotativa:', exploit: true });
     }
     return html + '</div>';
   }

@@ -41,6 +41,7 @@ const STEPS = [
   ['Test motor Pro unificado (DecisionContext/ICM/LinePlan/Escuela M3)', ['node', 'tools/test-pro-decision-engine.js']],
   ['Test hero exploit adjust', ['node', 'tools/test-hero-exploit-adjust.js']],
   ['Test exploit dual verdict', ['node', 'tools/test-exploit-dual-verdict.js']],
+  ['Audit exploit vs GTO', ['node', 'tools/audit-exploit-vs-gto.js']],
   ['Test GTO detalle vs paso a paso torneos', ['node', 'tools/test-gto-detalle-paso-a-paso.js']],
   ['Test villain type trainer', ['node', 'tools/test-villain-type-trainer.js']],
   ['Test audit villain tournament sim smoke', ['node', 'tools/test-audit-villain-tournament-sim.js']],
