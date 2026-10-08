@@ -462,6 +462,60 @@
         evLoss = Icm.adjustEvLoss(evLoss, Object.assign({}, enriched, { chosenAction }));
       }
 
+      const Bluff = global.GTOBluffSpotDetector;
+      const bluffInfo = Bluff && enriched.street && enriched.street !== 'preflop'
+        ? Bluff.scoreForIntent(Object.assign({}, enriched, { strategy: strategy }), enriched.practiceIntent || 'mixed')
+        : null;
+
+      /* Farol polar post-análisis: subir error→aceptable cuando sizing/FE/historia lo respaldan. */
+      const BA = global.GTOBluffAnalysis;
+      let bluffAnalysis = null;
+      if (BA && enriched.street && enriched.street !== 'preflop') {
+        try {
+          let blkScore = bluffInfo && bluffInfo.blockers != null ? bluffInfo.blockers : null;
+          if (blkScore == null && global.GTOBlockers && enriched.heroCards && enriched.board) {
+            try {
+              blkScore = global.GTOBlockers.computeBlockerScore(enriched.heroCards, enriched.board);
+            } catch (eBlk2) { blkScore = null; }
+          }
+          bluffAnalysis = BA.analyze({
+            practiceIntent: enriched.practiceIntent || 'mixed',
+            chosenAction: chosenAction,
+            best: finalBest,
+            class: finalCls,
+            strategy: strategy,
+            bluffSpot: bluffInfo,
+            street: enriched.street,
+            potBB: enriched.potBB,
+            potBeforeBB: enriched.potBeforeBB,
+            toCallBB: enriched.toCallBB,
+            betSizeBB: enriched.betSizeBB || input.betSizeBB,
+            formatHub: enriched.formatHub,
+            gameType: enriched.gameType,
+            mttPhase: enriched.mttPhase || enriched.resolvedPhase,
+            villainLastAction: enriched.villainLastAction,
+            villainBetRatio: enriched.villainBetRatio,
+            facingNode: enriched.facingNode,
+            delayedCbet: enriched.delayedCbet,
+            priorAggressorBet: enriched.priorAggressorBet,
+            inPosition: enriched.inPosition,
+            foldEquity: (mathParams && mathParams.foldEquityPct != null)
+              ? mathParams.foldEquityPct / 100
+              : enriched.foldEquity,
+            blockerScore: blkScore,
+            band: enriched.handRank && enriched.handRank.band,
+            madeHandInfo: enriched.madeHandInfo,
+            heroEquity: enriched.heroEquity,
+            icmLite: !!(Icm && Icm.shouldApply(enriched)),
+            errors: stratErrors
+          });
+          if (bluffAnalysis && bluffAnalysis.acceptableBluff
+            && (finalCls === 'error' || finalCls === 'imprecisa')) {
+            finalCls = 'aceptable';
+          }
+        } catch (eBA) { bluffAnalysis = null; }
+      }
+
       const scoring = Scoring.scoreDecision({
         strategy, chosenAction, classification: finalCls,
         evLoss: evLoss, betSizeBB: input.betSizeBB, potBB: enriched.potBB,
@@ -479,11 +533,6 @@
         riverShove: !!enriched.riverShove,
         multiway: !!enriched.multiway
       });
-
-      const Bluff = global.GTOBluffSpotDetector;
-      const bluffInfo = Bluff && enriched.street && enriched.street !== 'preflop'
-        ? Bluff.scoreForIntent(Object.assign({}, enriched, { strategy: strategy }), enriched.practiceIntent || 'mixed')
-        : null;
 
       result.evaluation = {
         class: finalCls,
@@ -515,14 +564,24 @@
         errors: stratErrors,
         legalStrategy: cls.legalStrategy,
         icmMultiplier: icmMult,
-        bluffSpot: bluffInfo
+        bluffSpot: bluffInfo,
+        bluffAnalysis: bluffAnalysis,
+        betSizeBB: enriched.betSizeBB || input.betSizeBB || 0,
+        delayedCbet: !!enriched.delayedCbet,
+        priorAggressorBet: enriched.priorAggressorBet != null ? !!enriched.priorAggressorBet : null,
+        inPosition: enriched.inPosition != null ? !!enriched.inPosition : null,
+        villainBetRatio: enriched.villainBetRatio != null ? enriched.villainBetRatio : null,
+        facingNode: enriched.facingNode || null,
+        practiceIntent: enriched.practiceIntent || 'mixed'
       };
       if (Icm && Icm.shouldApply(enriched)) {
         Icm.annotateDecision(result.evaluation, enriched);
       }
       const Tax = global.PTFormatTaxonomy;
       const hub = enriched.formatHub
-        || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null);
+        || (Tax && Tax.hubFromGameType ? Tax.hubFromGameType(enriched.gameType) : null)
+        || 'cash';
+      result.evaluation.formatHub = hub;
       if (hub === 'spin' || hub === 'mtt') {
         const phase = enriched.mttPhase || enriched.resolvedPhase || null;
         const role = enriched.stackRole || null;

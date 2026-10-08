@@ -209,8 +209,11 @@
         html += '</div>';
       }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
-      if (d.bluffSpot && Array.isArray(d.bluffSpot.reasons) && d.bluffSpot.reasons.length) {
-        html += '<div class="dec-expl bluff-feedback-hints"><strong>Farol · porqués:</strong> ' +
+      if (d.bluffAnalysis && global.GTOBluffAnalysis && global.GTOBluffAnalysis.renderHtml) {
+        html += '<div class="dec-expl bluff-feedback-hints">' +
+          global.GTOBluffAnalysis.renderHtml(d.bluffAnalysis, esc) + '</div>';
+      } else if (d.bluffSpot && Array.isArray(d.bluffSpot.reasons) && d.bluffSpot.reasons.length) {
+        html += '<div class="dec-expl bluff-feedback-hints"><strong>Farol · revisión:</strong> ' +
           esc(d.bluffSpot.reasons.slice(0, 3).join(' · ')) + '</div>';
       }
       if (d.context && typeof d.context === 'string') {

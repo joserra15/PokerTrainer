@@ -109,6 +109,40 @@
     if (!decision) return null;
     var thr = threshold != null ? Number(threshold) : loadThreshold();
     if (isNaN(thr)) thr = loadThreshold();
+    var bluffHtml = '';
+    var BA = global.GTOBluffAnalysis;
+    var analysis = decision.bluffAnalysis || null;
+    if (!analysis && BA && typeof BA.analyze === 'function'
+      && (decision.bluffSpot || decision.practiceIntent === 'bluff_make'
+        || decision.practiceIntent === 'bluff_catch')) {
+      try {
+        analysis = BA.analyze({
+          practiceIntent: decision.practiceIntent || (decision.bluffSpot && decision.bluffSpot.intent),
+          chosenAction: decision.action || decision.chosen,
+          best: decision.best,
+          class: decision.class,
+          strategy: decision.gto || decision.strategy,
+          bluffSpot: decision.bluffSpot,
+          street: decision.street,
+          potBB: decision.potBB,
+          potBeforeBB: decision.potBeforeBB,
+          toCallBB: decision.toCallBB,
+          betSizeBB: decision.betSizeBB,
+          formatHub: decision.formatHub,
+          mttPhase: decision.mttPhase,
+          villainLastAction: decision.villainLastAction,
+          villainBetRatio: decision.villainBetRatio,
+          delayedCbet: decision.delayedCbet,
+          priorAggressorBet: decision.priorAggressorBet,
+          inPosition: decision.inPosition,
+          icmLite: decision.icmLite,
+          errors: decision.errors
+        });
+      } catch (eA) { analysis = null; }
+    }
+    if (analysis && BA && BA.renderHtml) {
+      bluffHtml = BA.renderHtml(analysis, escapeHtml);
+    }
     pendingAlert = {
       street: decision.street || '',
       label: decision.label || decision.chosen || decision.action || '',
@@ -116,7 +150,9 @@
       evLoss: Number(decision.evLoss) || 0,
       threshold: thr,
       best: decision.best || '',
-      explanation: decision.explanation || ''
+      explanation: decision.explanation || '',
+      bluffAnalysisHtml: bluffHtml,
+      bluffHeadline: analysis && analysis.headline || ''
     };
     return pendingAlert;
   }
@@ -243,18 +279,79 @@
     host.classList.remove('hidden', 'live-advisor-silent');
     host.classList.add('live-advisor-alert');
     var street = alert.street ? cap(alert.street) + ': ' : '';
+    var isReview = alert.kind === 'bluff_review';
+    var badge = isReview ? escapeHtml(t('advisor.live')) : escapeHtml(t('advisor.alert'));
+    var hint = isReview
+      ? escapeHtml(alert.bluffHeadline || 'Revisión farol')
+      : escapeHtml(t('advisor.alertHint', { n: fmtBB(alert.threshold != null ? alert.threshold : loadThreshold()) }));
     host.innerHTML =
       '<div class="live-advisor-head">' +
-      '<span class="live-advisor-badge live-advisor-badge-alert">' + escapeHtml(t('advisor.alert')) + '</span>' +
-      '<span class="muted-text">' + escapeHtml(t('advisor.alertHint', { n: fmtBB(alert.threshold != null ? alert.threshold : loadThreshold()) })) + '</span>' +
+      '<span class="live-advisor-badge' + (isReview ? '' : ' live-advisor-badge-alert') + '">' + badge + '</span>' +
+      '<span class="muted-text">' + hint + '</span>' +
       '<button type="button" class="live-advisor-disable" data-dismiss-advisor-alert title="' +
       escapeHtml(t('advisor.dismissAlert')) + '" aria-label="' + escapeHtml(t('advisor.dismissAlert')) + '">×</button>' +
       '</div>' +
       '<div class="live-advisor-alert-body">' +
-      '<div class="live-advisor-rec-action net-neg">-' + escapeHtml(fmtBB(alert.evLoss)) + ' bb</div>' +
+      (alert.evLoss > 0
+        ? '<div class="live-advisor-rec-action net-neg">-' + escapeHtml(fmtBB(alert.evLoss)) + ' bb</div>'
+        : '') +
       '<div class="live-advisor-alert-detail">' + escapeHtml(street + (alert.label || '')) + '</div>' +
       (alert.explanation ? '<p class="live-advisor-expl">' + escapeHtml(alert.explanation) + '</p>' : '') +
+      (alert.bluffAnalysisHtml
+        ? '<div class="live-advisor-bluff-analysis">' + alert.bluffAnalysisHtml + '</div>'
+        : '') +
       '</div>';
+  }
+
+  /**
+   * Revisión post-decisión de farol (modo always): no da pistas previas;
+   * solo tras actuar, con el análisis coherente GTO/sizing/formato.
+   */
+  function recordBluffReview(decision) {
+    if (!decision) return null;
+    var analysis = decision.bluffAnalysis || null;
+    var BA = global.GTOBluffAnalysis;
+    if (!analysis && BA && typeof BA.analyze === 'function') {
+      try {
+        analysis = BA.analyze({
+          practiceIntent: decision.practiceIntent || (decision.bluffSpot && decision.bluffSpot.intent),
+          chosenAction: decision.action || decision.chosen,
+          best: decision.best,
+          class: decision.class,
+          strategy: decision.gto || decision.strategy,
+          bluffSpot: decision.bluffSpot,
+          street: decision.street,
+          potBB: decision.potBB,
+          potBeforeBB: decision.potBeforeBB,
+          toCallBB: decision.toCallBB,
+          betSizeBB: decision.betSizeBB,
+          formatHub: decision.formatHub,
+          mttPhase: decision.mttPhase,
+          villainLastAction: decision.villainLastAction,
+          villainBetRatio: decision.villainBetRatio,
+          delayedCbet: decision.delayedCbet,
+          priorAggressorBet: decision.priorAggressorBet,
+          inPosition: decision.inPosition,
+          icmLite: decision.icmLite,
+          errors: decision.errors
+        });
+      } catch (eR) { analysis = null; }
+    }
+    if (!analysis || !analysis.headline) return null;
+    var html = BA && BA.renderHtml ? BA.renderHtml(analysis, escapeHtml) : '';
+    pendingAlert = {
+      kind: 'bluff_review',
+      street: decision.street || '',
+      label: decision.label || decision.chosen || decision.action || '',
+      class: decision.class || '',
+      evLoss: Number(decision.evLoss) || 0,
+      threshold: loadThreshold(),
+      best: decision.best || '',
+      explanation: decision.explanation || '',
+      bluffAnalysisHtml: html,
+      bluffHeadline: analysis.headline || ''
+    };
+    return pendingAlert;
   }
 
   function renderDrivers(drivers) {
@@ -316,13 +413,26 @@
       host.innerHTML = '';
       return;
     }
-    // Tras error grave: mantener el aviso visible también al completar la mano.
+    // Revisión de farol: solo al cerrar la mano (o sin nodo activo). En la
+    // siguiente calle se limpia para no tapar el avisador ni dar pistas previas.
+    if (pendingAlert && pendingAlert.kind === 'bluff_review') {
+      if (hand.stage === 'complete' || !hand.current) {
+        renderAlertPanel(host, pendingAlert);
+        return;
+      }
+      pendingAlert = null;
+    }
+    // Tras error grave: mantener el aviso también al completar la mano.
     if (pendingAlert && !isPreActionVisible()) {
       renderAlertPanel(host, pendingAlert);
       return;
     }
     if (hand.stage === 'complete' || !hand.current) {
       matrixJob++;
+      if (pendingAlert) {
+        renderAlertPanel(host, pendingAlert);
+        return;
+      }
       host.classList.add('hidden');
       host.classList.remove('live-advisor-alert', 'live-advisor-silent');
       host.innerHTML = '';
@@ -352,6 +462,7 @@
     isPreActionVisible: isPreActionVisible,
     DEFAULT_THRESHOLD: DEFAULT_THRESHOLD,
     recordSeriousAlert: recordSeriousAlert,
+    recordBluffReview: recordBluffReview,
     clearPendingAlert: clearPendingAlert,
     getPendingAlert: getPendingAlert,
     setPendingAlert: setPendingAlert,

@@ -3770,61 +3770,17 @@
     el.classList.remove('hidden');
   }
 
+  /**
+   * Badge de mesa desactivado: las pistas de farol/bluffcatch no deben
+   * aparecer antes de decidir. El análisis vive en feedback, hand-end y avisador.
+   */
   function renderBluffSpotBadge() {
-    let el = $('#bluff-spot-badge');
+    const el = $('#bluff-spot-badge');
     if (!el) return;
-    const cfg = (hand && hand.playConfig) || playSessionConfig;
-    const intent = cfg && cfg.practiceIntent;
-    if (!hand || !intent || intent === 'mixed' || (cfg && cfg.schoolMode)) {
-      el.classList.add('hidden');
-      el.textContent = '';
-      el.removeAttribute('data-intent');
-      return;
-    }
-    const Tax = window.PTFormatTaxonomy;
-    const label = (Tax && Tax.INTENT_LABELS && Tax.INTENT_LABELS[intent])
-      || (intent === 'bluff_catch' ? 'Cazar faroles' : 'Hacer faroles');
-    const node = hand.current;
-    let reasons = [];
-    let score = null;
-    const lastDec = (hand.decisions && hand.decisions.length)
-      ? hand.decisions[hand.decisions.length - 1]
-      : null;
-    const spot = (lastDec && lastDec.bluffSpot)
-      || (node && node.evaluation && node.evaluation.bluffSpot)
-      || null;
-    if (spot) {
-      reasons = (spot.reasons || []).slice(0, 3);
-      if (spot.score != null) score = spot.score;
-    } else if (window.GTOBluffSpotDetector && node && hand.hero) {
-      try {
-        const Det = window.GTOBluffSpotDetector;
-        const scored = Det.scoreForIntent({
-          street: node.street || hand.stage,
-          heroCards: hand.hero.cards,
-          board: hand.board,
-          toCallBB: node.toCallBB || 0,
-          potBB: node.potBB,
-          inPosition: !!(hand.hero.inPosition),
-          practiceIntent: intent,
-          strategy: node.gto || node.strategy
-        }, intent);
-        if (scored) {
-          reasons = (scored.reasons || []).slice(0, 3);
-          score = scored.score;
-        }
-      } catch (eBadge) { /* ignore */ }
-    }
-    const checklist = intent === 'bluff_catch'
-      ? '¿Showdown medio? ¿Sizing polar? ¿Blockers de value?'
-      : '¿FE? ¿Blockers? ¿Historia? ¿Calle polar?';
-    let html = '<strong>' + escapeHtml(label) + '</strong>';
-    if (score != null) html += ' · score ' + Math.round(Number(score) * 100) + '%';
-    if (reasons.length) html += '<span class="bluff-spot-reasons"> — ' + escapeHtml(reasons.join(' · ')) + '</span>';
-    else html += '<span class="bluff-spot-reasons"> — ' + escapeHtml(checklist) + '</span>';
-    el.innerHTML = html;
-    el.setAttribute('data-intent', intent);
-    el.classList.remove('hidden');
+    el.classList.add('hidden');
+    el.textContent = '';
+    el.innerHTML = '';
+    el.removeAttribute('data-intent');
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb).
@@ -4238,9 +4194,16 @@
         const mode = advisorModeForFeedback();
         if (mode === 'serious' && window.PTLiveAdvisor && PTLiveAdvisor.recordSeriousAlert) {
           PTLiveAdvisor.recordSeriousAlert(d, advisorThresholdForFeedback());
+        } else if (mode !== 'serious' && d.bluffAnalysis && window.PTLiveAdvisor
+          && PTLiveAdvisor.recordBluffReview) {
+          /* Post-decisión: análisis de farol en avisador (nunca pistas previas). */
+          PTLiveAdvisor.recordBluffReview(d);
         }
         // Feedback óptima/error primero; al ocultarse sigue la acción en mesa.
         await showVerdictToast(d, mode === 'serious');
+      } else if (d.bluffAnalysis && window.PTLiveAdvisor && PTLiveAdvisor.recordBluffReview
+        && advisorModeForFeedback() !== 'serious') {
+        PTLiveAdvisor.recordBluffReview(d);
       }
       $('#feedback').classList.add('hidden');
 
@@ -4679,12 +4642,16 @@
     const toast = $('#verdict-toast');
     if (!toast) return Promise.resolve();
     const pct = Math.round((d.frequency || 0) * 100);
+    const bluffHead = d.bluffAnalysis && d.bluffAnalysis.headline
+      ? `<div class="vt-bluff muted-text">${escapeHtml(d.bluffAnalysis.headline)}</div>`
+      : '';
     toast.className = 'verdict-toast visible ' + d.class;
     toast.innerHTML = `<div class="vt-verdict">${verdictWord(d.class)}</div>
       <div class="vt-freq">${pct}% GTO</div>
-      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}`;
+      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}
+      ${bluffHead}`;
     clearTimeout(showVerdictToast._t);
-    const ms = stickySerious ? 1400 : 550;
+    const ms = stickySerious ? 1400 : (bluffHead ? 1100 : 550);
     return new Promise(function (resolve) {
       showVerdictToast._t = setTimeout(function () {
         toast.classList.remove('visible');
@@ -6051,23 +6018,67 @@
     };
   }
 
-  /** Porqués pedagógicos de farol (detector + códigos de error) junto al feedback GTO. */
+  /** Análisis post-decisión de farol/bluffcatch (coherente con GTO + sizing + formato). */
   function renderBluffFeedbackHints(d) {
     if (!d) return '';
+    const BA = window.GTOBluffAnalysis;
+    let analysis = d.bluffAnalysis || null;
+    if (!analysis && BA && typeof BA.analyze === 'function') {
+      try {
+        const cfg = (hand && hand.playConfig) || playSessionConfig || {};
+        analysis = BA.analyze({
+          practiceIntent: cfg.practiceIntent || (d.bluffSpot && d.bluffSpot.intent) || 'mixed',
+          chosenAction: d.action || d.chosen,
+          best: d.best,
+          class: d.class,
+          strategy: d.gto || d.strategy,
+          bluffSpot: d.bluffSpot,
+          street: d.street,
+          potBB: d.potBB,
+          potBeforeBB: d.potBeforeBB,
+          toCallBB: d.toCallBB,
+          betSizeBB: d.betSizeBB,
+          formatHub: d.formatHub || cfg.formatHub,
+          gameType: cfg.gameType,
+          mttPhase: d.mttPhase || cfg.resolvedPhase || cfg.mttPhase,
+          villainLastAction: d.villainLastAction,
+          villainBetRatio: d.villainBetRatio,
+          facingNode: d.facingNode,
+          delayedCbet: d.delayedCbet,
+          priorAggressorBet: d.priorAggressorBet,
+          inPosition: d.inPosition,
+          foldEquity: d.mathParams && d.mathParams.foldEquityPct != null
+            ? d.mathParams.foldEquityPct / 100
+            : null,
+          heroEquity: d.heroEquity,
+          icmLite: d.icmLite,
+          errors: d.errors
+        });
+      } catch (eAna) { analysis = null; }
+    }
+    if (analysis && BA && BA.renderHtml) {
+      const extra = [];
+      (d.errors || []).forEach(function (e) {
+        if (!e || !e.type) return;
+        if (e.type === 'bluff_excesivo') {
+          extra.push('GTO casi no farolea aquí: revisa blockers, FE e historia.');
+        } else if (e.type === 'bluff_sin_fold_equity') {
+          extra.push('Poca fold equity: no farolees vs rangos polarizados sin blockers.');
+        }
+      });
+      let html = '<div class="spot-context bluff-feedback-hints" style="margin-top:8px;font-size:13px">'
+        + BA.renderHtml(analysis, escapeHtml);
+      if (extra.length) {
+        html += extra.map(function (p) { return '<div>' + escapeHtml(p) + '</div>'; }).join('');
+      }
+      return html + '</div>';
+    }
+    /* Fallback legacy si no hay módulo de análisis. */
     const parts = [];
     const spot = d.bluffSpot;
     if (spot && Array.isArray(spot.reasons) && spot.reasons.length) {
-      parts.push('<strong>Farol · porqués:</strong> ' + escapeHtml(spot.reasons.slice(0, 3).join(' · ')));
+      parts.push('<strong>Farol · revisión:</strong> ' + escapeHtml(spot.reasons.slice(0, 3).join(' · ')));
     }
-    const errs = d.errors || [];
-    errs.forEach(function (e) {
-      if (!e || !e.type) return;
-      if (e.type === 'bluff_excesivo') {
-        parts.push('GTO casi no farolea aquí: revisa blockers, FE e historia.');
-      } else if (e.type === 'bluff_sin_fold_equity') {
-        parts.push('Poca fold equity: no farolees vs rangos polarizados sin blockers.');
-      }
-    });
     if (!parts.length) return '';
     return '<div class="spot-context bluff-feedback-hints" style="margin-top:8px;font-size:13px">' +
       parts.map(function (p) { return '<div>' + p + '</div>'; }).join('') + '</div>';
