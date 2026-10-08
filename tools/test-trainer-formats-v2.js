@@ -58,9 +58,11 @@ assert.strictEqual(cash.formatHub, 'cash');
 assert.strictEqual(cash.practiceIntent, 'mixed');
 assert.strictEqual(cash.anteBB, 0);
 
-// Faroles ocultos en entrenador: bluff_make/catch se normalizan a mixed
-assert.strictEqual(PC.normalize({ practiceIntent: 'bluff_make' }).practiceIntent, 'mixed');
-assert.strictEqual(PC.normalize({ practiceIntent: 'bluff_catch' }).practiceIntent, 'mixed');
+// Faroles reactivados: bluff_make/catch se preservan
+assert.strictEqual(PC.normalize({ practiceIntent: 'bluff_make' }).practiceIntent, 'bluff_make');
+assert.strictEqual(PC.normalize({ practiceIntent: 'bluff_catch' }).practiceIntent, 'bluff_catch');
+assert.strictEqual(PC.normalize({ practiceIntent: 'mixed' }).practiceIntent, 'mixed');
+assert.strictEqual(PC.normalize({ practiceIntent: 'nope' }).practiceIntent, 'mixed');
 
 const mtt = PC.normalize({ gameType: 'mtt', stackDepth: 'bb50' });
 assert.strictEqual(mtt.formatHub, 'mtt');
@@ -430,9 +432,12 @@ assert.ok(spot.evaluation && spot.evaluation.class, 'spin evaluateSpot');
 const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 assert.ok(indexHtml.includes('setup-format-hub'), 'hub tabs UI');
 assert.ok(indexHtml.includes('setup-practice-intent'), 'intent UI');
-assert.ok(indexHtml.includes('id="setup-practice-intent-wrap" hidden'), 'intent UI oculta');
-assert.ok(!indexHtml.includes('data-val="bluff_make"'), 'chips faroles eliminados (hacer)');
-assert.ok(!indexHtml.includes('data-val="bluff_catch"'), 'chips faroles eliminados (cazar)');
+assert.ok(indexHtml.includes('id="setup-practice-intent-wrap"'), 'intent wrap presente');
+assert.ok(!/id="setup-practice-intent-wrap"\s+hidden/.test(indexHtml), 'intent UI visible');
+assert.ok(indexHtml.includes('data-val="bluff_make"'), 'chip hacer faroles');
+assert.ok(indexHtml.includes('data-val="bluff_catch"'), 'chip cazar faroles');
+assert.ok(indexHtml.includes('data-val="bluffs_river"'), 'preset faroles river');
+assert.ok(indexHtml.includes('id="bluff-spot-badge"'), 'badge mesa faroles');
 assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 assert.ok(indexHtml.includes('setup-group-mtt-structure'), 'MTT structure UI');
@@ -445,7 +450,9 @@ const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 
 assert.ok(/PT_BUILD\s*=\s*'3\.2\.1'/.test(version), 'version 3.2.1');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
-assert.ok(appJs.includes('Mensajes de farol/cazar faroles ocultos'), 'badge mesa desactivado');
+assert.ok(appJs.includes('renderBluffSpotBadge'), 'badge mesa faroles');
+assert.ok(appJs.includes('bluffs_river'), 'preset bluffs_river en PLAY_PRESETS');
+assert.ok(appJs.includes('renderBluffFeedbackHints'), 'hints farol en feedback');
 assert.ok(appJs.includes('syncMttStructureUI'), 'sync MTT structure');
 assert.ok(appJs.includes('ICM lite'), 'HUD ICM lite label');
 assert.ok(appJs.includes('pickPrimaryHudChips'), 'HUD compacto 2 chips');

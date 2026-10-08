@@ -764,6 +764,8 @@
             <button type="button" class="setup-chip" data-val="cash6">Cash 6-max</button>
             <button type="button" class="setup-chip" data-val="spin_grind">Spin grind</button>
             <button type="button" class="setup-chip" data-val="mtt_low">Reg MTT low</button>
+            <button type="button" class="setup-chip" data-val="bluffs_river">Faroles river</button>
+            <button type="button" class="setup-chip" data-val="bluff_catch_river">Cazar faroles</button>
           </div>
           <div class="setup-user-presets" id="setup-user-presets" aria-live="polite"></div>
           <div class="setup-preset-save-row">
@@ -876,12 +878,14 @@
           <p class="muted-text setup-hint">Las cartas de cada villano se muestrean según su rol (open/cold-call/limp) y perfil.</p>
         </div>
 
-        <div class="setup-group" id="setup-practice-intent-wrap" hidden aria-hidden="true">
-          <!-- Faroles (hacer/cazar) desactivados en UI; practiceIntent forzado a mixed. -->
+        <div class="setup-group" id="setup-practice-intent-wrap">
           <span class="setup-label">Enfoque (faroles)</span>
           <div class="setup-chips" id="setup-practice-intent">
             <button type="button" class="setup-chip active" data-val="mixed">Value y mixed</button>
+            <button type="button" class="setup-chip" data-val="bluff_make">Hacer faroles</button>
+            <button type="button" class="setup-chip" data-val="bluff_catch">Cazar faroles</button>
           </div>
+          <p class="muted-text setup-hint">Filtra spots postflop buenos para farolear o cazar faroles. Combina con calle turn/river. Tras cada decisión verás FE, blockers e historia.</p>
         </div>
 
         <div class="setup-group" id="setup-group-hero-pos">
@@ -1032,6 +1036,7 @@
                   <div class="pot" id="pot"><span data-i18n="play.pot">Bote</span>: 0 bb</div>
                   <div id="board" class="board"></div>
                   <div id="spot-context" class="spot-context"></div>
+                  <div id="bluff-spot-badge" class="bluff-spot-badge hidden" aria-live="polite"></div>
                 </div>
                 <div class="hero-area">
                   <div id="hero-action" class="action-badge-wrap"></div>
