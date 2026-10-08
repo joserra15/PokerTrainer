@@ -551,8 +551,8 @@ function markdownReport(results) {
  */
 function slackFor(key) {
   if (key === 'threeBet') return 5;
-  /* cbet en CI con ~600 manos aún oscila; 12pp evita falsos positivos. */
-  if (key === 'cbet') return 12;
+  /* cbet en CI con ~600 manos aún oscila (visto 17–37% nit/early); 15pp evita falsos positivos. */
+  if (key === 'cbet') return 15;
   if (key === 'af') return 0.45;
   if (key === 'xrRate') return 3;
   return 6;
