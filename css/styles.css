@@ -4188,6 +4188,14 @@ body.paywall-open { overflow: hidden; }
   border-color: rgba(142, 199, 255, 0.35);
   background: rgba(142, 199, 255, 0.08);
 }
+.bluff-spot-badge .bluff-spot-reasons {
+  font-weight: 400;
+  opacity: 0.92;
+}
+.bluff-feedback-hints {
+  border-left: 3px solid rgba(245, 196, 81, 0.55);
+  padding-left: 10px;
+}
 
 .play-setup {
   max-width: 520px; margin: 0 auto 20px; padding: 20px 22px;

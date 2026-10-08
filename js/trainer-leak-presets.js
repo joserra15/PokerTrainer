@@ -97,6 +97,29 @@
       heroPos: 'random',
       villainLevel: 'pro',
       handsTarget: 50
+    },
+    /** Drill volumen faroles (CTA Escuela / informes river). */
+    bluff_make: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'random',
+      practiceStreet: 'river',
+      practiceIntent: 'bluff_make',
+      handRange: 'all',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 25
+    },
+    bluff_catch: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      scenario: 'random',
+      practiceStreet: 'river',
+      practiceIntent: 'bluff_catch',
+      handRange: 'all',
+      heroPos: 'random',
+      villainLevel: 'pro',
+      handsTarget: 25
     }
   };
 
@@ -133,6 +156,14 @@
       if (focus && focus.scenario) cfg.scenario = focus.scenario;
       if (focus && focus.street && STREET_PRACTICE[focus.street]) {
         cfg.practiceStreet = STREET_PRACTICE[focus.street];
+      }
+      /* River / turn postflop → drill de faroles cuando el foco lo sugiere. */
+      if (focus && focus.id === 'river' && !cfg.practiceIntent) {
+        cfg.practiceIntent = 'bluff_make';
+        cfg.practiceStreet = 'river';
+      } else if (focus && focus.id === 'turn' && !cfg.practiceIntent) {
+        cfg.practiceIntent = 'bluff_make';
+        cfg.practiceStreet = 'turn';
       }
     }
     return cfg;

@@ -1198,6 +1198,22 @@
     }
   }
 
+  /** Métricas de quizzes MCQ (BL-*, B-01, virales): aciertos / total. */
+  function summarizeQuizResults(results) {
+    var total = 0;
+    var correct = 0;
+    (results || []).forEach(function (r) {
+      if (!r || r.quizCorrect == null) return;
+      total += 1;
+      if (r.quizCorrect) correct += 1;
+    });
+    return {
+      total: total,
+      correct: correct,
+      pct: total ? Math.round((correct / total) * 100) : null
+    };
+  }
+
   function finishSession() {
     var s = state.session;
     if (!s) return;
@@ -1208,11 +1224,16 @@
     var lesson = Data().getLesson(s.lessonId);
     var summary = recordLessonAttempt(lesson, s.results);
     if (summary.passed) ensureLessonMarkedPassed(lesson.id, summary);
+    var quizStats = summarizeQuizResults(s.results);
     trackSchool(summary.passed ? 'lesson_complete' : 'lesson_fail', {
       lessonId: lesson.id,
       pct: summary.pct,
       passed: summary.passed,
-      gold: summary.gold
+      gold: summary.gold,
+      quizCorrect: quizStats.correct,
+      quizTotal: quizStats.total,
+      quizPct: quizStats.pct,
+      bluffPack: /^BL-/.test(lesson.id) || lesson.id === 'B-01'
     });
     s.active = false;
     state.session = null;
@@ -2078,6 +2099,9 @@
       '</section>' +
       '<div class="school-lesson-cta">' +
       '<button type="button" class="btn btn-primary" id="school-start-lesson">' + esc(cta) + '</button>' +
+      (lesson.trainDrill
+        ? '<button type="button" class="btn btn-ghost" id="school-train-drill">Practicar en entrenador</button>'
+        : '') +
       openRangesBtn +
       '</div></div>';
 
@@ -2092,6 +2116,24 @@
     if (start) {
       start.addEventListener('click', function () {
         startLessonSession(lesson.id);
+      });
+    }
+    var trainBtn = document.getElementById('school-train-drill');
+    if (trainBtn && lesson.trainDrill) {
+      trainBtn.addEventListener('click', function () {
+        trackSchool('bluff_train_bridge', {
+          lessonId: lesson.id,
+          practiceIntent: lesson.trainDrill.practiceIntent || 'mixed',
+          practiceStreet: lesson.trainDrill.practiceStreet || 'random'
+        });
+        if (typeof global.startGuidedTraining === 'function') {
+          global.startGuidedTraining(lesson.trainDrill);
+        } else if (typeof global.goToTab === 'function') {
+          if (typeof global.applyPlaySetupConfig === 'function') {
+            global.applyPlaySetupConfig(lesson.trainDrill);
+          }
+          global.goToTab('play', { setup: true });
+        }
       });
     }
     var openBtn = document.getElementById('school-open-ranges');

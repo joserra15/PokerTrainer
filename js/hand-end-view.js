@@ -209,6 +209,10 @@
         html += '</div>';
       }
       if (d.explanation) html += '<div class="dec-expl">' + esc(d.explanation) + '</div>';
+      if (d.bluffSpot && Array.isArray(d.bluffSpot.reasons) && d.bluffSpot.reasons.length) {
+        html += '<div class="dec-expl bluff-feedback-hints"><strong>Farol · porqués:</strong> ' +
+          esc(d.bluffSpot.reasons.slice(0, 3).join(' · ')) + '</div>';
+      }
       if (d.context && typeof d.context === 'string') {
         html += '<div class="dec-context muted">' + esc(d.context) + '</div>';
       }

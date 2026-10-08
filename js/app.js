@@ -725,8 +725,10 @@
       villainType: vtEl ? vtEl.dataset.val : 'random',
       scoreMode: smEl ? smEl.dataset.val : 'gto',
       practiceStreet: stEl ? stEl.dataset.val : 'random',
-      // Faroles (hacer/cazar) ocultos en el entrenador: siempre mixed.
-      practiceIntent: 'mixed',
+      practiceIntent: (function () {
+        const intentEl = $('#setup-practice-intent .setup-chip.active');
+        return intentEl ? intentEl.dataset.val : 'mixed';
+      })(),
       mttPhase: phaseEl ? phaseEl.dataset.val : 'auto',
       stackRole: (function () {
         const roleEl = $('#setup-stack-role .setup-chip.active');
@@ -1359,6 +1361,34 @@
       preflopOpenSize: 2.2,
       heroPos: 'random',
       handRange: 'random'
+    },
+    bluffs_river: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      stackDepth: 'bb100',
+      scenario: 'random',
+      mttPhase: 'auto',
+      villainLevel: 'pro',
+      practiceStreet: 'river',
+      practiceIntent: 'bluff_make',
+      preflopOpenSize: 2.5,
+      heroPos: 'random',
+      handRange: 'random',
+      handsTarget: 25
+    },
+    bluff_catch_river: {
+      formatHub: 'cash',
+      gameType: 'cash6',
+      stackDepth: 'bb100',
+      scenario: 'random',
+      mttPhase: 'auto',
+      villainLevel: 'pro',
+      practiceStreet: 'river',
+      practiceIntent: 'bluff_catch',
+      preflopOpenSize: 2.5,
+      heroPos: 'random',
+      handRange: 'random',
+      handsTarget: 25
     }
   };
 
@@ -1510,7 +1540,7 @@
     activate('#setup-stack-depth', cfg.stackDepth);
     activate('#setup-open-size', String(cfg.preflopOpenSize != null ? cfg.preflopOpenSize : 2.5));
     syncPhaseStackUI(hub);
-    activate('#setup-practice-intent', 'mixed');
+    activate('#setup-practice-intent', cfg.practiceIntent || 'mixed');
     activate('#setup-spin-payout', cfg.spinPayout || '2x');
     const sit = cfg.mttStructureSituation || 'auto';
     activate('#setup-mtt-structure', sit);
@@ -3295,6 +3325,8 @@
           scenario: (hand.scenario && hand.scenario.type) || 'unknown',
           range: (cfg && cfg.handRange) || 'random',
           villain: (cfg && cfg.villainLevel) || 'pro',
+          practiceIntent: (cfg && cfg.practiceIntent) || 'mixed',
+          practiceStreet: (cfg && cfg.practiceStreet) || 'random',
           replay: !!force
         });
       }
@@ -3739,12 +3771,60 @@
   }
 
   function renderBluffSpotBadge() {
-    // Mensajes de farol/cazar faroles ocultos en la mesa del entrenador.
     let el = $('#bluff-spot-badge');
-    if (el) {
+    if (!el) return;
+    const cfg = (hand && hand.playConfig) || playSessionConfig;
+    const intent = cfg && cfg.practiceIntent;
+    if (!hand || !intent || intent === 'mixed' || (cfg && cfg.schoolMode)) {
       el.classList.add('hidden');
       el.textContent = '';
+      el.removeAttribute('data-intent');
+      return;
     }
+    const Tax = window.PTFormatTaxonomy;
+    const label = (Tax && Tax.INTENT_LABELS && Tax.INTENT_LABELS[intent])
+      || (intent === 'bluff_catch' ? 'Cazar faroles' : 'Hacer faroles');
+    const node = hand.current;
+    let reasons = [];
+    let score = null;
+    const lastDec = (hand.decisions && hand.decisions.length)
+      ? hand.decisions[hand.decisions.length - 1]
+      : null;
+    const spot = (lastDec && lastDec.bluffSpot)
+      || (node && node.evaluation && node.evaluation.bluffSpot)
+      || null;
+    if (spot) {
+      reasons = (spot.reasons || []).slice(0, 3);
+      if (spot.score != null) score = spot.score;
+    } else if (window.GTOBluffSpotDetector && node && hand.hero) {
+      try {
+        const Det = window.GTOBluffSpotDetector;
+        const scored = Det.scoreForIntent({
+          street: node.street || hand.stage,
+          heroCards: hand.hero.cards,
+          board: hand.board,
+          toCallBB: node.toCallBB || 0,
+          potBB: node.potBB,
+          inPosition: !!(hand.hero.inPosition),
+          practiceIntent: intent,
+          strategy: node.gto || node.strategy
+        }, intent);
+        if (scored) {
+          reasons = (scored.reasons || []).slice(0, 3);
+          score = scored.score;
+        }
+      } catch (eBadge) { /* ignore */ }
+    }
+    const checklist = intent === 'bluff_catch'
+      ? '¿Showdown medio? ¿Sizing polar? ¿Blockers de value?'
+      : '¿FE? ¿Blockers? ¿Historia? ¿Calle polar?';
+    let html = '<strong>' + escapeHtml(label) + '</strong>';
+    if (score != null) html += ' · score ' + Math.round(Number(score) * 100) + '%';
+    if (reasons.length) html += '<span class="bluff-spot-reasons"> — ' + escapeHtml(reasons.join(' · ')) + '</span>';
+    else html += '<span class="bluff-spot-reasons"> — ' + escapeHtml(checklist) + '</span>';
+    el.innerHTML = html;
+    el.setAttribute('data-intent', intent);
+    el.classList.remove('hidden');
   }
 
   // Genera el HTML de una "burbuja" de acción (Check / Fold / fichas + bb).
@@ -5946,9 +6026,51 @@
     html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
     html += renderTournamentDecisionImpact(d);
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
+    html += renderBluffFeedbackHints(d);
     if (d.errors && d.errors.length) html += `<div class="result-line" style="border-color:var(--red)">${d.errors.map((e) => escapeHtml(e.msg)).join(' · ')}</div>`;
     html += renderOptionGrid(d.optionBreakdown, d.action, d.best);
     fb.innerHTML = html;
+  }
+
+  function summarizeBluffHandMetrics(h) {
+    let bluffExcesivo = 0;
+    let bluffSinFe = 0;
+    let bluffSpotHits = 0;
+    (h && h.decisions || []).forEach(function (d) {
+      if (d && d.bluffSpot && d.bluffSpot.score >= 0.45) bluffSpotHits += 1;
+      (d && d.errors || []).forEach(function (e) {
+        if (!e || !e.type) return;
+        if (e.type === 'bluff_excesivo') bluffExcesivo += 1;
+        if (e.type === 'bluff_sin_fold_equity') bluffSinFe += 1;
+      });
+    });
+    return {
+      bluffExcesivo: bluffExcesivo,
+      bluffSinFe: bluffSinFe,
+      bluffSpotHits: bluffSpotHits
+    };
+  }
+
+  /** Porqués pedagógicos de farol (detector + códigos de error) junto al feedback GTO. */
+  function renderBluffFeedbackHints(d) {
+    if (!d) return '';
+    const parts = [];
+    const spot = d.bluffSpot;
+    if (spot && Array.isArray(spot.reasons) && spot.reasons.length) {
+      parts.push('<strong>Farol · porqués:</strong> ' + escapeHtml(spot.reasons.slice(0, 3).join(' · ')));
+    }
+    const errs = d.errors || [];
+    errs.forEach(function (e) {
+      if (!e || !e.type) return;
+      if (e.type === 'bluff_excesivo') {
+        parts.push('GTO casi no farolea aquí: revisa blockers, FE e historia.');
+      } else if (e.type === 'bluff_sin_fold_equity') {
+        parts.push('Poca fold equity: no farolees vs rangos polarizados sin blockers.');
+      }
+    });
+    if (!parts.length) return '';
+    return '<div class="spot-context bluff-feedback-hints" style="margin-top:8px;font-size:13px">' +
+      parts.map(function (p) { return '<div>' + p + '</div>'; }).join('') + '</div>';
   }
 
   function renderDecisionContextLine(d) {
@@ -6145,7 +6267,13 @@
     }
     if (window.PTReEngage && PTReEngage.touchTrain) PTReEngage.touchTrain();
     if (window.PTAnalytics && PTAnalytics.trackPlayHand) {
-      PTAnalytics.trackPlayHand({ decisions: (hand.decisions || []).length, evLoss: r.totalEvLoss || 0 });
+      const bluffMeta = summarizeBluffHandMetrics(hand);
+      PTAnalytics.trackPlayHand(Object.assign({
+        decisions: (hand.decisions || []).length,
+        evLoss: r.totalEvLoss || 0,
+        practiceIntent: (playSessionConfig && playSessionConfig.practiceIntent) || 'mixed',
+        practiceStreet: (playSessionConfig && playSessionConfig.practiceStreet) || 'random'
+      }, bluffMeta));
     }
     refreshSessionUI();
 

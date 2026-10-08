@@ -324,8 +324,10 @@
     // Sin tipo fijo no inventamos explotación a ciegas.
     if (c.villainType === 'random' && c.scoreMode === 'exploit') c.scoreMode = 'gto';
     if (!c.practiceStreet) c.practiceStreet = 'random';
-    // Faroles (hacer/cazar) ocultos en el entrenador: forzar mixed.
-    c.practiceIntent = 'mixed';
+    if (Tax && Tax.normalizeIntent) c.practiceIntent = Tax.normalizeIntent(c.practiceIntent);
+    else if (c.practiceIntent !== 'bluff_make' && c.practiceIntent !== 'bluff_catch') {
+      c.practiceIntent = 'mixed';
+    }
     if (Tax) c.mttPhase = Tax.normalizePhase(c.mttPhase);
     else if (!c.mttPhase) c.mttPhase = 'auto';
     // Rol de stack: solo cubre/mid/short; auto/null → rotación pedagógica.
