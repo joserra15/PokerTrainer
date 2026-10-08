@@ -217,11 +217,17 @@
     if ((opts.foldEquity != null ? opts.foldEquity : 0) >= 0.30) goodBluffSignals++;
     if ((opts.blockerScore != null ? opts.blockerScore : 0) >= 0.28) goodBluffSignals++;
     if (opts.boardPaired || opts.boardDry) goodBluffSignals++;
-    if (chosen === 'overbet' || (opts.betSizeBB > 0 && opts.potBB > 0
-      && opts.betSizeBB >= opts.potBB * 0.75)) goodBluffSignals++;
-    /* Solo river con lead delayed + al menos otra señal (FE/blockers/texture/sizing). */
+    const potForSize = opts.potBB > 0 ? opts.potBB : 0;
+    const sizeRatio = (opts.betSizeBB > 0 && potForSize > 0) ? opts.betSizeBB / potForSize : 0;
+    /* Sizing polar (≈55–200% pot); tiny bets no cuentan como farol creíble. */
+    const polarSizing = chosen === 'overbet'
+      || (sizeRatio >= 0.55 && sizeRatio <= 2.0);
+    const tinyBluffSizing = sizeRatio > 0 && sizeRatio < 0.35;
+    if (polarSizing) goodBluffSignals++;
+    /* Solo river con lead delayed + polar sizing + otra señal (FE/blockers/texture). */
     const goodBluffAggro = !!(valueAggro && bandAirish && delayedLead
-      && opts.street === 'river' && goodBluffSignals >= 3);
+      && opts.street === 'river' && polarSizing && !tinyBluffSizing
+      && goodBluffSignals >= 3);
     if (!evResult || evResult.actionEV == null || evResult.bestEV == null) {
       return { cls: freqCls, best: freqBest };
     }

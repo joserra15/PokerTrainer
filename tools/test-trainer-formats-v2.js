@@ -437,7 +437,7 @@ assert.ok(!/id="setup-practice-intent-wrap"\s+hidden/.test(indexHtml), 'intent U
 assert.ok(indexHtml.includes('data-val="bluff_make"'), 'chip hacer faroles');
 assert.ok(indexHtml.includes('data-val="bluff_catch"'), 'chip cazar faroles');
 assert.ok(indexHtml.includes('data-val="bluffs_river"'), 'preset faroles river');
-assert.ok(indexHtml.includes('id="bluff-spot-badge"'), 'badge mesa faroles');
+assert.ok(indexHtml.includes('id="bluff-spot-badge"'), 'badge mesa faroles (DOM oculto)');
 assert.ok(indexHtml.includes('data-val="spin3"'), 'spin3 chip');
 assert.ok(indexHtml.includes('setup-mtt-phase'), 'phase UI');
 assert.ok(indexHtml.includes('setup-group-mtt-structure'), 'MTT structure UI');
@@ -450,9 +450,21 @@ const version = fs.readFileSync(path.join(__dirname, '..', 'js', 'version.js'), 
 assert.ok(/PT_BUILD\s*=\s*'3\.2\.1'/.test(version), 'version 3.2.1');
 
 const appJs = fs.readFileSync(path.join(__dirname, '..', 'js', 'app.js'), 'utf8');
-assert.ok(appJs.includes('renderBluffSpotBadge'), 'badge mesa faroles');
+assert.ok(appJs.includes('renderBluffSpotBadge'), 'badge mesa faroles (no-op)');
+assert.ok(appJs.includes('aparecer antes de decidir'), 'badge desactivado sin pistas previas');
 assert.ok(appJs.includes('bluffs_river'), 'preset bluffs_river en PLAY_PRESETS');
 assert.ok(appJs.includes('renderBluffFeedbackHints'), 'hints farol en feedback');
+assert.ok(appJs.includes('GTOBluffAnalysis'), 'análisis post-decisión faroles');
+assert.ok(
+  fs.readFileSync(path.join(__dirname, '..', 'js', 'engine', 'explanations', 'bluffAnalysis.js'), 'utf8')
+    .includes('acceptableBluff'),
+  'bluffAnalysis.acceptableBluff'
+);
+assert.ok(
+  fs.readFileSync(path.join(__dirname, '..', 'js', 'live-advisor.js'), 'utf8')
+    .includes('recordBluffReview'),
+  'avisador revisión farol post-decisión'
+);
 assert.ok(appJs.includes('syncMttStructureUI'), 'sync MTT structure');
 assert.ok(appJs.includes('ICM lite'), 'HUD ICM lite label');
 assert.ok(appJs.includes('pickPrimaryHudChips'), 'HUD compacto 2 chips');

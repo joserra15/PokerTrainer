@@ -22,8 +22,8 @@ Instrumentación alineada al plan de auditoría Escuela → Entrenador.
 ## Cómo mirarlo
 
 - Analytics (Plausible / export PTLog) filtrando props anteriores.
-- Informal en sesión: badge `#bluff-spot-badge` + hints en feedback / hand-end.
+- Informal en sesión: análisis post-decisión en hand-end / avisador (`GTOBluffAnalysis`). El badge `#bluff-spot-badge` está desactivado (sin pistas previas).
 
 ## No confundir
 
-El `GTOBluffSpotDetector` filtra spots y sugiere porqués; el grading sigue siendo mix/EV del solver. No usar `bluffSpot.score` como verdad GTO.
+El `GTOBluffSpotDetector` filtra spots; el grading sigue siendo mix/EV del solver. El texto pedagógico coherente (GTO vs farol aceptable, sizing, formato) lo arma `GTOBluffAnalysis` **después** de decidir. No usar `bluffSpot.score` ni reasons del detector como mandato pre-acción.

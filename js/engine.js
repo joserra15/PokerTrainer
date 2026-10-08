@@ -3758,6 +3758,16 @@
       potBeforeBB: node.toCallBB > 0 ? Math.max(node.potBB - node.toCallBB, 0.1) : node.potBB,
       context: node.context,
       bluffSpot: ev.bluffSpot || null,
+      bluffAnalysis: ev.bluffAnalysis || null,
+      betSizeBB: ev.betSizeBB != null ? ev.betSizeBB
+        : ((node.options && (node.options.find(function (o) { return o.id === actionId; }) || {}).size) || 0),
+      delayedCbet: !!ev.delayedCbet,
+      priorAggressorBet: ev.priorAggressorBet != null ? !!ev.priorAggressorBet : null,
+      inPosition: ev.inPosition != null ? !!ev.inPosition : null,
+      villainBetRatio: ev.villainBetRatio != null ? ev.villainBetRatio : null,
+      facingNode: ev.facingNode || null,
+      practiceIntent: ev.practiceIntent
+        || (hand.playConfig && hand.playConfig.practiceIntent) || 'mixed',
       icmMultiplier: ev.icmMultiplier != null ? ev.icmMultiplier : null,
       icmPressure: ev.icmPressure != null ? ev.icmPressure : null,
       bubbleFactor: ev.bubbleFactor != null ? ev.bubbleFactor : null,

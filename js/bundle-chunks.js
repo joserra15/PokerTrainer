@@ -49,6 +49,7 @@
     'js/engine/scoring/scoring.js',
     'js/engine/scoring/errors.js',
     'js/engine/explanations/rules.js',
+    'js/engine/explanations/bluffAnalysis.js',
     'js/engine/solver/LocalSolverProvider.js',
     'js/engine/evaluateSpot.js',
     'js/engine/villainProfiles.js',

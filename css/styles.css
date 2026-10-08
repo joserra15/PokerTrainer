@@ -4196,6 +4196,23 @@ body.paywall-open { overflow: hidden; }
   border-left: 3px solid rgba(245, 196, 81, 0.55);
   padding-left: 10px;
 }
+.bluff-analysis-body { margin-top: 4px; line-height: 1.35; }
+.bluff-analysis-bullets {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.live-advisor-bluff-analysis {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.verdict-toast .vt-bluff {
+  margin-top: 4px;
+  font-size: 11px;
+  max-width: 220px;
+}
 
 .play-setup {
   max-width: 520px; margin: 0 auto 20px; padding: 20px 22px;

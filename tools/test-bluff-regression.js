@@ -69,6 +69,7 @@ const scripts = [
   'engine/scoring/scoring.js',
   'engine/scoring/errors.js',
   'engine/explanations/rules.js',
+  'engine/explanations/bluffAnalysis.js',
   'engine/villainProfiles.js',
   'engine/solver/LocalSolverProvider.js',
   'engine/evaluateSpot.js',
@@ -463,6 +464,102 @@ function classRank(c) {
   const res = GTO.evaluateSpot(input);
   const cls = res.evaluation && res.evaluation.class;
   ok(cls === 'optima' || cls === 'aceptable', 'value overbet nuts sigue bien, got ' + cls);
+})();
+
+// --- 12) bluffAnalysis: catch incoherente (call error ≠ «bluffcatch clásico») ---
+(function bluffCatchCoherentPostDecision() {
+  const BA = sandbox.GTOBluffAnalysis;
+  ok(!!BA, 'GTOBluffAnalysis cargado');
+  const a = BA.analyze({
+    practiceIntent: 'bluff_catch',
+    chosenAction: 'call',
+    best: 'fold',
+    class: 'error',
+    strategy: { fold: 0.72, call: 0.18, raise: 0.10 },
+    street: 'river',
+    potBB: 38,
+    potBeforeBB: 24,
+    toCallBB: 14,
+    villainBetRatio: 0.6,
+    formatHub: 'cash',
+    band: 'bluffcatch',
+    bluffSpot: {
+      intent: 'bluff_catch',
+      score: 0.85,
+      band: 'bluffcatch',
+      reasons: ['Mano tipo showdown medio (categoría bluffcatch).', 'River: decisión de bluffcatch clásica.']
+    }
+  });
+  ok(a.catchCoherent === false, 'catchCoherent false cuando call es error GTO');
+  ok(/no es un bluffcatch gto/i.test(a.headline), 'headline niega bluffcatch GTO, got ' + a.headline);
+  ok(!/clásica/i.test(a.summary), 'summary no dice «clásica» si call es error');
+  ok(/Cash/.test(a.contextLine), 'contexto incluye Cash');
+})();
+
+// --- 13) bluffAnalysis: farol aceptable + sizing ---
+(function bluffMakeAcceptableSizing() {
+  const BA = sandbox.GTOBluffAnalysis;
+  const sizingBad = BA.assessBluffSizing({ potBB: 20, betSizeBB: 4 });
+  ok(sizingBad.ok === false && sizingBad.tier === 'tiny', 'sizing tiny no polar');
+  const sizingOk = BA.assessBluffSizing({ potBB: 20, betSizeBB: 20 });
+  ok(sizingOk.ok === true, 'sizing pot polar OK');
+
+  const a = BA.analyze({
+    practiceIntent: 'bluff_make',
+    chosenAction: 'overbet',
+    best: 'check',
+    class: 'imprecisa',
+    strategy: { check: 0.78, bet_66: 0.08, overbet: 0.14 },
+    street: 'river',
+    potBB: 12,
+    potBeforeBB: 12,
+    toCallBB: 0,
+    betSizeBB: 15,
+    formatHub: 'mtt',
+    mttPhase: 'bubble',
+    delayedCbet: true,
+    priorAggressorBet: false,
+    villainLastAction: 'check',
+    band: 'air',
+    foldEquity: 0.35,
+    blockerScore: 0.32,
+    bluffSpot: { intent: 'bluff_make', score: 0.6, band: 'air', foldEquity: 0.35, blockers: 0.32, reasons: [] }
+  });
+  ok(a.acceptableBluff === true, 'farol delayed polar marcado aceptable');
+  ok(/aceptable|mezcla check/i.test(a.headline + ' ' + a.summary), 'texto menciona aceptable/check GTO');
+  ok(/MTT|fase|bote/i.test(a.contextLine + ' ' + a.summary), 'contexto MTT/fase/bote');
+  ok(a.sizing && a.sizing.ok === true, 'sizing del farol OK');
+})();
+
+// --- 14) evaluateSpot adjunta bluffAnalysis post-decisión ---
+(function evaluateSpotAttachesBluffAnalysis() {
+  const input = {
+    spotKind: 'postflop',
+    street: 'river',
+    position: 'BB',
+    heroCards: ['7h', '6c'],
+    handCode: '76o',
+    board: ['As', 'Kd', '2c', '3h', '8d'],
+    potBB: 12,
+    potBeforeBB: 12,
+    toCallBB: 0,
+    stackDepth: 80,
+    initiative: 'aggressor',
+    inPosition: false,
+    priorAggressorBet: false,
+    delayedCbet: true,
+    villainLastAction: 'check',
+    chosenAction: 'overbet',
+    betSizeBB: 15,
+    availableActions: ['check', 'bet_33', 'bet_66', 'bet_100', 'overbet'],
+    formatHub: 'mtt',
+    gameType: 'mtt',
+    practiceIntent: 'bluff_make'
+  };
+  const res = GTO.evaluateSpot(input);
+  ok(!!(res.evaluation && res.evaluation.bluffAnalysis), 'evaluation.bluffAnalysis presente');
+  ok(res.evaluation.bluffAnalysis.headline, 'bluffAnalysis.headline no vacío');
+  ok(res.evaluation.practiceIntent === 'bluff_make', 'practiceIntent en evaluation');
 })();
 
 if (failed) {
