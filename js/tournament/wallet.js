@@ -76,6 +76,7 @@
     opts = opts || {};
     try {
       if (typeof localStorage === 'undefined') return false;
+      if (data && typeof data === 'object') data.communityId = communityId();
       localStorage.setItem(storageKey(), JSON.stringify(data));
       if (!opts.silent) markDirty();
       return true;
@@ -247,7 +248,14 @@
     return 0;
   }
 
+  /** true si el remoto declara otra comunidad (no aplicar: evita mezclar PF ↔ MTTLab). */
+  function remoteCommunityMismatch(remote) {
+    if (!remote || remote.communityId == null || remote.communityId === '') return false;
+    return String(remote.communityId) !== String(communityId());
+  }
+
   function applyRemote(remote, local) {
+    if (remoteCommunityMismatch(remote)) return toSnapshot(local) || snapshot();
     var adminAt = adminCreditTs(remote);
     var data = {
       balance: Math.max(0, Number(remote.balance) || 0),
@@ -269,7 +277,8 @@
       ),
       last: (remote.last && remote.last.type === 'admin_set_koins')
         ? remote.last
-        : { type: 'cloud_merge' }
+        : { type: 'cloud_merge' },
+      communityId: communityId()
     };
     if (adminAt) {
       data.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
@@ -301,6 +310,8 @@
 
   function mergeFromCloud(remote) {
     if (!remote || typeof remote.balance !== 'number') return snapshot();
+    /* Wallet de otra comunidad (p.ej. PF bajo clave mttlab): no aplicar. */
+    if (remoteCommunityMismatch(remote)) return snapshot();
     var local = peek();
     if (!local) return applyRemote(remote, null);
 
@@ -327,7 +338,8 @@
           remote.trainerHands != null ? Number(remote.trainerHands) || 0 : 0
         ),
         lessonAwards: Object.assign({}, local.lessonAwards || {}, remote.lessonAwards || {}),
-        last: { type: 'cloud_merge_tie' }
+        last: { type: 'cloud_merge_tie' },
+        communityId: communityId()
       });
       if (adminCreditTs(remote) > adminCreditTs(local)) {
         tied.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
@@ -365,6 +377,10 @@
     var remoteAdminSeen = adminCreditTs(remote);
     if (remoteAdminSeen > adminCreditTs(local)) {
       local.adminCreditAt = remote.adminCreditAt || (remote.last && remote.last.at) || remote.updatedAt;
+      dirtyLocal = true;
+    }
+    if (!local.communityId) {
+      local.communityId = communityId();
       dirtyLocal = true;
     }
     if (dirtyLocal) writeRaw(local, { silent: true });
@@ -421,6 +437,8 @@
     communitySuffix: communitySuffix,
     storageKey: storageKey,
     adminCreditTs: adminCreditTs,
-    shouldAdoptAdminCredit: shouldAdoptAdminCredit
+    shouldAdoptAdminCredit: shouldAdoptAdminCredit,
+    remoteCommunityMismatch: remoteCommunityMismatch,
+    communityId: communityId
   };
 })(typeof window !== 'undefined' ? window : typeof global !== 'undefined' ? global : this);

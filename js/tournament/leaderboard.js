@@ -68,6 +68,7 @@
     var want = String(cid || communityId());
     return (list || []).filter(function (r) {
       if (!r || isFakeSeed(r)) return false;
+      /* Sin stamp: legacy en clave ya namespaced (pt_tournament_leaderboard_v1_<cid>). */
       if (r.communityId == null || r.communityId === '') return true;
       return String(r.communityId) === want;
     });
@@ -205,8 +206,14 @@
     return list;
   }
 
-  function adoptHeroWalletFromRanking(cloudRow) {
+  function adoptHeroWalletFromRanking(cloudRow, forCommunityId) {
     if (!cloudRow || !global.PTTournamentWallet || !PTTournamentWallet.mergeFromCloud) return false;
+    var cid = String(forCommunityId || communityId());
+    if (communityId() !== cid) return false;
+    if (cloudRow.communityId != null && cloudRow.communityId !== '' &&
+        String(cloudRow.communityId) !== cid) {
+      return false;
+    }
     var cloudBal = Math.round((Number(cloudRow.koins) || 0) * 100) / 100;
     var cloudTs = cloudRow.updatedAt || null;
     var peeked = PTTournamentWallet.peek ? PTTournamentWallet.peek() : null;
@@ -218,6 +225,7 @@
       tournamentsPlayed: Number(cloudRow.tournamentsPlayed) || 0,
       trainerHands: peeked ? Number(peeked.trainerHands) || 0 : 0,
       lessonAwards: (peeked && peeked.lessonAwards) || {},
+      communityId: cid,
       adminCreditAt: cloudTs || new Date().toISOString(),
       last: { type: 'admin_set_koins', at: cloudTs || new Date().toISOString(), source: 'ranking' }
     };
@@ -232,6 +240,7 @@
       var cloudAt = Date.parse(cloudTs || 0) || 0;
       if (!(cloudBal > (localBal || 0) && localAct <= cloudAt)) return false;
     }
+    if (communityId() !== cid) return false;
     PTTournamentWallet.mergeFromCloud(remote);
     return true;
   }
@@ -264,7 +273,7 @@
       return r && String(r.id) === String(hero.id);
     })[0];
     if (heroCloud) {
-      try { adoptHeroWalletFromRanking(heroCloud); } catch (eAd) { /* */ }
+      try { adoptHeroWalletFromRanking(heroCloud, cid); } catch (eAd) { /* */ }
     }
     if (communityId() !== cid) return null;
     /* Vaciar peers locales antes del overlay del hero: si no, publishHero
