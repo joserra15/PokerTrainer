@@ -115,7 +115,21 @@ assert.ok(/hideDailySpot/.test(app), 'home oculta spot del día en comunidad');
 assert.ok(!/id="home-grid"/.test(read('index.html')), 'Inicio sin grid de accesos rápidos');
 assert.ok(!/Acceso rápido/.test(read('index.html')), 'Inicio sin título Acceso rápido');
 assert.ok(/aiCommunityId/.test(commSrc), 'cupo IA comunidad');
+assert.ok(!/ai\.independent && hasAccess\(\)/.test(commSrc),
+  'aiCommunityId no depende de hasAccess (evita cobrar cupo PF)');
+assert.ok(/cfg\.ai && cfg\.ai\.independent/.test(commSrc), 'aiCommunityId usa ai.independent');
 assert.ok(/communityDataSuffix|scopedDataKey/.test(read('js/storage.js')), 'storage namespaced por comunidad');
+assert.ok(/coachThreadField|writeObjectCoachThread/.test(read('js/storage.js')),
+  'hilos coach por comunidad en objetos compartidos');
+assert.ok(/scopedDataKey\('stats_coach'\)/.test(read('js/storage.js')),
+  'stats_coach namespaced por comunidad');
+assert.ok(/communityCacheSuffix/.test(read('js/ai-report.js')), 'caché IA por comunidad');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/067_ai_community_context.sql')),
+  'migration 067 contexto IA por comunidad');
+const sql67ai = read('supabase/migrations/067_ai_community_context.sql');
+assert.ok(/pt_community_coach_summary/.test(sql67ai), '067 tabla resumen por comunidad');
+assert.ok(/p_community_id/.test(sql67ai) && /pt_get_coach_summary/.test(sql67ai),
+  '067 RPCs coach con community_id');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/045_community_school_no_pf_fallback.sql')), 'migration 045');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/046_community_contact_manager_fixes.sql')), 'migration 046');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/047_community_school_pack_filter.sql')), 'migration 047');

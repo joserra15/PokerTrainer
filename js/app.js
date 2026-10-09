@@ -10078,7 +10078,11 @@
         getData: () => currentSession,
         autoReport: autoCoachReport,
         persist: { kind: 'session', getSessionId: () => currentSession && currentSession.id },
-        onThreadUpdate: (thread) => { if (currentSession) currentSession.coachThread = thread; }
+        onThreadUpdate: (thread) => {
+          if (!currentSession) return;
+          if (window.Store && Store.writeObjectCoachThread) Store.writeObjectCoachThread(currentSession, thread);
+          else currentSession.coachThread = thread;
+        }
       });
     }
     const nudgeBtn = box.querySelector('#ai-session-nudge-btn');

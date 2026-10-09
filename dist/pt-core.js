@@ -29678,16 +29678,26 @@ window.PT_NASH_PUSH_JSON = {
     return Math.abs(h).toString(36);
   }
 
+  function communityCacheSuffix() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        var id = global.PTCommunity.id();
+        if (id && id !== 'pokerforge') return '_' + id;
+      }
+    } catch (e) { /* noop */ }
+    return '';
+  }
+
   function readCache(key) {
     try {
-      const raw = localStorage.getItem(CACHE_PREFIX + key);
+      const raw = localStorage.getItem(CACHE_PREFIX + communityCacheSuffix() + key);
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
 
   function writeCache(key, data) {
     try {
-      localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(data));
+      localStorage.setItem(CACHE_PREFIX + communityCacheSuffix() + key, JSON.stringify(data));
       return true;
     } catch (e) { return false; }
   }
@@ -30705,7 +30715,7 @@ window.PT_NASH_PUSH_JSON = {
   function greetingUserSuffix() {
     const u = (global.PTAuth && global.PTAuth.getUser) ? global.PTAuth.getUser() : global.PT_AUTH_USER;
     const uid = u && (u.id || u.sub || u.userId);
-    return uid ? ('_' + uid) : '';
+    return (uid ? ('_' + uid) : '') + communityCacheSuffix();
   }
 
   function greetingFocusStorageKey() {
@@ -32190,9 +32200,9 @@ window.PT_NASH_PUSH_JSON = {
     ca[key] = Date.now();
     writeClearedAt(ca);
     if (key === 'stats') {
-      try { localStorage.removeItem(scopedKey('stats_coach')); } catch (e) { /* noop */ }
-      try { localStorage.removeItem(scopedKey('learn_coach')); } catch (e) { /* noop */ }
-      try { localStorage.removeItem(scopedKey('learn_coach_lessons')); } catch (e) { /* noop */ }
+      try { localStorage.removeItem(scopedDataKey('stats_coach')); } catch (e) { /* noop */ }
+      try { localStorage.removeItem(scopedDataKey('learn_coach')); } catch (e) { /* noop */ }
+      try { localStorage.removeItem(scopedDataKey('learn_coach_lessons')); } catch (e) { /* noop */ }
     }
   }
 
@@ -32680,14 +32690,36 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   function readLearnCoachMap() {
-    const map = read(scopedKey('learn_coach_lessons'), null);
+    const map = read(scopedDataKey('learn_coach_lessons'), null);
     if (map && typeof map === 'object' && !Array.isArray(map)) return map;
     return {};
   }
 
   function writeLearnCoachMap(map) {
-    return write(scopedKey('learn_coach_lessons'), map || {});
+    return write(scopedDataKey('learn_coach_lessons'), map || {});
   }
+
+  /**
+   * Campo coachThread en objetos compartidos entre apps (sesiones/análisis).
+   * PokerForge: coachThread · MTTLab: coachThread_mttlab.
+   * History/stats ya van en claves community-scoped; ahí basta coachThread.
+   */
+  function coachThreadField() {
+    var s = communityDataSuffix();
+    return s ? ('coachThread' + s) : 'coachThread';
+  }
+
+  function readObjectCoachThread(obj) {
+    if (!obj) return [];
+    var t = obj[coachThreadField()];
+    return Array.isArray(t) ? t.slice() : [];
+  }
+
+  function writeObjectCoachThread(obj, thread) {
+    if (!obj) return;
+    obj[coachThreadField()] = Array.isArray(thread) ? thread : [];
+  }
+
   function getHistory() { return read(scopedDataKey('history'), []); }
   function getErrors() {
     return read(scopedDataKey('errors'), []).filter(function (e) { return !isSchoolError(e); });
@@ -34343,7 +34375,7 @@ window.PT_NASH_PUSH_JSON = {
   function getCoachThread(target) {
     if (!target || !target.kind) return [];
     if (target.kind === 'stats') {
-      return read(scopedKey('stats_coach'), []);
+      return read(scopedDataKey('stats_coach'), []);
     }
     if (target.kind === 'learn') {
       const lessonId = target.lessonId ? String(target.lessonId) : 'default';
@@ -34351,14 +34383,13 @@ window.PT_NASH_PUSH_JSON = {
       if (map[lessonId] && Array.isArray(map[lessonId])) return map[lessonId].slice();
       /* legacy: hilo global único (pre 2.5.12); no se reutiliza entre lecciones */
       if (lessonId === 'default') {
-        const legacy = read(scopedKey('learn_coach'), []);
+        const legacy = read(scopedDataKey('learn_coach'), []);
         return Array.isArray(legacy) ? legacy.slice() : [];
       }
       return [];
     }
     if (target.kind === 'analysis' && target.handId) {
-      const rec = getAnalysisHand(target.handId);
-      return rec && rec.coachThread ? rec.coachThread.slice() : [];
+      return readObjectCoachThread(getAnalysisHand(target.handId));
     }
     if (target.kind === 'history' && target.handId) {
       const rec = getHistory().find(function (h) { return h.id === target.handId; });
@@ -34368,11 +34399,11 @@ window.PT_NASH_PUSH_JSON = {
       const session = getSession(target.sessionId);
       if (!session) return [];
       if (target.kind === 'session') {
-        return session.coachThread ? session.coachThread.slice() : [];
+        return readObjectCoachThread(session);
       }
       if (target.kind === 'sessionHand' && target.handId) {
         const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
-        return hand && hand.coachThread ? hand.coachThread.slice() : [];
+        return readObjectCoachThread(hand);
       }
     }
     return [];
@@ -34383,10 +34414,10 @@ window.PT_NASH_PUSH_JSON = {
     if (!target || !target.kind) return Promise.resolve({ ok: false, error: 'invalid_target' });
 
     if (target.kind === 'stats') {
-      let thread = read(scopedKey('stats_coach'), []);
+      let thread = read(scopedDataKey('stats_coach'), []);
       thread.unshift(e);
       thread = trimCoachThread(thread);
-      if (!write(scopedKey('stats_coach'), thread)) {
+      if (!write(scopedDataKey('stats_coach'), thread)) {
         return Promise.resolve({ ok: false, error: 'storage_full' });
       }
       return Promise.resolve({ ok: true, entry: e, thread: thread.slice() });
@@ -34397,7 +34428,7 @@ window.PT_NASH_PUSH_JSON = {
       const map = readLearnCoachMap();
       let thread = Array.isArray(map[lessonId]) ? map[lessonId].slice() : [];
       if (!thread.length && lessonId === 'default') {
-        const legacy = read(scopedKey('learn_coach'), []);
+        const legacy = read(scopedDataKey('learn_coach'), []);
         if (Array.isArray(legacy) && legacy.length) thread = legacy.slice();
       }
       thread.unshift(e);
@@ -34412,12 +34443,13 @@ window.PT_NASH_PUSH_JSON = {
     if (target.kind === 'analysis' && target.handId) {
       return getAnalysisHandAsync(target.handId).then(function (rec) {
         if (!rec) return { ok: false, error: 'hand_not_found' };
-        if (!rec.coachThread) rec.coachThread = [];
-        rec.coachThread.unshift(e);
-        rec.coachThread = trimCoachThread(rec.coachThread);
+        var thread = readObjectCoachThread(rec);
+        thread.unshift(e);
+        thread = trimCoachThread(thread);
+        writeObjectCoachThread(rec, thread);
         return updateAnalysisHand(rec).then(function (res) {
           if (!res.ok) return { ok: false, error: res.error || 'storage_full', message: res.message };
-          return { ok: true, entry: e, thread: rec.coachThread.slice() };
+          return { ok: true, entry: e, thread: thread.slice() };
         });
       });
     }
@@ -34442,23 +34474,27 @@ window.PT_NASH_PUSH_JSON = {
       return getSessionAsync(target.sessionId).then(function (session) {
         if (!session) return { ok: false, error: 'session_not_found' };
         if (target.kind === 'session') {
-          if (!session.coachThread) session.coachThread = [];
-          session.coachThread.unshift(e);
-          session.coachThread = trimCoachThread(session.coachThread);
+          var sThread = readObjectCoachThread(session);
+          sThread.unshift(e);
+          sThread = trimCoachThread(sThread);
+          writeObjectCoachThread(session, sThread);
         } else if (target.kind === 'sessionHand' && target.handId) {
           const hand = (session.hands || []).find(function (h) { return h.id === target.handId; });
           if (!hand) return { ok: false, error: 'hand_not_found' };
-          if (!hand.coachThread) hand.coachThread = [];
-          hand.coachThread.unshift(e);
-          hand.coachThread = trimCoachThread(hand.coachThread);
+          var hThread = readObjectCoachThread(hand);
+          hThread.unshift(e);
+          hThread = trimCoachThread(hThread);
+          writeObjectCoachThread(hand, hThread);
         } else {
           return { ok: false, error: 'invalid_target' };
         }
         return saveSession(session).then(function (saved) {
           if (!saved.ok) return saved;
           const thread = target.kind === 'session'
-            ? (saved.session.coachThread || []).slice()
-            : ((saved.session.hands || []).find(function (h) { return h.id === target.handId; }) || {}).coachThread || [];
+            ? readObjectCoachThread(saved.session)
+            : readObjectCoachThread(
+              (saved.session.hands || []).find(function (h) { return h.id === target.handId; })
+            );
           return { ok: true, entry: e, thread: thread.slice() };
         });
       });
@@ -34636,6 +34672,7 @@ window.PT_NASH_PUSH_JSON = {
     loadLocalTournamentWalletFor,
     getClearedAt, detectResetConflicts, applyRemoteClears, rejectRemoteClears, clearRejectRemote,
     getCoachThread, appendCoachEntry,
+    coachThreadField, readObjectCoachThread, writeObjectCoachThread,
     getFeatureUsage, trackFeatureUsage,
     getAnalysisHands, getAnalysisHand, getAnalysisHandAsync,
     saveAnalysisHand, updateAnalysisHand, removeAnalysisHand,
@@ -54492,7 +54529,11 @@ window.PT_NASH_PUSH_JSON = {
         getData: () => currentSession,
         autoReport: autoCoachReport,
         persist: { kind: 'session', getSessionId: () => currentSession && currentSession.id },
-        onThreadUpdate: (thread) => { if (currentSession) currentSession.coachThread = thread; }
+        onThreadUpdate: (thread) => {
+          if (!currentSession) return;
+          if (window.Store && Store.writeObjectCoachThread) Store.writeObjectCoachThread(currentSession, thread);
+          else currentSession.coachThread = thread;
+        }
       });
     }
     const nudgeBtn = box.querySelector('#ai-session-nudge-btn');

@@ -230,16 +230,26 @@
     return Math.abs(h).toString(36);
   }
 
+  function communityCacheSuffix() {
+    try {
+      if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+        var id = global.PTCommunity.id();
+        if (id && id !== 'pokerforge') return '_' + id;
+      }
+    } catch (e) { /* noop */ }
+    return '';
+  }
+
   function readCache(key) {
     try {
-      const raw = localStorage.getItem(CACHE_PREFIX + key);
+      const raw = localStorage.getItem(CACHE_PREFIX + communityCacheSuffix() + key);
       return raw ? JSON.parse(raw) : null;
     } catch (e) { return null; }
   }
 
   function writeCache(key, data) {
     try {
-      localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(data));
+      localStorage.setItem(CACHE_PREFIX + communityCacheSuffix() + key, JSON.stringify(data));
       return true;
     } catch (e) { return false; }
   }
@@ -1257,7 +1267,7 @@
   function greetingUserSuffix() {
     const u = (global.PTAuth && global.PTAuth.getUser) ? global.PTAuth.getUser() : global.PT_AUTH_USER;
     const uid = u && (u.id || u.sub || u.userId);
-    return uid ? ('_' + uid) : '';
+    return (uid ? ('_' + uid) : '') + communityCacheSuffix();
   }
 
   function greetingFocusStorageKey() {

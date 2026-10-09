@@ -19,6 +19,9 @@ assert.ok(/pt_check_ai_access/.test(src), 'RPC check AI access');
 assert.ok(/pt_record_ai_usage/.test(src), 'RPC record AI usage');
 assert.ok(/communityId/.test(src), 'acepta communityId para cupo comunidad');
 assert.ok(/p_community_id/.test(src), 'pasa p_community_id a RPCs');
+assert.ok(/applyCommunityBrand|MTT LAB/.test(src), 'marca IA distinta por comunidad');
+assert.ok(/pt_get_coach_summary/.test(src), 'lee coach_summary por comunidad');
+assert.ok(/enrichPayload\([\s\S]*communityId/.test(src), 'enrichPayload recibe communityId');
 assert.ok(/GEMINI_API_KEY/.test(src), 'requiere Gemini configurado');
 
 const modes = [
