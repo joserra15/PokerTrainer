@@ -62,6 +62,18 @@ assert.ok(/pt_redeem_promotion/.test(promoSrc), 'RPC redeem');
 const adminPromo = fs.readFileSync(path.join(root, 'js/admin-promotions.js'), 'utf8');
 assert.ok(/pt_admin_list_promotions|pt_admin_create_promotion/.test(adminPromo), 'admin promo RPCs');
 assert.ok(/hasAccess|PTAdmin/.test(adminPromo), 'admin gate');
+assert.ok(/p_plan_duration_unit/.test(adminPromo), 'admin envía unidad de duración');
+assert.ok(/semana|week/.test(adminPromo), 'admin soporta duración semanal');
+
+const promoLanding = fs.readFileSync(path.join(root, 'js/promo-landing.js'), 'utf8');
+assert.ok(/plan_duration_unit|semana/.test(promoLanding), 'landing muestra semanas');
+
+const promoMigration = fs.readFileSync(
+  path.join(root, 'supabase/migrations/065_promo_duration_weeks.sql'),
+  'utf8'
+);
+assert.ok(/plan_duration_unit/.test(promoMigration), 'migración añade plan_duration_unit');
+assert.ok(/make_interval\(weeks/.test(promoMigration), 'canje suma semanas');
 
 // Casos tabla lógicos (errores RPC / mensajes)
 ['not_found', 'inactive', 'exhausted', 'already_redeemed', 'existing_user'].forEach((code) => {
