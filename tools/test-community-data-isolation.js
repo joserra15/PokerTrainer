@@ -94,13 +94,18 @@ assert.strictEqual(Store.getHistory().length, 0, 'mttlab history vacía');
 assert.strictEqual(Store.getErrors().length, 0, 'mttlab errors vacíos');
 
 Store.saveHand(makeHand('h_mt_1', 'error', 'mt1'));
-Store.saveSchoolProgress({ xp: 40, lessons: { m1: { passed: true, bestPct: 80 } }, version: 2 });
+Store.saveSchoolProgress({
+  xp: 40,
+  lessons: { 'ML-M1-01': { passed: true, bestPct: 80 } },
+  version: 2
+});
 
 const mtStats = Store.getStats();
 assert.ok(mtStats.handsPlayed >= 1, 'mttlab tiene manos propias');
 assert.ok(Store.getHistory().some(function (h) { return h.id === 'h_mt_1'; }));
 assert.ok(Store.getErrors().length >= 1, 'mttlab errores propios');
 assert.ok((Store.getSchoolProgress() || {}).xp >= 40, 'mttlab XP escuela');
+assert.ok((Store.getSchoolProgress() || {}).lessons['ML-M1-01'], 'mttlab lección ML');
 
 const frag = Store.mergeActiveIntoCloudPayload({
   stats: pfStats,
@@ -121,6 +126,40 @@ assert.ok(!Store.getHistory().some(function (h) { return h.id === 'h_mt_1'; }), 
 const pfSchool = Store.getSchoolProgress() || {};
 assert.ok((pfSchool.xp || 0) >= 100 || (pfSchool.lessons && pfSchool.lessons.a),
   'XP PF no pisada por mttlab');
+
+/* --- Nivel/XP Escuela: sanitizar contaminación cruzada --- */
+ACTIVE = 'mttlab';
+/* Simula blob nube/local antiguo mezclado (escritura directa, sin sanitize de save). */
+localStore['pt_school_progress_mttlab_v1_user_iso_1'] = JSON.stringify({
+  xp: 999,
+  lessons: {
+    'C-01': { passed: true, bestPct: 90 },
+    'ML-M1-01': { passed: true, bestPct: 80 }
+  },
+  version: 2,
+  updatedAt: Date.now()
+});
+const mtSan = Store.getSchoolProgress() || {};
+assert.ok(!mtSan.lessons || !mtSan.lessons['C-01'], 'mttlab descarta lección PokerForge C-01');
+assert.ok(mtSan.lessons && mtSan.lessons['ML-M1-01'], 'mttlab conserva ML-M1-01');
+assert.strictEqual(Number(mtSan.xp) || 0, 0,
+  'mttlab no hereda XP contaminado de PokerForge (blob mezclado)');
+
+ACTIVE = 'pokerforge';
+localStore['pt_school_progress_v1_user_iso_1'] = JSON.stringify({
+  xp: 200,
+  lessons: {
+    'C-02': { passed: true },
+    'ML-M1-02': { passed: true }
+  },
+  version: 2,
+  updatedAt: Date.now()
+});
+const pfSan = Store.getSchoolProgress() || {};
+assert.ok(pfSan.lessons && pfSan.lessons['C-02'], 'PF conserva C-02');
+assert.ok(!pfSan.lessons || !pfSan.lessons['ML-M1-02'], 'PF descarta lección MTTLab');
+assert.strictEqual(Number(pfSan.xp) || 0, 0,
+  'PF no confía en XP si el blob traía lecciones MTTLab');
 
 ACTIVE = 'mttlab';
 const slicedMt = Store.sliceCloudForActive(frag);

@@ -146,17 +146,44 @@
   }
 
   function hasSchoolProgress(st) {
-    const school = st && st.school;
+    var school = st && st.school;
+    /* Sanitizar por comunidad activa: no contar XP/lecciones de PokerForge en MTTLab. */
+    if (school && typeof school === 'object' && global.Store &&
+        typeof global.Store.sanitizeSchoolForActive === 'function') {
+      school = global.Store.sanitizeSchoolForActive(school) || school;
+    }
     if (school && typeof school === 'object') {
       if ((Number(school.xp) || 0) > 0) return true;
       const lessons = school.lessons;
       if (lessons && typeof lessons === 'object' && Object.keys(lessons).length > 0) return true;
     }
     try {
+      /* Backup namespaced por comunidad (Store); no leer pt_school_backup_v1 de PF en MTTLab. */
+      if (global.Store && typeof global.Store.getSchoolProgress === 'function') {
+        var prog = global.Store.getSchoolProgress();
+        if (prog && typeof prog === 'object') {
+          if ((Number(prog.xp) || 0) > 0) return true;
+          if (prog.lessons && typeof prog.lessons === 'object' && Object.keys(prog.lessons).length > 0) {
+            return true;
+          }
+        }
+        return false;
+      }
       if (typeof localStorage === 'undefined') return false;
       const uid = (global.Store && global.Store.getUserId && global.Store.getUserId()) || '';
-      const keyed = 'pt_school_backup_v1' + (uid ? '_' + uid : '');
-      let raw = localStorage.getItem(keyed) || localStorage.getItem('pt_school_backup_v1');
+      var suffix = '';
+      try {
+        if (global.PTCommunity && typeof global.PTCommunity.id === 'function') {
+          var cid = global.PTCommunity.id();
+          if (cid && cid !== 'pokerforge') suffix = '_' + cid;
+        }
+      } catch (eCid) { /* noop */ }
+      const keyed = 'pt_school_backup' + suffix + '_v1' + (uid ? '_' + uid : '');
+      let raw = localStorage.getItem(keyed);
+      if (!raw && !suffix) {
+        raw = localStorage.getItem('pt_school_backup_v1' + (uid ? '_' + uid : '')) ||
+          localStorage.getItem('pt_school_backup_v1');
+      }
       if (!raw) return false;
       const bak = JSON.parse(raw);
       if (!bak || typeof bak !== 'object') return false;
