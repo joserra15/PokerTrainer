@@ -1018,6 +1018,76 @@
     return scopedKey(base);
   }
 
+  function isPokerForgeLessonId(id) {
+    return /^(C-|R-|T-|M0-|D-|O-|B-|F-|E-|Q-|X-|N-|I-|S-|P-|W-|learn-|cash-|spin-)/i.test(String(id || ''));
+  }
+
+  /**
+   * Nivel/XP/lecciones solo de la app activa.
+   * PokerForge: descarta ML-*. MTTLab: solo ML-* (ignora C-00… de PF).
+   * Si había mezcla, no se confía en el XP del blob (igual que SQL 047 / manager).
+   */
+  function sanitizeSchoolForActive(school) {
+    if (!school || typeof school !== 'object') return null;
+    var s = communityDataSuffix();
+    var lessonsIn = (school.lessons && typeof school.lessons === 'object') ? school.lessons : {};
+    var ids = Object.keys(lessonsIn);
+    var kept = {};
+    var foreign = 0;
+    ids.forEach(function (id) {
+      if (!s) {
+        if (/^ML-/i.test(id)) { foreign += 1; return; }
+        kept[id] = lessonsIn[id];
+        return;
+      }
+      if (isPokerForgeLessonId(id)) { foreign += 1; return; }
+      var cid = String(s).replace(/^_/, '');
+      if (cid === 'mttlab' && !/^ML-/i.test(id)) { foreign += 1; return; }
+      kept[id] = lessonsIn[id];
+    });
+    var keptIds = Object.keys(kept);
+    var out = {
+      xp: 0,
+      lessons: kept,
+      updatedAt: Number(school.updatedAt) || 0,
+      version: Number(school.version) || 2,
+      rejected_foreign: foreign > 0
+    };
+    if (school.dailySpot) out.dailySpot = school.dailySpot;
+    if (!keptIds.length) {
+      out.xp = 0;
+      return out;
+    }
+    /* Solo conservar XP si no había lecciones de la otra app. */
+    out.xp = foreign === 0 ? (Number(school.xp) || 0) : 0;
+    return out;
+  }
+
+  function schoolPayloadForPersist(school) {
+    if (!school || typeof school !== 'object') return null;
+    var out = {
+      xp: Number(school.xp) || 0,
+      lessons: school.lessons && typeof school.lessons === 'object' ? school.lessons : {},
+      updatedAt: Number(school.updatedAt) || Date.now(),
+      version: Number(school.version) || 2
+    };
+    if (school.dailySpot) out.dailySpot = school.dailySpot;
+    return out;
+  }
+
+  function persistSchoolProgressDirect(school) {
+    var payload = schoolPayloadForPersist(school);
+    if (!payload) return false;
+    var okOwn = writeResilient(schoolProgressKey(), payload);
+    if (okOwn && userId && !communityDataSuffix()) writeResilient('pt_school_progress_v1', payload);
+    var st = read(scopedDataKey('stats'), null);
+    if (!st || typeof st !== 'object') st = defaultStats();
+    st.school = payload;
+    st.updatedAt = Date.now();
+    var okStats = writeResilient(scopedDataKey('stats'), st);
+    return okOwn || okStats;
+  }
+
   function readSchoolProgressStore() {
     let val = read(schoolProgressKey(), null);
     /* Fallback legacy solo en PokerForge (no contaminar comunidades). */
@@ -1033,7 +1103,17 @@
     const bak = readSchoolBackupRaw();
     let merged = mergeSchoolProgress(own, fromStats);
     merged = mergeSchoolProgress(merged, bak);
-    return merged || null;
+    if (!merged) return null;
+    var clean = sanitizeSchoolForActive(merged);
+    if (!clean) return null;
+    /* Autocuración: quitar XP/lecciones de la otra app del almacenamiento local. */
+    if (clean.rejected_foreign) {
+      try {
+        var heal = schoolPayloadForPersist(clean);
+        if (heal) persistSchoolProgressDirect(heal);
+      } catch (eHeal) { /* ignore */ }
+    }
+    return schoolPayloadForPersist(clean);
   }
 
   /**
@@ -1042,15 +1122,18 @@
    */
   function saveSchoolProgress(school) {
     if (!school || typeof school !== 'object') return false;
-    const merged = mergeSchoolProgress(getSchoolProgress(), school);
+    const incoming = sanitizeSchoolForActive(school) || school;
+    const merged = mergeSchoolProgress(getSchoolProgress(), incoming);
     if (!merged) return false;
-    merged.updatedAt = Date.now();
-    const okOwn = writeResilient(schoolProgressKey(), merged);
+    const clean = sanitizeSchoolForActive(merged) || merged;
+    clean.updatedAt = Date.now();
+    const payload = schoolPayloadForPersist(clean);
+    const okOwn = writeResilient(schoolProgressKey(), payload);
     /* Espejo legacy solo PokerForge */
-    if (okOwn && userId && !communityDataSuffix()) writeResilient('pt_school_progress_v1', merged);
+    if (okOwn && userId && !communityDataSuffix()) writeResilient('pt_school_progress_v1', payload);
     let st = read(scopedDataKey('stats'), null);
     if (!st || typeof st !== 'object') st = defaultStats();
-    st.school = merged;
+    st.school = payload;
     st.updatedAt = Date.now();
     const okStats = writeResilient(scopedDataKey('stats'), st);
     if (global.PTCloud) {
@@ -1517,10 +1600,12 @@
     var st = read(scopedDataKey('stats'), defaultStats());
     /* Escuela vive en clave propia: reponerla si stats se quedó atrás o vacío. */
     try {
-      var own = readSchoolProgressStore();
+      var own = getSchoolProgress();
       if (own) {
-        var mergedSchool = mergeSchoolProgress(st.school, own);
-        if (mergedSchool) st.school = mergedSchool;
+        st.school = own;
+      } else if (st.school) {
+        var cleaned = sanitizeSchoolForActive(st.school);
+        if (cleaned) st.school = schoolPayloadForPersist(cleaned);
       }
     } catch (eSch) { /* ignore */ }
     if (global.PTStatsAggregate) {
@@ -3444,7 +3529,7 @@
     setUserId, getUserId,
     getHistory, getErrors, getStats, saveHand, appendErrors, persistStats: writeStats,
     isSchoolHand, isLegendaryHand, isNonTrainerHand,
-    getSchoolProgress, saveSchoolProgress,
+    getSchoolProgress, saveSchoolProgress, sanitizeSchoolForActive,
     clearHistory, clearStats, clearAll, clearErrors, removeError, exportData,     exportFullUserData,
     migrateLocalUserKeys,
     migrateTournamentKeysForUser,

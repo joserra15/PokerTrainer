@@ -20600,6 +20600,14 @@
       delete merged._needsPersistMigration;
       writeSchool(merged);
     }
+    /* Nivel/XP independientes: no mezclar lecciones PokerForge ↔ MTTLab. */
+    try {
+      var S = Store();
+      if (S && typeof S.sanitizeSchoolForActive === 'function') {
+        var clean = S.sanitizeSchoolForActive(merged);
+        if (clean) merged = clean;
+      }
+    } catch (eSan) { /* ignore */ }
     merged.lessons = applyOverlayToLessons(merged.lessons || {});
     var out = {
       xp: Number(merged.xp) || 0,

@@ -17,6 +17,12 @@ assert.ok(/PT_BUILD\s*=\s*'3\.2\.2'/.test(version), 'versión 3.2.2');
 assert.ok(/mergeDailySpotProgress/.test(storageSrc), 'merge dailySpot en storage');
 assert.ok(/hasSchoolProgress/.test(cloudSrc), 'cloud hasSchoolProgress');
 assert.ok(/hasSchoolProgress\(val\)/.test(cloudSrc), 'hasLocalData cuenta Escuela');
+assert.ok(/sanitizeSchoolForActive/.test(cloudSrc), 'cloud sanitiza escuela por comunidad');
+assert.ok(/pt_school_backup' \+ suffix|_school_backup' \+ suffix/.test(cloudSrc) ||
+  /pt_school_backup' \+ suffix/.test(cloudSrc) ||
+  /getSchoolProgress/.test(cloudSrc),
+  'cloud no usa solo backup PF para detectar progreso');
+assert.ok(/sanitizeSchoolForActive/.test(storageSrc), 'storage sanitiza escuela por comunidad');
 assert.ok(/hasSchoolProgress\(st\)/.test(storageSrc), 'isStatsEmpty cuenta Escuela');
 assert.ok(!/if \(localDirty > cloudTs\)/.test(cloudSrc), 'no descarta payload cloud por dirty');
 assert.ok(/Siempre fusionar nube/.test(cloudSrc), 'cloudPayloadForMerge siempre fusiona');
