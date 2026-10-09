@@ -130,8 +130,18 @@
   var selectedUserId = null;
   var membersCache = [];
   var threadsCache = [];
+  var inviteCodesCache = [];
+  var inviteSummary = { unused: 0, used: 0, revoked: 0 };
+  var inviteFilter = '';
   var settingsCache = null;
   var listMeta = { online_count: 0, ai_limit: 40 };
+
+  function inviteStatusLabel(status) {
+    if (status === 'unused') return 'Sin usar';
+    if (status === 'used') return 'Usado';
+    if (status === 'revoked') return 'Anulado';
+    return status || '—';
+  }
 
   async function ensureAccess() {
     if (!global.PTCommunity) return false;
@@ -156,8 +166,7 @@
       '<p class="muted-text manager-settings-line"><span>URL de login</span> ' +
       '<a class="manager-login-url" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
       escapeHtml(url) + '</a></p>' +
-      '<p class="muted-text">Código de acceso (solo lectura; lo cambia Admin): <code>' +
-      escapeHtml(settingsCache.join_code || '—') + '</code></p>' +
+      '<p class="muted-text">El acceso se activa con <strong>códigos de un solo uso</strong> (sección Códigos de acceso). Tras el canje, el acceso es indefinido hasta que lo revokes.</p>' +
       '<p class="muted-text">Cupo IA por miembro: <strong>' +
       escapeHtml(String(settingsCache.ai_limit || 40)) + '</strong> consultas/mes (independiente de PokerForgeAI).</p>' +
       '<form id="manager-welcome-form">' +
@@ -204,6 +213,7 @@
       '/' + escapeHtml(String(m.ai_limit || listMeta.ai_limit || 40)) + '</dd></div>' +
       '<div><dt>Escuela</dt><dd>' + escapeHtml(String(m.school_passed != null ? m.school_passed : 0)) +
       ' lecc. · XP ' + escapeHtml(String(m.school_xp != null ? m.school_xp : 0)) + '</dd></div>' +
+      '<div><dt>Acceso desde</dt><dd>' + escapeHtml(formatDate(m.granted_at)) + '</dd></div>' +
       '<div><dt>Última conexión</dt><dd>' + escapeHtml(formatDate(m.last_seen_at)) + '</dd></div>' +
       '</dl>' +
       '<button type="button" class="btn btn-ghost btn-sm" data-manager-idx="' + idx + '">Detalle</button>' +
@@ -239,7 +249,7 @@
       '</div>' +
       '<div class="admin-table-wrap manager-table-wrap">' +
       '<table class="admin-table manager-table"><thead><tr>' +
-      '<th>Usuario</th><th>Rol</th><th>IA mes</th><th>Escuela</th><th>Última conexión</th><th></th>' +
+      '<th>Usuario</th><th>Rol</th><th>IA mes</th><th>Escuela</th><th>Acceso desde</th><th>Última conexión</th><th></th>' +
       '</tr></thead><tbody>' +
       membersCache.map(function (m, idx) {
         return '<tr>' +
@@ -252,6 +262,7 @@
           escapeHtml(String(m.ai_limit || listMeta.ai_limit || 40)) + '</td>' +
           '<td>' + escapeHtml(String(m.school_passed != null ? m.school_passed : 0)) +
           ' lecc. · XP ' + escapeHtml(String(m.school_xp != null ? m.school_xp : 0)) + '</td>' +
+          '<td>' + escapeHtml(formatDate(m.granted_at)) + '</td>' +
           '<td>' + escapeHtml(formatDate(m.last_seen_at)) + '</td>' +
           '<td><button type="button" class="btn btn-ghost btn-sm" data-manager-idx="' +
           idx + '">Detalle</button></td>' +
@@ -332,6 +343,47 @@
       detail.classList.add('hidden');
       detail.innerHTML = '';
     });
+    var revokeBtn = $('#manager-revoke-member');
+    if (revokeBtn) {
+      revokeBtn.addEventListener('click', function () {
+        revokeMember(memberLookupId(res.data && res.data.member) || userId, res.data && res.data.member);
+      });
+    }
+  }
+
+  function revokeErrorMessage(code) {
+    var c = String(code || '');
+    if (/cannot_revoke_self/i.test(c)) return 'No puedes revocar tu propio acceso.';
+    if (/not_a_member/i.test(c)) return 'Ese usuario ya no es miembro activo.';
+    if (/forbidden/i.test(c)) return 'No tienes permiso de manager en esta comunidad.';
+    if (/missing_user/i.test(c)) return 'Falta el identificador del miembro.';
+    return c || 'No se pudo revocar.';
+  }
+
+  async function revokeMember(userId, mem) {
+    var c = client();
+    if (!c || !userId) return;
+    var label = (mem && (mem.name || mem.email)) || userId;
+    var ok = global.confirm(
+      '¿Revocar el acceso de ' + label + ' a la comunidad?\n\n' +
+      'Perderá MTT LAB y su cuenta en PokerForgeAI quedará en plan Gratis.'
+    );
+    if (!ok) return;
+    var res = await c.rpc('pt_manager_revoke_member', {
+      p_community_id: communityId(),
+      p_user_id: userId
+    });
+    if (res.error || !(res.data && res.data.ok)) {
+      var msg = (res.data && res.data.error) || (res.error && res.error.message) || 'error';
+      alert(revokeErrorMessage(msg));
+      return;
+    }
+    var detail = $('#manager-member-detail');
+    if (detail) {
+      detail.classList.add('hidden');
+      detail.innerHTML = '';
+    }
+    await loadMembers();
   }
 
   /** Solo lecciones del pack de la comunidad. Rechaza C-00… (PokerForgeAI). */
@@ -399,11 +451,14 @@
         : '<p class="muted-text">Sin progreso de escuela de esta comunidad sincronizado aún.</p>');
     return '<div class="manager-detail-card">' +
       '<div class="admin-section-head"><h3>' + escapeHtml(mem.name || mem.email || 'Miembro') + '</h3>' +
-      '<button type="button" class="btn btn-ghost btn-sm" id="manager-detail-close">Cerrar</button></div>' +
+      '<div class="admin-messages-head-actions">' +
+      '<button type="button" class="btn btn-danger btn-sm" id="manager-revoke-member">Revocar acceso</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="manager-detail-close">Cerrar</button></div></div>' +
       '<p class="manager-detail-scope muted-text">Solo datos de <strong>' + escapeHtml(communityName) +
-      '</strong> · sin plan, pagos ni progreso de PokerForgeAI.</p>' +
+      '</strong> · sin pagos de otras plataformas.</p>' +
       '<p class="muted-text">' + escapeHtml(mem.email || '') + ' · Rol: ' + escapeHtml(mem.role || '') +
       (mem.is_online ? ' · <span class="admin-online-dot">●</span> en línea' : '') + '</p>' +
+      '<p>Acceso desde: <strong>' + escapeHtml(formatDate(mem.granted_at)) + '</strong> (indefinido hasta revocación)</p>' +
       '<p>Última conexión: <strong>' + escapeHtml(formatDate(mem.last_seen_at)) + '</strong></p>' +
       '<p>Consultas IA (comunidad): <strong>' + escapeHtml(String(ai.used != null ? ai.used : 0)) +
       '/' + escapeHtml(String(ai.limit || 40)) + '</strong></p>' +
@@ -424,6 +479,157 @@
         }).join('') + '</ul>'
         : emptySchoolNote) +
       '</div>';
+  }
+
+  async function loadInviteCodes() {
+    var c = client();
+    var host = $('#manager-invite-codes');
+    var summary = $('#manager-invite-summary');
+    if (!c || !host) return;
+    host.innerHTML = '<p class="muted-text">Cargando códigos…</p>';
+    var args = { p_community_id: communityId() };
+    if (inviteFilter) args.p_status = inviteFilter;
+    var res = await c.rpc('pt_manager_list_invite_codes', args);
+    if (res.error) {
+      host.innerHTML = '<p class="admin-error">' + escapeHtml(res.error.message) + '</p>';
+      return;
+    }
+    inviteCodesCache = normalizeMembers(res.data && res.data.codes);
+    inviteSummary = (res.data && res.data.summary) || { unused: 0, used: 0, revoked: 0 };
+    if (summary) {
+      summary.innerHTML =
+        'Sin usar: <strong>' + escapeHtml(String(inviteSummary.unused || 0)) + '</strong> · ' +
+        'Usados: <strong>' + escapeHtml(String(inviteSummary.used || 0)) + '</strong> · ' +
+        'Anulados: <strong>' + escapeHtml(String(inviteSummary.revoked || 0)) + '</strong>';
+    }
+    renderInviteCodesTable(host);
+  }
+
+  function renderInviteCodesTable(host) {
+    if (!host) return;
+    if (!inviteCodesCache.length) {
+      host.innerHTML = '<p class="muted-text">No hay códigos' +
+        (inviteFilter ? ' con ese filtro' : '') + '. Genera un lote para la plataforma externa.</p>';
+      return;
+    }
+    host.innerHTML =
+      '<div class="admin-table-wrap manager-table-wrap">' +
+      '<table class="admin-table manager-table"><thead><tr>' +
+      '<th>Código</th><th>Estado</th><th>Usado por</th><th>Fecha uso</th><th>Nota</th><th></th>' +
+      '</tr></thead><tbody>' +
+      inviteCodesCache.map(function (row, idx) {
+        var usedBy = row.used_by_name || row.used_by_email || (row.used_by ? String(row.used_by).slice(0, 8) : '—');
+        var actions = row.status === 'unused'
+          ? '<button type="button" class="btn btn-ghost btn-sm" data-invite-invalidate="' +
+            idx + '">Anular</button>'
+          : '';
+        return '<tr>' +
+          '<td><code>' + escapeHtml(row.code || '') + '</code></td>' +
+          '<td>' + escapeHtml(inviteStatusLabel(row.status)) + '</td>' +
+          '<td>' + escapeHtml(usedBy) +
+          (row.used_by_email && row.used_by_name
+            ? '<br><span class="muted-text">' + escapeHtml(row.used_by_email) + '</span>'
+            : '') +
+          '</td>' +
+          '<td>' + escapeHtml(formatDate(row.used_at)) + '</td>' +
+          '<td>' + escapeHtml(row.note || '—') + '</td>' +
+          '<td>' + actions + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table></div>';
+    host.querySelectorAll('[data-invite-invalidate]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = Number(btn.getAttribute('data-invite-invalidate'));
+        var row = inviteCodesCache[idx];
+        if (row) invalidateInviteCode(row);
+      });
+    });
+  }
+
+  async function generateInviteCodes() {
+    var c = client();
+    var status = $('#manager-invite-status');
+    if (!c) return;
+    var countEl = $('#manager-invite-count');
+    var noteEl = $('#manager-invite-note');
+    var count = Math.max(1, Math.min(200, parseInt((countEl && countEl.value) || '10', 10) || 10));
+    var note = (noteEl && noteEl.value) || '';
+    if (status) status.textContent = 'Generando…';
+    var res = await c.rpc('pt_manager_generate_invite_codes', {
+      p_community_id: communityId(),
+      p_count: count,
+      p_note: note
+    });
+    if (res.error || !(res.data && res.data.ok)) {
+      if (status) status.textContent = '';
+      alert((res.error && res.error.message) || (res.data && res.data.error) || 'Error al generar');
+      return;
+    }
+    var codes = normalizeMembers(res.data.codes);
+    var text = codes.map(function (r) { return r.code; }).join('\n');
+    if (status) {
+      status.textContent = 'Generados ' + codes.length + '. Lista lista para copiar.';
+    }
+    var box = $('#manager-invite-export');
+    if (box) {
+      box.value = text;
+      box.classList.remove('hidden');
+      try { box.focus(); box.select(); } catch (e) { /* noop */ }
+    }
+    await loadInviteCodes();
+  }
+
+  async function copyInviteExport() {
+    var box = $('#manager-invite-export');
+    var status = $('#manager-invite-status');
+    if (!box || !box.value) {
+      if (status) status.textContent = 'No hay lista para copiar. Genera códigos primero.';
+      return;
+    }
+    try {
+      if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) {
+        await global.navigator.clipboard.writeText(box.value);
+      } else {
+        box.classList.remove('hidden');
+        box.focus();
+        box.select();
+        document.execCommand('copy');
+      }
+      if (status) status.textContent = 'Lista copiada al portapapeles.';
+    } catch (e) {
+      if (status) status.textContent = 'No se pudo copiar; selecciona el texto manualmente.';
+    }
+  }
+
+  async function invalidateInviteCode(row) {
+    var c = client();
+    if (!c || !row || !row.id) return;
+    if (!global.confirm('¿Anular el código ' + row.code + '? Ya no se podrá canjear.')) return;
+    var res = await c.rpc('pt_manager_invalidate_invite_code', {
+      p_community_id: communityId(),
+      p_code_id: row.id
+    });
+    if (res.error || !(res.data && res.data.ok)) {
+      alert((res.error && res.error.message) || (res.data && res.data.error) || 'Error');
+      return;
+    }
+    await loadInviteCodes();
+  }
+
+  function bindInviteControls() {
+    var gen = $('#manager-invite-generate');
+    var copy = $('#manager-invite-copy');
+    var refresh = $('#manager-refresh-invites');
+    var filter = $('#manager-invite-filter');
+    if (gen) gen.addEventListener('click', generateInviteCodes);
+    if (copy) copy.addEventListener('click', copyInviteExport);
+    if (refresh) refresh.addEventListener('click', loadInviteCodes);
+    if (filter) {
+      filter.addEventListener('change', function () {
+        inviteFilter = String(filter.value || '');
+        loadInviteCodes();
+      });
+    }
   }
 
   function renderMessageList(messages) {
@@ -523,10 +729,29 @@
     var cfg = global.PTCommunity && global.PTCommunity.config ? global.PTCommunity.config() : {};
     panel.innerHTML =
       '<div class="panel-head"><div><h2>Manager · ' + escapeHtml(cfg.siteName || communityId()) + '</h2>' +
-      '<p class="muted-text">Miembros, IA, avance de escuela y mensajes. Sin datos de pago ni de otras apps.</p></div></div>' +
+      '<p class="muted-text">Códigos de acceso, miembros, IA, escuela y mensajes. Sin datos de pago de otras apps.</p></div></div>' +
       '<div class="manager-sections">' +
       '<section class="admin-section"><div class="admin-section-head"><h3>Ajustes de comunidad</h3></div>' +
       '<div id="manager-settings"></div></section>' +
+      '<section class="admin-section"><div class="admin-section-head"><h3>Códigos de acceso</h3>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="manager-refresh-invites">Actualizar</button></div>' +
+      '<p class="muted-text">Genera códigos de un solo uso, pásalos a la plataforma de pago y consulta quién los canjeó.</p>' +
+      '<div class="manager-invite-controls">' +
+      '<label>Cantidad <input type="number" id="manager-invite-count" min="1" max="200" value="10" /></label>' +
+      '<label>Nota (opcional) <input type="text" id="manager-invite-note" maxlength="200" placeholder="Lote / campaña" /></label>' +
+      '<button type="button" class="btn btn-primary btn-sm" id="manager-invite-generate">Generar códigos</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm" id="manager-invite-copy">Copiar lista</button>' +
+      '<label>Filtro <select id="manager-invite-filter">' +
+      '<option value="">Todos</option>' +
+      '<option value="unused">Sin usar</option>' +
+      '<option value="used">Usados</option>' +
+      '<option value="revoked">Anulados</option>' +
+      '</select></label></div>' +
+      '<p id="manager-invite-status" class="muted-text"></p>' +
+      '<textarea id="manager-invite-export" class="manager-invite-export hidden" rows="4" readonly ' +
+      'aria-label="Lista de códigos generados"></textarea>' +
+      '<p id="manager-invite-summary" class="muted-text"></p>' +
+      '<div id="manager-invite-codes"></div></section>' +
       '<section class="admin-section"><div class="admin-section-head"><h3>Miembros</h3>' +
       '<button type="button" class="btn btn-ghost btn-sm" id="manager-refresh-members">Actualizar</button></div>' +
       '<p id="manager-members-summary" class="muted-text"></p>' +
@@ -538,7 +763,9 @@
     var rmsg = $('#manager-refresh-messages');
     if (rm) rm.addEventListener('click', loadMembers);
     if (rmsg) rmsg.addEventListener('click', loadThreads);
+    bindInviteControls();
     await loadSettings();
+    await loadInviteCodes();
     await loadMembers();
     await loadThreads();
   }
@@ -548,7 +775,9 @@
     loadMembers: loadMembers,
     loadThreads: loadThreads,
     loadSettings: loadSettings,
+    loadInviteCodes: loadInviteCodes,
     showMemberUsage: showMemberUsage,
+    revokeMember: revokeMember,
     renderMemberDetailHtml: renderCommunityMemberDetailHtml,
     renderTournamentUsageSection: renderTournamentUsageSection,
     sanitizeCommunitySchool: sanitizeCommunitySchool,

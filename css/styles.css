@@ -8421,6 +8421,32 @@ body[data-community="mttlab"] .app-logo {
   margin-top: 8px;
 }
 .manager-sections { display: grid; gap: 20px; }
+.manager-invite-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-end;
+  margin: 10px 0;
+}
+.manager-invite-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+.manager-invite-controls input[type="number"],
+.manager-invite-controls input[type="text"],
+.manager-invite-controls select {
+  min-width: 120px;
+  max-width: 220px;
+}
+.manager-invite-export {
+  width: 100%;
+  max-width: 640px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  margin: 8px 0 12px;
+}
 .manager-threads {
   display: grid;
   gap: 12px;

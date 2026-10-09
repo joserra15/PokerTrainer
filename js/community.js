@@ -392,10 +392,11 @@
       '<img src="' + (cfg.logoAuth || cfg.logo || '') + '" alt="" class="app-logo app-logo-auth" width="72" height="72" />' +
       '<h2>' + formatDisplayNameHtml(cfg.siteName || 'Comunidad', ACTIVE) + '</h2>' +
       '<p class="muted-text">' + escapeHtml(message || 'Esta área es exclusiva para miembros de la comunidad.') + '</p>' +
+      '<p class="muted-text">Introduce el código de un solo uso que te dieron tras el pago.</p>' +
       '<form id="community-join-form" class="community-join-form">' +
       '<label for="community-join-code">Código de acceso</label>' +
-      '<input type="text" id="community-join-code" autocomplete="off" placeholder="Tu código" />' +
-      '<button type="submit" class="btn btn-primary">Unirme</button>' +
+      '<input type="text" id="community-join-code" autocomplete="off" placeholder="Tu código" maxlength="32" />' +
+      '<button type="submit" class="btn btn-primary">Activar acceso</button>' +
       '</form>' +
       '<p id="community-join-error" class="admin-error" role="alert"></p>' +
       '<p class="muted-text"><a href="/">Ir a PokerForgeAI</a></p>' +
@@ -552,6 +553,15 @@
     return { ok: true, allowed: true };
   }
 
+  function joinCodeErrorMessage(code) {
+    var c = String(code || '');
+    if (c === 'invalid_code' || c === 'missing_code') return 'Código no válido.';
+    if (c === 'already_used') return 'Este código ya se ha utilizado.';
+    if (c === 'revoked') return 'Este código ya no es válido.';
+    if (c === 'not_authenticated') return 'Inicia sesión para canjear el código.';
+    return c || 'Código inválido';
+  }
+
   async function joinWithCode() {
     var input = document.getElementById('community-join-code');
     var errEl = document.getElementById('community-join-error');
@@ -565,10 +575,10 @@
       if (errEl) errEl.textContent = 'Sesión no disponible.';
       return;
     }
-    var res = await client().rpc('pt_join_community', { p_code: code });
+    var res = await client().rpc('pt_redeem_community_invite', { p_code: code });
     if (res.error || !(res.data && res.data.ok)) {
-      var msg = (res.data && res.data.error) || (res.error && res.error.message) || 'Código inválido';
-      if (errEl) errEl.textContent = msg === 'invalid_code' ? 'Código no válido.' : String(msg);
+      var msg = (res.data && res.data.error) || (res.error && res.error.message) || 'invalid_code';
+      if (errEl) errEl.textContent = joinCodeErrorMessage(msg);
       return;
     }
     if (res.data.community_id) {
