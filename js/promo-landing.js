@@ -56,11 +56,18 @@
     return res.json();
   }
 
+  function durationLabel(p) {
+    if (p && p.plan_duration_label) return String(p.plan_duration_label);
+    var n = Number(p && p.plan_duration_months) || 1;
+    var unit = (p && p.plan_duration_unit) === 'week' ? 'week' : 'month';
+    if (unit === 'week') return n + (n === 1 ? ' semana' : ' semanas');
+    return n + (n === 1 ? ' mes' : ' meses');
+  }
+
   function giftItems(p) {
     var items = [];
     if (p.plan_label) {
-      var months = Number(p.plan_duration_months) || 1;
-      items.push(p.plan_label + ' · ' + months + (months === 1 ? ' mes gratis' : ' meses gratis'));
+      items.push(p.plan_label + ' · ' + durationLabel(p) + ' gratis');
     }
     if (p.bonus_credits) {
       items.push(p.bonus_credits + ' consultas IA de bono');

@@ -8175,6 +8175,19 @@ html.pwa-standalone body {
 .admin-promo-create { padding: 16px; margin-bottom: 8px; }
 .admin-promo-create h4 { margin: 0 0 12px; font-size: 15px; }
 .admin-promo-form { display: flex; flex-direction: column; gap: 4px; }
+.admin-promo-duration-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.admin-promo-duration-row .admin-promo-input[type="number"] {
+  flex: 0 0 88px;
+  max-width: 88px;
+}
+.admin-promo-duration-row select.admin-promo-input {
+  flex: 1;
+  min-width: 0;
+}
 .admin-promo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

@@ -1453,9 +1453,15 @@
                   <option value="premium">Coach</option>
                 </select>
               </div>
-              <div id="admin-promo-months-wrap">
-                <label class="admin-invite-label" for="admin-promo-months">Duración (meses)</label>
-                <input type="number" id="admin-promo-months" class="admin-promo-input" min="1" max="24" value="1" />
+              <div id="admin-promo-duration-wrap">
+                <label class="admin-invite-label" for="admin-promo-duration">Duración del plan</label>
+                <div class="admin-promo-duration-row">
+                  <input type="number" id="admin-promo-duration" class="admin-promo-input" min="1" max="24" value="1" />
+                  <select id="admin-promo-duration-unit" class="admin-promo-input" aria-label="Unidad de duración">
+                    <option value="month" selected>Meses</option>
+                    <option value="week">Semanas</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label class="admin-invite-label" for="admin-promo-bonus">Bono IA</label>

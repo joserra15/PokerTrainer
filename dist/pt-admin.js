@@ -4252,11 +4252,18 @@
     return '';
   }
 
+  function durationLabel(p) {
+    if (p && p.plan_duration_label) return String(p.plan_duration_label);
+    var n = Number(p && p.plan_duration_months) || 1;
+    var unit = (p && p.plan_duration_unit) === 'week' ? 'week' : 'month';
+    if (unit === 'week') return n + (n === 1 ? ' semana' : ' semanas');
+    return n + (n === 1 ? ' mes' : ' meses');
+  }
+
   function giftSummary(p) {
     var parts = [];
     if (p.plan) {
-      var months = Number(p.plan_duration_months) || 1;
-      parts.push(planLabel(p.plan) + ' · ' + months + (months === 1 ? ' mes' : ' meses') + ' gratis');
+      parts.push(planLabel(p.plan) + ' · ' + durationLabel(p) + ' gratis');
     }
     if (p.bonus_credits) {
       parts.push(p.bonus_credits + ' consultas IA');
@@ -4325,11 +4332,15 @@
     var bonus = 0;
     if (bonusSel === 'custom') bonus = customBonus;
     else if (bonusSel) bonus = Number(bonusSel) || 0;
+    var unit = (($('#admin-promo-duration-unit') && $('#admin-promo-duration-unit').value) || 'month');
+    if (unit !== 'week') unit = 'month';
+    var duration = Number(($('#admin-promo-duration') && $('#admin-promo-duration').value) || 1) || 1;
     return {
       title: (($('#admin-promo-title') && $('#admin-promo-title').value) || '').trim(),
       description: (($('#admin-promo-desc') && $('#admin-promo-desc').value) || '').trim(),
       plan: plan || null,
-      plan_duration_months: plan ? (Number(($('#admin-promo-months') && $('#admin-promo-months').value) || 1) || 1) : null,
+      plan_duration_months: plan ? duration : null,
+      plan_duration_unit: plan ? unit : null,
       bonus_credits: bonus,
       max_redemptions: Number(($('#admin-promo-max') && $('#admin-promo-max').value) || 100) || 100
     };
@@ -4337,10 +4348,19 @@
 
   function syncFormUi() {
     var plan = ($('#admin-promo-plan') && $('#admin-promo-plan').value) || '';
-    var monthsWrap = $('#admin-promo-months-wrap');
+    var durationWrap = $('#admin-promo-duration-wrap');
+    var durationInput = $('#admin-promo-duration');
+    var unitSel = $('#admin-promo-duration-unit');
     var bonusSel = ($('#admin-promo-bonus') && $('#admin-promo-bonus').value) || '';
     var customWrap = $('#admin-promo-bonus-custom-wrap');
-    if (monthsWrap) monthsWrap.classList.toggle('hidden', !plan);
+    if (durationWrap) durationWrap.classList.toggle('hidden', !plan);
+    if (durationInput && unitSel) {
+      var max = unitSel.value === 'week' ? 52 : 24;
+      durationInput.max = String(max);
+      var n = Number(durationInput.value) || 1;
+      if (n > max) durationInput.value = String(max);
+      if (n < 1) durationInput.value = '1';
+    }
     if (customWrap) customWrap.classList.toggle('hidden', bonusSel !== 'custom');
   }
 
@@ -4542,6 +4562,15 @@
       setError('Elige un plan y/o un bono IA');
       return;
     }
+    if (vals.plan) {
+      var maxDur = vals.plan_duration_unit === 'week' ? 52 : 24;
+      if (!(vals.plan_duration_months >= 1 && vals.plan_duration_months <= maxDur)) {
+        setError(vals.plan_duration_unit === 'week'
+          ? 'La duración en semanas debe estar entre 1 y 52'
+          : 'La duración en meses debe estar entre 1 y 24');
+        return;
+      }
+    }
     var c = client();
     if (!c) {
       setError('Supabase no disponible');
@@ -4554,6 +4583,7 @@
       p_description: vals.description,
       p_plan: vals.plan,
       p_plan_duration_months: vals.plan_duration_months,
+      p_plan_duration_unit: vals.plan_duration_unit || 'month',
       p_bonus_credits: vals.bonus_credits,
       p_max_redemptions: vals.max_redemptions
     });
@@ -4623,10 +4653,12 @@
     var genBtn = $('#admin-promo-generate');
     if (genBtn) genBtn.addEventListener('click', function () { createPromotion(); });
 
-    ['admin-promo-plan', 'admin-promo-bonus'].forEach(function (id) {
+    ['admin-promo-plan', 'admin-promo-bonus', 'admin-promo-duration-unit'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('change', syncFormUi);
     });
+    var durationInput = document.getElementById('admin-promo-duration');
+    if (durationInput) durationInput.addEventListener('input', syncFormUi);
     syncFormUi();
 
     // Si se abre Mensajes, ocultar promociones
