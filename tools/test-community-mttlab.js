@@ -28,6 +28,7 @@ assert.ok(/mttlab-logo-header\.png/.test(read('js/community-config-mttlab.js')),
 assert.ok(/mttlab-logo-header\.png/.test(read('sw.js')), 'SW precache logo mttlab');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/043_communities.sql')), 'migration 043');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/044_community_admin_ai_welcome.sql')), 'migration 044');
+assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/066_community_invite_codes.sql')), 'migration 066 invites');
 
 const html = read('index.html');
 assert.ok(html.includes('community-config-mttlab.js'), 'index carga config mttlab');
@@ -205,12 +206,43 @@ assert.ok(/online_count|Activos ahora/.test(mgr), 'manager activos');
 assert.ok(/manager-member-cards/.test(mgr), 'manager cards móvil');
 assert.ok(/data-manager-idx/.test(mgr), 'detalle por índice cache');
 assert.ok(/formatMemberError|not_a_member/.test(mgr), 'error detalle amigable');
-assert.ok(/community_only|Solo datos de|sin plan, pagos/.test(mgr), 'detalle solo comunidad');
+assert.ok(/community_only|Solo datos de|sin plan, pagos|sin pagos de otras/.test(mgr), 'detalle solo comunidad');
 assert.ok(/sanitizeCommunitySchool|isPokerForgeLessonId|rejected_pf/.test(mgr), 'filtra C-* PokerForge');
 assert.ok(/\\^C-\|/.test(mgr) || /C-\|R-\|T-/.test(mgr), 'rechaza ids C-00');
 assert.ok(/training/.test(mgr) && /handsPlayed/.test(sql46), 'detalle training comunidad');
 assert.ok(/scope', 'community_only'|scope., .community_only/.test(sql46) || /'scope', 'community_only'/.test(sql46), 'RPC scope community_only');
 assert.ok(/renderTournamentUsageSection|<h4>Torneos<\/h4>/.test(mgr), 'manager detalle Torneos');
+assert.ok(/pt_manager_generate_invite_codes/.test(mgr), 'manager genera invites');
+assert.ok(/pt_manager_list_invite_codes/.test(mgr), 'manager lista invites');
+assert.ok(/pt_manager_invalidate_invite_code/.test(mgr), 'manager anula invites');
+assert.ok(/pt_manager_revoke_member/.test(mgr), 'manager revoca miembro');
+assert.ok(/Revocar acceso/.test(mgr), 'UI revocar acceso');
+assert.ok(/manager-invite-generate|Códigos de acceso/.test(mgr), 'sección códigos');
+assert.ok(/granted_at|Acceso desde/.test(mgr), 'muestra fecha inicio acceso');
+
+const sql66 = read('supabase/migrations/066_community_invite_codes.sql');
+[
+  'pt_community_invite_codes',
+  'pt_manager_generate_invite_codes',
+  'pt_manager_list_invite_codes',
+  'pt_manager_invalidate_invite_code',
+  'pt_redeem_community_invite',
+  'pt_manager_revoke_member',
+  "plan = 'free'",
+  "join_code = null",
+  "status = 'unused'",
+  'already_used',
+  'cannot_revoke_self',
+  'invite_code'
+].forEach(function (needle) {
+  assert.ok(sql66.includes(needle), 'SQL 066 tiene ' + needle);
+});
+assert.ok(/pt_join_community[\s\S]*pt_redeem_community_invite/.test(sql66),
+  'join_community redirige a redeem invite');
+assert.ok(/pt_redeem_community_invite/.test(commSrc), 'gate canjea invite');
+assert.ok(/already_used|Este código ya se ha utilizado/.test(commSrc), 'gate error already_used');
+assert.ok(/código de un solo uso|tras el pago/i.test(commSrc), 'copy gate pago externo');
+assert.ok(/manager-invite-controls/.test(styles), 'CSS invite controls');
 assert.ok(fs.existsSync(path.join(root, 'supabase/migrations/051_tournament_usage_stats.sql')), 'migration 051');
 const sql51 = read('supabase/migrations/051_tournament_usage_stats.sql');
 assert.ok(/pt_tournament_usage_from_payload/.test(sql51), '051 helper torneos');
