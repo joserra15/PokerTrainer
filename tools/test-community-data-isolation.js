@@ -280,4 +280,84 @@ assert.ok(Store.parseDirtyDataKey('tournamentWallet_mttlab', '').cloudKey === 't
   'tournamentWallet_mttlab conserva sufijo');
 void pfWalletSnap;
 
-console.log('*** community-data-isolation OK ***');
+/* --- Hilos ForgeCoach independientes por comunidad --- */
+ACTIVE = 'pokerforge';
+return Store.appendCoachEntry(
+  { kind: 'stats' },
+  { mode: 'report', reportMarkdown: '# PF stats', createdAt: '2026-10-01T00:00:00.000Z' }
+).then(function (pfCoach) {
+  assert.ok(pfCoach.ok, 'PF stats coach ok');
+  assert.strictEqual(Store.getCoachThread({ kind: 'stats' }).length, 1, 'PF tiene hilo stats');
+  assert.ok(
+    Store.getCoachThread({ kind: 'stats' })[0].reportMarkdown.indexOf('PF stats') >= 0,
+    'PF lee su informe'
+  );
+
+  ACTIVE = 'mttlab';
+  assert.strictEqual(Store.getCoachThread({ kind: 'stats' }).length, 0,
+    'mttlab no ve hilo stats de PokerForge');
+  assert.strictEqual(Store.coachThreadField(), 'coachThread_mttlab', 'campo coach mttlab');
+
+  return Store.appendCoachEntry(
+    { kind: 'stats' },
+    { mode: 'report', reportMarkdown: '# MTT stats', createdAt: '2026-10-02T00:00:00.000Z' }
+  );
+}).then(function (mtCoach) {
+  assert.ok(mtCoach.ok, 'mttlab stats coach ok');
+  assert.strictEqual(Store.getCoachThread({ kind: 'stats' }).length, 1);
+  assert.ok(
+    Store.getCoachThread({ kind: 'stats' })[0].reportMarkdown.indexOf('MTT stats') >= 0
+  );
+
+  ACTIVE = 'pokerforge';
+  assert.strictEqual(Store.getCoachThread({ kind: 'stats' }).length, 1, 'PF hilo intacto');
+  assert.ok(
+    Store.getCoachThread({ kind: 'stats' })[0].reportMarkdown.indexOf('PF stats') >= 0,
+    'PF no hereda hilo mttlab'
+  );
+  assert.strictEqual(Store.coachThreadField(), 'coachThread', 'campo coach PF');
+
+  /* Sesión compartida: coachThread por campo de comunidad */
+  const sessionId = 'sess_iso_shared';
+  sessionMemorySeed(sessionId, {
+    id: sessionId,
+    fileName: 'shared.txt',
+    hands: [{ id: 'h1', coachThread: [{ mode: 'report', reportMarkdown: 'PF hand legacy' }] }],
+    coachThread: [{ mode: 'report', reportMarkdown: 'PF session legacy' }]
+  });
+
+  ACTIVE = 'mttlab';
+  assert.strictEqual(Store.getCoachThread({ kind: 'session', sessionId: sessionId }).length, 0,
+    'mttlab no reutiliza coachThread PF de la sesión');
+  return Store.appendCoachEntry(
+    { kind: 'session', sessionId: sessionId },
+    { mode: 'question', question: 'ICM?', reportMarkdown: 'MTT answer', createdAt: '2026-10-03T00:00:00.000Z' }
+  );
+}).then(function (sessCoach) {
+  assert.ok(sessCoach.ok, 'mttlab session coach ok');
+  ACTIVE = 'mttlab';
+  const mtThread = Store.getCoachThread({ kind: 'session', sessionId: 'sess_iso_shared' });
+  assert.strictEqual(mtThread.length, 1);
+  assert.ok(mtThread[0].reportMarkdown.indexOf('MTT answer') >= 0);
+
+  ACTIVE = 'pokerforge';
+  const pfThread = Store.getCoachThread({ kind: 'session', sessionId: 'sess_iso_shared' });
+  assert.ok(pfThread.length >= 1, 'PF conserva su hilo de sesión');
+  assert.ok(pfThread.some(function (t) {
+    return t.reportMarkdown && t.reportMarkdown.indexOf('PF session') >= 0;
+  }), 'PF no ve respuestas mttlab');
+
+  console.log('*** community-data-isolation OK ***');
+}).catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
+
+function sessionMemorySeed(id, session) {
+  /* Usa cacheSession / saveSessionLocal si existen; si no, escribe índice + memoria. */
+  if (typeof Store.cacheSession === 'function') {
+    Store.cacheSession(session);
+    return;
+  }
+  throw new Error('Store.cacheSession required for session coach isolation test');
+}

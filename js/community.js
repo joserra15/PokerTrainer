@@ -754,10 +754,14 @@
     return null;
   }
 
-  /** Comunidad activa para cupo IA independiente (null = PokerForge / plan). */
+  /**
+   * Comunidad activa para cupo/contexto IA independiente (null = PokerForge / plan).
+   * No exige hasAccess() en cliente: el edge valida membresía. Evita que, con
+   * ACCESS_CACHE aún vacío, las consultas de MTTLab se cobren al cupo PokerForge.
+   */
   function aiCommunityId() {
     var cfg = config();
-    if (ACTIVE && ACTIVE !== 'pokerforge' && cfg && cfg.ai && cfg.ai.independent && hasAccess()) {
+    if (ACTIVE && ACTIVE !== 'pokerforge' && cfg && cfg.ai && cfg.ai.independent) {
       return ACTIVE;
     }
     return null;

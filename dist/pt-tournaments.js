@@ -15734,9 +15734,16 @@ function reducedMotion() {
           getSessionId: function () { return session.id; }
         },
         onThreadUpdate: function (thread) {
-          if (session) session.coachThread = thread;
+          if (session) {
+            if (global.Store && Store.writeObjectCoachThread) Store.writeObjectCoachThread(session, thread);
+            else session.coachThread = thread;
+          }
           if (ui.state && ui.state._savedSession && ui.state._savedSession.id === session.id) {
-            ui.state._savedSession.coachThread = thread;
+            if (global.Store && Store.writeObjectCoachThread) {
+              Store.writeObjectCoachThread(ui.state._savedSession, thread);
+            } else {
+              ui.state._savedSession.coachThread = thread;
+            }
           }
         }
       });

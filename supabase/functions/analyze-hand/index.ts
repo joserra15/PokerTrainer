@@ -317,19 +317,39 @@ function isHomeGreetingPayload(payload: unknown): boolean {
   return !!(p.greetingFocus && typeof p.greetingFocus === 'object');
 }
 
-function promptForMode(mode: AiMode, payload?: unknown, freePromo?: boolean): string {
-  if (mode === 'villain_action') return VILLAIN_ACTION_PROMPT;
-  if (mode === 'parse_hand') return PARSE_HAND_PROMPT;
-  if (mode === 'session_report') return SESSION_REPORT_PROMPT;
-  if (mode === 'session_question') return SESSION_QUESTION_PROMPT;
-  if (mode === 'stats_report') return STATS_REPORT_PROMPT;
-  if (mode === 'stats_question') {
-    if (freePromo || isHomeGreetingPayload(payload)) return HOME_GREETING_PROMPT;
-    if (isBeginnerLearnPayload(payload)) return LEARN_QUESTION_PROMPT;
-    return STATS_QUESTION_PROMPT;
+/** Marca/prompts de comunidad: evita que MTTLab hable como PokerForgeAI. */
+function applyCommunityBrand(prompt: string, communityId?: string | null): string {
+  if (!communityId || communityId === 'pokerforge') return prompt;
+  if (communityId === 'mttlab') {
+    return prompt
+      .replace(/PokerForgeAI/g, 'MTT LAB')
+      .replace(
+        /la app de entrenamiento GTO de poker NL Hold'em \(cash 6-max, Spins y torneos MTT\)/g,
+        'el espacio de entrenamiento MTT de la comunidad (torneos, ICM, burbuja y fases de stack)'
+      );
   }
-  if (mode === 'question') return QUESTION_PROMPT;
-  return REPORT_PROMPT;
+  return prompt;
+}
+
+function promptForMode(
+  mode: AiMode,
+  payload?: unknown,
+  freePromo?: boolean,
+  communityId?: string | null
+): string {
+  let prompt: string;
+  if (mode === 'villain_action') prompt = VILLAIN_ACTION_PROMPT;
+  else if (mode === 'parse_hand') prompt = PARSE_HAND_PROMPT;
+  else if (mode === 'session_report') prompt = SESSION_REPORT_PROMPT;
+  else if (mode === 'session_question') prompt = SESSION_QUESTION_PROMPT;
+  else if (mode === 'stats_report') prompt = STATS_REPORT_PROMPT;
+  else if (mode === 'stats_question') {
+    if (freePromo || isHomeGreetingPayload(payload)) prompt = HOME_GREETING_PROMPT;
+    else if (isBeginnerLearnPayload(payload)) prompt = LEARN_QUESTION_PROMPT;
+    else prompt = STATS_QUESTION_PROMPT;
+  } else if (mode === 'question') prompt = QUESTION_PROMPT;
+  else prompt = REPORT_PROMPT;
+  return applyCommunityBrand(prompt, communityId);
 }
 
 function userContentForMode(mode: AiMode, payload: unknown, question: string | null): string {
@@ -516,27 +536,38 @@ async function enrichPayload(
   admin: ReturnType<typeof createClient>,
   userId: string,
   mode: AiMode,
-  payload: PayloadRecord
+  payload: PayloadRecord,
+  communityId?: string | null
 ): Promise<PayloadRecord> {
   const out = { ...payload };
   try {
-    const { data: prof, error } = await admin
-      .from('pt_user_profiles')
-      .select('coach_summary, plan')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (!error && prof?.coach_summary && (mode.startsWith('stats_') || mode.startsWith('session_'))) {
-      out.coachSummary = prof.coach_summary;
+    if (mode.startsWith('stats_') || mode.startsWith('session_')) {
+      const { data: summary, error: sumErr } = await admin.rpc('pt_get_coach_summary', {
+        p_user_id: userId,
+        p_community_id: communityId || null
+      });
+      if (!sumErr && typeof summary === 'string' && summary.trim()) {
+        out.coachSummary = summary;
+      } else if (!communityId) {
+        /* Fallback legacy si RPC aún no desplegada */
+        const { data: prof } = await admin
+          .from('pt_user_profiles')
+          .select('coach_summary')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (prof?.coach_summary) out.coachSummary = prof.coach_summary;
+      }
     }
 
     if (mode === 'report' || mode === 'question') {
-      const { data: similar } = await admin.rpc('pt_find_similar_coach_hands', {
+      const similarArgs: Record<string, unknown> = {
         p_user_id: userId,
         p_spot_key: payloadSpot(payload),
         p_hero_code: payloadHeroCode(payload),
         p_limit: 3
-      });
+      };
+      if (communityId) similarArgs.p_community_id = communityId;
+      const { data: similar } = await admin.rpc('pt_find_similar_coach_hands', similarArgs);
       if (Array.isArray(similar) && similar.length) {
         out.similar = similar;
       }
@@ -550,17 +581,20 @@ async function enrichPayload(
 async function indexHand(
   admin: ReturnType<typeof createClient>,
   userId: string,
-  payload: PayloadRecord
+  payload: PayloadRecord,
+  communityId?: string | null
 ) {
   const idx = handIndexFromPayload(payload);
-  await admin.rpc('pt_index_coach_hand', {
+  const args: Record<string, unknown> = {
     p_user_id: userId,
     p_spot_key: idx.spot_key,
     p_hero_code: idx.hero_code,
     p_street: idx.street,
     p_ev_loss: idx.ev_loss,
     p_hand_line: idx.hand_line
-  });
+  };
+  if (communityId) args.p_community_id = communityId;
+  await admin.rpc('pt_index_coach_hand', args);
 }
 
 function adminClient() {
@@ -835,9 +869,9 @@ serve(async (req) => {
   const admin = adminClient();
   const enrichedPayload = (mode === 'villain_action')
     ? rawPayload
-    : (admin ? await enrichPayload(admin, billingUserId, mode, rawPayload) : rawPayload);
+    : (admin ? await enrichPayload(admin, billingUserId, mode, rawPayload, communityId) : rawPayload);
 
-  const systemPrompt = promptForMode(mode, enrichedPayload, freePromo);
+  const systemPrompt = promptForMode(mode, enrichedPayload, freePromo, communityId);
   const userContent = mode === 'villain_action'
     ? ('Decide la acción del villano. JSON del spot:\n' + JSON.stringify(enrichedPayload || {}))
     : userContentForMode(mode, enrichedPayload, question);
@@ -946,7 +980,7 @@ serve(async (req) => {
 
   if (admin) {
     if (mode === 'report' || mode === 'question') {
-      indexHand(admin, billingUserId, rawPayload).catch((e) => {
+      indexHand(admin, billingUserId, rawPayload, communityId).catch((e) => {
         console.warn('[analyze-hand] index', e);
       });
     }
@@ -954,10 +988,12 @@ serve(async (req) => {
       const summary = extractCoachSummary(result.text);
       if (summary) {
         void (async () => {
-          const { error } = await admin.rpc('pt_set_coach_summary', {
+          const args: Record<string, unknown> = {
             p_user_id: billingUserId,
             p_summary: summary
-          });
+          };
+          if (communityId) args.p_community_id = communityId;
+          const { error } = await admin.rpc('pt_set_coach_summary', args);
           if (error) console.warn('[analyze-hand] coach_summary', error);
         })();
       }
