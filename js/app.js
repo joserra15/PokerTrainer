@@ -4512,6 +4512,12 @@
 
   function decisionEvLossHtml(d) {
     if (!d || !(d.evLoss > 0)) return '';
+    const mp = d.mathParams;
+    // Misma invariante que renderDecisionMath: sin ΔEV si ya iguala el óptimo.
+    if (mp && mp.actionEV != null && mp.bestEV != null
+      && Math.abs(mp.bestEV - mp.actionEV) < 0.05) {
+      return '';
+    }
     return `<span class="net-neg">-${fmtBB(d.evLoss)}bb</span>`;
   }
 
@@ -4648,7 +4654,7 @@
     toast.className = 'verdict-toast visible ' + d.class;
     toast.innerHTML = `<div class="vt-verdict">${verdictWord(d.class)}</div>
       <div class="vt-freq">${pct}% GTO</div>
-      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}
+      ${decisionEvLossHtml(d) ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}
       ${bluffHead}`;
     clearTimeout(showVerdictToast._t);
     const ms = stickySerious ? 1400 : (bluffHead ? 1100 : 550);
@@ -5990,7 +5996,10 @@
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
     html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
-    html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    {
+      const showEvLoss = d.evLoss > 0 && !!decisionEvLossHtml(d);
+      html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${showEvLoss ? 'net-neg' : 'net-pos'}">${showEvLoss ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${showEvLoss && d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    }
     html += renderTournamentDecisionImpact(d);
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     html += renderBluffFeedbackHints(d);

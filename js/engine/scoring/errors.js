@@ -82,7 +82,10 @@
         errors.push({ type: 'valor_insuficiente', msg: 'Apuesta pequeña con mano fuerte — pérdida de extracción de valor.' });
       }
       const ideal = input.boardWet ? pot * 0.6 : pot * 0.4;
-      if (!dustJam && action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
+      /* Solo leads (toCall=0): el «ideal» 40–60% pot no aplica a raises vs bet.
+         Un raise a ~pote en river es sizing polar normal, no incoherente. */
+      if (!dustJam && action !== 'overbet' && toCall <= 0 && betSize > 0
+        && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
       /* Solo faroles FACING polarización rival (pagamos apuesta); no leads propios tras checks. */
