@@ -156,7 +156,12 @@
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
       if (d.evLoss > 0) {
-        html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
+        var mp = d.mathParams;
+        var evTied = mp && mp.actionEV != null && mp.bestEV != null
+          && Math.abs(Number(mp.bestEV) - Number(mp.actionEV)) < 0.05;
+        if (!evTied) {
+          html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
+        }
       }
       html += '</div>';
       var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;

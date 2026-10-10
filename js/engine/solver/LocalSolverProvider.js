@@ -430,6 +430,14 @@
       let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
+      /* Invariante UI: si EV acción ≈ óptimo, no persistir fuga inventada
+         (p.ej. pot×0.25 por tipificación previa a reconcile). */
+      if (evGap < EV_TIE && evLoss > 0) {
+        evLoss = 0;
+        evErroneous = false;
+        evErrorReasons = [];
+        if (mathParams) mathParams.deltaEV = 0;
+      }
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
         let gapLoss = EvLoss.round2(evGap);

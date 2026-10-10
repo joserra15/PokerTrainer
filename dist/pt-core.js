@@ -13646,9 +13646,15 @@ window.PT_NASH_PUSH_JSON = {
       const potBB = Number(input.potBB) || Number(ctx.potBB) || 1;
       const dustCap = Math.max(1, potBB * 0.08);
       const isDustRisk = riskedBB > 0 && riskedBB <= dustCap;
+      /* Sin hueco real de EV no inventar ¼ del bote / farol×0.9.
+         Caso: raise nuts ~7% tipificado «imprecisa» por frecuencia antes del
+         reconcile — EV acción = óptimo, pero sizing_incoherente inventaba
+         pot×0.25 (p.ej. −50.93 bb en bote ~204). */
+      const hasEvGap = (formula.formulaDelta || 0) >= EV_ERR_THRESHOLD_BB;
 
       (stratErrors || []).forEach((e) => {
         if (e.type === 'valor_insuficiente' || e.type === 'sizing_incoherente') {
+          if (!hasEvGap) return;
           let sizingLoss = round2(Math.max(formula.formulaDelta, potBB * 0.25));
           /* Micro all-in / bet residual: la fuga no puede superar las fichas
              arriesgadas (evita −8.82 bb por un all-in de 0.2 bb). */
@@ -13661,6 +13667,7 @@ window.PT_NASH_PUSH_JSON = {
           }
         }
         if (e.type === 'bluff_sin_fold_equity' || e.type === 'bluff_excesivo') {
+          if (!hasEvGap) return;
           let bluffLoss = round2(Math.max(formula.formulaDelta, (input.betSizeBB || ctx.toCallBB || 0) * 0.9));
           if (isDustRisk) {
             bluffLoss = round2(Math.min(bluffLoss, Math.max(formula.formulaDelta, riskedBB)));
@@ -14093,7 +14100,10 @@ window.PT_NASH_PUSH_JSON = {
         errors.push({ type: 'valor_insuficiente', msg: 'Apuesta pequeña con mano fuerte — pérdida de extracción de valor.' });
       }
       const ideal = input.boardWet ? pot * 0.6 : pot * 0.4;
-      if (!dustJam && action !== 'overbet' && betSize > 0 && Math.abs(betSize - ideal) > pot * 0.5) {
+      /* Solo leads (toCall=0): el «ideal» 40–60% pot no aplica a raises vs bet.
+         Un raise a ~pote en river es sizing polar normal, no incoherente. */
+      if (!dustJam && action !== 'overbet' && toCall <= 0 && betSize > 0
+        && Math.abs(betSize - ideal) > pot * 0.5) {
         errors.push({ type: 'sizing_incoherente', msg: 'Sizing no alineado con la textura del board.' });
       }
       /* Solo faroles FACING polarización rival (pagamos apuesta); no leads propios tras checks. */
@@ -15197,6 +15207,14 @@ window.PT_NASH_PUSH_JSON = {
       let mathParams = evResult.mathParams ? Object.assign({}, evResult.mathParams) : null;
       const evGap = Math.max(0, (evResult.bestEV || 0) - (evResult.actionEV || 0));
       const EV_TIE = 0.15;
+      /* Invariante UI: si EV acción ≈ óptimo, no persistir fuga inventada
+         (p.ej. pot×0.25 por tipificación previa a reconcile). */
+      if (evGap < EV_TIE && evLoss > 0) {
+        evLoss = 0;
+        evErroneous = false;
+        evErrorReasons = [];
+        if (mathParams) mathParams.deltaEV = 0;
+      }
       if (!evErroneous && evGap >= EV_TIE && finalCls === 'error'
         && chosenAction !== finalBest) {
         let gapLoss = EvLoss.round2(evGap);
@@ -44159,7 +44177,12 @@ window.PT_NASH_PUSH_JSON = {
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
       if (d.evLoss > 0) {
-        html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
+        var mp = d.mathParams;
+        var evTied = mp && mp.actionEV != null && mp.bestEV != null
+          && Math.abs(Number(mp.bestEV) - Number(mp.actionEV)) < 0.05;
+        if (!evTied) {
+          html += ' <span class="net-neg">−' + esc(fmtBb(d.evLoss)) + ' bb</span>';
+        }
       }
       html += '</div>';
       var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
@@ -49048,6 +49071,12 @@ window.PT_NASH_PUSH_JSON = {
 
   function decisionEvLossHtml(d) {
     if (!d || !(d.evLoss > 0)) return '';
+    const mp = d.mathParams;
+    // Misma invariante que renderDecisionMath: sin ΔEV si ya iguala el óptimo.
+    if (mp && mp.actionEV != null && mp.bestEV != null
+      && Math.abs(mp.bestEV - mp.actionEV) < 0.05) {
+      return '';
+    }
     return `<span class="net-neg">-${fmtBB(d.evLoss)}bb</span>`;
   }
 
@@ -49184,7 +49213,7 @@ window.PT_NASH_PUSH_JSON = {
     toast.className = 'verdict-toast visible ' + d.class;
     toast.innerHTML = `<div class="vt-verdict">${verdictWord(d.class)}</div>
       <div class="vt-freq">${pct}% GTO</div>
-      ${d.evLoss > 0 ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}
+      ${decisionEvLossHtml(d) ? `<div class="vt-ev">-${fmtBB(d.evLoss)} bb</div>` : ''}
       ${bluffHead}`;
     clearTimeout(showVerdictToast._t);
     const ms = stickySerious ? 1400 : (bluffHead ? 1100 : 550);
@@ -50526,7 +50555,10 @@ window.PT_NASH_PUSH_JSON = {
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
     html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
-    html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${d.evLoss > 0 ? 'net-neg' : 'net-pos'}">${d.evLoss > 0 ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    {
+      const showEvLoss = d.evLoss > 0 && !!decisionEvLossHtml(d);
+      html += `<div class="result-line" style="border:none;padding-top:6px">EV perdido: <span class="${showEvLoss ? 'net-neg' : 'net-pos'}">${showEvLoss ? '-' + fmtBB(d.evLoss) : '0'} bb</span>${showEvLoss && d.evLossTier ? ` (${d.evLossTier})` : ''}</div>`;
+    }
     html += renderTournamentDecisionImpact(d);
     if (d.explanation) html += `<div class="spot-context" style="margin-top:8px;font-size:13px">${escapeHtml(d.explanation)}</div>`;
     html += renderBluffFeedbackHints(d);

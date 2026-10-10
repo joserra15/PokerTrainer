@@ -6,8 +6,9 @@
       "file": "Poker56.txt",
       "id": "261078602161",
       "heroCode": "J9s",
-      "expectedEvLoss": 7,
-      "minDecisions": 1
+      "expectedEvLoss": 0,
+      "minDecisions": 1,
+      "note": "River raise nuts flush (Jc9c) en mezcla call-dominant: EV acción=óptimo; el 7bb previo era pot×0.25 inventado (sizing_incoherente sin hueco EV)."
     },
     {
       "file": "Poker56.txt",

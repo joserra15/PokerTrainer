@@ -187,9 +187,15 @@
       const potBB = Number(input.potBB) || Number(ctx.potBB) || 1;
       const dustCap = Math.max(1, potBB * 0.08);
       const isDustRisk = riskedBB > 0 && riskedBB <= dustCap;
+      /* Sin hueco real de EV no inventar ¼ del bote / farol×0.9.
+         Caso: raise nuts ~7% tipificado «imprecisa» por frecuencia antes del
+         reconcile — EV acción = óptimo, pero sizing_incoherente inventaba
+         pot×0.25 (p.ej. −50.93 bb en bote ~204). */
+      const hasEvGap = (formula.formulaDelta || 0) >= EV_ERR_THRESHOLD_BB;
 
       (stratErrors || []).forEach((e) => {
         if (e.type === 'valor_insuficiente' || e.type === 'sizing_incoherente') {
+          if (!hasEvGap) return;
           let sizingLoss = round2(Math.max(formula.formulaDelta, potBB * 0.25));
           /* Micro all-in / bet residual: la fuga no puede superar las fichas
              arriesgadas (evita −8.82 bb por un all-in de 0.2 bb). */
@@ -202,6 +208,7 @@
           }
         }
         if (e.type === 'bluff_sin_fold_equity' || e.type === 'bluff_excesivo') {
+          if (!hasEvGap) return;
           let bluffLoss = round2(Math.max(formula.formulaDelta, (input.betSizeBB || ctx.toCallBB || 0) * 0.9));
           if (isDustRisk) {
             bluffLoss = round2(Math.min(bluffLoss, Math.max(formula.formulaDelta, riskedBB)));
