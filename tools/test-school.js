@@ -364,15 +364,15 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
   assert.ok(depths.some(function (d) { return d <= 12; }), 'T-00 incluye push ~10–12bb');
 })();
 
-/** T-02: profundidades bb11/bb22/etc. no deben caer a 100bb por defecto. */
+/** T-02: profundidades bb11/bb20/etc. no deben caer a 100bb por defecto. */
 (function assertT02StackDepths() {
   const PC = sandbox.PTPlayConfig;
   const lesson = Data.getLesson('T-02');
   assert.ok(lesson && Array.isArray(lesson.spots) && lesson.spots.length >= 12, 'T-02 spots');
   const expected = {
-    't02-01': 11, 't02-02': 11, 't02-03': 10, 't02-04': 22, 't02-05': 25,
+    't02-01': 11, 't02-02': 11, 't02-03': 10, 't02-04': 20, 't02-05': 25,
     't02-06': 25, 't02-07': 45, 't02-08': 45, 't02-09': 45, 't02-10': 45,
-    't02-11': 40, 't02-12': 22
+    't02-11': 40, 't02-12': 20
   };
   lesson.spots.forEach(function (sp) {
     const bb = PC.normalize(sp.playConfig).stackBB;
