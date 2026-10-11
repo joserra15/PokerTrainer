@@ -479,14 +479,22 @@
 
   function decisionKindLabel(quiz) {
     var q = quiz || {};
-    if (q.facingBet === false) return 'Check / Bet';
+    if (q.kindLabel) return q.kindLabel;
     var opts = q.options || [];
-    if (opts.length && opts.every(function (o) {
-      var id = String(o.id || '');
-      return id === 'check' || id === 'bet' || id.indexOf('bet_') === 0;
-    })) {
-      return 'Check / Bet';
+    if (opts.length) {
+      var allCb = opts.every(function (o) {
+        var id = String(o.id || '');
+        return id === 'check' || id === 'bet' || id.indexOf('bet_') === 0;
+      });
+      if (allCb) return 'Check / Bet';
+      var allFcr = opts.every(function (o) {
+        var id = String(o.id || '');
+        return id === 'fold' || id === 'call' || id === 'raise';
+      });
+      if (allFcr) return 'Fold / Call / Raise';
+      return 'Escenario';
     }
+    if (q.facingBet === false) return 'Check / Bet';
     return 'Fold / Call / Raise';
   }
 
@@ -500,8 +508,10 @@
       formatHeroCardsHtml(quiz.heroCards, heroPosForSpot(spot, quiz));
     mountMcqDrill(host, spot, ctx, {
       kindLabel: kindLabel,
-      title: '¿Qué haces?',
-      defaultPrompt: kindLabel === 'Check / Bet' ? '¿Check o bet?' : '¿Fold, call o raise?',
+      title: kindLabel === 'Banca' ? 'Gestión de banca' : '¿Qué haces?',
+      defaultPrompt: kindLabel === 'Banca'
+        ? '¿Qué decides?'
+        : (kindLabel === 'Check / Bet' ? '¿Check o bet?' : '¿Fold, call o raise?'),
       bodyHtml: body,
       mountShare: function (root) {
         if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountDecisionShare) return;

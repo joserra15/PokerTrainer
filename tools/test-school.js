@@ -61,6 +61,8 @@ assert.ok(/school-data-practice\.js/.test(chunks), 'chunk práctica teoría-only
 assert.ok(/school-data-viral-quizzes\.js/.test(chunks), 'chunk quizzes virales');
 assert.ok(/school-data-viral-quizzes-phase234\.js/.test(chunks), 'chunk quizzes fase 2-4');
 assert.ok(/school-data-bluffs\.js/.test(chunks), 'chunk faroles BL');
+assert.ok(/school-data-bankroll\.js/.test(chunks), 'chunk banca M0b');
+assert.ok(/school-bankroll-tool\.js/.test(chunks), 'chunk calculadora banca');
 assert.ok(/trainer-leak-presets\.js/.test(chunks), 'chunk presets leak entrenador');
 assert.ok(/school-coach-quiz\.js/.test(chunks), 'chunk coach quiz');
 assert.ok(/school-daily-spot\.js/.test(chunks), 'chunk daily spot');
@@ -221,9 +223,11 @@ const engineScripts = [
   'js/school-data-viral-quizzes.js',
   'js/school-data-viral-quizzes-phase234.js',
   'js/school-data-bluffs.js',
+  'js/school-data-bankroll.js',
   'js/school-matrix-drills.js',
   'js/school-share.js',
   'js/school-daily-spot.js',
+  'js/school-bankroll-tool.js',
   'js/school.js'
 ];
 
@@ -239,9 +243,9 @@ assert.ok(Data && School && Engine, 'APIs cargadas');
 assert.strictEqual(Data.SCHOOL_DATA_VERSION, 5, 'data version 5');
 
 const lessons = Data.lessonsForRoute('cash');
-assert.strictEqual(lessons.length, 53, 'Cash M0+M1+M2+M3+Pro+Exploit+BL = 53 lecciones');
-assert.strictEqual(Data.lessonsForRoute('spin').length, 23, 'Spins 23');
-assert.strictEqual(Data.lessonsForRoute('mtt').length, 28, 'MTT 28');
+assert.strictEqual(lessons.length, 56, 'Cash M0+M0b+M1+M2+M3+Pro+Exploit+BL = 56 lecciones');
+assert.strictEqual(Data.lessonsForRoute('spin').length, 26, 'Spins 26 (+banca M0b)');
+assert.strictEqual(Data.lessonsForRoute('mtt').length, 31, 'MTT 31 (+banca M0b)');
 assert.strictEqual(Data.lessonsForRoute('ranges').length, 35, 'Rangos 35');
 assert.strictEqual(Data.m0Lessons().length, 8, 'M0 8');
 assert.strictEqual(Data.m1Lessons().length, 7, 'M1 7');
@@ -264,6 +268,46 @@ assert.ok(Data.getLesson('Q-01').order > Data.getLesson('C-14').order, 'Q-01 aft
   assert.ok(r && r.status === 'active', rid + ' route active');
 });
 assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
+
+/** M0b Gestión de banca (PokerForge): tras M0, no MTT Lab. */
+(function assertBankrollM0b() {
+  ['CB-01', 'CB-02', 'CB-03', 'SB-01', 'SB-02', 'SB-03', 'TB-01', 'TB-02', 'TB-03'].forEach(function (id) {
+    var l = Data.getLesson(id);
+    assert.ok(l, id + ' registrado');
+    assert.strictEqual(l.module, 'M0b', id + ' módulo M0b');
+    assert.ok(l.openBankrollTool, id + ' openBankrollTool');
+    assert.ok(l.spots && l.spots.length >= 10, id + ' ≥10 spots banca');
+    l.spots.forEach(function (s) {
+      assert.strictEqual(s.kind, 'decisionQuiz', id + '/' + s.id + ' decisionQuiz');
+      assert.ok(s.quiz && s.quiz.options && s.quiz.options.length >= 2, id + '/' + s.id + ' options');
+      assert.ok(s.quiz.correctId, id + '/' + s.id + ' correctId');
+    });
+  });
+  assert.strictEqual(Data.getLesson('CB-01').plan, 'free', 'CB-01 free');
+  assert.strictEqual(Data.getLesson('SB-01').plan, 'free', 'SB-01 free');
+  assert.strictEqual(Data.getLesson('TB-01').plan, 'free', 'TB-01 free');
+  assert.strictEqual(Data.getLesson('CB-02').plan, 'study', 'CB-02 study');
+  assert.ok(Data.getLesson('CB-01').order > Data.getLesson('F-01').order, 'CB tras F-01');
+  assert.ok(Data.getLesson('CB-01').order < Data.getLesson('C-07').order, 'CB antes C-07');
+  assert.ok(Data.getLesson('SB-01').order > Data.getLesson('S-03').order, 'SB tras S-03');
+  assert.ok(Data.getLesson('SB-01').order < Data.getLesson('S-04').order, 'SB antes S-04');
+  assert.ok(Data.getLesson('TB-01').order > Data.getLesson('T-03').order, 'TB tras T-03');
+  assert.ok(Data.getLesson('TB-01').order < Data.getLesson('T-04').order, 'TB antes T-04');
+  var cashMods = Data.modulesInRoute('cash');
+  assert.ok(cashMods.indexOf('M0b') === cashMods.indexOf('M0') + 1, 'hub cash M0→M0b');
+  assert.ok(/M0b · Gestión de banca/.test(schoolSrc), 'MODULE_COPY M0b');
+  assert.ok(/openBankrollToolFromLesson|school-open-bankroll/.test(schoolSrc), 'CTA calculadora');
+  var Tool = sandbox.PTSchoolBankrollTool;
+  assert.ok(Tool && typeof Tool.compute === 'function', 'PTSchoolBankrollTool');
+  var c = Tool.compute(800, 10, 'cash');
+  assert.ok(Math.abs(c.buyIns - 80) < 1e-9, 'compute cash BI');
+  assert.ok(c.zone === 'comfort', '800€/NL10 zona comfort');
+  var s = Tool.compute(100, 5, 'spin');
+  assert.ok(Math.abs(s.buyIns - 20) < 1e-9, 'compute spin BI');
+  assert.ok(s.zone === 'short', '20 BI spin zona short');
+  assert.ok(!Data.getLesson('ML-M5-10') || Data.getLesson('ML-M5-10').route === 'mttlab',
+    'MTT Lab skeleton intacto si está cargado');
+})();
 
 /** Práctica: mínimo 10 manos; hands alineado con spots; progresión por dificultad. */
 (function assertPracticeVolume() {
@@ -386,7 +430,7 @@ assert.strictEqual(Data.getLesson('S-00').route, 'spin', 'S-00 spin');
 /* Voz pedagógica Spins S-00…S-21: términos anclados, sin telegramas */
 (function () {
   var spinLessons = Data.lessonsForRoute('spin');
-  assert.strictEqual(spinLessons.length, 23, '23 lecciones Spins');
+  assert.strictEqual(spinLessons.length, 26, '26 lecciones Spins (+banca M0b)');
   var blob = '';
   spinLessons.forEach(function (l) {
     blob += lessonBlob(l);
@@ -1576,14 +1620,21 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTEntitlements.get = function () { return { plan: 'free' }; };
 })();
 
-/* Desbloquear hasta C-07 y comprobar muro Study en free */
+/* Desbloquear hasta C-07 (M0 + M0b banca) y comprobar muro Study en free */
 (function () {
   ['C-00', 'C-01', 'C-02', 'C-03', 'C-04', 'C-05', 'C-06', 'F-01'].forEach(function (id) {
     sandbox.Store._st.school.lessons[id] = {
       passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
     };
   });
-  assert.ok(School.isLessonUnlocked('C-07'), 'C-07 desbloqueada tras M0');
+  assert.ok(School.isLessonUnlocked('CB-01'), 'CB-01 banca desbloqueada tras M0');
+  assert.ok(School.canPlayLesson('CB-01').ok, 'CB-01 free jugable');
+  ['CB-01', 'CB-02', 'CB-03'].forEach(function (id) {
+    sandbox.Store._st.school.lessons[id] = {
+      passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+    };
+  });
+  assert.ok(School.isLessonUnlocked('C-07'), 'C-07 desbloqueada tras M0+M0b');
   const gate = School.canPlayLesson('C-07');
   assert.ok(!gate.ok && gate.reason === 'plan', 'C-07 bloqueada por plan free');
   assert.ok(gate.upgrade, 'C-07 sugiere upgrade');
@@ -1593,7 +1644,7 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.PTEntitlements.get = function () { return { plan: 'free' }; };
 })();
 
-/* M0 Spins/MTT jugable en plan free (tras desbloqueo lineal) */
+/* M0 Spins/MTT jugable en plan free (tras desbloqueo lineal + banca M0b) */
 (function () {
   sandbox.PTEntitlements.get = function () { return { plan: 'free' }; };
   ['S-00', 'S-01', 'S-02'].forEach(function (id) {
@@ -1606,7 +1657,14 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.Store._st.school.lessons['S-03'] = {
     passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
   };
-  assert.ok(School.isLessonUnlocked('S-04'), 'S-04 desbloqueada tras examen M0 spin');
+  assert.ok(School.isLessonUnlocked('SB-01'), 'SB-01 banca tras examen M0 spin');
+  assert.ok(School.canPlayLesson('SB-01').ok, 'SB-01 free jugable');
+  ['SB-01', 'SB-02', 'SB-03'].forEach(function (id) {
+    sandbox.Store._st.school.lessons[id] = {
+      passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+    };
+  });
+  assert.ok(School.isLessonUnlocked('S-04'), 'S-04 desbloqueada tras M0b spin');
   const gateS04 = School.canPlayLesson('S-04');
   assert.ok(!gateS04.ok && gateS04.reason === 'plan', 'S-04 M1 sigue muro Study en free');
   ['T-00', 'T-01', 'T-02'].forEach(function (id) {
@@ -1618,6 +1676,13 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.Store._st.school.lessons['T-03'] = {
     passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
   };
+  assert.ok(School.isLessonUnlocked('TB-01'), 'TB-01 banca tras examen M0 MTT');
+  ['TB-01', 'TB-02', 'TB-03'].forEach(function (id) {
+    sandbox.Store._st.school.lessons[id] = {
+      passed: true, bestScore: 1, bestPct: 100, attempts: 1, gold: true, perfect: true
+    };
+  });
+  assert.ok(School.isLessonUnlocked('T-04'), 'T-04 desbloqueada tras M0b MTT');
   const gateT04 = School.canPlayLesson('T-04');
   assert.ok(!gateT04.ok && gateT04.reason === 'plan', 'T-04 M1 sigue muro Study en free');
 })();
@@ -1652,6 +1717,16 @@ assert.ok(School.canPlayLesson('C-01').ok, 'canPlay C-01 tras C-00');
   sandbox.Store._st.school.xp = 4799;
   var mttLessons = Data.lessonsForRoute('mtt');
   assert.ok(mttLessons.length >= 5, 'MTT tiene lecciones');
+  /* Limpiar progreso MTT previo (store + overlay) para un fixture de exactamente 5 aprobadas. */
+  if (School._clearPassedOverlay) School._clearPassedOverlay();
+  mttLessons.forEach(function (l) {
+    delete sandbox.Store._st.school.lessons[l.id];
+  });
+  try {
+    Object.keys(sandbox.localStorage._d || {}).forEach(function (k) {
+      if (/school_backup|school_progress/.test(k)) sandbox.localStorage.removeItem(k);
+    });
+  } catch (eClr) { /* ignore */ }
   mttLessons.forEach(function (l, i) {
     if (i < 5) {
       sandbox.Store._st.school.lessons[l.id] = {

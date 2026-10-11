@@ -2043,6 +2043,60 @@ body.age-gate-open {
 }
 .school-lang-note { margin: 0 0 4px; font-size: 12px; }
 .school-related-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.school-bankroll-modal { z-index: 60; }
+.school-bankroll-dialog { max-width: 480px; }
+.school-bankroll-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.school-bankroll-head h3 { margin: 0; }
+.school-bankroll-disclaimer { margin: 0 0 14px; font-size: 12px; }
+.school-bankroll-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.school-bankroll-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.school-bankroll-form input,
+.school-bankroll-form select {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg, #0d1117);
+  color: inherit;
+  font: inherit;
+}
+.school-bankroll-result {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.school-bankroll-zone { margin: 0 0 8px; font-size: 1.05rem; }
+.school-bankroll-stats {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.school-bankroll-stats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+.school-bankroll-stats li span { color: var(--muted); }
+.school-bankroll-stats li strong { color: #fff; text-align: right; }
 .school-matrix-preview { margin-top: 8px; }
 .school-matrix-preview-head {
   display: flex;
