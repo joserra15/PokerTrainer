@@ -144,9 +144,11 @@
       'js/school-data-viral-quizzes.js',
       'js/school-data-viral-quizzes-phase234.js',
       'js/school-data-bluffs.js',
+      'js/school-data-bankroll.js',
       'js/school-matrix-drills.js',
       'js/school-share.js',
       'js/school-daily-spot.js',
+      'js/school-bankroll-tool.js',
       'js/school-data-mttlab.js',
       'js/school.js'
     ],

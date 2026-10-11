@@ -829,6 +829,16 @@
     if (typeof global.goToTab === 'function') global.goToTab('ranges');
   }
 
+  function openBankrollToolFromLesson(lesson) {
+    var format = 'cash';
+    if (lesson && lesson.route === 'spin') format = 'spin';
+    else if (lesson && lesson.route === 'mtt') format = 'mtt';
+    trackSchool('bankroll_tool_open', { lessonId: lesson && lesson.id, format: format });
+    if (global.PTSchoolBankrollTool && typeof global.PTSchoolBankrollTool.open === 'function') {
+      global.PTSchoolBankrollTool.open({ format: format });
+    }
+  }
+
   function schoolLangBadgeHtml() {
     return '<span class="school-lang-badge" title="Contenido de la Escuela en español">ES</span>';
   }
@@ -1819,6 +1829,7 @@
   var MODULE_COPY = {
     cash: {
       M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
+      M0b: { title: 'M0b · Gestión de banca (Cash)', lead: 'Buy-ins, move-up/down y stop-loss tras el examen M0.' },
       M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
       M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, F/C/R, pot odds y defensa.' },
       M3: { title: 'M3 · Postflop avanzado (Study)', lead: 'Range advantage, check-raise, multiway y river.' },
@@ -1826,6 +1837,7 @@
     },
     spin: {
       M0: { title: 'M0 · Intro Spins (Gratis)', lead: 'Lobbies, steal, defensa y examen.' },
+      M0b: { title: 'M0b · Gestión de banca (Spins)', lead: 'Varianza del multiplicador, stake y stops tras M0.' },
       M1: { title: 'M1 · Short stack (Study)', lead: 'Iso, shove y charts.' },
       M2: { title: 'M2 · ICM / HU (Study→Coach)', lead: 'S-09–S-10 Study; desde S-11 (malos spots ICM) requiere Coach.' },
       M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' },
@@ -1833,6 +1845,7 @@
     },
     mtt: {
       M0: { title: 'M0 · Early MTT (Gratis)', lead: 'Fases, paciencia y examen early.' },
+      M0b: { title: 'M0b · Gestión de banca (MTT)', lead: 'Buy-ins, bullets y satélites tras el examen M0.' },
       M1: { title: 'M1 · Mid / steal', lead: 'Steal, 3-bet y resteal.' },
       M2: { title: 'M2 · Short stack', lead: 'Push/fold antes de la burbuja.' },
       M3: { title: 'M3 · Antes de burbuja', lead: 'Ajuste de stack y presión.' },
@@ -2045,6 +2058,10 @@
     if (lesson.openRanges || lesson.route === 'ranges') {
       openRangesBtn = '<button type="button" class="btn btn-ghost" id="school-open-ranges">Abrir chart</button>';
     }
+    var openBankrollBtn = '';
+    if (lesson.openBankrollTool) {
+      openBankrollBtn = '<button type="button" class="btn btn-ghost" id="school-open-bankroll">Calculadora de banca</button>';
+    }
     var related = '';
     if (lesson.relatedLessons && lesson.relatedLessons.length) {
       related = '<section class="card-box school-section school-related">' +
@@ -2111,6 +2128,7 @@
         ? '<button type="button" class="btn btn-ghost" id="school-train-drill">Practicar en entrenador</button>'
         : '') +
       openRangesBtn +
+      openBankrollBtn +
       '</div></div>';
 
     var back = document.getElementById('school-back-hub');
@@ -2148,6 +2166,12 @@
     if (openBtn) {
       openBtn.addEventListener('click', function () {
         openRangesFromLesson(lesson);
+      });
+    }
+    var bankrollBtn = document.getElementById('school-open-bankroll');
+    if (bankrollBtn && lesson.openBankrollTool) {
+      bankrollBtn.addEventListener('click', function () {
+        openBankrollToolFromLesson(lesson);
       });
     }
     root.querySelectorAll('[data-school-goto-lesson]').forEach(function (btn) {

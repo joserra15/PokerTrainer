@@ -3161,7 +3161,7 @@
       rfi('t02-01', 'BTN', ['As', 'Ts'], 50201, { teachBack: 'Vas short (~11 bb) en BTN con ATs: shove para doblarte. A esta profundidad no abras min «como cash»: o all-in o fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb11' }) }),
       rfi('t02-02', 'BTN', ['8h', '5c'], 50202, { trapTag: 'dominated', teachBack: 'Short con 85o: fold. Necesitas doblarte, sí, pero no con basura: sin equity ni fold equity real es panic shove.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb11' }) }),
       rfi('t02-03', 'SB', ['Kh', 'Jh'], 50203, { teachBack: 'Short en SB con KJs (~10 bb): shove frecuente. Spot para doblarte con broadway usable en push/fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t02-04', 'CO', ['Kc', '8h'], 50204, { trapTag: 'fancy_play', teachBack: 'Eres mid (~22 bb) en CO con K8o y hay covers detrás: fold. No abras flojo: un 3-bet del big te mete en un spot feo o te elimina.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb22' }) }),
+      rfi('t02-04', 'CO', ['Kc', '8h'], 50204, { trapTag: 'fancy_play', teachBack: 'Eres short (~20 bb) en CO con K8o y hay covers detrás: fold. No abras flojo: un 3-bet del big te mete en un spot feo o te elimina.', playConfig: mttCfg({ mttPhase: 'short', stackDepth: 'bb20' }) }),
       rfi('t02-05', 'UTG', ['Ah', '2h'], 50205, { trapTag: 'dominated', teachBack: 'Mid en UTG con A2s: fold. Desde early, con stack medio, no forces Ax flojo: hay demasiada gente (y covers) detrás.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb25' }) }),
       rfi('t02-06', 'BTN', ['9s', '9c'], 50206, { teachBack: 'Mid en BTN con 99 (~25 bb): open claro. Spot limpio con stack jugable — no hace falta esperar a ser short para jugar manos fuertes.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb25' }) }),
       rfi('t02-07', 'BTN', ['Kd', 'Jd'], 50207, { teachBack: 'Eres big stack (~45 bb) en BTN con KJs: open/steal razonable. El big puede aplicar presión en late; no eres un mid sobreviviendo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb45' }) }),
@@ -3169,7 +3169,7 @@
       vs('t02-09', 'BB_vs_BTN', ['Jh', '8d'], 50209, { trapTag: 'fancy_play', teachBack: 'Eres cover (~45 bb) y el BTN abre wide: con J8o fold. No pagues light «porque soy cover»; primero pregunta si el call mejora tu premio o solo tus fichas.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb45' }) }),
       vs('t02-10', 'BB_vs_BTN', ['Ah', 'Jh'], 50210, { teachBack: 'Cover con AJs frente al open del BTN: 3-bet por valor. Aquí sí quieres un bote grande: tienes una mano que domina muchos opens late.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb45' }) }),
       vs('t02-11', 'BB_vs_BTN', ['Ks', 'Qs'], 50211, { teachBack: 'Cover con KQs vs open BTN: 3-bet value. Misma lógica que QQ: no eres short buscando desesperación; cobras con premium.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb40' }) }),
-      f3('t02-12', 'BTN_vs_BB', ['8h', '8d'], 50212, { trapTag: 'fancy_play', teachBack: 'Eres mid (~22 bb) y el BB (cover) te 3-betea: con 88 fold frecuente. Evitas un coin flip (~50/50) contra alguien que te puede eliminar del torneo.', playConfig: mttCfg({ scenario: 'face3bet', mttPhase: 'mid', stackDepth: 'bb22' }) })
+      f3('t02-12', 'BTN_vs_BB', ['8h', '8d'], 50212, { trapTag: 'fancy_play', teachBack: 'Eres short (~20 bb) y el BB (cover) te 3-betea: con 88 fold frecuente. Evitas un coin flip (~50/50) contra alguien que te puede eliminar del torneo.', playConfig: mttCfg({ scenario: 'face3bet', mttPhase: 'short', stackDepth: 'bb20' }) })
     ];
     if (kind === 'MTT_STEAL') return [
       rfi('t04-01', 'BTN', ['Qd', 'Tc'], 50401, { teachBack: 'QTo BTN mid (~25 bb): steal razonable. Late position + ante: open para robar ciegas sin shove aún.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
@@ -17148,6 +17148,923 @@
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*
+ * school-data-bankroll.js — M0b Gestión de banca (Cash / Spins / MTT).
+ * PokerForgeAI: tras examen M0 de cada ruta. No aplica a MTT Lab.
+ */
+(function (global) {
+  'use strict';
+  var D = global.PTSchoolData;
+  if (!D || !D.registerLessons) return;
+
+  function brSpot(id, seed, prompt, line, options, correctId, teach) {
+    return {
+      id: id,
+      kind: 'decisionQuiz',
+      seed: seed,
+      teachBack: teach,
+      quiz: {
+        prompt: prompt,
+        line: line || '',
+        lineStory: [],
+        board: [],
+        heroCards: [],
+        kindLabel: 'Banca',
+        options: options,
+        correctId: correctId,
+        teachBack: teach
+      }
+    };
+  }
+
+  function opt(id, label) {
+    return { id: id, label: label };
+  }
+
+  /* —— Cash packs —— */
+  var CASH_RULES = [
+    brSpot('cb01-01', 91001,
+      'Banca de estudio: 800 €. Quieres jugar NL10 (buy-in 10 €). ¿Cuántos buy-ins tienes?',
+      'Cash · Contar buy-ins',
+      [opt('a', '40 buy-ins'), opt('b', '20 buy-ins'), opt('c', '80 buy-ins')],
+      'a',
+      '800 / 10 = 40 BI. En cash recreativo-serio suele pedirse ~20–40 BI del stake que juegas.'),
+    brSpot('cb01-02', 91002,
+      'Tienes 15 buy-ins de NL25. ¿Qué implica respecto a la regla 20–40 BI?',
+      'Cash · Banca corta',
+      [opt('a', 'Estás holgado: sube a NL50'), opt('b', 'Estás por debajo del mínimo prudente: prioriza bajar o grind NL10/NL25 con cuidado'), opt('c', 'Da igual: el edge lo arregla todo')],
+      'b',
+      '15 BI está bajo el umbral típico. Sin banca, un downswing normal te obliga a shot-taking o a dejar de jugar.'),
+    brSpot('cb01-03', 91003,
+      '¿Qué NO es “gestión de banca” en cash?',
+      'Cash · Concepto',
+      [opt('a', 'Elegir stake según buy-ins disponibles'), opt('b', 'Dejar de jugar tras un stop-loss de sesión'), opt('c', 'Abrir más manos “porque necesito recuperar”')],
+      'c',
+      'Recuperar tiltando es anti-banca. La banca protege tu edge; no justifica spew.'),
+    brSpot('cb01-04', 91004,
+      'Banca 1.200 €. Stakes disponibles: NL5 / NL10 / NL25. Con regla ~30 BI, ¿stake “full” más alto razonable?',
+      'Cash · Elegir stake',
+      [opt('a', 'NL25 (48 BI)'), opt('b', 'NL50'), opt('c', 'NL10 (120 BI) solo; nunca NL25')],
+      'a',
+      '1.200 / 25 = 48 BI → NL25 cabe en 20–40+ BI. NL50 serían solo 24 BI si el buy-in es 50 €: justo/ajustado; NL25 es el full stake cómodo.'),
+    brSpot('cb01-05', 91005,
+      'Banca 250 €. ¿NL25 (10 BI) es stake full prudente?',
+      'Cash · Overstake',
+      [opt('a', 'Sí: 10 BI bastan con edge'), opt('b', 'No: 10 BI es overstake; NL5/NL10 encajan mejor'), opt('c', 'Solo si es Zoom')],
+      'b',
+      '10 BI deja muy poco colchón. Baja stake o acumula antes de NL25 full.'),
+    brSpot('cb01-06', 91006,
+      '¿Qué unidad usamos para medir la banca en cash?',
+      'Cash · Unidades',
+      [opt('a', 'Big blinds del stack en mesa'), opt('b', 'Buy-ins del stake que juegas'), opt('c', 'Manos por hora')],
+      'b',
+      'La banca de cash se habla en buy-ins del stake, no en bb de una mano concreta.'),
+    brSpot('cb01-07', 91007,
+      'Tienes 100 BI de NL5. ¿La regla 20–40 BI te prohíbe seguir en NL5?',
+      'Cash · Holgura',
+      [opt('a', 'Sí: debes subir ya'), opt('b', 'No: puedes quedarte; subir es opción cuando quieras escalar'), opt('c', 'Obliga a retirar todo')],
+      'b',
+      '20–40 BI es mínimo orientativo del stake full, no un máximo. Holgura extra es válida.'),
+    brSpot('cb01-08', 91008,
+      'Depositas 50 € “de diversión” aparte del roll de 500 €. ¿Cómo lo tratas?',
+      'Cash · Roll separado',
+      [opt('a', 'Lo mezclas mentalmente con el roll serio'), opt('b', 'Lo marcas como bankroll de ocio: si se acaba, no tocas el roll serio'), opt('c', 'Lo usas para NL200')],
+      'b',
+      'Separar ocio y grind evita contaminar las reglas del roll serio.'),
+    brSpot('cb01-09', 91009,
+      '¿La calculadora de la Escuela garantiza que ganarás en ese stake?',
+      'Cash · Herramienta',
+      [opt('a', 'Sí'), opt('b', 'No: solo traduce banca→BI y umbrales educativos'), opt('c', 'Solo en MTT')],
+      'b',
+      'Es heurística educativa. El edge y la disciplina siguen siendo tuyos.'),
+    brSpot('cb01-10', 91010,
+      'NL10 con 35 BI. ¿Zona típica?',
+      'Cash · Zona',
+      [opt('a', 'Ruin inminente'), opt('b', 'Stake full razonable dentro de 20–40 BI'), opt('c', 'Obliga move-up a NL50')],
+      'b',
+      '35 BI entra en la banda 20–40. Cómoda-media; no es señal automática de subir.')
+  ];
+
+  var CASH_MOVE = [
+    brSpot('cb02-01', 91101,
+      'Juegas NL10 full (40 BI). Tras un mes bueno tienes 55 BI de NL10. ¿Qué haces?',
+      'Cash · Move-up',
+      [opt('a', 'Subir ya a NL50'), opt('b', 'Shot-taking a NL25: pocas sesiones con stop claro, o subir si mantienes ~40+ BI del nuevo stake'), opt('c', 'Bajar a NL5 para “asegurar”')],
+      'b',
+      'Move-up con plan: o alcanzas ~20–40 BI del stake superior, o haces shots limitados. Saltar a NL50 desde NL10 suele ser spew de banca.'),
+    brSpot('cb02-02', 91102,
+      'NL25 con 18 BI tras un downswing. ¿Mejor decisión de banca?',
+      'Cash · Move-down',
+      [opt('a', 'Seguir NL25 hasta recuperar'), opt('b', 'Bajar a NL10/NL5 hasta reconstruir ~25–30+ BI del stake objetivo'), opt('c', 'Duplicar mesas para “acelerar”')],
+      'b',
+      'Move-down no es fracaso: protege el roll. Recuperar en el mismo stake con banca rota aumenta riesgo de ruin.'),
+    brSpot('cb02-03', 91103,
+      'Stop-loss de sesión: pierdes 3 buy-ins en 40 minutos y estás tiltado. ¿Qué dice la banca?',
+      'Cash · Stop-loss',
+      [opt('a', 'Una sesión más para recuperar'), opt('b', 'Cerrar sesión: el stop-loss ya saltó'), opt('c', 'Subir de stake porque “el edge es mayor”')],
+      'b',
+      'El stop-loss existe para cortar daño emocional y financiero. Seguir o subir de stake empeora ambos.'),
+    brSpot('cb02-04', 91104,
+      'Shot-taking: banca 25 BI de NL10. Quieres probar NL25. ¿Enfoque sano?',
+      'Cash · Shot-taking',
+      [opt('a', 'Mover todo el roll a NL25'), opt('b', '2–4 sesiones NL25 con presupuesto fijo; si pierdes el shot, vuelves a NL10'), opt('c', 'Solo NL25 hasta quebrar o triplicar')],
+      'b',
+      'Un shot es presupuesto acotado y criterios de vuelta. No es renombrar tu stake full.'),
+    brSpot('cb02-05', 91105,
+      'Ganas 2 BI en la primera hora. ¿La banca te obliga a seguir?',
+      'Cash · Disciplina',
+      [opt('a', 'Sí: hay que maximizar horas siempre'), opt('b', 'No: puedes parar si cumpliste plan o detectas fatiga/tilt'), opt('c', 'Solo si vas perdiendo')],
+      'b',
+      'La banca marca límites de pérdida y stake; el plan de sesión también incluye parar cuando el proceso se degrada.'),
+    brSpot('cb02-06', 91106,
+      '¿Cuándo es razonable un move-up “duro” (stake full nuevo)?',
+      'Cash · Umbral',
+      [opt('a', 'Tras una sesión ganadora'), opt('b', 'Cuando tienes ~20–40 BI del stake nuevo y resultados estables en el anterior'), opt('c', 'Cuando un amigo subió')],
+      'b',
+      'El umbral es buy-ins del stake destino + muestra de juego sólido, no una sesión lucky.'),
+    brSpot('cb02-07', 91107,
+      'Stop diario −5 BI tocado. Queda una mesa “soft”. ¿Qué haces?',
+      'Cash · Stop diario',
+      [opt('a', 'Jugar solo esa porque es soft'), opt('b', 'Parar: el stop diario ya saltó'), opt('c', 'Subir stake en esa mesa')],
+      'b',
+      'Excepciones “porque soft” convierten el stop en decorado.'),
+    brSpot('cb02-08', 91108,
+      'Vas +6 BI y muy cansado. ¿La banca te obliga a seguir?',
+      'Cash · Fatiga',
+      [opt('a', 'Sí: hay que maximizar upswing'), opt('b', 'No: parar con edge mental preservado es válido'), opt('c', 'Solo puedes parar si vas perdiendo')],
+      'b',
+      'La banca limita pérdidas; el plan también incluye calidad de decisión.'),
+    brSpot('cb02-09', 91109,
+      'Move-down a NL10 tras estar en NL25. Un amigo se ríe. ¿Correcto?',
+      'Cash · Ego',
+      [opt('a', 'Incorrecto: nunca se baja'), opt('b', 'Correcto si el roll lo pide: ego < supervivencia del roll'), opt('c', 'Solo baja si te lo pide el casino')],
+      'b',
+      'Bajar stake es profesional. El ego no paga buy-ins.'),
+    brSpot('cb02-10', 91110,
+      'Tras rebuild a 45 BI de NL25, ¿siguiente paso típico?',
+      'Cash · Rebuild',
+      [opt('a', 'Volver a NL25 full o shots según plan'), opt('b', 'Solo NL2 para siempre'), opt('c', 'NL200 inmediato')],
+      'a',
+      'Rebuild completo → retomas el stake objetivo con reglas, no revenge-jump.')
+  ];
+
+  var CASH_EXAM = [
+    brSpot('cb03-01', 91201,
+      'Banca 500 €. ¿Stake cash full más prudente (≈25–40 BI)?',
+      'Examen Cash',
+      [opt('a', 'NL25'), opt('b', 'NL10'), opt('c', 'NL50')],
+      'b',
+      '500 € → 50 BI de NL10 o 20 BI de NL25. NL10 es el full stake cómodo; NL25 sería el mínimo justo.'),
+    brSpot('cb03-02', 91202,
+      'Tienes 22 BI de NL50 tras un upswing corto. ¿Plan?',
+      'Examen Cash',
+      [opt('a', 'NL50 full sin mirar atrás'), opt('b', 'Mantener NL25/NL50 mixto o shots; no quemar el roll si caes bajo ~20 BI'), opt('c', 'All-in mental: solo NL100')],
+      'b',
+      '22 BI es umbral bajo-medio. Mezcla o shots evita quedar en 10 BI tras un swing normal.'),
+    brSpot('cb03-03', 91203,
+      'Pierdes 4 BI en una sesión. Regla de stop-loss era 3 BI. ¿Qué falló?',
+      'Examen Cash',
+      [opt('a', 'Nada: hay que “pagar la varianza”'), opt('b', 'Romper el stop-loss: la disciplina de banca es parte del edge'), opt('c', 'El stop-loss era demasiado alto')],
+      'b',
+      'Si definiste 3 BI, al 3º paras. Seguir es leak de proceso, no de GTO.'),
+    brSpot('cb03-04', 91204,
+      'Banca 2.000 €, juegas NL25 (80 BI). Te ofrecen mesa NL100. ¿Mejor?',
+      'Examen Cash',
+      [opt('a', 'Sentarte full NL100'), opt('b', 'Rechazar o shot muy pequeño: 2.000 € son solo 20 BI de NL100'), opt('c', 'Depositar la mitad del sueldo y sentarte')],
+      'b',
+      '20 BI en NL100 es banca mínima/ajustada. Sin plan de shot, es overstake.'),
+    brSpot('cb03-05', 91205,
+      '¿Qué métrica de banca mirar antes de subir?',
+      'Examen Cash',
+      [opt('a', 'Solo el resultado de ayer'), opt('b', 'Buy-ins del stake destino + muestra de winrate/proceso en el stake actual'), opt('c', 'Número de likes en el foro')],
+      'b',
+      'Banca = unidades del stake nuevo. Proceso estable evita subir con varianza disfrazada de skill.'),
+    brSpot('cb03-06', 91206,
+      'Downswing: de 40 BI a 24 BI en NL10. ¿Acción?',
+      'Examen Cash',
+      [opt('a', 'Subir a NL25 para recuperar más rápido'), opt('b', 'Seguir NL10 o bajar volumen/stake; revisar leaks; no chase'), opt('c', 'Dejar el póker para siempre')],
+      'b',
+      '24 BI aún permite NL10 con precaución. Subir para “recuperar” es el error clásico.'),
+    brSpot('cb03-07', 91207,
+      '¿Por qué 20–40 BI en cash y no 5?',
+      'Examen Cash',
+      [opt('a', 'Porque el rake lo exige la ley'), opt('b', 'Porque la desviación estándar de cash exige colchón ante downswings'), opt('c', 'Porque GTO abre 40%')],
+      'b',
+      'Incluso con edge, rachas negativas son normales. Poca banca = ruin o tilt forzado.'),
+    brSpot('cb03-08', 91208,
+      'Shot de 5 BI a NL50 desde NL25. Pierdes los 5. ¿Siguiente paso?',
+      'Examen Cash',
+      [opt('a', 'Otro shot inmediato “porque casi”'), opt('b', 'Volver a NL25 hasta reconstruir el presupuesto del shot'), opt('c', 'Cambiar de sala y repetir')],
+      'b',
+      'El shot se agotó: vuelves al stake full. Repetir sin rebuild es move-up encubierto.'),
+    brSpot('cb03-09', 91209,
+      'Tu edge estimado es alto. ¿Eso elimina la necesidad de banca?',
+      'Examen Cash',
+      [opt('a', 'Sí: con edge infinito da igual el roll'), opt('b', 'No: el edge reduce riesgo, no lo anula; sigues necesitando unidades'), opt('c', 'Solo en Zoom')],
+      'b',
+      'Más edge → puedes jugar un poco más agresivo con el roll, no sin roll.'),
+    brSpot('cb03-10', 91210,
+      'Plan semanal: 8h NL10. Tras 2h vas −2.5 BI y concentrado. ¿Stop-loss 3 BI te obliga a parar ya?',
+      'Examen Cash',
+      [opt('a', 'Sí, siempre al −2.5'), opt('b', 'No aún: el stop es 3 BI; puedes seguir si el proceso es bueno, y parar al tocar 3 o si aparece tilt'), opt('c', 'Hay que llegar a −5 para “calentar”')],
+      'b',
+      'Respeta el número que definiste. −2.5 no es −3; pero vigila tilt y no muevas el stop a −5.')
+  ];
+
+  /* —— Spin packs —— */
+  var SPIN_RULES = [
+    brSpot('sb01-01', 92001,
+      'Spins: banca 300 €, Spin 5 €. ¿Cuántos buy-ins?',
+      'Spin · Contar BI',
+      [opt('a', '60 BI'), opt('b', '30 BI'), opt('c', '15 BI')],
+      'a',
+      '300 / 5 = 60 BI. En Spins la varianza del multiplicador pide más unidades que un cash “tranquilo”.'),
+    brSpot('sb01-02', 92002,
+      '¿Por qué Spins suelen pedir más buy-ins que cash al mismo buy-in nominal?',
+      'Spin · Varianza',
+      [opt('a', 'Porque hay menos manos'), opt('b', 'Por la varianza del prize pool / multiplicador y la eliminación rápida'), opt('c', 'Porque el rake es cero')],
+      'b',
+      'Un mal run de lobbies bajos te come banca aunque juegues bien. Más BI = sobrevivir la varianza.'),
+    brSpot('sb01-03', 92003,
+      'Banca 100 €. ¿Spin full razonable (heurística ~50–100+ BI)?',
+      'Spin · Stake',
+      [opt('a', 'Spin 5 € (20 BI) a full sin pensarlo'), opt('b', 'Spin 1 € / 2 € según te acerques a 50–100 BI'), opt('c', 'Spin 25 €')],
+      'b',
+      '100 € son 20 BI de 5 €: corto. Mejor 1–2 € hasta reconstruir.'),
+    brSpot('sb01-04', 92004,
+      '¿Qué es “volumen” en Spins respecto a la banca?',
+      'Spin · Volumen',
+      [opt('a', 'Jugar mesas que no puedes permitirte'), opt('b', 'Número de torneos que tu roll y tu cabeza aguantan sin romper reglas'), opt('c', 'Solo las horas en Twitch')],
+      'b',
+      'Más volumen acelera la convergencia al edge… o a la ruina si el stake es overroll.'),
+    brSpot('sb01-05', 92005,
+      'Banca 80 €. Spin 1 €. ¿Lectura de BI?',
+      'Spin · Cálculo',
+      [opt('a', '8 BI'), opt('b', '80 BI'), opt('c', '800 BI')],
+      'b',
+      '80 / 1 = 80 BI. Zona razonable para muchos planes de Spins micro.'),
+    brSpot('sb01-06', 92006,
+      '¿Un reload de emergencia desde la tarjeta forma parte de buena banca?',
+      'Spin · Disciplina',
+      [opt('a', 'Sí: siempre hay que grindar'), opt('b', 'No: romper el roll con dinero no destinado suele ser leak'), opt('c', 'Solo si el multiplier es ×100')],
+      'b',
+      'La banca es el dinero asignado al grind. Recargas emocionales rompen el sistema.'),
+    brSpot('sb01-07', 92007,
+      'Juegas Spin 2 € con 40 BI. ¿Evaluación?',
+      'Spin · Zona',
+      [opt('a', 'Holgado forever'), opt('b', 'Corto/ajustado para Spins: vigila move-down o menos volumen'), opt('c', 'Obliga Spin 10 €')],
+      'b',
+      '40 BI en Spins está por debajo de la banda cómoda típica.'),
+    brSpot('sb01-08', 92008,
+      '¿Qué mide mejor tu riesgo en Spins?',
+      'Spin · Riesgo',
+      [opt('a', 'El stack en fichas del Spin actual'), opt('b', 'Buy-ins de dinero real restantes al stake'), opt('c', 'El color del botón')],
+      'b',
+      'Riesgo de banca = unidades reales, no chips del torneo corto.'),
+    brSpot('sb01-09', 92009,
+      'Recompras en Spin: 3 bullets en el mismo lobby. Coste?',
+      'Spin · Bullets',
+      [opt('a', '1 BI'), opt('b', '3 BI'), opt('c', '0 si no miras')],
+      'b',
+      'Cada recompra es un BI más. Trackea el coste real.'),
+    brSpot('sb01-10', 92010,
+      '¿La calculadora en formato Spins usa los mismos umbrales que cash?',
+      'Spin · Herramienta',
+      [opt('a', 'Sí, idénticos'), opt('b', 'No: Spins usa umbrales más altos (más BI)'), opt('c', 'No calcula Spins')],
+      'b',
+      'La herramienta aplica heurísticas distintas por formato; Spins pide más colchón.')
+  ];
+
+  var SPIN_MOVE = [
+    brSpot('sb02-01', 92101,
+      'Spin 1 € full. Subes a 80–100 BI de ese stake. ¿Move-up?',
+      'Spin · Move-up',
+      [opt('a', 'Saltar a Spin 10 €'), opt('b', 'Subir un escalón (p. ej. 2 € / 3 €) o mezclar stakes con shots'), opt('c', 'Bajar a micro para “calentar” siempre')],
+      'b',
+      'Escala de uno en uno. Saltar varios niveles multiplica varianza.'),
+    brSpot('sb02-02', 92102,
+      'Tras 50 Spins estás −20 BI en el día. ¿Banca?',
+      'Spin · Stop',
+      [opt('a', 'Seguir hasta recuperar el día'), opt('b', 'Parar: stop diario / tilt; el multiplicador no “te debe” nada'), opt('c', 'Subir de stake')],
+      'b',
+      'Spins castigan chase. Stop diario protege el roll y la cabeza.'),
+    brSpot('sb02-03', 92103,
+      'Lobby con muchos regs tough en tu stake. Banca holgada. ¿Qué priorizas?',
+      'Spin · Selección',
+      [opt('a', 'Entrar igual: “hay que grindar”'), opt('b', 'Selección de mesas/lobbies dentro de tu stake; la banca no obliga a spots −EV'), opt('c', 'Solo Spins con multiplier anunciado alto sin mirar mesas')],
+      'b',
+      'Banca elige stake; selección elige con quién. Ambas importan.'),
+    brSpot('sb02-04', 92104,
+      'Quedan 25 BI del Spin actual tras downswing. ¿Acción?',
+      'Spin · Move-down',
+      [opt('a', 'Mantener a muerte'), opt('b', 'Bajar un nivel hasta ~50–80+ BI del stake que elijas'), opt('c', 'Pedir préstamo y reload')],
+      'b',
+      'Move-down en Spins es estándar: la varianza castiga el orgullo.'),
+    brSpot('sb02-05', 92105,
+      'Shot: 10 BI a Spin superior. ¿Cuándo está bien?',
+      'Spin · Shot',
+      [opt('a', 'Cuando el roll full del stake alto aún no existe, pero acotas el shot y vuelves'), opt('b', 'Nunca'), opt('c', 'Solo si vas perdiendo en el stake bajo')],
+      'a',
+      'Shot acotado ≠ stake full. Define fin del shot antes de sentarte.'),
+    brSpot('sb02-06', 92106,
+      '¿Indicador de que el stake te queda grande aunque “sepas jugar”?',
+      'Spin · Señales',
+      [opt('a', 'Ganar un Spin'), opt('b', 'Cada downswing te obliga a saltarte reglas o depositar de emergencia'), opt('c', 'Perder un coinflip')],
+      'b',
+      'Si la banca emocional/financiera se rompe, el stake es alto para ti hoy.'),
+    brSpot('sb02-07', 92107,
+      'Mix 70% Spin 1 € + 30% Spin 2 € con roll holgado. ¿Válido?',
+      'Spin · Mix',
+      [opt('a', 'No: solo un stake eterno'), opt('b', 'Sí, si ambos stakes respetan tus BI y stops'), opt('c', 'Solo si el 2 € es overroll')],
+      'b',
+      'Mezclar stakes in-roll es un move-up gradual típico.'),
+    brSpot('sb02-08', 92108,
+      'Pierdes el shot de 10 BI. Quieres “solo uno más” del stake alto. ¿Banca?',
+      'Spin · Fin de shot',
+      [opt('a', 'OK: un Spin no cuenta'), opt('b', 'No: el shot terminó; vuelves al stake full'), opt('c', 'Obligatorio doblar el shot')],
+      'b',
+      '“Uno más” es como no tener shot. Cumple el techo.'),
+    brSpot('sb02-09', 92109,
+      'Selección: mesa con regs tough vs fishy. Banca holgada. ¿Prioridad?',
+      'Spin · Selección',
+      [opt('a', 'Regs: “hay que practicar” siempre'), opt('b', 'Preferir spots +EV / fields peores dentro de tu stake'), opt('c', 'La más cara siempre')],
+      'b',
+      'In-roll no justifica lobbies −EV a propósito.'),
+    brSpot('sb02-10', 92110,
+      'Upswing +30 BI en una semana. ¿Subes 3 niveles ya?',
+      'Spin · Upswing',
+      [opt('a', 'Sí: la varianza positiva valida todo'), opt('b', 'No: escalas con reglas de BI, no con una semana caliente'), opt('c', 'Solo si fue en móvil')],
+      'b',
+      'Upswings cortos no reescriben el plan de banca.')
+  ];
+
+  var SPIN_EXAM = [
+    brSpot('sb03-01', 92201,
+      'Banca 200 €. Heurística conservadora Spins. ¿Mejor buy-in full?',
+      'Examen Spin',
+      [opt('a', '10 € (20 BI)'), opt('b', '2 € (100 BI) o 3 € (~66 BI)'), opt('c', '25 €')],
+      'b',
+      '20 BI en 10 € es corto para Spins. 2–3 € deja colchón.'),
+    brSpot('sb03-02', 92202,
+      'Ganas un Spin ×100. ¿La banca te permite subir 3 niveles ya?',
+      'Examen Spin',
+      [opt('a', 'Sí: el multiplier valida el move-up'), opt('b', 'No automáticamente: un resultado no es muestra; sigue reglas de BI'), opt('c', 'Obliga a cashout total')],
+      'b',
+      'Un Spike no es winrate. La banca mira unidades, no el highlight.'),
+    brSpot('sb03-03', 92203,
+      'Plan: 100 Spins/día. A los 30 vas −15 BI y tiltado. ¿Qué manda?',
+      'Examen Spin',
+      [opt('a', 'Cumplir los 100'), opt('b', 'Parar: volumen sin calidad quema banca'), opt('c', 'Cambiar a Spin más caro')],
+      'b',
+      'El plan de volumen asume proceso sano. Tilt corta el plan.'),
+    brSpot('sb03-04', 92204,
+      '¿Qué combina peor con Spins?',
+      'Examen Spin',
+      [opt('a', 'Stop-loss diario'), opt('b', 'Overstake + chase tras un lobby malo'), opt('c', 'Revisión de manos')],
+      'b',
+      'Overstake y chase son el dúo que vacía rolls de Spin.'),
+    brSpot('sb03-05', 92205,
+      'Tienes 120 BI de Spin 1 €. ¿Move-up razonable?',
+      'Examen Spin',
+      [opt('a', 'Spin 1 € para siempre'), opt('b', 'Probar Spin 2 € / mixto con reglas claras'), opt('c', 'Spin 25 € directo')],
+      'b',
+      'Con 120 BI del stake bajo, un escalón es el move-up típico.'),
+    brSpot('sb03-06', 92206,
+      'Recompras: ¿cuentan para la banca?',
+      'Examen Spin',
+      [opt('a', 'No: solo el primer buy-in'), opt('b', 'Sí: cada buy-in/reentrada sale del mismo roll'), opt('c', 'Solo si ganas')],
+      'b',
+      'Todo lo que entra al lobby sale del roll. Trackea unidades reales.'),
+    brSpot('sb03-07', 92207,
+      'Downswing largo con edge positivo estimado. ¿Qué NO hacer?',
+      'Examen Spin',
+      [opt('a', 'Revisar leaks y mantener stake adecuado al roll'), opt('b', 'Subir de stake “para recuperar más rápido”'), opt('c', 'Bajar volumen unos días si hay tilt')],
+      'b',
+      'Recuperar subiendo stake es la trampa clásica de Spins.'),
+    brSpot('sb03-08', 92208,
+      'Banca 50 BI del stake. ¿Estás “safe” para forever?',
+      'Examen Spin',
+      [opt('a', 'Sí, 50 BI elimina el riesgo'), opt('b', 'No: reduce riesgo, pero sigues necesitando disciplina y posible move-down'), opt('c', 'Solo en cash')],
+      'b',
+      '50 BI es colchón, no invencibilidad. Sigue habiendo reglas.'),
+    brSpot('sb03-09', 92209,
+      '¿Mejor hábito post-sesión Spin?',
+      'Examen Spin',
+      [opt('a', 'Olvidar resultados y reglas'), opt('b', 'Anotar BI inicio/fin y si respetaste stops'), opt('c', 'Solo mirar el multiplier máximo del día')],
+      'b',
+      'Trackear BI y cumplimiento de reglas convierte banca en hábito.'),
+    brSpot('sb03-10', 92210,
+      'Amigo con menos banca juega stake más alto y gana este mes. ¿Copias?',
+      'Examen Spin',
+      [opt('a', 'Sí: FOMO es edge'), opt('b', 'No: tu regla es tu roll y tu proceso, no el highlight ajeno'), opt('c', 'Solo si publica ROI')],
+      'b',
+      'La banca es personal. Comparar rolls ajenos es atajo a overstake.')
+  ];
+
+  /* —— MTT packs —— */
+  var MTT_RULES = [
+    brSpot('tb01-01', 93001,
+      'MTT: banca 1.000 €, torneo 20 €. ¿Buy-ins?',
+      'MTT · Contar BI',
+      [opt('a', '50 BI'), opt('b', '20 BI'), opt('c', '100 BI')],
+      'a',
+      '1.000 / 20 = 50 BI. En MTT la varianza es alta: muchos jugadores piden 50–100+ BI del buy-in medio.'),
+    brSpot('tb01-02', 93002,
+      '¿Por qué MTT pide más banca que cash al mismo buy-in?',
+      'MTT · Varianza',
+      [opt('a', 'Por ICM únicamente'), opt('b', 'Porque la mayoría de torneos no pagas y los premios están concentrados'), opt('c', 'Porque no hay rake')],
+      'b',
+      'Muchas eliminaciones a cero y payouts top-heavy → swings enormes aunque juegues bien.'),
+    brSpot('tb01-03', 93003,
+      'Banca 400 €. ¿Campo MTT más prudente?',
+      'MTT · Selección',
+      [opt('a', 'Solo 50 €+ diarios'), opt('b', 'Mayoría en 5–10 € (40–80 BI) y shots puntuales más altos'), opt('c', 'Satélites all-in sin trackear coste')],
+      'b',
+      'Construye volumen en buy-ins que tu roll aguanta; los shots altos son excepción.'),
+    brSpot('tb01-04', 93004,
+      'Re-entry: fallas el primer bullet a 10 € y reentras. ¿Impacto en banca?',
+      'MTT · Re-entry',
+      [opt('a', 'Ninguno: es el mismo torneo'), opt('b', 'Has gastado 2 BI en ese evento; cuenta cada bullet'), opt('c', 'Solo cuenta si casheas')],
+      'b',
+      'Cada re-entry es otro buy-in. Soft-game no justifica bullets infinitos.'),
+    brSpot('tb01-05', 93005,
+      'Banca 900 €. Buy-in medio 10 €. ¿BI?',
+      'MTT · Cálculo',
+      [opt('a', '9 BI'), opt('b', '90 BI'), opt('c', '900 BI')],
+      'b',
+      '900 / 10 = 90 BI. Zona razonable para muchos planes MTT mid-micro.'),
+    brSpot('tb01-06', 93006,
+      '¿Chips del Day 2 son tu banca?',
+      'MTT · Concepto',
+      [opt('a', 'Sí'), opt('b', 'No: banca es dinero real para registros'), opt('c', 'Solo si hay ante')],
+      'b',
+      'No confundas stack del torneo con bankroll.'),
+    brSpot('tb01-07', 93007,
+      'Jugar solo satélites sin trackear coste. ¿Problema?',
+      'MTT · Satélites',
+      [opt('a', 'Ninguno'), opt('b', 'Sí: puedes gastar más que el buy-in directo sin notarlo'), opt('c', 'Solo en PKO')],
+      'b',
+      'Sin tracking, el “atajo” satélite puede ser más caro que el seat directo.'),
+    brSpot('tb01-08', 93008,
+      '20 BI para tu buy-in medio MTT. ¿Lectura?',
+      'MTT · Zona',
+      [opt('a', 'Cómoda forever'), opt('b', 'Corta: reduce buy-in o bullets'), opt('c', 'Obliga high roller')],
+      'b',
+      '20 BI en MTT es zona de peligro por varianza.'),
+    brSpot('tb01-09', 93009,
+      '¿Koins del entrenador de la app son banca real?',
+      'MTT · App',
+      [opt('a', 'Sí: 1:1 con euros'), opt('b', 'No: son moneda de simulación, no tu roll'), opt('c', 'Solo los verdes')],
+      'b',
+      'La Escuela distingue banca educativa real vs wallet de torneos IA.'),
+    brSpot('tb01-10', 93010,
+      'Heurística de la calculadora MTT vs cash: ¿más o menos BI?',
+      'MTT · Herramienta',
+      [opt('a', 'Menos BI que cash'), opt('b', 'Más BI que cash'), opt('c', 'Exactamente iguales')],
+      'b',
+      'MTT usa umbrales más altos por la estructura de premios.')
+  ];
+
+  var MTT_MOVE = [
+    brSpot('tb02-01', 93101,
+      'Juegas 10 € MTT. Tienes 90 BI. ¿Move-up?',
+      'MTT · Move-up',
+      [opt('a', 'Solo 100 € desde mañana'), opt('b', 'Mezclar 10–25 € o shots a 25–50 € con tope de bullets'), opt('c', 'Dejar MTT por cash')],
+      'b',
+      'Escala gradual y shots con techo. El salto bruto multiplica varianza.'),
+    brSpot('tb02-02', 93102,
+      'Serie con satélites: inviertes 6 × 5 € para un 50 €. ¿Cómo lo miras?',
+      'MTT · Satélites',
+      [opt('a', 'Coste esperado ≈ lo gastado en satélites vs valor del seat; no “gratis”'), opt('b', 'Siempre +EV porque el seat “vale” 50'), opt('c', 'Da igual el coste')],
+      'a',
+      'El seat cuesta lo que pagaste en intentos. Trackea ROI real del camino satélite.'),
+    brSpot('tb02-03', 93103,
+      'Stop: −5 BI en el día de volume MTT. Vas tiltado. ¿Qué haces?',
+      'MTT · Stop',
+      [opt('a', 'Registrarte a un 100 € “para recuperar”'), opt('b', 'Parar registros nuevos; respeta el stop'), opt('c', 'Triplicar mesas')],
+      'b',
+      'Stop de banca/día > ego. El field no te debe un cash.'),
+    brSpot('tb02-04', 93104,
+      'Quedan 35 BI del buy-in medio que juegas. ¿Señal?',
+      'MTT · Move-down',
+      [opt('a', 'Subir buy-in'), opt('b', 'Bajar buy-in medio / menos bullets / menos volumen caro'), opt('c', 'Ignorar: MTT es varianza')],
+      'b',
+      '35 BI en MTT es zona de peligro. Reduce exposición.'),
+    brSpot('tb02-05', 93105,
+      'Volume: ¿mejor 20 torneos mid-stakes overroll o 8 torneos in-roll?',
+      'MTT · Volumen',
+      [opt('a', '20 overroll: más volumen siempre gana'), opt('b', '8 in-roll: volumen útil solo si el stake es sostenible'), opt('c', 'Da igual el número')],
+      'b',
+      'Volumen × overstake = ruina rápida. Primero stake, luego volumen.'),
+    brSpot('tb02-06', 93106,
+      'FT deep run +1.200 €. Banca era 800 €. ¿Qué cambia mañana?',
+      'MTT · Spike',
+      [opt('a', 'Obligatorio jugar solo high rollers'), opt('b', 'Actualizas el roll y sigues reglas BI; no conviertes un score en lifestyle stake'), opt('c', 'Retiras todo y nunca juegas')],
+      'b',
+      'Un score sube el roll; las reglas de unidades siguen. Evita lifestyle creep.'),
+    brSpot('tb02-07', 93107,
+      'Techo de shot: 2 bullets a 50 €. Ya usaste 2. ¿Registras un tercero?',
+      'MTT · Techo',
+      [opt('a', 'Sí: “estoy near bubble mental”'), opt('b', 'No: el techo del shot se cumplió'), opt('c', 'Solo si es turbo')],
+      'b',
+      'Sin techo, el shot es stake full disfrazado.'),
+    brSpot('tb02-08', 93108,
+      'Volume plan 15 MTT/día. Tras 6 estás −4 BI y tilt. ¿Seguir?',
+      'MTT · Plan vs tilt',
+      [opt('a', 'Cumplir los 15 siempre'), opt('b', 'Parar o bajar a estudio: el plan asume proceso sano'), opt('c', 'Añadir 5 mid-stakes más caros')],
+      'b',
+      'Volumen con tilt quema banca más rápido que estudiar.'),
+    brSpot('tb02-09', 93109,
+      'Buy-in directo 50 € vs satélite que ya te costó 70 €. ¿Lección?',
+      'MTT · Coste',
+      [opt('a', 'El satélite siempre es mejor'), opt('b', 'Compara coste real: a veces el directo era más barato'), opt('c', 'Da igual trackear')],
+      'b',
+      'Trackear evita satélites −EV por costumbre.'),
+    brSpot('tb02-10', 93110,
+      'Roll sube a 120 BI del buy-in medio. ¿Move-up típico?',
+      'MTT · Move-up holgado',
+      [opt('a', 'Saltar a 10× buy-in ya'), opt('b', 'Subir un escalón o mezclar buy-ins superiores con techo'), opt('c', 'Retirar y dejar MTT')],
+      'b',
+      'Holgura permite escalar con control, no brincar varios niveles.')
+  ];
+
+  var MTT_EXAM = [
+    brSpot('tb03-01', 93201,
+      'Banca 600 €. ¿Buy-in MTT “full” más prudente?',
+      'Examen MTT',
+      [opt('a', '50 € (12 BI)'), opt('b', '5–10 € (60–120 BI)'), opt('c', '200 €')],
+      'b',
+      '12 BI en 50 € es temerario en MTT. 5–10 € deja aire.'),
+    brSpot('tb03-02', 93202,
+      'Tomas 3 re-entries en un 22 €. Coste real del evento si bustas todo?',
+      'Examen MTT',
+      [opt('a', '22 €'), opt('b', '88 € (4 bullets)'), opt('c', '0 € si no casheas')],
+      'b',
+      '1 entrada + 3 re-entries = 4 × 22 = 88 €. Cuenta bullets.'),
+    brSpot('tb03-03', 93203,
+      '¿Mejor razón para NO subir de buy-in tras un FT?',
+      'Examen MTT',
+      [opt('a', 'Porque el edge desapareció'), opt('b', 'Porque un resultado no completa la muestra ni redefine tu plan de BI'), opt('c', 'Porque está prohibido')],
+      'b',
+      'Scores no sustituyen reglas. Sube cuando el roll y el proceso lo digan.'),
+    brSpot('tb03-04', 93204,
+      'Satélite a 100 € te costó 45 € en intentos. Seat “vale” 100. ¿Pensamiento correcto?',
+      'Examen MTT',
+      [opt('a', 'Has invertido 45 € de banca por un seat de 100: evalúa si el camino fue +EV'), opt('b', 'Es un seat gratis'), opt('c', 'Hay que tirar el seat si costó menos de 100')],
+      'a',
+      'El coste es lo gastado. A veces el satélite es bueno; a veces buy-in directo era mejor.'),
+    brSpot('tb03-05', 93205,
+      'Downswing: de 80 BI a 40 BI. ¿Plan?',
+      'Examen MTT',
+      [opt('a', 'Buscar fields más caros'), opt('b', 'Bajar buy-in medio, cortar re-entries extras, revisar leaks'), opt('c', 'Dejar de trackear')],
+      'b',
+      'A 40 BI en MTT estás frágil. Reduce exposición y estudia.'),
+    brSpot('tb03-06', 93206,
+      '¿Qué es “banca de torneo” en una frase?',
+      'Examen MTT',
+      [opt('a', 'El stack en fichas del día 2'), opt('b', 'El dinero real disponible para buy-ins/re-entries según reglas de unidades'), opt('c', 'Los Koins del entrenador')],
+      'b',
+      'Banca = dinero real y reglas. No confundir con chips del torneo ni moneda de app.'),
+    brSpot('tb03-07', 93207,
+      'Juegas 3 × 10 € en paralelo. Bustas los 3. ¿Impacto?',
+      'Examen MTT',
+      [opt('a', '1 BI porque “es la misma sesión”'), opt('b', '3 BI (más si había re-entries)'), opt('c', '0 si no miras el cashier')],
+      'b',
+      'Cada registro es un BI. Multitabling multiplica exposición por hora.'),
+    brSpot('tb03-08', 93208,
+      'Heurística move-up MTT conservadora: ¿cuándo?',
+      'Examen MTT',
+      [opt('a', 'Tras un cash'), opt('b', 'Cuando alcanzas ~50–100 BI del buy-in nuevo o haces shots con techo'), opt('c', 'Cuando el lobby está vacío')],
+      'b',
+      'Umbral alto por varianza. Shots con techo si aún no llegas a full.'),
+    brSpot('tb03-09', 93209,
+      'Tilt post-bubble. Queda open un 50 € (overstake leve). ¿Banca?',
+      'Examen MTT',
+      [opt('a', 'Registrarte: “me lo debo”'), opt('b', 'No: tilt + overstake es la peor combo'), opt('c', 'Solo si es PKO')],
+      'b',
+      'Castigar la banca tras una burbuja es leak emocional caro.'),
+    brSpot('tb03-10', 93210,
+      '¿Para qué sirve la calculadora de banca de la Escuela?',
+      'Examen MTT',
+      [opt('a', 'Sustituir el estudio GTO'), opt('b', 'Traducir banca + buy-in a BI y umbrales educativos move-up/down'), opt('c', 'Garantizar beneficios')],
+      'b',
+      'Es una heurística educativa: te ayuda a ver unidades, no promete resultados.')
+  ];
+
+  function lesson(cfg) {
+    return {
+      id: cfg.id,
+      title: cfg.title,
+      route: cfg.route,
+      module: 'M0b',
+      order: cfg.order,
+      plan: cfg.plan,
+      xp: cfg.xp,
+      passThreshold: cfg.passThreshold != null ? cfg.passThreshold : 0.7,
+      goldThreshold: cfg.goldThreshold != null ? cfg.goldThreshold : 0.9,
+      decisionEnd: true,
+      exam: !!cfg.exam,
+      hands: 0,
+      openBankrollTool: true,
+      concept: cfg.concept,
+      theory: cfg.theory,
+      examples: cfg.examples || [],
+      aiQuestions: cfg.aiQuestions || [],
+      relatedLessons: cfg.relatedLessons || [],
+      spots: cfg.spots || []
+    };
+  }
+
+  var LESSONS = [
+    lesson({
+      id: 'CB-01',
+      title: 'Banca cash · Buy-ins y reglas',
+      route: 'cash',
+      order: 6.6,
+      plan: 'free',
+      xp: 80,
+      concept: 'En cash mides la banca en buy-ins del stake que juegas. La regla educativa 20–40 BI te protege de la varianza y del tilt de “recuperar”.',
+      theory: [
+        'Buy-in (BI): dinero para sentarte a una mesa (p. ej. NL10 ≈ 10 €). Banca en unidades = banca € / buy-in €.',
+        'Heurística PokerForge (educativa, no consejo financiero): ~20–40 BI del stake full. Por debajo, prioriza bajar o shots muy controlados.',
+        'La banca no sustituye el edge: un buen jugador con 5 BI sigue en riesgo de ruin; un jugador sin edge con 100 BI solo tarda más en quebrarse.',
+        'Abre la calculadora de banca en esta lección: introduce tu roll y el buy-in del stake para ver BI y umbrales move-up/down.'
+      ],
+      examples: [{
+        title: '800 € → NL10',
+        body: '800 / 10 = 40 BI. Encaja como stake full prudente. NL25 serían 32 BI (aceptable); NL50 serían 16 BI (corto).'
+      }],
+      aiQuestions: [
+        '¿Cuántos buy-ins debo tener en cash?',
+        '¿Qué hago si estoy en 15 BI?',
+        '¿Banca y edge cómo se relacionan?'
+      ],
+      relatedLessons: [
+        { id: 'CB-02', label: 'Subir / bajar / stop-loss' },
+        { id: 'CB-03', label: 'Examen banca cash' }
+      ],
+      spots: CASH_RULES
+    }),
+    lesson({
+      id: 'CB-02',
+      title: 'Banca cash · Subir, bajar y stop-loss',
+      route: 'cash',
+      order: 6.7,
+      plan: 'study',
+      xp: 100,
+      concept: 'Move-up y move-down se deciden por buy-ins del stake destino y por proceso, no por una sesión. El stop-loss corta daño emocional y financiero.',
+      theory: [
+        'Move-up: alcanza ~20–40 BI del stake nuevo o haz shot-taking (presupuesto fijo de sesiones) sin convertir el shot en stake full.',
+        'Move-down: si caes bajo ~20 BI del stake actual, bajar no es fracaso — es proteger el roll para seguir jugando con cabeza.',
+        'Stop-loss de sesión (p. ej. 2–3 BI) y, si hace falta, stop diario. Al saltar el límite, cierras: no “una más”.',
+        'Shot-taking sano: tamaño del shot definido antes, criterio de vuelta al stake full, sin chase.'
+      ],
+      examples: [{
+        title: 'Shot NL25',
+        body: 'Roll cómodo en NL10. Separas 4 BI para NL25. Si los pierdes, vuelves a NL10 hasta rebuild — no depositas otra vez “porque casi”.'
+      }],
+      aiQuestions: [
+        '¿Cuándo subo de stake en cash?',
+        '¿Qué es un shot-taking bien hecho?',
+        '¿Para qué sirve el stop-loss?'
+      ],
+      relatedLessons: [
+        { id: 'CB-01', label: 'Reglas buy-ins' },
+        { id: 'CB-03', label: 'Examen banca cash' }
+      ],
+      spots: CASH_MOVE
+    }),
+    lesson({
+      id: 'CB-03',
+      title: 'Examen · Banca cash',
+      route: 'cash',
+      order: 6.8,
+      plan: 'study',
+      xp: 120,
+      exam: true,
+      concept: 'Examen de escenarios: contar BI, elegir stake, move-up/down, stop-loss y shots. Sin cartas: decides con reglas de banca.',
+      theory: [
+        'Lee el escenario con calma: ¿cuántos buy-ins hay y son del stake actual o del destino?',
+        'Elimina opciones de chase/tilt (subir para recuperar, romper stop-loss) antes de elegir.',
+        'Usa la calculadora si te ayuda a traducir euros a buy-ins antes de responder al escenario.'
+      ],
+      examples: [{
+        title: 'Formato examen',
+        body: '10 escenarios MCQ. Apruebas con el umbral de la lección; puedes repetir para oro.'
+      }],
+      aiQuestions: [
+        '¿Repásame la regla 20–40 BI?',
+        '¿Ejemplo de move-down correcto?',
+        '¿Cómo definir un shot?'
+      ],
+      relatedLessons: [
+        { id: 'CB-01', label: 'Reglas' },
+        { id: 'CB-02', label: 'Move-up/down' }
+      ],
+      spots: CASH_EXAM
+    }),
+
+    lesson({
+      id: 'SB-01',
+      title: 'Banca Spins · Varianza y buy-ins',
+      route: 'spin',
+      order: 3.1,
+      plan: 'free',
+      xp: 80,
+      concept: 'En Spins la banca se mide en buy-ins del lobby, pero la varianza del multiplicador exige más unidades que un cash equivalente.',
+      theory: [
+        'Cada Spin cuesta 1 BI (más recompras si las hay). El prize pool varía: rachas de lobbies bajos son normales.',
+        'Heurística educativa: suele pedirse más colchón que en cash (orientativo ~50–100+ BI del stake full, según aversión al riesgo).',
+        'Volumen alto acelera resultados solo si el stake es sostenible. Overstake + volumen = ruina rápida.',
+        'Usa la calculadora eligiendo formato Spins para ver buy-ins y umbrales move-up/down.'
+      ],
+      examples: [{
+        title: '300 € → Spin 5 €',
+        body: '60 BI. Jugable con disciplina; si tu plan es más conservador, mezcla con 2–3 €.'
+      }],
+      aiQuestions: [
+        '¿Por qué Spins piden más banca?',
+        '¿Cuántos BI de Spin 2 € tengo con 200 €?',
+        '¿Qué es overstake en Spins?'
+      ],
+      relatedLessons: [
+        { id: 'SB-02', label: 'Subir / bajar / stops' },
+        { id: 'SB-03', label: 'Examen banca Spins' }
+      ],
+      spots: SPIN_RULES
+    }),
+    lesson({
+      id: 'SB-02',
+      title: 'Banca Spins · Stake, stops y selección',
+      route: 'spin',
+      order: 3.2,
+      plan: 'study',
+      xp: 100,
+      concept: 'Escala de un nivel; define stops diarios; la banca elige stake y la selección de lobby elige con quién juegas.',
+      theory: [
+        'Move-up: un escalón cuando tienes colchón (p. ej. ~80–100+ BI del stake actual) o shots acotados al superior.',
+        'Move-down si caes a zona baja de BI: en Spins tragarse el orgullo salva el roll.',
+        'Stop diario (en BI o en sesiones tilt) > “cumplir el volumen” a toda costa.',
+        'Selección de mesas/lobbies no la sustituye la banca: puedes estar in-roll y aun así evitar spots malos.'
+      ],
+      examples: [{
+        title: 'Stop −15 BI',
+        body: 'Si tu regla diaria es −15 BI y la tocas, cierras el cliente. El siguiente Spin no te “debe” un multiplier.'
+      }],
+      aiQuestions: [
+        '¿Cuándo subo de Spin?',
+        '¿Cómo definir un stop diario?',
+        '¿Banca vs selección de lobby?'
+      ],
+      relatedLessons: [
+        { id: 'SB-01', label: 'Reglas Spins' },
+        { id: 'SB-03', label: 'Examen' }
+      ],
+      spots: SPIN_MOVE
+    }),
+    lesson({
+      id: 'SB-03',
+      title: 'Examen · Banca Spins',
+      route: 'spin',
+      order: 3.3,
+      plan: 'study',
+      xp: 120,
+      exam: true,
+      passThreshold: 0.85,
+      concept: 'Escenarios de Spins: BI, varianza, move-up/down, chase y volumen. Decide con reglas, no con el último multiplier.',
+      theory: [
+        'Traduce siempre el escenario a buy-ins del stake concreto que estás juzgando.',
+        'Desconfía de opciones que suben de stake para recuperar o que ignoran stops diarios.',
+        'Un Spike (multiplier ×100) no reescribe tu plan de banca ni tu umbral de move-up.'
+      ],
+      examples: [{
+        title: 'Examen',
+        body: '10 MCQ. Repite para mejorar % y grabar hábitos.'
+      }],
+      aiQuestions: [
+        '¿Regla de BI en Spins?',
+        '¿Qué es chase?',
+        '¿Cómo hacer un shot a Spin superior?'
+      ],
+      relatedLessons: [
+        { id: 'SB-01', label: 'Reglas' },
+        { id: 'SB-02', label: 'Stops' }
+      ],
+      spots: SPIN_EXAM
+    }),
+
+    lesson({
+      id: 'TB-01',
+      title: 'Banca MTT · Varianza y bullets',
+      route: 'mtt',
+      order: 3.1,
+      plan: 'free',
+      xp: 80,
+      concept: 'En MTT la banca aguanta muchos ceros y payouts concentrados. Cuentas cada buy-in y cada re-entry (bullet).',
+      theory: [
+        'Un torneo = al menos 1 BI; cada re-entry suma otro. Soft fields no justifican bullets ilimitados.',
+        'Heurística educativa: muchos grinders apuntan a ~50–100+ BI del buy-in medio que juegan (más que cash).',
+        'Satélites: el seat cuesta lo invertido en intentos, no “vale 100 gratis”.',
+        'Abre la calculadora en formato Torneos para ver BI y umbrales move-up/down.'
+      ],
+      examples: [{
+        title: '1.000 € → 20 € MTT',
+        body: '50 BI. Zona de partida razonable para volume medio; shots a 50 € serían 20 BI (solo con techo).'
+      }],
+      aiQuestions: [
+        '¿Cuántos BI necesito en MTT?',
+        '¿Cómo cuentan los re-entries?',
+        '¿Qué es el coste real de un satélite?'
+      ],
+      relatedLessons: [
+        { id: 'TB-02', label: 'Move-up / volume' },
+        { id: 'TB-03', label: 'Examen banca MTT' }
+      ],
+      spots: MTT_RULES
+    }),
+    lesson({
+      id: 'TB-02',
+      title: 'Banca MTT · Move-up, volume y satélites',
+      route: 'mtt',
+      order: 3.2,
+      plan: 'study',
+      xp: 100,
+      concept: 'Sube buy-in con colchón o shots con techo; el volumen solo ayuda si el stake es sostenible; los scores no borran las reglas.',
+      theory: [
+        'Move-up: mezcla buy-ins o shots cuando tienes ~50–100 BI del nivel nuevo (o techo de bullets claro).',
+        'Move-down / menos re-entries si caes a zona baja de BI: reduce exposición.',
+        'Stop de día en BI: tilt post-bubble no se “cura” registrándote a un overstake.',
+        'Un deep run sube el roll; mañana sigues midiendo unidades, no lifestyle stake.'
+      ],
+      examples: [{
+        title: 'Serie satélite',
+        body: '6 intentos × 5 € = 30 € por un seat de 50 €. Anota 30 € de coste, no “seat gratis de 50”.'
+      }],
+      aiQuestions: [
+        '¿Cuándo subo de buy-in en MTT?',
+        '¿Cómo trackear satélites?',
+        '¿Qué hago tras un score grande?'
+      ],
+      relatedLessons: [
+        { id: 'TB-01', label: 'Reglas MTT' },
+        { id: 'TB-03', label: 'Examen' }
+      ],
+      spots: MTT_MOVE
+    }),
+    lesson({
+      id: 'TB-03',
+      title: 'Examen · Banca MTT',
+      route: 'mtt',
+      order: 3.3,
+      plan: 'study',
+      xp: 120,
+      exam: true,
+      passThreshold: 0.85,
+      concept: 'Examen MTT: BI, bullets, satélites, stops y move-up. Sin fichas de torneo: decides con dinero real.',
+      theory: [
+        'No confundas el stack de fichas del torneo con tu banca de dinero real.',
+        'Cuenta cada registro y cada re-entry: cada bullet sale del mismo roll de dinero real.',
+        'La calculadora traduce euros a buy-ins; las respuestas correctas respetan stops y umbrales.'
+      ],
+      examples: [{
+        title: 'Examen',
+        body: '10 escenarios. Objetivo: hábitos que evitan ruin por varianza MTT.'
+      }],
+      aiQuestions: [
+        '¿Por qué MTT pide más BI?',
+        '¿Cómo calcular coste de re-entries?',
+        '¿Cuándo es overstake un 50 €?'
+      ],
+      relatedLessons: [
+        { id: 'TB-01', label: 'Reglas' },
+        { id: 'TB-02', label: 'Volume' }
+      ],
+      spots: MTT_EXAM
+    })
+  ];
+
+  LESSONS.forEach(function (l) {
+    if (Array.isArray(l.spots) && l.spots.length) l.hands = l.spots.length;
+  });
+
+  D.registerLessons(LESSONS);
+
+  global.PTSchoolBankroll = {
+    LESSONS: LESSONS,
+    PACKS: {
+      'CB-01': CASH_RULES,
+      'CB-02': CASH_MOVE,
+      'CB-03': CASH_EXAM,
+      'SB-01': SPIN_RULES,
+      'SB-02': SPIN_MOVE,
+      'SB-03': SPIN_EXAM,
+      'TB-01': MTT_RULES,
+      'TB-02': MTT_MOVE,
+      'TB-03': MTT_EXAM
+    }
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
  * school-matrix-drills.js — Drills de matriz para Escuela Rangos (R-01 / R-02).
  * Quiz de localización / opción múltiple y pintar rangos sobre grid 13×13.
  * Contenido y UI en español.
@@ -17628,14 +18545,22 @@
 
   function decisionKindLabel(quiz) {
     var q = quiz || {};
-    if (q.facingBet === false) return 'Check / Bet';
+    if (q.kindLabel) return q.kindLabel;
     var opts = q.options || [];
-    if (opts.length && opts.every(function (o) {
-      var id = String(o.id || '');
-      return id === 'check' || id === 'bet' || id.indexOf('bet_') === 0;
-    })) {
-      return 'Check / Bet';
+    if (opts.length) {
+      var allCb = opts.every(function (o) {
+        var id = String(o.id || '');
+        return id === 'check' || id === 'bet' || id.indexOf('bet_') === 0;
+      });
+      if (allCb) return 'Check / Bet';
+      var allFcr = opts.every(function (o) {
+        var id = String(o.id || '');
+        return id === 'fold' || id === 'call' || id === 'raise';
+      });
+      if (allFcr) return 'Fold / Call / Raise';
+      return 'Escenario';
     }
+    if (q.facingBet === false) return 'Check / Bet';
     return 'Fold / Call / Raise';
   }
 
@@ -17649,8 +18574,10 @@
       formatHeroCardsHtml(quiz.heroCards, heroPosForSpot(spot, quiz));
     mountMcqDrill(host, spot, ctx, {
       kindLabel: kindLabel,
-      title: '¿Qué haces?',
-      defaultPrompt: kindLabel === 'Check / Bet' ? '¿Check o bet?' : '¿Fold, call o raise?',
+      title: kindLabel === 'Banca' ? 'Gestión de banca' : '¿Qué haces?',
+      defaultPrompt: kindLabel === 'Banca'
+        ? '¿Qué decides?'
+        : (kindLabel === 'Check / Bet' ? '¿Check o bet?' : '¿Fold, call o raise?'),
       bodyHtml: body,
       mountShare: function (root) {
         if (!root || !global.PTSchoolShare || !global.PTSchoolShare.mountDecisionShare) return;
@@ -20014,6 +20941,223 @@
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /*
+ * school-bankroll-tool.js — Calculadora educativa de banca (Cash / Spins / MTT).
+ * Heurísticas de estudio; no es consejo financiero.
+ */
+(function (global) {
+  'use strict';
+
+  var STORAGE_BASE = 'pt_bankroll_tool_v1';
+
+  var FORMAT_RULES = {
+    cash: {
+      label: 'Cash',
+      minBi: 20,
+      fullBi: 30,
+      comfortBi: 40,
+      blurb: 'Orientativo 20–40 buy-ins del stake full.'
+    },
+    spin: {
+      label: 'Spins',
+      minBi: 50,
+      fullBi: 80,
+      comfortBi: 100,
+      blurb: 'Spins: más colchón por varianza del multiplicador (~50–100+ BI).'
+    },
+    mtt: {
+      label: 'Torneos',
+      minBi: 50,
+      fullBi: 75,
+      comfortBi: 100,
+      blurb: 'MTT: swings altos; orientativo ~50–100+ BI del buy-in medio.'
+    }
+  };
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function userSuffix() {
+    try {
+      var u = (global.PTAuth && global.PTAuth.getUser && global.PTAuth.getUser()) || global.PT_AUTH_USER;
+      if (u && (u.sub || u.id)) return '_' + String(u.sub || u.id);
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
+  function storageKey() {
+    return STORAGE_BASE + userSuffix();
+  }
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(storageKey());
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveState(state) {
+    try {
+      localStorage.setItem(storageKey(), JSON.stringify(state));
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function num(v, fallback) {
+    var n = Number(v);
+    return isFinite(n) && n > 0 ? n : fallback;
+  }
+
+  function compute(bankroll, buyIn, format) {
+    var rules = FORMAT_RULES[format] || FORMAT_RULES.cash;
+    var bi = buyIn > 0 ? bankroll / buyIn : 0;
+    var recommendedBuyIn = bankroll / rules.fullBi;
+    var moveUpBankroll = buyIn * rules.comfortBi;
+    var moveDownBankroll = buyIn * rules.minBi;
+    var zone = 'short';
+    if (bi >= rules.comfortBi) zone = 'comfort';
+    else if (bi >= rules.fullBi) zone = 'full';
+    else if (bi >= rules.minBi) zone = 'ok';
+    return {
+      rules: rules,
+      buyIns: bi,
+      recommendedBuyIn: recommendedBuyIn,
+      moveUpBankroll: moveUpBankroll,
+      moveDownBankroll: moveDownBankroll,
+      zone: zone
+    };
+  }
+
+  function zoneLabel(zone) {
+    if (zone === 'comfort') return 'Cómoda';
+    if (zone === 'full') return 'Stake full razonable';
+    if (zone === 'ok') return 'Jugable con cautela';
+    return 'Corta · considera bajar o shots';
+  }
+
+  function money(n) {
+    if (!isFinite(n)) return '—';
+    var r = Math.round(n * 100) / 100;
+    return r.toLocaleString('es-ES', { maximumFractionDigits: 2 }) + ' €';
+  }
+
+  function biStr(n) {
+    if (!isFinite(n)) return '—';
+    return (Math.round(n * 10) / 10).toLocaleString('es-ES', { maximumFractionDigits: 1 });
+  }
+
+  function ensureModal() {
+    var el = document.getElementById('school-bankroll-modal');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'school-bankroll-modal';
+    el.className = 'modal school-bankroll-modal hidden';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-labelledby', 'school-bankroll-title');
+    el.innerHTML =
+      '<div class="modal-content school-bankroll-dialog">' +
+      '<div class="school-bankroll-head">' +
+      '<h3 id="school-bankroll-title">Calculadora de banca</h3>' +
+      '<button type="button" class="btn btn-ghost" id="school-bankroll-close" aria-label="Cerrar">✕</button>' +
+      '</div>' +
+      '<p class="muted-text school-bankroll-disclaimer">Heurística educativa de la Escuela. No es consejo financiero ni garantiza resultados.</p>' +
+      '<form id="school-bankroll-form" class="school-bankroll-form">' +
+      '<label>Banca (€)<input type="number" min="1" step="1" name="bankroll" id="school-br-bankroll" required></label>' +
+      '<label>Buy-in / stake (€)<input type="number" min="0.01" step="0.01" name="buyIn" id="school-br-buyin" required></label>' +
+      '<label>Formato<select name="format" id="school-br-format">' +
+      '<option value="cash">Cash</option>' +
+      '<option value="spin">Spins</option>' +
+      '<option value="mtt">Torneos (MTT)</option>' +
+      '</select></label>' +
+      '<button type="submit" class="btn btn-primary">Calcular</button>' +
+      '</form>' +
+      '<div id="school-bankroll-result" class="school-bankroll-result" hidden></div>' +
+      '</div>';
+    document.body.appendChild(el);
+
+    el.addEventListener('click', function (ev) {
+      if (ev.target === el) close();
+    });
+    var closeBtn = el.querySelector('#school-bankroll-close');
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    var form = el.querySelector('#school-bankroll-form');
+    if (form) {
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        renderResult();
+      });
+    }
+    return el;
+  }
+
+  function renderResult() {
+    var bankroll = num(document.getElementById('school-br-bankroll').value, 0);
+    var buyIn = num(document.getElementById('school-br-buyin').value, 0);
+    var format = document.getElementById('school-br-format').value || 'cash';
+    if (!(bankroll > 0) || !(buyIn > 0)) return;
+
+    var out = compute(bankroll, buyIn, format);
+    saveState({ bankroll: bankroll, buyIn: buyIn, format: format });
+
+    var host = document.getElementById('school-bankroll-result');
+    if (!host) return;
+    host.hidden = false;
+    host.innerHTML =
+      '<p class="school-bankroll-zone"><strong>' + esc(biStr(out.buyIns)) + ' BI</strong> · ' +
+      esc(zoneLabel(out.zone)) + '</p>' +
+      '<p class="muted-text">' + esc(out.rules.blurb) + '</p>' +
+      '<ul class="school-bankroll-stats">' +
+      '<li><span>Buy-in orientativo (≈' + esc(String(out.rules.fullBi)) + ' BI)</span><strong>' +
+      esc(money(out.recommendedBuyIn)) + '</strong></li>' +
+      '<li><span>Move-up cómodo (≈' + esc(String(out.rules.comfortBi)) + ' BI de este buy-in)</span><strong>' +
+      esc(money(out.moveUpBankroll)) + '</strong></li>' +
+      '<li><span>Zona move-down (≈' + esc(String(out.rules.minBi)) + ' BI)</span><strong>' +
+      esc(money(out.moveDownBankroll)) + '</strong></li>' +
+      '</ul>';
+  }
+
+  function open(opts) {
+    opts = opts || {};
+    var modal = ensureModal();
+    var saved = loadState() || {};
+    var format = opts.format || saved.format || 'cash';
+    if (!FORMAT_RULES[format]) format = 'cash';
+    var bankrollEl = document.getElementById('school-br-bankroll');
+    var buyInEl = document.getElementById('school-br-buyin');
+    var formatEl = document.getElementById('school-br-format');
+    if (bankrollEl) bankrollEl.value = opts.bankroll != null ? opts.bankroll : (saved.bankroll != null ? saved.bankroll : 500);
+    if (buyInEl) buyInEl.value = opts.buyIn != null ? opts.buyIn : (saved.buyIn != null ? saved.buyIn : (format === 'cash' ? 10 : format === 'spin' ? 2 : 10));
+    if (formatEl) formatEl.value = format;
+    modal.classList.remove('hidden');
+    renderResult();
+  }
+
+  function close() {
+    var modal = document.getElementById('school-bankroll-modal');
+    if (modal) modal.classList.add('hidden');
+  }
+
+  global.PTSchoolBankrollTool = {
+    open: open,
+    close: close,
+    compute: compute,
+    FORMAT_RULES: FORMAT_RULES,
+    loadState: loadState,
+    saveState: saveState
+  };
+})(typeof window !== 'undefined' ? window : globalThis);
+
+/*
  * school-data-mttlab.js — Esqueleto Escuela MTT LAB (M1–M8), allOpen + externalLinks.
  */
 (function (global) {
@@ -21024,6 +22168,16 @@
     if (typeof global.goToTab === 'function') global.goToTab('ranges');
   }
 
+  function openBankrollToolFromLesson(lesson) {
+    var format = 'cash';
+    if (lesson && lesson.route === 'spin') format = 'spin';
+    else if (lesson && lesson.route === 'mtt') format = 'mtt';
+    trackSchool('bankroll_tool_open', { lessonId: lesson && lesson.id, format: format });
+    if (global.PTSchoolBankrollTool && typeof global.PTSchoolBankrollTool.open === 'function') {
+      global.PTSchoolBankrollTool.open({ format: format });
+    }
+  }
+
   function schoolLangBadgeHtml() {
     return '<span class="school-lang-badge" title="Contenido de la Escuela en español">ES</span>';
   }
@@ -22014,6 +23168,7 @@
   var MODULE_COPY = {
     cash: {
       M0: { title: 'M0 · Fundamentos Cash (Gratis)', lead: 'Desbloqueo lineal.' },
+      M0b: { title: 'M0b · Gestión de banca (Cash)', lead: 'Buy-ins, move-up/down y stop-loss tras el examen M0.' },
       M1: { title: 'M1 · Preflop core (Study)', lead: 'Defensa BB, 3-bet, squeeze, iso.' },
       M2: { title: 'M2 · Postflop core (Study)', lead: 'Textura, c-bet, F/C/R, pot odds y defensa.' },
       M3: { title: 'M3 · Postflop avanzado (Study)', lead: 'Range advantage, check-raise, multiway y river.' },
@@ -22021,6 +23176,7 @@
     },
     spin: {
       M0: { title: 'M0 · Intro Spins (Gratis)', lead: 'Lobbies, steal, defensa y examen.' },
+      M0b: { title: 'M0b · Gestión de banca (Spins)', lead: 'Varianza del multiplicador, stake y stops tras M0.' },
       M1: { title: 'M1 · Short stack (Study)', lead: 'Iso, shove y charts.' },
       M2: { title: 'M2 · ICM / HU (Study→Coach)', lead: 'S-09–S-10 Study; desde S-11 (malos spots ICM) requiere Coach.' },
       M3: { title: 'M3 · Pro Spins (Coach)', lead: 'Explotación y examen Pro.' },
@@ -22028,6 +23184,7 @@
     },
     mtt: {
       M0: { title: 'M0 · Early MTT (Gratis)', lead: 'Fases, paciencia y examen early.' },
+      M0b: { title: 'M0b · Gestión de banca (MTT)', lead: 'Buy-ins, bullets y satélites tras el examen M0.' },
       M1: { title: 'M1 · Mid / steal', lead: 'Steal, 3-bet y resteal.' },
       M2: { title: 'M2 · Short stack', lead: 'Push/fold antes de la burbuja.' },
       M3: { title: 'M3 · Antes de burbuja', lead: 'Ajuste de stack y presión.' },
@@ -22240,6 +23397,10 @@
     if (lesson.openRanges || lesson.route === 'ranges') {
       openRangesBtn = '<button type="button" class="btn btn-ghost" id="school-open-ranges">Abrir chart</button>';
     }
+    var openBankrollBtn = '';
+    if (lesson.openBankrollTool) {
+      openBankrollBtn = '<button type="button" class="btn btn-ghost" id="school-open-bankroll">Calculadora de banca</button>';
+    }
     var related = '';
     if (lesson.relatedLessons && lesson.relatedLessons.length) {
       related = '<section class="card-box school-section school-related">' +
@@ -22306,6 +23467,7 @@
         ? '<button type="button" class="btn btn-ghost" id="school-train-drill">Practicar en entrenador</button>'
         : '') +
       openRangesBtn +
+      openBankrollBtn +
       '</div></div>';
 
     var back = document.getElementById('school-back-hub');
@@ -22343,6 +23505,12 @@
     if (openBtn) {
       openBtn.addEventListener('click', function () {
         openRangesFromLesson(lesson);
+      });
+    }
+    var bankrollBtn = document.getElementById('school-open-bankroll');
+    if (bankrollBtn && lesson.openBankrollTool) {
+      bankrollBtn.addEventListener('click', function () {
+        openBankrollToolFromLesson(lesson);
       });
     }
     root.querySelectorAll('[data-school-goto-lesson]').forEach(function (btn) {
