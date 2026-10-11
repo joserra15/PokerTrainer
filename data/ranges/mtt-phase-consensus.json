@@ -1,0 +1,270 @@
+{
+  "meta": {
+    "format": "mtt",
+    "note": "Reglas chip-EV de estudio MTT por banda de stack. No son un solver privado: contrastan con criterios públicos (Sharkling stack zones, progressGTO shove/raise mix, PokerHero re-shove 15–25bb). Hard = CI fail; soft = warning en informe.",
+    "updated": "2026-10-11",
+    "sources": [
+      {
+        "name": "Sharkling MTT Preflop Charts by Stack Depth",
+        "url": "https://sharkling.io/preflop-poker-charts/mtt",
+        "takeaway": "25bb 3-bet/fold; 15bb shove-first; ≤10bb pure push/fold"
+      },
+      {
+        "name": "progressGTO Tournament Stack Size Zones",
+        "url": "https://progressgto.com/learn/stack-size-zones-mtt",
+        "takeaway": "BTN jam share high ≤12bb; small raise appears ~12–20bb; >40bb deep"
+      },
+      {
+        "name": "PokerHero MTT GTO 15–40bb",
+        "url": "https://pokerhero.gg/blog/mtt-gto-strategy-antes-icm",
+        "takeaway": "Re-shove zone ~15–25bb; BB defense wider with ante"
+      },
+      {
+        "name": "PokerForgeAI taxonomy",
+        "url": "internal:js/engine/format/taxonomy.js",
+        "takeaway": "Label push≤12 short≤25 mid≤45; push charts ≤14 via isPushPhase"
+      }
+    ],
+    "bands": {
+      "early": { "minBB": 45.01, "maxBB": 200, "expectedPhase": "early" },
+      "mid": { "minBB": 25.01, "maxBB": 45, "expectedPhase": "mid" },
+      "short": { "minBB": 12.01, "maxBB": 25, "expectedPhase": "short" },
+      "push_label": { "minBB": 0, "maxBB": 12, "expectedPhase": "push" },
+      "push_charts_overlap": {
+        "minBB": 12.01,
+        "maxBB": 14,
+        "expectedPhase": "short",
+        "expectedPushCharts": true,
+        "note": "Intencional: label short + isPushPhase true (Nash ≤14)"
+      }
+    }
+  },
+  "phaseExpectations": [
+    { "stackBB": 80, "hub": "mtt", "phase": "early", "severity": "hard" },
+    { "stackBB": 40, "hub": "mtt", "phase": "mid", "severity": "hard" },
+    { "stackBB": 30, "hub": "mtt", "phase": "mid", "severity": "hard" },
+    { "stackBB": 25, "hub": "mtt", "phase": "short", "severity": "hard" },
+    { "stackBB": 20, "hub": "mtt", "phase": "short", "severity": "hard" },
+    { "stackBB": 15, "hub": "mtt", "phase": "short", "severity": "hard" },
+    { "stackBB": 14, "hub": "mtt", "phase": "short", "pushCharts": true, "severity": "hard" },
+    { "stackBB": 12, "hub": "mtt", "phase": "push", "pushCharts": true, "severity": "hard" },
+    { "stackBB": 10, "hub": "mtt", "phase": "push", "pushCharts": true, "severity": "hard" },
+    { "stackBB": 20, "hub": "spin", "phase": "mid", "severity": "hard" },
+    { "stackBB": 15, "hub": "spin", "phase": "mid", "severity": "hard" },
+    { "stackBB": 12, "hub": "spin", "phase": "push", "pushCharts": true, "severity": "hard" }
+  ],
+  "structuralOverrides": [
+    {
+      "id": "bubble_keeps_structure",
+      "stackBB": 15,
+      "handMttPhase": "bubble",
+      "expectPhase": "bubble",
+      "severity": "hard"
+    },
+    {
+      "id": "hu_keeps_structure",
+      "stackBB": 15,
+      "handMttPhase": "hu",
+      "kind": "hu",
+      "expectPhase": "hu",
+      "severity": "hard"
+    },
+    {
+      "id": "hero_stack_beats_avg_early",
+      "stackBB": 15,
+      "handMttPhase": "early",
+      "avgStackBB": 55,
+      "expectPhase": "short",
+      "severity": "hard"
+    }
+  ],
+  "hardRules": [
+    {
+      "id": "early_utg_ato_fold",
+      "band": "early",
+      "stackBB": 80,
+      "spot": "RFI",
+      "position": "UTG",
+      "hand": "ATo",
+      "mustDominant": ["fold"],
+      "severity": "hard",
+      "note": "UTG early cash-like: ATo fold"
+    },
+    {
+      "id": "early_btn_ato_open",
+      "band": "early",
+      "stackBB": 80,
+      "spot": "RFI",
+      "position": "BTN",
+      "hand": "ATo",
+      "mustDominant": ["raise", "allin"],
+      "severity": "hard"
+    },
+    {
+      "id": "early_utg_72o_fold",
+      "band": "early",
+      "stackBB": 80,
+      "spot": "RFI",
+      "position": "UTG",
+      "hand": "72o",
+      "mustDominant": ["fold"],
+      "severity": "hard"
+    },
+    {
+      "id": "early_aa_open",
+      "band": "early",
+      "stackBB": 80,
+      "spot": "RFI",
+      "position": "CO",
+      "hand": "AA",
+      "mustDominant": ["raise", "allin"],
+      "severity": "hard"
+    },
+    {
+      "id": "short_88_bb_vs_utg2_jam_ok",
+      "band": "short",
+      "stackBB": 15,
+      "spot": "vsRFI",
+      "position": "BB",
+      "vsPosition": "UTG2",
+      "hand": "88",
+      "mustNotDominant": ["fold"],
+      "mustAggroMaterial": 0.15,
+      "chosenAction": "allin",
+      "mustNotClass": ["error"],
+      "severity": "hard",
+      "note": "Re-jam zone 15bb: mid pair jam vs open no Error"
+    },
+    {
+      "id": "short_72o_bb_vs_utg2_fold",
+      "band": "short",
+      "stackBB": 15,
+      "spot": "vsRFI",
+      "position": "BB",
+      "vsPosition": "UTG2",
+      "hand": "72o",
+      "mustDominant": ["fold"],
+      "severity": "hard"
+    },
+    {
+      "id": "short_aa_bb_vs_btn_continue",
+      "band": "short",
+      "stackBB": 20,
+      "spot": "vsRFI",
+      "position": "BB",
+      "vsPosition": "BTN",
+      "hand": "AA",
+      "mustNotDominant": ["fold"],
+      "mustAggroMaterial": 0.4,
+      "severity": "hard"
+    },
+    {
+      "id": "push_aa_btn_jam",
+      "band": "push",
+      "stackBB": 12,
+      "spot": "RFI",
+      "position": "BTN",
+      "hand": "AA",
+      "mustDominant": ["allin", "raise"],
+      "mustAggroMaterial": 0.7,
+      "severity": "hard"
+    },
+    {
+      "id": "push_72o_btn_fold",
+      "band": "push",
+      "stackBB": 10,
+      "spot": "RFI",
+      "position": "BTN",
+      "hand": "72o",
+      "mustDominant": ["fold"],
+      "severity": "hard"
+    },
+    {
+      "id": "push_ats_sb_jam",
+      "band": "push",
+      "stackBB": 10,
+      "spot": "RFI",
+      "position": "SB",
+      "hand": "ATs",
+      "mustDominant": ["allin", "raise"],
+      "mustAggroMaterial": 0.5,
+      "severity": "hard"
+    }
+  ],
+  "softRules": [
+    {
+      "id": "short_btn_k9o_openish",
+      "band": "short",
+      "stackBB": 20,
+      "spot": "RFI",
+      "position": "BTN",
+      "hand": "K9o",
+      "mustNotDominant": ["fold"],
+      "severity": "soft",
+      "note": "Steal short: K9o suele open; soft por mixes"
+    },
+    {
+      "id": "mid_utg_76s_foldish",
+      "band": "mid",
+      "stackBB": 35,
+      "spot": "RFI",
+      "position": "UTG",
+      "hand": "76s",
+      "preferDominant": ["fold"],
+      "severity": "soft"
+    },
+    {
+      "id": "web_15bb_shove_first",
+      "band": "short",
+      "stackBB": 15,
+      "spot": "RFI",
+      "position": "BTN",
+      "hand": "ATo",
+      "preferAggro": true,
+      "severity": "soft",
+      "note": "Sharkling: 15bb shove-first territory — prefer raise/allin over tiny open-fold"
+    }
+  ],
+  "crossSurfaceAnchors": [
+    {
+      "id": "xsurf_88_jam_15",
+      "stackBB": 15,
+      "spot": "vsRFI",
+      "position": "BB",
+      "vsPosition": "UTG2",
+      "hand": "88",
+      "chosenAction": "allin",
+      "surfaces": ["trainer", "tournament"],
+      "maxDominantDelta": 0.25,
+      "severity": "hard"
+    },
+    {
+      "id": "xsurf_aa_rfi_12",
+      "stackBB": 12,
+      "spot": "RFI",
+      "position": "BTN",
+      "hand": "AA",
+      "chosenAction": "allin",
+      "surfaces": ["trainer", "tournament"],
+      "maxDominantDelta": 0.2,
+      "severity": "hard"
+    },
+    {
+      "id": "xsurf_ato_utg_80",
+      "stackBB": 80,
+      "spot": "RFI",
+      "position": "UTG",
+      "hand": "ATo",
+      "chosenAction": "fold",
+      "surfaces": ["trainer", "tournament"],
+      "maxDominantDelta": 0.15,
+      "severity": "hard"
+    }
+  ],
+  "handsSample": [
+    "AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55", "22",
+    "AKs", "AKo", "AQs", "AQo", "AJs", "AJo", "ATs", "ATo", "A9s", "A5s", "A2s",
+    "KQs", "KQo", "KJs", "K9s", "K9o", "QJs", "Q9o", "JTs", "J9o",
+    "T9s", "98s", "87s", "76s", "65s", "54s", "72o", "32o"
+  ]
+}

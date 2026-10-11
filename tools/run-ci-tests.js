@@ -50,6 +50,7 @@ const STEPS = [
   ['Test análisis de manos', ['node', 'tools/test-hand-analysis.js']],
   ['Test evaluación manos contexto torneo', ['node', 'tools/test-hand-eval-tournament-context.js']],
   ['Test MTT fase short por stack héroe + 88 jam', ['node', 'tools/test-mtt-short-phase-hero-stack.js']],
+  ['Audit coherencia fase MTT (entrenador/torneos/escuela)', ['node', 'tools/audit-mtt-phase-coherence.js', '--assert-hard']],
   ['Test matriz GTO no all-fold push/cash', ['node', 'tools/test-gto-matrix-pushfold-allfold.js']],
   ['Test contexto torneo análisis/bridge', ['node', 'tools/test-tournament-context.js']],
   ['Test GTO eval UI', ['node', 'tools/test-gto-eval-ui.js']],
