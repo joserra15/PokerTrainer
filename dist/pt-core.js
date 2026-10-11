@@ -6690,7 +6690,8 @@ window.PT_NASH_PUSH_JSON = {
     input.formatHub = c.formatHub;
     input.stackDepthLabel = c.stackDepth;
     input.stackDepth = c.stackBB;
-    input.mttPhase = c.effectivePhase === 'hu' ? 'hu' : c.mttPhase;
+    /* Propagar fase efectiva (no mttPhase raw/auto/avg contaminado). */
+    input.mttPhase = c.effectivePhase || c.mttPhase;
     input.resolvedPhase = c.effectivePhase;
     input.effectivePhase = c.effectivePhase;
     input.icmEnabled = !!c.icmEnabled;
@@ -22880,6 +22881,8 @@ window.PT_NASH_PUSH_JSON = {
     // Usar stack del héroe: un short random en la mesa no debe pasar steal 25bb → push.
     const stack = heroStackForMode(hand);
     const sc = cfg.scenario || 'rfi';
+    const spotType = String(s.type || '').toLowerCase();
+    const hub = cfg.formatHub || '';
     const PF = global.GTOPushFold;
     if (sc === 'push' || cfg.resolvedPhase === 'push' || s.pushFold) {
       if (stack <= 14 || sc === 'push') return 'push';
@@ -22887,8 +22890,15 @@ window.PT_NASH_PUSH_JSON = {
     if (PF && PF.isPushPhase(Object.assign({}, cfg, { stackBB: stack, effStack: stack })) && sc !== 'steal') {
       return 'push';
     }
-    if (sc === 'steal' && stack >= 14 && stack <= 25) return 'steal';
-    if (sc === '3bet' && stack >= 14 && stack <= 25 && (cfg.formatHub === 'spin' || cfg.formatHub === 'mtt')) {
+    if ((sc === 'steal' || spotType === 'steal') && stack >= 14 && stack <= 25) return 'steal';
+    /* Defensa short vs open (14–20bb): misma zona que torneo gto-eval stealDefense. */
+    const vsOpen = sc === '3bet' || sc === 'vsRFI' || sc === 'vsrfi'
+      || spotType === 'vsrfi' || spotType === '3bet'
+      || s.facing === 'RFI' || s.vsRfi;
+    if ((hub === 'spin' || hub === 'mtt') && stack >= 14 && stack <= 20 && vsOpen) {
+      return 'stealDefense';
+    }
+    if (sc === '3bet' && stack >= 14 && stack <= 25 && (hub === 'spin' || hub === 'mtt')) {
       return 'stealDefense';
     }
     return 'standard';
