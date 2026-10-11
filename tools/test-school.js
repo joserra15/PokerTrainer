@@ -699,8 +699,8 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
   assert.ok(typeof DS.effectiveStreak === 'function', 'effectiveStreak export');
   assert.ok(typeof DS.refreshRemoteDaily === 'function', 'refreshRemoteDaily export');
   assert.ok(typeof DS.pickLocalParameterized === 'function', 'pickLocalParameterized export');
-  /* Racha rota en UI si lastDay no es hoy ni ayer; al jugar se reanuda. */
-  (function assertStreakResetAndResume() {
+  /* Racha rota si lastDay no es hoy ni ayer; al jugar arranca desde 0 → 1. */
+  (function assertStreakLostResetsFromZero() {
     var today = '2026-09-10';
     var alive = DS.effectiveStreak({ lastDay: '2026-09-09', completed: true, streak: 4 }, today);
     assert.strictEqual(alive, 4, 'racha viva si jugaste ayer');
@@ -713,14 +713,16 @@ assert.ok(sandbox.PTSchoolDailySpot.weekCalendar().length === 7, 'calendario sem
     var empty = DS.effectiveStreak({ lastDay: null, completed: false, streak: 3 }, today);
     assert.strictEqual(empty, 0, 'sin lastDay → racha 0');
     var reconciled = DS.reconcileBrokenStreak(brokenState, today);
-    assert.strictEqual(reconciled.streak, 4, 'reconcile no borra el contador guardado');
+    assert.strictEqual(reconciled.streak, 0, 'reconcile pone streak a 0');
     assert.ok(reconciled.streakBroken, 'reconcile marca streakBroken');
-    var resumed = DS.updateStreak(reconciled, today);
-    assert.strictEqual(resumed.streak, 5, 'al volver a jugar continúa desde donde iba (4→5)');
+    var restarted = DS.updateStreak(reconciled, today);
+    assert.strictEqual(restarted.streak, 1, 'al volver a jugar arranca desde 0 → 1');
     var consecutive = DS.updateStreak({ lastDay: '2026-09-09', completed: true, streak: 4, best: 4 }, today);
-    assert.strictEqual(consecutive.streak, 5, 'día consecutivo también suma 1');
+    assert.strictEqual(consecutive.streak, 5, 'día consecutivo suma 1');
     var fresh = DS.updateStreak({ lastDay: null, completed: false, streak: 0, best: 0 }, today);
     assert.strictEqual(fresh.streak, 1, 'primera partida empieza en 1');
+    assert.ok(DS.isStreakBroken({ lastDay: '2026-09-08', completed: true, streak: 0, best: 4, total: 4 }, today),
+      'aviso racha perdida aunque streak ya esté en 0');
   })();
 })();
 assert.ok(/pt_get_or_create_daily_spot|refreshRemoteDaily/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
@@ -735,8 +737,8 @@ assert.ok(fs.existsSync(path.join(root, '.github/workflows/daily-spot-generate.y
   'workflow cron daily spot');
 assert.ok(/Has perdido la racha/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
   'copy racha perdida en tarjeta');
-assert.ok(/continúa donde iba/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
-  'copy reanuda racha en tarjeta');
+assert.ok(/si te saltas un día, la racha vuelve a 0/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
+  'copy racha a 0 en tarjeta');
 assert.ok(/refreshRemoteDaily/.test(app), 'home refresca spot remoto antes de jugar');
 assert.ok(/buildDailyShareHtmlInline/.test(fs.readFileSync(path.join(root, 'js/school-daily-spot.js'), 'utf8')),
   'share inline en tarjeta home');

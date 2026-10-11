@@ -271,7 +271,7 @@
 
   /**
    * Racha viva solo si completaste hoy o ayer.
-   * Si saltaste un día → 0 en UI (el contador guardado se conserva para reanudar).
+   * Si saltaste un día → 0 (y al volver a jugar empieza de nuevo desde 1).
    */
   function effectiveStreak(ds, today) {
     today = today || dayKey();
@@ -283,27 +283,33 @@
     return 0;
   }
 
-  /** True si había racha y lastDay no es hoy ni ayer (hueco ≥1 día). */
+  /** True si hay hueco ≥1 día tras haber jugado (racha perdida). */
   function isStreakBroken(ds, today) {
     today = today || dayKey();
     ds = ds || readDailyState();
     if (!ds.lastDay || !ds.completed) return false;
-    if (!(Number(ds.streak) || 0)) return false;
     if (ds.lastDay === today) return false;
     if (addDays(ds.lastDay, 1) === today) return false;
-    return true;
+    return (Number(ds.streak) || 0) > 0 ||
+      (Number(ds.best) || 0) > 0 ||
+      (Number(ds.total) || 0) > 0;
   }
 
   /**
-   * No borra el contador guardado: la UI usa effectiveStreak (0 si rota)
-   * y al volver a jugar updateStreak continúa desde streak persistido.
+   * Si la racha se perdió, persiste streak=0 para que al jugar
+   * el contador arranque de nuevo (1), no desde el valor antiguo.
    */
   function reconcileBrokenStreak(ds, today) {
     today = today || dayKey();
     ds = ds || readDailyState();
+    var broken = isStreakBroken(ds, today);
+    if (broken && (Number(ds.streak) || 0) > 0) {
+      writeDailyState({ streak: 0 });
+      return Object.assign({}, ds, { streak: 0, streakBroken: true });
+    }
     return Object.assign({}, ds, {
       streak: Number(ds.streak) || 0,
-      streakBroken: isStreakBroken(ds, today)
+      streakBroken: broken
     });
   }
 
@@ -466,7 +472,6 @@
     var spot = pickDailySpot(today);
     var doneToday = ds.lastDay === today && ds.completed;
     var streak = effectiveStreak(ds, today);
-    var storedStreak = Number(ds.streak) || 0;
     var broken = !doneToday && !!ds.streakBroken;
     var preview = spotPreview(spot);
     var kind = kindLabel(spot && spot.kind);
@@ -479,9 +484,7 @@
       '<p class="school-daily-lead muted-text">' + esc(preview) + '</p>' +
       '<p class="school-daily-ig muted-text">IG: ' + esc(igHint) + '</p>' +
       (broken
-        ? ('<p class="school-daily-lost" role="status">Has perdido la racha' +
-          (storedStreak > 0 ? (' · al jugar hoy continúa desde ' + esc(String(storedStreak))) : '') +
-          '</p>')
+        ? '<p class="school-daily-lost" role="status">Has perdido la racha</p>'
         : '') +
       '</div>' +
       '<div class="school-daily-streak' + (broken ? ' is-broken' : '') + '" aria-label="Racha">' +
@@ -494,7 +497,7 @@
       (doneToday ? 'Vuelve mañana' : 'Jugar spot') + '</button>' +
       buildDailyShareHtmlInline() +
       '</div>' +
-      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · 1 intento/día · si te saltas un día, la racha pasa a 0; al volver a jugar continúa donde iba</p>' +
+      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · 1 intento/día · si te saltas un día, la racha vuelve a 0</p>' +
       '</section>'
     );
   }
@@ -505,9 +508,9 @@
     if (ds.lastDay === today && ds.completed) {
       return { streak: streak, best: best };
     }
-    // Continúa desde el contador guardado aunque la racha se haya mostrado a 0.
-    if (ds.lastDay && ds.completed && streak > 0) {
-      streak = streak + 1;
+    // Solo sigue si jugaste ayer. Si perdiste la racha → arranca en 1 desde 0.
+    if (ds.lastDay && ds.completed && addDays(ds.lastDay, 1) === today) {
+      streak = (effectiveStreak(ds, today) || streak) + 1;
     } else {
       streak = 1;
     }
