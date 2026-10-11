@@ -1656,9 +1656,34 @@
     };
   }
 
-  function resolveTournamentPhase(stackBB, hand) {
+  /** Fases de estructura (premios / mesa) — no se recalculan por stack del héroe. */
+  var STRUCTURAL_PHASES = { bubble: 1, itm: 1, ft: 1, hu: 1 };
+  /** Fases derivadas de profundidad de stack (pueden venir del avg del torneo). */
+  var STACK_DERIVED_PHASES = { auto: 1, early: 1, mid: 1, short: 1, push: 1 };
+
+  function phaseFromHeroStack(stackBB, hub) {
     var Tax = global.PTFormatTaxonomy;
     var TC = global.PTTournamentContext;
+    if (Tax && typeof Tax.phaseFromStackBB === 'function') {
+      try { return Tax.phaseFromStackBB(stackBB, hub); } catch (e) { /* */ }
+    }
+    if (TC && typeof TC.phaseFromStackBB === 'function') {
+      try { return TC.phaseFromStackBB(stackBB, hub); } catch (e2) { /* */ }
+    }
+    var bb = Number(stackBB) || 100;
+    if (hub === 'spin') {
+      if (bb <= 12) return 'push';
+      if (bb <= 20) return 'mid';
+      return 'early';
+    }
+    if (bb <= 12) return 'push';
+    if (bb <= 25) return 'short';
+    if (bb <= 45) return 'mid';
+    return 'early';
+  }
+
+  function resolveTournamentPhase(stackBB, hand) {
+    var Tax = global.PTFormatTaxonomy;
     var hub = resolveFormatHub(hand);
     var cfg = {
       formatHub: hub,
@@ -1688,25 +1713,18 @@
     // HU WTA explícito: no degradar a phaseFromStackBB (short/push).
     if (Tax && Tax.isHeadsUpWta && Tax.isHeadsUpWta(cfg)) return 'hu';
     if (cfg.mttPhase === 'hu' || cfg.mttStructureSituation === 'hu') return 'hu';
+    // Bubble / ITM / FT: la estructura manda.
+    if (STRUCTURAL_PHASES[cfg.mttPhase]) return cfg.mttPhase;
+    if (cfg.mttStructureSituation === 'bubble') return 'bubble';
+    // early/mid/short/push/auto: charts según stack del HÉROE (no avg del torneo).
+    // Evita Early charts con héroe a 15bb porque el promedio de vivos sigue deep.
+    if (!cfg.mttPhase || STACK_DERIVED_PHASES[cfg.mttPhase]) {
+      return phaseFromHeroStack(stackBB, hub);
+    }
     if (Tax && typeof Tax.resolvePhase === 'function') {
       try { return Tax.resolvePhase(cfg); } catch (e) { /* */ }
     }
-    if (Tax && typeof Tax.phaseFromStackBB === 'function') {
-      try { return Tax.phaseFromStackBB(stackBB, hub); } catch (e2) { /* */ }
-    }
-    if (TC && typeof TC.phaseFromStackBB === 'function') {
-      try { return TC.phaseFromStackBB(stackBB, hub); } catch (e3) { /* */ }
-    }
-    var bb = Number(stackBB) || 100;
-    if (hub === 'spin') {
-      if (bb <= 12) return 'push';
-      if (bb <= 20) return 'mid';
-      return 'early';
-    }
-    if (bb <= 12) return 'push';
-    if (bb <= 25) return 'short';
-    if (bb <= 45) return 'mid';
-    return 'early';
+    return phaseFromHeroStack(stackBB, hub);
   }
 
   function isFirstInOpen(hand, heroSeat) {
@@ -1962,6 +1980,13 @@
     var stealPhase = !pushPhase && street === 'preflop' && firstIn
       && stackBB >= 14 && stackBB <= 25
       && (heroSeat.pos === 'SB' || heroSeat.pos === 'BTN' || heroSeat.pos === 'CO');
+    var spotKindEarly = street === 'preflop'
+      ? resolvePreflopSpotKind(hand, heroSeat, firstIn)
+      : 'postflop';
+    /* vs open a 14–20bb: defensa short (jam mixto), no charts Early call-heavy. */
+    var stealDefensePhase = !pushPhase && street === 'preflop' && !firstIn
+      && spotKindEarly === 'vsRFI'
+      && stackBB >= 14 && stackBB <= 20;
 
     var toCallBB = toCall / bb;
     var potBeforeBB = Math.max(((Number(hand.pot) || 0) - ((firstIn || isoSpot) ? 0 : rawToCall)) / bb, 0.1);
@@ -2019,9 +2044,7 @@
     if (hand.ante != null) anteBB = Number(hand.ante) / bb;
     else if (hand.anteBB != null) anteBB = Number(hand.anteBB);
 
-    var spotKind = street === 'preflop'
-      ? resolvePreflopSpotKind(hand, heroSeat, firstIn)
-      : 'postflop';
+    var spotKind = spotKindEarly;
     var vsPos = spotKind === 'isoLimp' || spotKind === 'bbVsSbLimp' || spotKind === 'vsLimp'
       ? limperVsPosition(hand, heroSeat)
       : vsPosition(hand, heroSeat);
@@ -2112,8 +2135,12 @@
       facingAllIn: !!facingShove,
       preflopMode: (pushPhase || facingShove)
         ? 'push'
-        : (stealPhase ? 'steal' : (shortPhase && street === 'preflop' ? 'short' : 'std')),
-      scenario: (pushPhase || facingShove) ? 'push' : (stealPhase ? 'steal' : undefined),
+        : (stealPhase ? 'steal'
+          : (stealDefensePhase ? 'stealDefense'
+            : (shortPhase && street === 'preflop' ? 'short' : 'std'))),
+      scenario: (pushPhase || facingShove) ? 'push'
+        : (stealPhase ? 'steal'
+          : (stealDefensePhase ? '3bet' : undefined)),
       anteBB: anteBB,
       /* HU WTA: chip EV ≈ $EV — no forzar ICM lite. */
       icmEnabled: huWta ? false : true,
@@ -7227,13 +7254,28 @@
         alive.forEach(function (p) { sum += Number(p.stack) || 0; });
         avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
       }
+      /* Fase de charts = stack del héroe (no promedio del torneo).
+         Un short a 15bb en MTT early no debe evaluarse con charts Early. */
+      var heroStackBB = null;
+      var heroSeatCtx = (hand.seats || []).find(function (s) { return s && s.isHero; });
+      if (heroSeatCtx && bb > 0) {
+        var heroChips = (Number(heroSeatCtx.stack) || 0)
+          + (Number(heroSeatCtx.streetInvested) || 0);
+        if (!(heroChips > 0) && heroSeatCtx.startStack != null) {
+          heroChips = Number(heroSeatCtx.startStack) || 0;
+        }
+        if (heroChips > 0) {
+          heroStackBB = Math.round((heroChips / bb) * 10) / 10;
+        }
+      }
+      var phaseStackBB = heroStackBB != null ? heroStackBB : avgStackBB;
       var mttPhase = 'auto';
       var mttStructureSituation = null;
       var Tax = global.PTFormatTaxonomy;
       var TC = global.PTTournamentContext;
-      if (avgStackBB != null) {
-        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
-        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
+      if (phaseStackBB != null) {
+        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(phaseStackBB, hub);
+        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(phaseStackBB, hub);
       }
       /* HU WTA (2 jugadores, 1 pago): chip EV ≈ $EV — no etiquetar bubble/ICM. */
       var huWta = kind === 'hu' || (left === 2 && paid <= 1) || (seatedN === 2 && paid <= 1);

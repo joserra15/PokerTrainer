@@ -2372,7 +2372,9 @@ body.age-gate-open {
   border: 1px solid rgba(234, 179, 8, .25);
 }
 .school-daily-streak-val { display: block; font-size: 1.6rem; font-weight: 800; color: #fcd34d; line-height: 1; }
+.school-daily-streak.is-broken .school-daily-streak-val { color: #fca5a5; }
 .school-daily-streak-lbl { font-size: 12px; color: rgba(230,237,243,.7); }
+.school-daily-lost { margin: 8px 0 0; color: #fca5a5; font-size: 13px; font-weight: 600; }
 .school-daily-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
 .school-daily-actions [data-school-daily-play] {
   min-height: 44px;

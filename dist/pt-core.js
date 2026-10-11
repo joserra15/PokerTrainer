@@ -3619,19 +3619,19 @@ window.PT_PHASE3_LAYERS_JSON = {
         },
         "BB_vs_LJ": {
           "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
+          "threeBetMix": "JJ, TT, 99, 88, AQs, A5s, A4s, A3s, KJs, KTs",
           "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "BB_vs_UTG1": {
           "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, AQs, A5s, A4s, KJs",
+          "threeBetMix": "JJ, TT, 99, 88, AQs, A5s, A4s, KJs",
           "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 97s, 87s, 86s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
         "BB_vs_UTG2": {
           "threeBet": "QQ+, AKs, AKo",
-          "threeBetMix": "JJ, TT, AQs, A5s, A4s, A3s, KJs, KTs",
+          "threeBetMix": "JJ, TT, 99, 88, AQs, A5s, A4s, A3s, KJs, KTs",
           "call": "22-JJ, A2s-AQs, K8s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
@@ -3661,7 +3661,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         },
         "BB_vs_UTG": {
           "threeBet": "JJ+, AKs, AKo",
-          "threeBetMix": "AQs, A5s, A4s, KJs",
+          "threeBetMix": "TT, 99, 88, AQs, A5s, A4s, KJs",
           "call": "22-TT, A2s-AQs, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ATo+, KJo+, QJo, JTo",
           "callMix": ""
         },
@@ -3709,7 +3709,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         },
         "BB_vs_HJ": {
           "threeBet": "TT+, AQs+, AKo",
-          "threeBetMix": "99, AJs, A5s-A2s, KJs, KTs, QJs, A5o",
+          "threeBetMix": "TT, 99, 88, AJs, A5s-A2s, KJs, KTs, QJs, A5o",
           "call": "22-JJ, A2s-AJs, K6s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo, T9o",
           "callMix": ""
         },
@@ -3727,7 +3727,7 @@ window.PT_PHASE3_LAYERS_JSON = {
         },
         "BB_vs_CO": {
           "threeBet": "TT+, AQs+, AKo",
-          "threeBetMix": "99, AJs, A5s-A2s, KJs, KTs, QJs, A5o",
+          "threeBetMix": "TT, 99, 88, AJs, A5s-A2s, KJs, KTs, QJs, A5o",
           "call": "22-JJ, A2s-AJs, K6s+, Q7s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, A8o+, KTo+, QTo+, JTo, T9o, A9s, K9s, Q9s, J9s, T9s, A9o, KTo",
           "callMix": ""
         },
@@ -3739,13 +3739,13 @@ window.PT_PHASE3_LAYERS_JSON = {
         },
         "BB_vs_BTN": {
           "threeBet": "99+, AJs+, AKo, A5s",
-          "threeBetMix": "88, 77, ATs, A4s-A2s, KTs+, QTs, JTs, AQo, KQo, A5o, A4o",
+          "threeBetMix": "TT, 99, 88, 77, ATs, A4s-A2s, KTs+, QTs, JTs, AQo, KQo, A5o, A4o",
           "call": "22-TT, A2s-ATs, K3s+, Q5s+, J6s+, T6s+, 95s+, 85s+, 74s+, 64s+, 53s+, A2o+, K9o+, Q9o+, J9o+, T9o, 98o, A9s, K9s, Q9s, J9s, T9s, A9o, KTo",
           "callMix": ""
         },
         "BB_vs_SB": {
           "threeBet": "88+, ATs+, KJs+, ATo+, A5s",
-          "threeBetMix": "77-55, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo",
+          "threeBetMix": "TT, 99, 88, 77-55, A9s-A2s, KTs, QTs, JTs, T9s, KQo, KJo",
           "call": "K4s+, Q6s+, J7s+, T7s+, 96s+, 86s+, 75s+, 65s, 54s, KTo, QTo+, JTo, T9o, 98o, A9s, K9s, Q9s, J9s, T9s, A9o, KTo",
           "callMix": ""
         }
@@ -5644,10 +5644,18 @@ window.PT_NASH_PUSH_JSON = {
   }
 
   /** Defensa BB/SB vs steal ~20 bb: 3-bet shove en lugar de 3-bet pequeño. */
+  /** Mid pairs: a ≤18bb el shove vs open es línea short material (no 4% cosmético). */
+  function isShortJamMidPair(code) {
+    return code === 'TT' || code === '99' || code === '88'
+      || code === '77' || code === '66';
+  }
+
   function stealDefenseStrategy(input) {
     const code = input.handCode;
     const pos = input.position || input.heroPos || 'BB';
     const openerPos = input.vsPosition || input.openerPos || 'BTN';
+    const stack = Number(input.effStack || input.stackDepth || input.stackBB) || 20;
+    const shortJam = stack <= 18 && isShortJamMidPair(code);
     const RR = global.GTORangesRegistry;
     const N = global.GTORangesNotation;
     const D = global.GTORangesData;
@@ -5665,15 +5673,26 @@ window.PT_NASH_PUSH_JSON = {
       const callMix = N.toSet(data.callMix || '');
       if (tb.has(code)) return { fold: 0.08, call: 0.04, allin: 0.88, raise: 0 };
       if (tbMix.has(code)) {
+        /* A ≤18bb, mid pairs en mix: jam dominante (no call-heavy cash). */
+        if (shortJam) {
+          return callSet.has(code)
+            ? { fold: 0.12, call: 0.28, allin: 0.6, raise: 0 }
+            : { fold: 0.18, call: 0.12, allin: 0.7, raise: 0 };
+        }
         return callSet.has(code)
           ? { fold: 0.32, call: 0.38, allin: 0.3, raise: 0 }
           : { fold: 0.42, call: 0.08, allin: 0.5, raise: 0 };
       }
-      if (callSet.has(code)) return { fold: 0.14, call: 0.82, allin: 0.04, raise: 0 };
-      if (callMix.has(code)) return { fold: 0.52, call: 0.44, allin: 0.04, raise: 0 };
+      if (callSet.has(code)) {
+        if (shortJam) return { fold: 0.10, call: 0.40, allin: 0.50, raise: 0 };
+        return { fold: 0.14, call: 0.82, allin: 0.04, raise: 0 };
+      }
+      if (callMix.has(code)) {
+        if (shortJam) return { fold: 0.18, call: 0.37, allin: 0.45, raise: 0 };
+        return { fold: 0.52, call: 0.44, allin: 0.04, raise: 0 };
+      }
       return { fold: 0.94, call: 0.05, allin: 0.01, raise: 0 };
     }
-    const stack = Number(input.effStack || input.stackDepth) || 20;
     if (shouldCallShove(code, pos, stack, openerPos)) {
       return { fold: 0.18, call: 0.72, allin: 0.1, raise: 0 };
     }

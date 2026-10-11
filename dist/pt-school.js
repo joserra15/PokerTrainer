@@ -19663,7 +19663,7 @@
 
   /**
    * Racha viva solo si completaste hoy o ayer.
-   * Si saltaste un día → 0 (no se conserva la cifra antigua en UI).
+   * Si saltaste un día → 0 en UI (el contador guardado se conserva para reanudar).
    */
   function effectiveStreak(ds, today) {
     today = today || dayKey();
@@ -19675,15 +19675,28 @@
     return 0;
   }
 
+  /** True si había racha y lastDay no es hoy ni ayer (hueco ≥1 día). */
+  function isStreakBroken(ds, today) {
+    today = today || dayKey();
+    ds = ds || readDailyState();
+    if (!ds.lastDay || !ds.completed) return false;
+    if (!(Number(ds.streak) || 0)) return false;
+    if (ds.lastDay === today) return false;
+    if (addDays(ds.lastDay, 1) === today) return false;
+    return true;
+  }
+
+  /**
+   * No borra el contador guardado: la UI usa effectiveStreak (0 si rota)
+   * y al volver a jugar updateStreak continúa desde streak persistido.
+   */
   function reconcileBrokenStreak(ds, today) {
     today = today || dayKey();
     ds = ds || readDailyState();
-    var eff = effectiveStreak(ds, today);
-    if (eff === 0 && (Number(ds.streak) || 0) > 0) {
-      writeDailyState({ streak: 0 });
-      return Object.assign({}, ds, { streak: 0 });
-    }
-    return Object.assign({}, ds, { streak: eff });
+    return Object.assign({}, ds, {
+      streak: Number(ds.streak) || 0,
+      streakBroken: isStreakBroken(ds, today)
+    });
   }
 
   function pickFromCandidates(candidates, day) {
@@ -19845,6 +19858,8 @@
     var spot = pickDailySpot(today);
     var doneToday = ds.lastDay === today && ds.completed;
     var streak = effectiveStreak(ds, today);
+    var storedStreak = Number(ds.streak) || 0;
+    var broken = !doneToday && !!ds.streakBroken;
     var preview = spotPreview(spot);
     var kind = kindLabel(spot && spot.kind);
     var igHint = buildIgCaption(spot, today).split('\n')[0];
@@ -19854,8 +19869,14 @@
       '<div><p class="school-eyebrow">Spot del día · ' + esc(kind) + '</p>' +
       '<h3 class="school-daily-title">' + (doneToday ? 'Completado hoy' : '¿Listo para el reto?') + '</h3>' +
       '<p class="school-daily-lead muted-text">' + esc(preview) + '</p>' +
-      '<p class="school-daily-ig muted-text">IG: ' + esc(igHint) + '</p></div>' +
-      '<div class="school-daily-streak" aria-label="Racha">' +
+      '<p class="school-daily-ig muted-text">IG: ' + esc(igHint) + '</p>' +
+      (broken
+        ? ('<p class="school-daily-lost" role="status">Has perdido la racha' +
+          (storedStreak > 0 ? (' · al jugar hoy continúa desde ' + esc(String(storedStreak))) : '') +
+          '</p>')
+        : '') +
+      '</div>' +
+      '<div class="school-daily-streak' + (broken ? ' is-broken' : '') + '" aria-label="Racha">' +
       '<span class="school-daily-streak-val">' + esc(String(streak)) + '</span>' +
       '<span class="school-daily-streak-lbl">días</span></div>' +
       '</div>' +
@@ -19865,7 +19886,7 @@
       (doneToday ? 'Vuelve mañana' : 'Jugar spot') + '</button>' +
       buildDailyShareHtmlInline() +
       '</div>' +
-      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · 1 intento/día · si fallas un día, la racha vuelve a 0</p>' +
+      '<p class="school-daily-meta muted-text">+' + DAILY_XP + ' XP al acertar · 1 intento/día · si te saltas un día, la racha pasa a 0; al volver a jugar continúa donde iba</p>' +
       '</section>'
     );
   }
@@ -19876,9 +19897,9 @@
     if (ds.lastDay === today && ds.completed) {
       return { streak: streak, best: best };
     }
-    // Solo cuenta si la racha seguía viva (ayer). Si saltaste un día → reinicia en 1.
-    if (ds.lastDay && ds.completed && addDays(ds.lastDay, 1) === today) {
-      streak = (effectiveStreak(ds, today) || streak) + 1;
+    // Continúa desde el contador guardado aunque la racha se haya mostrado a 0.
+    if (ds.lastDay && ds.completed && streak > 0) {
+      streak = streak + 1;
     } else {
       streak = 1;
     }
@@ -19968,7 +19989,9 @@
     findSpotById: findSpotById,
     refreshRemoteDaily: refreshRemoteDaily,
     effectiveStreak: effectiveStreak,
+    isStreakBroken: isStreakBroken,
     reconcileBrokenStreak: reconcileBrokenStreak,
+    updateStreak: updateStreak,
     readDailyState: readDailyState,
     writeDailyState: writeDailyState,
     buildHomeCardHtml: buildHomeCardHtml,
