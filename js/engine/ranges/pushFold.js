@@ -326,10 +326,18 @@
   }
 
   /** Defensa BB/SB vs steal ~20 bb: 3-bet shove en lugar de 3-bet pequeño. */
+  /** Mid pairs: a ≤18bb el shove vs open es línea short material (no 4% cosmético). */
+  function isShortJamMidPair(code) {
+    return code === 'TT' || code === '99' || code === '88'
+      || code === '77' || code === '66';
+  }
+
   function stealDefenseStrategy(input) {
     const code = input.handCode;
     const pos = input.position || input.heroPos || 'BB';
     const openerPos = input.vsPosition || input.openerPos || 'BTN';
+    const stack = Number(input.effStack || input.stackDepth || input.stackBB) || 20;
+    const shortJam = stack <= 18 && isShortJamMidPair(code);
     const RR = global.GTORangesRegistry;
     const N = global.GTORangesNotation;
     const D = global.GTORangesData;
@@ -347,15 +355,26 @@
       const callMix = N.toSet(data.callMix || '');
       if (tb.has(code)) return { fold: 0.08, call: 0.04, allin: 0.88, raise: 0 };
       if (tbMix.has(code)) {
+        /* A ≤18bb, mid pairs en mix: jam dominante (no call-heavy cash). */
+        if (shortJam) {
+          return callSet.has(code)
+            ? { fold: 0.12, call: 0.28, allin: 0.6, raise: 0 }
+            : { fold: 0.18, call: 0.12, allin: 0.7, raise: 0 };
+        }
         return callSet.has(code)
           ? { fold: 0.32, call: 0.38, allin: 0.3, raise: 0 }
           : { fold: 0.42, call: 0.08, allin: 0.5, raise: 0 };
       }
-      if (callSet.has(code)) return { fold: 0.14, call: 0.82, allin: 0.04, raise: 0 };
-      if (callMix.has(code)) return { fold: 0.52, call: 0.44, allin: 0.04, raise: 0 };
+      if (callSet.has(code)) {
+        if (shortJam) return { fold: 0.10, call: 0.40, allin: 0.50, raise: 0 };
+        return { fold: 0.14, call: 0.82, allin: 0.04, raise: 0 };
+      }
+      if (callMix.has(code)) {
+        if (shortJam) return { fold: 0.18, call: 0.37, allin: 0.45, raise: 0 };
+        return { fold: 0.52, call: 0.44, allin: 0.04, raise: 0 };
+      }
       return { fold: 0.94, call: 0.05, allin: 0.01, raise: 0 };
     }
-    const stack = Number(input.effStack || input.stackDepth) || 20;
     if (shouldCallShove(code, pos, stack, openerPos)) {
       return { fold: 0.18, call: 0.72, allin: 0.1, raise: 0 };
     }
