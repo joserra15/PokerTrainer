@@ -139,6 +139,8 @@
     // Usar stack del héroe: un short random en la mesa no debe pasar steal 25bb → push.
     const stack = heroStackForMode(hand);
     const sc = cfg.scenario || 'rfi';
+    const spotType = String(s.type || '').toLowerCase();
+    const hub = cfg.formatHub || '';
     const PF = global.GTOPushFold;
     if (sc === 'push' || cfg.resolvedPhase === 'push' || s.pushFold) {
       if (stack <= 14 || sc === 'push') return 'push';
@@ -146,8 +148,15 @@
     if (PF && PF.isPushPhase(Object.assign({}, cfg, { stackBB: stack, effStack: stack })) && sc !== 'steal') {
       return 'push';
     }
-    if (sc === 'steal' && stack >= 14 && stack <= 25) return 'steal';
-    if (sc === '3bet' && stack >= 14 && stack <= 25 && (cfg.formatHub === 'spin' || cfg.formatHub === 'mtt')) {
+    if ((sc === 'steal' || spotType === 'steal') && stack >= 14 && stack <= 25) return 'steal';
+    /* Defensa short vs open (14–20bb): misma zona que torneo gto-eval stealDefense. */
+    const vsOpen = sc === '3bet' || sc === 'vsRFI' || sc === 'vsrfi'
+      || spotType === 'vsrfi' || spotType === '3bet'
+      || s.facing === 'RFI' || s.vsRfi;
+    if ((hub === 'spin' || hub === 'mtt') && stack >= 14 && stack <= 20 && vsOpen) {
+      return 'stealDefense';
+    }
+    if (sc === '3bet' && stack >= 14 && stack <= 25 && (hub === 'spin' || hub === 'mtt')) {
       return 'stealDefense';
     }
     return 'standard';

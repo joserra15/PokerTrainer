@@ -233,4 +233,81 @@ ok(!!Tax && !!GtoEval && !!Live && !!GTO && !!PF, 'módulos cargados');
     'freq agresiva material o clase no-error');
 })();
 
+/* --- 7) Cross-surface anchors: trainer path vs tournament --- */
+(function crossSurfaceAnchors() {
+  const PF = w.GTOPushFold;
+  const RR = w.GTORangesRegistry;
+
+  function evalDirect(opts) {
+    const input = {
+      spotKind: opts.spot,
+      street: 'preflop',
+      position: opts.position,
+      vsPosition: opts.vsPosition || null,
+      handCode: opts.hand,
+      heroCards: opts.hand === 'AA' ? ['As', 'Ad'] : (opts.hand === 'ATo' ? ['As', 'Td'] : ['8s', '8c']),
+      board: [],
+      potBB: opts.spot === 'vsRFI' ? 5 : 1.5,
+      toCallBB: opts.spot === 'vsRFI' ? 0.5 : 0,
+      stackBB: opts.stackBB,
+      stackDepth: opts.stackBB,
+      effStack: opts.stackBB,
+      availableActions: opts.spot === 'vsRFI'
+        ? ['fold', 'call', 'raise', 'allin'] : ['fold', 'raise', 'allin'],
+      chosenAction: opts.chosen,
+      formatHub: 'mtt',
+      gameType: 'mtt',
+      mttPhase: opts.phase,
+      resolvedPhase: opts.phase,
+      effectivePhase: opts.phase,
+      preflopMode: opts.mode,
+      pushFold: opts.mode === 'push',
+      scenario: opts.mode === 'stealDefense' ? '3bet' : undefined,
+      scoreMode: 'gto'
+    };
+    if (opts.spot === 'vsRFI') input.vsRfiKey = opts.position + '_vs_' + opts.vsPosition;
+    if (RR) RR.attachToInput(input, input);
+    const ev = GTO.evaluateSpot(input);
+    const strat = (ev && (ev.strategy || ev.gto)) || {};
+    let best = 'fold'; let max = -1;
+    Object.keys(strat).forEach(function (k) {
+      const v = Number(strat[k]) || 0;
+      if (v > max) { max = v; best = k; }
+    });
+    return { dominant: best, freq: max, strat: strat, class: (ev.evaluation || ev).class };
+  }
+
+  // AA BTN @12bb push: jam dominante
+  const aa = evalDirect({
+    spot: 'RFI', position: 'BTN', hand: 'AA', stackBB: 12, phase: 'push',
+    mode: 'push', chosen: 'allin'
+  });
+  ok(aa.dominant === 'allin' || aa.dominant === 'raise',
+    'AA BTN 12bb jam dominante (got ' + aa.dominant + ')');
+  ok((Number(aa.strat.allin) || 0) + (Number(aa.strat.raise) || 0) >= 0.7,
+    'AA BTN 12bb aggro≥70%');
+
+  // ATo UTG early: fold
+  const ato = evalDirect({
+    spot: 'RFI', position: 'UTG', hand: 'ATo', stackBB: 80, phase: 'early',
+    mode: 'standard', chosen: 'fold'
+  });
+  ok(ato.dominant === 'fold', 'ATo UTG early fold (got ' + ato.dominant + ')');
+
+  // 88 BB vs UTG2 @15bb stealDefense: not error on allin
+  const jam = evalDirect({
+    spot: 'vsRFI', position: 'BB', vsPosition: 'UTG2', hand: '88',
+    stackBB: 15, phase: 'short', mode: 'stealDefense', chosen: 'allin'
+  });
+  ok(jam.class !== 'error', 'trainer-path 88 jam class≠error (got ' + jam.class + ')');
+  const jamAggro = (Number(jam.strat.allin) || 0) + (Number(jam.strat.raise) || 0);
+  ok(jamAggro >= 0.15, 'trainer-path 88 jam aggro≥15% (got ' + Math.round(jamAggro * 100) + '%)');
+
+  // Dual threshold 14bb: label short + push charts
+  const phase14 = Tax.phaseFromStackBB(14, 'mtt');
+  ok(phase14 === 'short', '14bb label short (got ' + phase14 + ')');
+  ok(PF.isPushPhase({ formatHub: 'mtt', stackBB: 14, mttPhase: 'short' }),
+    '14bb isPushPhase true (charts push)');
+})();
+
 console.log('\nOK mtt-short-phase-hero-stack');

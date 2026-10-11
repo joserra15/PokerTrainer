@@ -881,7 +881,8 @@
     input.formatHub = c.formatHub;
     input.stackDepthLabel = c.stackDepth;
     input.stackDepth = c.stackBB;
-    input.mttPhase = c.effectivePhase === 'hu' ? 'hu' : c.mttPhase;
+    /* Propagar fase efectiva (no mttPhase raw/auto/avg contaminado). */
+    input.mttPhase = c.effectivePhase || c.mttPhase;
     input.resolvedPhase = c.effectivePhase;
     input.effectivePhase = c.effectivePhase;
     input.icmEnabled = !!c.icmEnabled;
