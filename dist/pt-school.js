@@ -3161,7 +3161,7 @@
       rfi('t02-01', 'BTN', ['As', 'Ts'], 50201, { teachBack: 'Vas short (~11 bb) en BTN con ATs: shove para doblarte. A esta profundidad no abras min «como cash»: o all-in o fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb11' }) }),
       rfi('t02-02', 'BTN', ['8h', '5c'], 50202, { trapTag: 'dominated', teachBack: 'Short con 85o: fold. Necesitas doblarte, sí, pero no con basura: sin equity ni fold equity real es panic shove.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb11' }) }),
       rfi('t02-03', 'SB', ['Kh', 'Jh'], 50203, { teachBack: 'Short en SB con KJs (~10 bb): shove frecuente. Spot para doblarte con broadway usable en push/fold.', playConfig: mttCfg({ scenario: 'push', mttPhase: 'push', stackDepth: 'bb10' }) }),
-      rfi('t02-04', 'CO', ['Kc', '8h'], 50204, { trapTag: 'fancy_play', teachBack: 'Eres mid (~22 bb) en CO con K8o y hay covers detrás: fold. No abras flojo: un 3-bet del big te mete en un spot feo o te elimina.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb22' }) }),
+      rfi('t02-04', 'CO', ['Kc', '8h'], 50204, { trapTag: 'fancy_play', teachBack: 'Eres short (~20 bb) en CO con K8o y hay covers detrás: fold. No abras flojo: un 3-bet del big te mete en un spot feo o te elimina.', playConfig: mttCfg({ mttPhase: 'short', stackDepth: 'bb20' }) }),
       rfi('t02-05', 'UTG', ['Ah', '2h'], 50205, { trapTag: 'dominated', teachBack: 'Mid en UTG con A2s: fold. Desde early, con stack medio, no forces Ax flojo: hay demasiada gente (y covers) detrás.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb25' }) }),
       rfi('t02-06', 'BTN', ['9s', '9c'], 50206, { teachBack: 'Mid en BTN con 99 (~25 bb): open claro. Spot limpio con stack jugable — no hace falta esperar a ser short para jugar manos fuertes.', playConfig: mttCfg({ mttPhase: 'mid', stackDepth: 'bb25' }) }),
       rfi('t02-07', 'BTN', ['Kd', 'Jd'], 50207, { teachBack: 'Eres big stack (~45 bb) en BTN con KJs: open/steal razonable. El big puede aplicar presión en late; no eres un mid sobreviviendo.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb45' }) }),
@@ -3169,7 +3169,7 @@
       vs('t02-09', 'BB_vs_BTN', ['Jh', '8d'], 50209, { trapTag: 'fancy_play', teachBack: 'Eres cover (~45 bb) y el BTN abre wide: con J8o fold. No pagues light «porque soy cover»; primero pregunta si el call mejora tu premio o solo tus fichas.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb45' }) }),
       vs('t02-10', 'BB_vs_BTN', ['Ah', 'Jh'], 50210, { teachBack: 'Cover con AJs frente al open del BTN: 3-bet por valor. Aquí sí quieres un bote grande: tienes una mano que domina muchos opens late.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb45' }) }),
       vs('t02-11', 'BB_vs_BTN', ['Ks', 'Qs'], 50211, { teachBack: 'Cover con KQs vs open BTN: 3-bet value. Misma lógica que QQ: no eres short buscando desesperación; cobras con premium.', playConfig: mttCfg({ scenario: '3bet', mttPhase: 'mid', stackDepth: 'bb40' }) }),
-      f3('t02-12', 'BTN_vs_BB', ['8h', '8d'], 50212, { trapTag: 'fancy_play', teachBack: 'Eres mid (~22 bb) y el BB (cover) te 3-betea: con 88 fold frecuente. Evitas un coin flip (~50/50) contra alguien que te puede eliminar del torneo.', playConfig: mttCfg({ scenario: 'face3bet', mttPhase: 'mid', stackDepth: 'bb22' }) })
+      f3('t02-12', 'BTN_vs_BB', ['8h', '8d'], 50212, { trapTag: 'fancy_play', teachBack: 'Eres short (~20 bb) y el BB (cover) te 3-betea: con 88 fold frecuente. Evitas un coin flip (~50/50) contra alguien que te puede eliminar del torneo.', playConfig: mttCfg({ scenario: 'face3bet', mttPhase: 'short', stackDepth: 'bb20' }) })
     ];
     if (kind === 'MTT_STEAL') return [
       rfi('t04-01', 'BTN', ['Qd', 'Tc'], 50401, { teachBack: 'QTo BTN mid (~25 bb): steal razonable. Late position + ante: open para robar ciegas sin shove aún.', playConfig: mttCfg({ scenario: 'steal', mttPhase: 'mid', stackDepth: 'bb25' }) }),
@@ -17397,9 +17397,9 @@
       (ok ? 'Óptima' : 'Error') + '</h3>' +
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
-      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
       '<div class="school-lesson-cta school-ra-next-cta">' +
-      '<button type="button" class="btn btn-primary" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-primary btn-block" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
       '<button type="button" class="btn btn-ghost" id="school-ra-abort">Salir de la lección</button>' +
       '</div>';
 
@@ -17578,9 +17578,9 @@
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
       whyHtml +
-      shareHtml +
       '<div class="school-lesson-cta school-mcq-next-cta">' +
-      '<button type="button" class="btn btn-primary" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-primary btn-block" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      shareHtml +
       '<button type="button" class="btn btn-ghost" id="school-mcq-abort">Salir de la lección</button>' +
       '</div>';
 
@@ -21382,9 +21382,9 @@
       '</div>';
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
-      actions.className = 'actions';
+      actions.className = 'actions school-lesson-cta school-spot-next-cta';
       actions.innerHTML =
-        '<button type="button" class="btn btn-primary" id="school-next-spot">' + nextLabel + '</button>' +
+        '<button type="button" class="btn btn-primary btn-block" id="school-next-spot">' + nextLabel + '</button>' +
         '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
       var next = document.getElementById('school-next-spot');
       var abort = document.getElementById('school-abort-spot');
@@ -21790,14 +21790,22 @@
         ((quiz.teachBack || spot.teachBack)
           ? '<p class="school-spot-teach">' + esc(quiz.teachBack || spot.teachBack) + '</p>'
           : '') +
-        (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml
-          ? global.PTSchoolShare.buildLineQuizShareHtml()
-          : '') +
         '</div>';
+    }
+    if (actions) {
+      var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+      var shareHtml = (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml)
+        ? global.PTSchoolShare.buildLineQuizShareHtml()
+        : '';
+      actions.className = 'actions school-lesson-cta school-spot-next-cta';
+      actions.innerHTML =
+        '<button type="button" class="btn btn-primary btn-block" id="school-next-spot">' + nextLabel + '</button>' +
+        shareHtml +
+        '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
       if (global.PTSchoolShare && global.PTSchoolShare.mountLineQuizShare) {
         try {
           var lesson = Data() && Data().getLesson(s.lessonId);
-          var shareRoot = fb.querySelector('.school-share-line-quiz');
+          var shareRoot = actions.querySelector('.school-share-line-quiz');
           var shareOpts = (quiz.options || []).map(function (opt) {
             return { cards: (opt.cards || []).slice() };
           });
@@ -21819,13 +21827,6 @@
           });
         } catch (eShareQuiz) { /* ignore */ }
       }
-    }
-    if (actions) {
-      var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
-      actions.className = 'actions';
-      actions.innerHTML =
-        '<button type="button" class="btn btn-primary" id="school-next-spot">' + nextLabel + '</button>' +
-        '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
       var next = document.getElementById('school-next-spot');
       var abort = document.getElementById('school-abort-spot');
       if (next) {

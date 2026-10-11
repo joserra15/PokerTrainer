@@ -813,6 +813,27 @@ assert.ok(/mountRangeAdvShare|buildRangeAdvShareHtml/.test(fs.readFileSync(path.
 assert.ok(/drawRangeAdvCard/.test(fs.readFileSync(path.join(root, 'js/school-share.js'), 'utf8')), 'share card RA');
 assert.ok(/school-daily/.test(css), 'estilos daily spot');
 assert.ok(/school-share-mcq/.test(css), 'estilos share mcq');
+/* CTA spot: Siguiente (primario ancho) antes de Compartir (secundario). */
+(function () {
+  var mx = fs.readFileSync(path.join(root, 'js/school-matrix-drills.js'), 'utf8');
+  var mcqNext = mx.indexOf('id="school-mcq-next"');
+  var mcqShare = mx.indexOf('shareHtml +', mcqNext);
+  var mcqAbort = mx.indexOf('id="school-mcq-abort"');
+  assert.ok(mcqNext > 0 && mcqShare > mcqNext && mcqAbort > mcqShare,
+    'MCQ: Siguiente spot antes de Compartir y Salir');
+  assert.ok(/btn-primary btn-block" id="school-mcq-next"/.test(mx), 'MCQ next es btn-block');
+  var raNext = mx.indexOf('id="school-ra-next"');
+  var raShare = mx.indexOf('buildRangeAdvShareHtml', raNext);
+  var raAbort = mx.indexOf('id="school-ra-abort"');
+  assert.ok(raNext > 0 && raShare > raNext && raAbort > raShare,
+    'RA: Siguiente spot antes de Compartir y Salir');
+  assert.ok(/btn-primary btn-block" id="school-ra-next"/.test(mx), 'RA next es btn-block');
+  var schoolJs = fs.readFileSync(path.join(root, 'js/school.js'), 'utf8');
+  assert.ok(/school-spot-next-cta/.test(schoolJs), 'quiz línea usa CTA de spot');
+  assert.ok(/btn-primary btn-block" id="school-next-spot"/.test(schoolJs), 'next spot es btn-block');
+  assert.ok(/school-lesson-cta \.school-share-actions \.school-share-btn/.test(css),
+    'CSS: Compartir compacto dentro del CTA');
+})();
 assert.ok(/Faroles por línea/.test(Data.getLesson('R-22').title), 'R-22 faroles M2');
 assert.ok(/Faroles difíciles/.test(Data.getLesson('R-24').title), 'R-24 faroles M3');
 assert.ok(/Faroles avanzados/.test(Data.getLesson('R-26').title), 'R-26 faroles M4');
