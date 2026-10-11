@@ -142,7 +142,8 @@ const midAgain = Reg.getOpenRaiseRow('CO', {
 });
 ok(!N.toSet(midAgain.raise).has('A8s'), 'sin stackRole cover: Mid CO sigue sin A8s');
 
-// Escenario mesa: cover 55bb vs mid 33 + shorts ~15 (SNG 4-handed, fase Mid)
+// Escenario mesa: cover 55bb vs mid 33 + shorts ~15 (SNG 4-handed).
+// mttPhase 'mid' en el hand es avg/field; charts usan stack del héroe → early (>45bb).
 const hand = {
   street: 'preflop',
   bb: 100,
@@ -181,7 +182,7 @@ const hand = {
 const hero = hand.seats[0];
 const input = GEval.buildInput(hand, hero, { id: 'raise', amount: 250 });
 ok(input.stackRole === 'cover' || input.isChipLead, 'buildInput marca cover/chip lead (role=' + input.stackRole + ')');
-ok(input.mttPhase === 'mid', 'fase Mid (avg/field), got ' + input.mttPhase);
+ok(input.mttPhase === 'early', 'fase Early por stack héroe ~55bb (no mid avg/field), got ' + input.mttPhase);
 ok(input.handCode === 'A8s', 'handCode A8s, got ' + input.handCode);
 
 const strat = Strat.getStrategy(input, {

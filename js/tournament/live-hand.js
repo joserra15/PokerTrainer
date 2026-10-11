@@ -1285,13 +1285,28 @@
         alive.forEach(function (p) { sum += Number(p.stack) || 0; });
         avgStackBB = Math.round((sum / alive.length / bb) * 10) / 10;
       }
+      /* Fase de charts = stack del héroe (no promedio del torneo).
+         Un short a 15bb en MTT early no debe evaluarse con charts Early. */
+      var heroStackBB = null;
+      var heroSeatCtx = (hand.seats || []).find(function (s) { return s && s.isHero; });
+      if (heroSeatCtx && bb > 0) {
+        var heroChips = (Number(heroSeatCtx.stack) || 0)
+          + (Number(heroSeatCtx.streetInvested) || 0);
+        if (!(heroChips > 0) && heroSeatCtx.startStack != null) {
+          heroChips = Number(heroSeatCtx.startStack) || 0;
+        }
+        if (heroChips > 0) {
+          heroStackBB = Math.round((heroChips / bb) * 10) / 10;
+        }
+      }
+      var phaseStackBB = heroStackBB != null ? heroStackBB : avgStackBB;
       var mttPhase = 'auto';
       var mttStructureSituation = null;
       var Tax = global.PTFormatTaxonomy;
       var TC = global.PTTournamentContext;
-      if (avgStackBB != null) {
-        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(avgStackBB, hub);
-        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(avgStackBB, hub);
+      if (phaseStackBB != null) {
+        if (TC && TC.phaseFromStackBB) mttPhase = TC.phaseFromStackBB(phaseStackBB, hub);
+        else if (Tax && Tax.phaseFromStackBB) mttPhase = Tax.phaseFromStackBB(phaseStackBB, hub);
       }
       /* HU WTA (2 jugadores, 1 pago): chip EV ≈ $EV — no etiquetar bubble/ICM. */
       var huWta = kind === 'hu' || (left === 2 && paid <= 1) || (seatedN === 2 && paid <= 1);

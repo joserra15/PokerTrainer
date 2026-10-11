@@ -90,6 +90,7 @@
     "test:unit": "node tools/selftest.js",
     "test:hand-analysis": "node tools/test-hand-analysis.js",
     "test:hand-eval-tournament": "node tools/test-hand-eval-tournament-context.js",
+    "test:mtt-short-phase": "node tools/test-mtt-short-phase-hero-stack.js",
     "test:bb-vs-sb": "node tools/test-bb-vs-sb-position.js",
     "test:bluff": "node tools/test-bluff-regression.js",
     "test:exploit-dual": "node tools/test-exploit-dual-verdict.js",
