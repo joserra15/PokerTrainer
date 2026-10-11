@@ -18314,9 +18314,9 @@
       (ok ? 'Óptima' : 'Error') + '</h3>' +
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
-      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
       '<div class="school-lesson-cta school-ra-next-cta">' +
-      '<button type="button" class="btn btn-primary" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-primary btn-block" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
       '<button type="button" class="btn btn-ghost" id="school-ra-abort">Salir de la lección</button>' +
       '</div>';
 
@@ -18495,9 +18495,9 @@
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
       whyHtml +
-      shareHtml +
       '<div class="school-lesson-cta school-mcq-next-cta">' +
-      '<button type="button" class="btn btn-primary" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-primary btn-block" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      shareHtml +
       '<button type="button" class="btn btn-ghost" id="school-mcq-abort">Salir de la lección</button>' +
       '</div>';
 
@@ -22536,9 +22536,9 @@
       '</div>';
     if (actions) {
       var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
-      actions.className = 'actions';
+      actions.className = 'actions school-lesson-cta school-spot-next-cta';
       actions.innerHTML =
-        '<button type="button" class="btn btn-primary" id="school-next-spot">' + nextLabel + '</button>' +
+        '<button type="button" class="btn btn-primary btn-block" id="school-next-spot">' + nextLabel + '</button>' +
         '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
       var next = document.getElementById('school-next-spot');
       var abort = document.getElementById('school-abort-spot');
@@ -22944,14 +22944,22 @@
         ((quiz.teachBack || spot.teachBack)
           ? '<p class="school-spot-teach">' + esc(quiz.teachBack || spot.teachBack) + '</p>'
           : '') +
-        (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml
-          ? global.PTSchoolShare.buildLineQuizShareHtml()
-          : '') +
         '</div>';
+    }
+    if (actions) {
+      var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
+      var shareHtml = (global.PTSchoolShare && global.PTSchoolShare.buildLineQuizShareHtml)
+        ? global.PTSchoolShare.buildLineQuizShareHtml()
+        : '';
+      actions.className = 'actions school-lesson-cta school-spot-next-cta';
+      actions.innerHTML =
+        '<button type="button" class="btn btn-primary btn-block" id="school-next-spot">' + nextLabel + '</button>' +
+        shareHtml +
+        '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
       if (global.PTSchoolShare && global.PTSchoolShare.mountLineQuizShare) {
         try {
           var lesson = Data() && Data().getLesson(s.lessonId);
-          var shareRoot = fb.querySelector('.school-share-line-quiz');
+          var shareRoot = actions.querySelector('.school-share-line-quiz');
           var shareOpts = (quiz.options || []).map(function (opt) {
             return { cards: (opt.cards || []).slice() };
           });
@@ -22973,13 +22981,6 @@
           });
         } catch (eShareQuiz) { /* ignore */ }
       }
-    }
-    if (actions) {
-      var nextLabel = remaining > 0 ? 'Siguiente spot »' : 'Ver resultado »';
-      actions.className = 'actions';
-      actions.innerHTML =
-        '<button type="button" class="btn btn-primary" id="school-next-spot">' + nextLabel + '</button>' +
-        '<button type="button" class="btn btn-ghost" id="school-abort-spot">Salir de la lección</button>';
       var next = document.getElementById('school-next-spot');
       var abort = document.getElementById('school-abort-spot');
       if (next) {

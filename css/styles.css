@@ -2212,6 +2212,36 @@ body.age-gate-open {
 .school-ask-chip:hover { border-color: rgba(47,129,247,.45); }
 .school-lesson-cta { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 .school-lesson-cta .btn { align-self: flex-start; }
+/* Primario de spot: ancho completo; Compartir queda secundario debajo. */
+.school-lesson-cta > .btn-primary.btn-block {
+  align-self: stretch;
+  width: 100%;
+}
+.school-lesson-cta .school-share,
+.school-lesson-cta .school-share-line-quiz,
+.school-lesson-cta .school-share-range-adv,
+.school-lesson-cta .school-share-mcq,
+.school-lesson-cta .school-share-decision,
+.school-lesson-cta .school-share-odds,
+.school-lesson-cta .school-share-blocker {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 0;
+}
+.school-lesson-cta .school-share-actions {
+  display: block;
+}
+.school-lesson-cta .school-share-actions .school-share-btn {
+  width: auto;
+  align-self: flex-start;
+}
+.school-lesson-cta .school-share-status { margin: 6px 0 0; }
+.actions.school-spot-next-cta {
+  justify-content: flex-start;
+  margin-top: 14px;
+}
 .school-gate-msg {
   margin: 0;
   padding: 10px 12px;
@@ -2334,6 +2364,13 @@ body.age-gate-open {
   background: rgba(59, 130, 246, .08);
 }
 .school-share-mcq .school-share-actions .school-share-btn { width: 100%; }
+/* En CTA de spot, Compartir no compite con «Siguiente spot». */
+.school-lesson-cta .school-share-line-quiz .school-share-actions .school-share-btn,
+.school-lesson-cta .school-share-range-adv .school-share-actions .school-share-btn,
+.school-lesson-cta .school-share-mcq .school-share-actions .school-share-btn,
+.school-lesson-cta .school-share-actions .school-share-btn {
+  width: auto;
+}
 .school-mcq-drill .school-mcq-choices { margin-top: 8px; }
 .school-mcq-choice { min-width: 120px; font-weight: 700; }
 .school-mcq-hero { margin: 8px 0 12px; }

@@ -248,9 +248,9 @@
       (ok ? 'Óptima' : 'Error') + '</h3>' +
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
-      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
       '<div class="school-lesson-cta school-ra-next-cta">' +
-      '<button type="button" class="btn btn-primary" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-primary btn-block" id="school-ra-next">' + esc(nextLabel) + '</button>' +
+      (Share && Share.buildRangeAdvShareHtml ? Share.buildRangeAdvShareHtml() : '') +
       '<button type="button" class="btn btn-ghost" id="school-ra-abort">Salir de la lección</button>' +
       '</div>';
 
@@ -429,9 +429,9 @@
       '<p class="school-spot-action">Tu elección: <strong>' + esc(label) + '</strong></p>' +
       '<p class="school-spot-teach">' + esc(teach) + '</p>' +
       whyHtml +
-      shareHtml +
       '<div class="school-lesson-cta school-mcq-next-cta">' +
-      '<button type="button" class="btn btn-primary" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      '<button type="button" class="btn btn-primary btn-block" id="school-mcq-next">' + esc(nextLabel) + '</button>' +
+      shareHtml +
       '<button type="button" class="btn btn-ghost" id="school-mcq-abort">Salir de la lección</button>' +
       '</div>';
 
