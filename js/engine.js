@@ -3790,6 +3790,10 @@
     };
     hand.decisions.push(decision);
     hand.log.push(describeDecision(hand, decision));
+    /* Check-raise: si el raise completa la línea, matizar el check nodal. */
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(hand.decisions);
+    }
 
     // Si hay guion de análisis: el villano sigue la línea real solo mientras
     // el héroe no se desvíe de su acción original.
@@ -5484,6 +5488,9 @@
     }
     hand.stage = 'complete';
     attachReplaySnapshot(hand);
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(hand.decisions);
+    }
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
     const handScoreMeta = (global.GTOScoring && global.GTOScoring.scoreHand)

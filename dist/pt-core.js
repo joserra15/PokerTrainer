@@ -13814,6 +13814,180 @@ window.PT_NASH_PUSH_JSON = {
 })(window);
 
 /*
+ * lineReconcile.js — Matiza veredictos nodales cuando la línea completa es
+ * check-raise (check → raise/all-in en la misma calle).
+ *
+ * El motor puntúa el check en aislamiento (vs bet/check en el nodo libre).
+ * ForgeCoach y la pedagogía tratan check-raise como una sola jugada: si el
+ * follow-through es bueno, no dejar el setup como «imprecisa/error».
+ */
+(function (global) {
+  'use strict';
+
+  const CLASS_RANK = { optima: 0, aceptable: 1, imprecisa: 2, error: 3, unscored: 4 };
+  const GOOD = { optima: true, aceptable: true };
+
+  function actionId(d) {
+    if (!d) return '';
+    return String(d.action || d.chosen || d.chosenAction || '').toLowerCase();
+  }
+
+  function isCheck(act) {
+    return act === 'check';
+  }
+
+  function isRaiseFollowThrough(act) {
+    return act === 'raise' || act === 'allin' || act === 'checkraise' || act === 'check-raise';
+  }
+
+  function isFacingRaise(d) {
+    if (!d) return false;
+    if ((Number(d.toCallBB) || 0) > 0) return true;
+    const v = String(d.villainLastAction || '').toLowerCase();
+    if (v === 'bet' || v === 'raise' || v === 'allin' || v === 'bet_33' || v === 'bet_66'
+      || v === 'bet_100' || v === 'overbet') return true;
+    const kind = String(d.kind || d.spotKind || d.facing || '').toLowerCase();
+    return kind.indexOf('facing') >= 0 || kind === 'vsbet' || kind === 'vs_bet';
+  }
+
+  function heroEquityPct(d) {
+    if (!d) return 0;
+    if (d.heroEquityExact != null && !Number.isNaN(Number(d.heroEquityExact))) {
+      const x = Number(d.heroEquityExact);
+      return x <= 1.0001 ? x * 100 : x;
+    }
+    if (d.heroEquity != null && !Number.isNaN(Number(d.heroEquity))) {
+      const x = Number(d.heroEquity);
+      return x <= 1.0001 ? x * 100 : x;
+    }
+    return 0;
+  }
+
+  function checkFreq(d) {
+    if (!d) return 0;
+    if (d.frequency != null) return Number(d.frequency) || 0;
+    if (d.freqGto != null) return Number(d.freqGto) || 0;
+    const gto = d.gtoBaseline || d.gtoStrategy || d.gto || {};
+    return Number(gto.check) || 0;
+  }
+
+  function primaryClass(d) {
+    return (d && (d.classGto || d.class)) || 'unscored';
+  }
+
+  function isStrongTrap(d) {
+    const eq = heroEquityPct(d);
+    if (eq >= 65) return true;
+    const band = d && d.handRank && d.handRank.band;
+    if (band === 'nuts' || band === 'value') return true;
+    const made = d && (d.madeHandInfo || null);
+    const cat = made && ((made.ev && made.ev.category) || made.category);
+    if (cat != null && Number(cat) >= 2) return true;
+    return false;
+  }
+
+  function upgradeTarget(checkDec, raiseCls) {
+    /* Setup siempre deja de ser fuga si el XR se completa bien. */
+    let target = 'aceptable';
+    /* Con follow-through óptimo y check en mezcla (o trampa fuerte), alinear con ForgeCoach. */
+    if (raiseCls === 'optima') {
+      const freq = checkFreq(checkDec);
+      if (freq >= 0.05 || isStrongTrap(checkDec)) target = 'optima';
+    }
+    return target;
+  }
+
+  function applyClass(d, cls) {
+    if (!d || !cls) return;
+    if (d._rawClass == null && d.class) d._rawClass = d.class;
+    if (d._rawClassGto == null && d.classGto) d._rawClassGto = d.classGto;
+    d.class = cls;
+    if (d.classGto === 'imprecisa' || d.classGto === 'error' || d.classGto == null) {
+      d.classGto = cls;
+    } else if ((CLASS_RANK[d.classGto] || 99) > (CLASS_RANK[cls] || 99)) {
+      d.classGto = cls;
+    }
+    /* El veredicto explotativo no debe contradecir el matiz de línea si era peor. */
+    if (d.classExploit === 'imprecisa' || d.classExploit === 'error') {
+      d.classExploit = cls;
+    }
+  }
+
+  function softenEv(d) {
+    if (!d) return;
+    if (d.evErroneous) {
+      d.evErroneous = false;
+      d.evLossLineSoftened = true;
+    }
+  }
+
+  /**
+   * Mutates decisions in place. Safe to call multiple times.
+   * @returns {{ upgraded: number, pairs: number }}
+   */
+  function reconcileCheckRaiseLines(decisions) {
+    const decs = decisions || [];
+    let upgraded = 0;
+    let pairs = 0;
+
+    for (let i = 0; i < decs.length; i++) {
+      const checkDec = decs[i];
+      if (!checkDec || !isCheck(actionId(checkDec))) continue;
+      if ((Number(checkDec.toCallBB) || 0) > 0) continue;
+
+      let raiseDec = null;
+      for (let j = i + 1; j < decs.length; j++) {
+        const next = decs[j];
+        if (!next) continue;
+        if (next.street && checkDec.street && next.street !== checkDec.street) break;
+        const act = actionId(next);
+        if (isRaiseFollowThrough(act) && isFacingRaise(next)) {
+          raiseDec = next;
+          break;
+        }
+        /* Otra acción del héroe en la misma calle rompe el XR (call/fold/bet). */
+        if (act === 'check' || act === 'call' || act === 'fold' || act === 'bet'
+          || act === 'overbet' || (act.indexOf('bet_') === 0)) {
+          break;
+        }
+      }
+      if (!raiseDec) continue;
+
+      const raiseCls = primaryClass(raiseDec);
+      if (!GOOD[raiseCls]) continue;
+      pairs++;
+
+      checkDec.lineRole = 'checkRaiseSetup';
+      checkDec.lineLabel = 'check-raise';
+      raiseDec.lineRole = 'checkRaiseFollowThrough';
+      raiseDec.lineLabel = 'check-raise';
+
+      const checkCls = primaryClass(checkDec);
+      if (checkCls === 'imprecisa' || checkCls === 'error') {
+        const target = upgradeTarget(checkDec, raiseCls);
+        applyClass(checkDec, target);
+        softenEv(checkDec);
+        checkDec.lineNote = target === 'optima'
+          ? 'Check como setup de check-raise (línea completada con follow-through óptimo).'
+          : 'Check como setup de check-raise (follow-through aceptable/óptimo).';
+        checkDec.suppressBestHint = true;
+        upgraded++;
+      } else if (!checkDec.lineNote) {
+        checkDec.lineNote = 'Check como setup de check-raise.';
+        checkDec.suppressBestHint = checkCls === 'optima' || checkCls === 'aceptable';
+      }
+    }
+
+    return { upgraded: upgraded, pairs: pairs };
+  }
+
+  global.GTOLineReconcile = {
+    reconcileCheckRaiseLines: reconcileCheckRaiseLines,
+    CLASS_RANK: CLASS_RANK
+  };
+})(window);
+
+/*
  * scoring.js — Puntuación 0-100 por decisión y 0-10 por mano.
  */
 (function (global) {
@@ -13970,6 +14144,9 @@ window.PT_NASH_PUSH_JSON = {
   function ensureHandScore(hand) {
     if (!hand) return null;
     const decisions = hand.decisions || [];
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(decisions);
+    }
     const totalEvLoss = hand.totalEvLoss != null
       ? hand.totalEvLoss
       : (hand.result && hand.result.totalEvLoss);
@@ -26532,6 +26709,10 @@ window.PT_NASH_PUSH_JSON = {
     };
     hand.decisions.push(decision);
     hand.log.push(describeDecision(hand, decision));
+    /* Check-raise: si el raise completa la línea, matizar el check nodal. */
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(hand.decisions);
+    }
 
     // Si hay guion de análisis: el villano sigue la línea real solo mientras
     // el héroe no se desvíe de su acción original.
@@ -28226,6 +28407,9 @@ window.PT_NASH_PUSH_JSON = {
     }
     hand.stage = 'complete';
     attachReplaySnapshot(hand);
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(hand.decisions);
+    }
     const totalEvLoss = erroneousEvLoss(hand);
     const errors = hand.decisions.filter((d) => d.class === 'error' || d.class === 'imprecisa');
     const handScoreMeta = (global.GTOScoring && global.GTOScoring.scoreHand)
@@ -44202,10 +44386,15 @@ window.PT_NASH_PUSH_JSON = {
       if (!breakdown || !breakdown.length) breakdown = d.optionBreakdown;
       if ((!breakdown || !breakdown.length) && d.gto) breakdown = mixToBreakdown(d.gto);
       var exploitBreakdown = mixToBreakdown(d.exploitStrategy);
+      var lineTag = '';
+      if (d.lineRole === 'checkRaiseSetup' || d.lineRole === 'checkRaiseFollowThrough') {
+        lineTag = ' <span class="muted" title="Línea check-raise">· XR</span>';
+      }
       html += '<div class="dec-review">' +
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
+        lineTag +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
-      if (d.evLoss > 0) {
+      if (d.evLoss > 0 && !d.evLossLineSoftened) {
         var mp = d.mathParams;
         var evTied = mp && mp.actionEV != null && mp.bestEV != null
           && Math.abs(Number(mp.bestEV) - Number(mp.actionEV)) < 0.05;
@@ -44214,6 +44403,9 @@ window.PT_NASH_PUSH_JSON = {
         }
       }
       html += '</div>';
+      if (d.lineNote) {
+        html += '<div class="muted" style="margin-top:2px;font-size:12px">' + esc(d.lineNote) + '</div>';
+      }
       var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
       var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
       var classDiff = !!(d.classExploit && d.classGto && d.classExploit !== d.classGto);
@@ -49275,6 +49467,8 @@ window.PT_NASH_PUSH_JSON = {
   /** «mejor: X» solo aporta si X no es la acción que ya jugó el héroe. */
   function betterActionHtml(d) {
     if (!d) return '';
+    /* Check-raise reconciliado: no contradecir con «mejor: Apostar» en el setup. */
+    if (d.suppressBestHint || d.lineRole === 'checkRaiseSetup') return '';
     const best = resolveBestId(d.optionBreakdown, d.best);
     if (!best || best === (d.chosen || d.action)) return '';
     return ` <span class="tl-eval muted-text">mejor: ${actionName(best)}</span>`;
@@ -50574,7 +50768,11 @@ window.PT_NASH_PUSH_JSON = {
     if (d.score != null) html += ` <span class="muted-text">· Puntuación ${d.score}/100</span>`;
     html += `</h3>`;
     html += `<div>Elegiste <strong>${escapeHtml(d.label)}</strong>. `;
-    if (d.class === 'optima') {
+    if (d.lineRole === 'checkRaiseSetup' && (d.class === 'optima' || d.class === 'aceptable')) {
+      html += d.lineNote
+        ? escapeHtml(d.lineNote)
+        : `Forma parte de un <strong>check-raise</strong> completado; el nodo suelto pedía más bet, pero la línea completa encaja.`;
+    } else if (d.class === 'optima') {
       html += bestId === d.action
         ? `Es la jugada GTO principal.`
         : `Está dentro de la mezcla GTO principal (la más frecuente es <strong>${bestLabel}</strong>, ${bestPct}%).`;
@@ -50582,6 +50780,9 @@ window.PT_NASH_PUSH_JSON = {
     else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${bestPct}%).`;
     html += `</div>`;
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
+    if (d.lineRole === 'checkRaiseSetup' && d.lineNote && d.class !== 'optima' && d.class !== 'aceptable') {
+      html += `<div class="muted-text" style="margin-top:4px">${escapeHtml(d.lineNote)}</div>`;
+    }
     html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
     {

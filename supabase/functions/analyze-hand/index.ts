@@ -45,6 +45,7 @@ const HAND_READING_RULES = `LECTURA DE LA MANO (obligatorio — hazlo ANTES de e
 
 1. Extrae del JSON: hero.pos, hero.code, hero.cards, board, formatHub/phase/stacks/cover e cada dec[] (st=calle, ch=acción del héroe, ok/cl=evaluación de la app).
 2. Construye la secuencia REAL del héroe calle a calle solo desde dec[]. NO inventes acciones (fold, call, raise, check) que no figuren ahí.
+2b. Si en la misma calle hay check y luego raise/all-in del héroe, trátarlo como **check-raise** (una línea). No critiques el check aislado si el follow-through es bueno; el motor a veces marca el check nodal como impreciso aunque la línea XR sea correcta.
 3. Mano hecha del héroe: calcúlala solo desde hero.cards + board. NO digas "full", "dos parejas", "color", "escalera", etc. sin verificar. Si res.heroHand existe, comprueba que coincide con cartas y board; si no encaja, ignóralo y calcula tú.
 4. Sin showdown (sin vil.show ni res.vilHand fiable), NO afirmes la mano final del villano ni del héroe al river.
 5. vil.line es la línea del villano en notación compacta — úsala para lectura, no para inventar cartas.
