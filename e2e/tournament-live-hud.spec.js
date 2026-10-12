@@ -103,6 +103,15 @@ test.describe('Torneos: HUD en vivo en detalle de jugador', () => {
     await expect(page.locator('.trn-live-hud-lab', { hasText: 'Subido' }).first()).toBeVisible();
     await expect(page.locator('.trn-live-hud-lab', { hasText: 'Resubido' }).first()).toBeVisible();
     await expect(page.locator('.trn-live-hud-lab', { hasText: 'Manos' }).first()).toBeVisible();
+    /* Set B: SVGs nítidos (cartas / ↑ / ↑↑) en las 3 celdas con icono */
+    const strip = page.locator('.trn-modal-player-detail .trn-live-hud-strip').first();
+    await expect(strip.locator('.trn-live-hud-svg')).toHaveCount(3);
+    await expect(strip.locator('.trn-live-hud-jugado .trn-live-hud-svg')).toBeVisible();
+    await expect(strip.locator('.trn-live-hud-subido .trn-live-hud-svg')).toBeVisible();
+    await expect(strip.locator('.trn-live-hud-resubido .trn-live-hud-svg')).toBeVisible();
+    await expect(strip.locator('.trn-live-hud-jugado .trn-live-hud-svg rect')).toHaveCount(2);
+    await expect(strip.locator('.trn-live-hud-subido .trn-live-hud-svg path')).toHaveCount(2);
+    await expect(strip.locator('.trn-live-hud-resubido .trn-live-hud-svg path')).toHaveCount(2);
     /* Manos > 0 en el strip del villano */
     const manosVal = page.locator('.trn-live-hud-manos .trn-live-hud-val').first();
     await expect(manosVal).not.toHaveText('0');

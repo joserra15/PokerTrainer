@@ -8815,22 +8815,25 @@
     };
   }
 
-  /** SVGs Set B: cartas (VPIP), flecha ↑ (PFR), doble flecha (3-bet). currentColor hereda el tono. */
+  /** SVGs Set B: cartas (VPIP), flecha ↑ (PFR), doble chevron (3-bet). currentColor hereda el tono. */
   var HUD_ICONS = {
     jugado:
-      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="16" height="16" focusable="false">' +
-        '<rect x="2.5" y="4.5" width="11" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/>' +
-        '<rect x="10.5" y="4.5" width="11" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/>' +
+      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="18" height="18" focusable="false">' +
+        /* Carta trasera ligeramente desplazada */
+        '<rect x="3" y="3.5" width="11.5" height="15" rx="2" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="1.6"/>' +
+        /* Carta delantera con pip central para leerse como hole cards */
+        '<rect x="9.5" y="5.5" width="11.5" height="15" rx="2" fill="currentColor" fill-opacity="0.12" stroke="currentColor" stroke-width="1.6"/>' +
+        '<circle cx="15.25" cy="13" r="1.6" fill="currentColor"/>' +
       '</svg>',
     subido:
-      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="16" height="16" focusable="false">' +
-        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V6"/>' +
-        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 11.5 12 6l5.5 5.5"/>' +
+      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="18" height="18" focusable="false">' +
+        '<path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V6"/>' +
+        '<path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 11.5 12 6l5.5 5.5"/>' +
       '</svg>',
     resubido:
-      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="16" height="16" focusable="false">' +
-        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 13 12 7.5 17.5 13"/>' +
-        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 19 12 13.5 17.5 19"/>' +
+      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="18" height="18" focusable="false">' +
+        '<path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 12.5 12 7l5.5 5.5"/>' +
+        '<path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 19 12 13.5 17.5 19"/>' +
       '</svg>',
     manos: ''
   };
