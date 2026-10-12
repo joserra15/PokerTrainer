@@ -76,6 +76,20 @@
       '</div></div>';
   }
 
+  /** Marca el botón Continuar como ocupado (redecilla) sin repintar toda la mesa. */
+  function markContinueHandBusy() {
+    if (!ui.root) return;
+    var btn = ui.root.querySelector('[data-act="continue-hand"]');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.classList.add('is-busy');
+    if (!btn.querySelector('.trn-think-clock')) {
+      btn.insertAdjacentHTML('afterbegin',
+        '<span class="trn-think-clock" aria-hidden="true"></span>');
+    }
+  }
+
   /** Continuar tras fin de mano; si el héroe está eliminado, muestra aviso y cede un frame. */
   function continueAfterHandWithNotice() {
     if (!ui.state || !global.PTTournamentRunner) {
@@ -95,19 +109,25 @@
       });
     }
 
-    if (!needsNotice) {
-      runContinue();
+    function yieldThenContinue() {
+      var yieldFn = typeof requestAnimationFrame === 'function'
+        ? requestAnimationFrame
+        : function (cb) { setTimeout(cb, 0); };
+      yieldFn(function () {
+        setTimeout(runContinue, 0);
+      });
+    }
+
+    if (needsNotice) {
+      ui.simulatingRest = true;
+      paint();
+      yieldThenContinue();
       return;
     }
 
-    ui.simulatingRest = true;
-    paint();
-    var yieldFn = typeof requestAnimationFrame === 'function'
-      ? requestAnimationFrame
-      : function (cb) { setTimeout(cb, 0); };
-    yieldFn(function () {
-      setTimeout(runContinue, 0);
-    });
+    /* Pintar la redecilla en el botón antes del trabajo síncrono (mesas / deal). */
+    markContinueHandBusy();
+    yieldThenContinue();
   }
 
   function trnT(key, fallback) {
@@ -2450,8 +2470,11 @@ function reducedMotion() {
       simRestOverlay = simulatingRestOverlayHtml();
     } else if (hand && hand.stage === 'complete' && hand.result) {
       try {
-        var OtherBg = global.PTTournamentOtherTables;
-        if (OtherBg && OtherBg.boostPriority) OtherBg.boostPriority(state);
+        /* Con Continuar en curso no vaciar satélites aquí: ya lo hará commitPending. */
+        if (!ui.actionBusy) {
+          var OtherBg = global.PTTournamentOtherTables;
+          if (OtherBg && OtherBg.boostPriority) OtherBg.boostPriority(state);
+        }
       } catch (eBoost) { /* */ }
       handEndModal = renderHandEndModal(hand, state, bb);
     }
@@ -2691,18 +2714,25 @@ function reducedMotion() {
       ? ('<p class="trn-sim-rest-note muted">' + esc(trnT('trn.simulatingRestHint',
         'Tu puesto ya está fijado. Al continuar se simula el final del field.')) + '</p>')
       : '';
+    var continueBusy = !!ui.actionBusy;
+    var continueBtn = '<button type="button" class="btn btn-primary' +
+      (continueBusy ? ' is-busy' : '') + '" data-act="continue-hand"' +
+      (continueBusy ? ' disabled aria-busy="true"' : '') + '>' +
+      (continueBusy ? '<span class="trn-think-clock" aria-hidden="true"></span>' : '') +
+      esc(continueLabel) + '</button>';
 
     return '<div class="trn-modal-backdrop trn-hand-end-backdrop" data-act="noop">' +
       '<div class="trn-modal trn-hand-end-modal trn-hand-end-modal-rich" role="dialog" aria-modal="true" data-act="noop">' +
       '<div class="trn-hand-end-scroll">' + rich + simNote + '</div>' +
       '<div class="trn-hand-end-actions">' +
-      '<button type="button" class="btn" data-act="toggle-hand-detail">' +
+      '<button type="button" class="btn" data-act="toggle-hand-detail"' +
+      (continueBusy ? ' disabled' : '') + '>' +
       (ui.handDetailOpen ? 'Ocultar detalle GTO' : 'Ver detalle GTO') + '</button>' +
       '<button type="button" class="btn" data-act="hand-end-review"' +
       (analyzed && analyzed.id ? (' data-hand-id="' + esc(analyzed.id) + '"') : '') +
+      (continueBusy ? ' disabled' : '') +
       '>Paso a paso</button>' +
-      '<button type="button" class="btn btn-primary" data-act="continue-hand">' +
-      esc(continueLabel) + '</button>' +
+      continueBtn +
       '</div></div></div>';
   }
 
