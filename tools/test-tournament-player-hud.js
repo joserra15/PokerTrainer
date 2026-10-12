@@ -169,6 +169,10 @@ assert.strictEqual(typeof Hud.renderStripHtml, 'function');
   assert.ok(html.indexOf('Manos') >= 0);
   assert.ok(html.indexOf('28,5%') >= 0 || html.indexOf('28.5%') >= 0);
   assert.ok(html.indexOf('—') >= 0, 'missing 3bet shows dash');
+  assert.ok((html.match(/trn-live-hud-svg/g) || []).length === 3,
+    'Set B: 3 SVG icons (jugado/subido/resubido)');
+  assert.ok(html.indexOf('<rect') >= 0, 'jugado uses card rects');
+  assert.ok(html.indexOf('<path') >= 0, 'subido/resubido use arrow paths');
 }
 
 /* --- multipliers use targetSessionStats --- */

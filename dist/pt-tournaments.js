@@ -8815,6 +8815,26 @@
     };
   }
 
+  /** SVGs Set B: cartas (VPIP), flecha ↑ (PFR), doble flecha (3-bet). currentColor hereda el tono. */
+  var HUD_ICONS = {
+    jugado:
+      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="16" height="16" focusable="false">' +
+        '<rect x="2.5" y="4.5" width="11" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/>' +
+        '<rect x="10.5" y="4.5" width="11" height="15" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.75"/>' +
+      '</svg>',
+    subido:
+      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="16" height="16" focusable="false">' +
+        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V6"/>' +
+        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 11.5 12 6l5.5 5.5"/>' +
+      '</svg>',
+    resubido:
+      '<svg class="trn-live-hud-svg" viewBox="0 0 24 24" width="16" height="16" focusable="false">' +
+        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 13 12 7.5 17.5 13"/>' +
+        '<path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6.5 19 12 13.5 17.5 19"/>' +
+      '</svg>',
+    manos: ''
+  };
+
   /** HTML de la franja Jugado / Subido / Resubido / Manos. */
   function renderStripHtml(snap, opts) {
     opts = opts || {};
@@ -8832,8 +8852,11 @@
     var html = '<div class="trn-live-hud-strip"' +
       (opts.compact ? ' data-compact="1"' : '') + ' role="group" aria-label="Estadísticas en vivo">';
     cells.forEach(function (c) {
+      var icon = HUD_ICONS[c.cls] || '';
       html += '<div class="trn-live-hud-cell trn-live-hud-' + c.cls + '" data-tone="' + c.tone + '">' +
-        '<div class="trn-live-hud-icon" aria-hidden="true"></div>' +
+        (icon
+          ? '<div class="trn-live-hud-icon" aria-hidden="true">' + icon + '</div>'
+          : '<div class="trn-live-hud-icon" aria-hidden="true"></div>') +
         '<div class="trn-live-hud-val">' + c.val + '</div>' +
         '<div class="trn-live-hud-lab">' + c.lab + '</div>' +
         '</div>';
