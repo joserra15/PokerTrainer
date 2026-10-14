@@ -1,4 +1,4 @@
-# Captions — Farol Quiz (30 casos)
+# Captions — Farol Quiz (50 casos)
 
 CTA: comenta A, B o C · ¿con cuál faroleas? · pokerforgeai.com
 
@@ -34,6 +34,26 @@ CTA: comenta A, B o C · ¿con cuál faroleas? · pokerforgeai.com
 28 · Raise river A-high
 29 · Overbet miss OESD
 30 · Donk + overbet clubs
+31 · JT9: ¿K8 bloquea las dos nuts?
+32 · Turn barrel: nut FD
+33 · A en board: overbet con Ks
+34 · T98: Q7 miss OESD
+35 · XR turn con Ah
+36 · Donk river: ¿Kd o Td?
+37 · Turn barrel clubs: Ac
+38 · XR river: bloquea JT
+39 · Multiway→HU: Ks
+40 · A+K board: farolea 98s
+41 · 3-bet jam turn FD
+42 · 976 overbet: ¿T5?
+43 · SB lead: Ah blocker
+44 · Delayed turn: 95 blocker
+45 · Triple barrel Ad
+46 · Float → river Ks
+47 · Raise river Ac
+48 · Jam turn: 98s OESD+FD
+49 · Delayed turn Q7
+50 · XR con A+K: 65s
 
 ---
 

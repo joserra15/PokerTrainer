@@ -394,7 +394,7 @@ def validate_case(case: dict):
 
 def main():
     cases = json.loads(DATA.read_text(encoding="utf-8"))
-    assert len(cases) == 30
+    assert len(cases) >= 30
     puzzles = OUT / "puzzles"
     solutions = OUT / "soluciones"
     puzzles.mkdir(parents=True, exist_ok=True)
@@ -409,24 +409,27 @@ def main():
         s.save(solutions / f"{n:02d}-solucion.jpg", "JPEG", quality=92, optimize=True)
         print(f"OK {n:02d}")
 
+    n_total = len(cases)
     lines = [
-        "# Farol Quiz — 30 casos Instagram",
+        f"# Farol Quiz — {n_total} casos Instagram",
         "",
-        "Puzzles y soluciones numerados en archivo (01–30). **Sin número en la imagen.**",
+        f"Puzzles y soluciones numerados en archivo (01–{n_total:02d}). **Sin número en la imagen.**",
         "Pregunta: ¿Con qué faroleas mejor? Cartas: mazo de cuatro colores.",
         "",
-        "| # | Tag | Línea clave | Respuesta |",
-        "|---|-----|-------------|-----------|",
+        "**Antes de hacer más:** lee [`CRITERIOS.md`](CRITERIOS.md).",
+        "",
+        "| # | Tag | Respuesta |",
+        "|---|-----|-----------|",
     ]
     for c in cases:
         ans = c["options"][c["answer"]]["label"]
-        lines.append(f"| {c['n']:02d} | {c['tag']} | {c['villainPos']} vs {c['heroPos']} | **{ans}** |")
+        lines.append(f"| {c['n']:02d} | {c['tag']} | **{ans}** |")
     lines += [
         "",
         "## Archivos",
-        "- `puzzles/NN-puzzle.jpg`",
-        "- `soluciones/NN-solucion.jpg`",
-        "- `casos.json` — fuente regenerable",
+        "- `CRITERIOS.md` — reglas de diseño y contenido",
+        "- `puzzles/NN-puzzle.jpg` / `soluciones/NN-solucion.jpg`",
+        "- `casos.json` · `CAPTIONS.md`",
         "",
         "Regenerar: `python3 tools/instagram-farol-quiz-assets.py`",
         "",

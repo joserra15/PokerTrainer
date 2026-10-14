@@ -13,10 +13,18 @@ Misma base visual que [`../09-villano-quiz/CRITERIOS.md`](../09-villano-quiz/CRI
 
 ## Idea del spot
 
-- Llegas a un punto (casi siempre **river**) donde toca **farolear**.
-- Las **3 opciones son aire** (sin pareja / sin escalera / sin color hecho).
-- La correcta es la que **mejor bloquea value/nuts** del rival (y no bloquea basura que ya tiraba).
+- Llegas a un punto (**river** o **turn**) donde toca **farolear** o **semibluff**.
+- Las **3 opciones son aire** (sin pareja / sin escalera / sin color hecho). En turn pueden tener equity (FD/OESD) pero sin mano hecha.
+- La correcta es la que **mejor bloquea value/nuts** del rival (y no bloquea basura que ya tiraba), o la mejor semibluff (equity + blocker).
 - Una respuesta clara aunque invite a debate.
+
+## Variedad y coherencia de rango
+
+- **No repetir siempre A5/K5** como respuesta: rotar blockers (Kx de color, Q7/K8 de escalera, Ax distintos, low air, draws…).
+- **Rotar índice de respuesta** (A/B/C): no siempre la correcta en la opción A.
+- **Opciones en rango de la línea:** cada mano candidata debe ser creíble para esa posición y acción (open/call/3-bet/float/barrel). Evitar basura tipo 72o que nunca llega a ese spot.
+- Mezclar **river bluffs** y **turn bluffs/semibluffs** (probe, delayed barrel, XR turn, jam con FD/OESD).
+- Línea héroe/villano coherente: sizing, stacks y calles previas deben encajar con el farol propuesto.
 
 ## Layout
 
@@ -73,3 +81,5 @@ python3 tools/instagram-farol-quiz-assets.py
 - Farol con Ax cuando hay A en board (harías pareja)
 - En 4-flush board, «blocker» del palo = flush hecho (usa board de 3 al color)
 - Solo triple barrels; solo flushes; always answer A
+- Siempre A5o/K5o como correcta
+- Opción fuera de rango (mano que no open/call/continúa esa línea)
