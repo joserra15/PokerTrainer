@@ -15503,42 +15503,43 @@
   ];
 
   PACKS['O-01'] = [
-    oddsSpot('o01-01', 85001, 100, 50, 'Flush draw · 9 outs', ['Ah', 'Kh'], ['Qh', '7h', '2c', 'Jd'], 'yes',
-      'Pot 100 + bet 50 → call 50 para ganar 150. Necesitas 25 %; 9 outs ≈ 35 % en turn. Call correcto.',
-      { requiredPct: 25, equityPct: 35 }),
-    oddsSpot('o01-02', 85002, 80, 80, 'OESD · 8 outs', ['9h', '8d'], ['Ts', '7c', '2h', '3d'], 'yes',
-      'Pot 80 + bet 80 → call 80 para ganar 160. Necesitas 33 %; 8 outs ≈ 31–32 % + implied. Call marginal/sí.',
-      { requiredPct: 33, equityPct: 32 }),
-    oddsSpot('o01-03', 85003, 100, 100, 'Gutshot · 4 outs', ['Jh', 'Td'], ['Qs', '8c', '2h', '3d'], 'no',
-      'Pot 100 + bet 100 → necesitas 33 %. 4 outs ≈ 17 %. Fold claro sin implied odds.',
+    /* Boards de 4 cartas = turn: solo queda 1 carta → regla outs×2 (~outs/46), no outs×4. */
+    oddsSpot('o01-01', 85001, 100, 50, 'Flush draw · 9 outs', ['Ah', 'Kh'], ['Qh', '7h', '2c', 'Jd'], 'depends',
+      'Pot 100 + bet 50 → call 50 para ganar 150. Necesitas 25 %; 9 outs ≈ 19 % en turn (solo river). Sin precio directo; call solo si hay implied odds reales.',
+      { requiredPct: 25, equityPct: 19 }),
+    oddsSpot('o01-02', 85002, 80, 80, 'OESD · 8 outs', ['9h', '8d'], ['Ts', '7c', '2h', '3d'], 'no',
+      'Pot 80 + bet 80 → call 80 para ganar 160. Necesitas 33 %; 8 outs ≈ 17 % en turn. Fold: no alcanzas el precio.',
       { requiredPct: 33, equityPct: 17 }),
+    oddsSpot('o01-03', 85003, 100, 100, 'Gutshot · 4 outs', ['Jh', 'Td'], ['Qs', '8c', '2h', '3d'], 'no',
+      'Pot 100 + bet 100 → necesitas 33 %. 4 outs ≈ 9 % en turn. Fold claro sin implied odds.',
+      { requiredPct: 33, equityPct: 9 }),
     oddsSpot('o01-04', 85004, 120, 40, 'Flush draw · 9 outs', ['Kh', 'Qh'], ['Ah', '9h', '3c', '5d'], 'yes',
-      'Pot 120 + bet 40 → call 40 para ganar 160. Necesitas 20 %; flush draw supera. Call fácil.',
-      { requiredPct: 20, equityPct: 35 }),
+      'Pot 120 + bet 40 → call 40 para ganar 160. Necesitas 20 %; 9 outs ≈ 19 % en turn. Call justo por precio.',
+      { requiredPct: 20, equityPct: 19 }),
     oddsSpot('o01-05', 85005, 60, 90, 'Par + flush draw · 12 outs', ['Ah', '5h'], ['Kh', '7h', '2c', '9d'], 'depends',
-      'Pot 60 + bet 90 → necesitas 37,5 %. Combo draw puede acercarse, pero bet grande pide implied odds reales.',
-      { requiredPct: 38, equityPct: 40 }),
-    oddsSpot('o01-06', 85006, 200, 50, 'Two overcards · 6 outs', ['Ah', 'Kd'], ['Qs', '8c', '3h', '2d'], 'yes',
-      'Pot 200 + bet 50 → call 50 para ganar 250. Necesitas ~17 %. 6 outs ≈ 24 % en turn. Call correcto por precio (bet pequeño, no grande).',
-      { requiredPct: 17, equityPct: 24 }),
+      'Pot 60 + bet 90 → necesitas 37,5 %. 12 outs ≈ 26 % en turn: corto vs pot odds; bet grande pide implied odds reales.',
+      { requiredPct: 38, equityPct: 26 }),
+    oddsSpot('o01-06', 85006, 200, 50, 'Two overcards · 6 outs', ['Ah', 'Kd'], ['Qs', '8c', '3h', '2d'], 'depends',
+      'Pot 200 + bet 50 → call 50 para ganar 250. Necesitas ~17 %. 6 outs ≈ 13 % en turn: corto; call solo con implied (stacks/oponente).',
+      { requiredPct: 17, equityPct: 13 }),
     oddsSpot('o01-07', 85007, 90, 30, 'Flush draw · 9 outs', ['Th', '9h'], ['Kh', 'Qh', '2c', '4d'], 'yes',
-      'Pot 90 + bet 30 → call 30 para ganar 120. Necesitas 20 %. Flush draw claro → call.',
-      { requiredPct: 20, equityPct: 35 }),
+      'Pot 90 + bet 30 → call 30 para ganar 120. Necesitas 20 %. 9 outs ≈ 19 % en turn → call justo.',
+      { requiredPct: 20, equityPct: 19 }),
     oddsSpot('o01-08', 85008, 100, 150, 'Par medio · 5 outs', ['8h', '7d'], ['Ks', 'Qc', '8s', '2h', 'Jd'], 'no',
       'Pot 100 + bet 150 → necesitas 37,5 %. Par medio de 8 en KQ8-2-J vs overbet river: fold — no tienes precio ni outs reales.',
-      { requiredPct: 38, equityPct: 20 }),
-    oddsSpot('o01-09', 85009, 70, 35, 'OESD · 8 outs', ['Jc', 'Tc'], ['9s', '8d', '2h', 'Ah'], 'yes',
-      'Pot 70 + bet 35 → call 35 para ganar 105. Necesitas 25 %. OESD encaja → call.',
-      { requiredPct: 25, equityPct: 32 }),
+      { requiredPct: 38, equityPct: 0 }),
+    oddsSpot('o01-09', 85009, 70, 35, 'OESD · 8 outs', ['Jc', 'Tc'], ['9s', '8d', '2h', 'Ah'], 'depends',
+      'Pot 70 + bet 35 → call 35 para ganar 105. Necesitas 25 %. 8 outs ≈ 17 % en turn: corto; depende de implied odds.',
+      { requiredPct: 25, equityPct: 17 }),
     oddsSpot('o01-10', 85010, 50, 100, 'Flush draw · 9 outs', ['7h', '6h'], ['Kh', '9h', '2c', '3d'], 'no',
-      'Pot 50 + bet 100 → necesitas 40 %. 9 outs ≈ 35 % sin contar reverse. Fold vs overbet.',
-      { requiredPct: 40, equityPct: 35 }),
+      'Pot 50 + bet 100 → necesitas 40 %. 9 outs ≈ 19 % en turn (y reverse). Fold vs overbet.',
+      { requiredPct: 40, equityPct: 19 }),
     oddsSpot('o01-11', 85011, 110, 55, 'Combo draw · 15 outs', ['Ah', '5h'], ['Kh', 'Qh', 'Jc', '2d'], 'yes',
-      'Pot 110 + bet 55 → necesitas 25 %. Nut flush draw + gutshot/overs supera el precio → call.',
-      { requiredPct: 25, equityPct: 45 }),
+      'Pot 110 + bet 55 → necesitas 25 %. 15 outs ≈ 33 % en turn (nut FD + gutshot/overs) → call.',
+      { requiredPct: 25, equityPct: 33 }),
     oddsSpot('o01-12', 85012, 100, 25, 'Gutshot + overcard · 7 outs', ['Ah', 'Td'], ['Ks', 'Qc', 'Jh', '2d'], 'depends',
-      'Pot 100 + bet 25 → call 25 para ganar 125. Necesitas ~17 %. 7 outs ≈ 28 % pero river-only. Depende de implied; aquí call ligero.',
-      { requiredPct: 17, equityPct: 28 })
+      'Pot 100 + bet 25 → call 25 para ganar 125. Necesitas ~17 %. 7 outs ≈ 15 % en turn (solo river). Depende de implied.',
+      { requiredPct: 17, equityPct: 15 })
   ];
 
   /*
@@ -15744,12 +15745,12 @@
       concept: 'Pot odds (precio del bote) te dicen qué % de equity necesitas para call rentable. Compara ese % con tus outs antes de igualar.',
       theory: [
         'Fórmula: % necesario = call / (pot + bet + call). Ejemplo: pot 100, bet 50 → call 50 para ganar 200 → necesitas 25 %.',
-        'Outs (cartas que mejoran tu mano): flush draw ≈ 9, OESD ≈ 8, gutshot ≈ 4. Regla rápida turn: outs × 2 ≈ % equity.',
+        'Outs: flush draw ≈ 9, OESD ≈ 8, gutshot ≈ 4. Flop (2 cartas por salir): outs × 4 ≈ %. Turn (solo river): outs × 2 ≈ % — no uses el 35 % del flop en turn.',
         'Implied odds: si esperas ganar más cuando conectes, puedes call con menos equity directa. «Depende» = implied reales.'
       ],
       examples: [{
-        title: 'Flush draw vs bet pequeño',
-        body: 'Pot 100, bet 40 → necesitas 20 %. Flush draw (~35 %) → call claro.'
+        title: 'Flush draw en turn vs bet pequeño',
+        body: 'Pot 120, bet 40 → necesitas 20 %. 9 outs en turn ≈ 19 % → call justo. El ~35 % es flop→river (2 calles), no turn.'
       }],
       aiQuestions: [
         '¿Cómo calculas pot odds en una frase?',
