@@ -79,6 +79,7 @@ const STEPS = [
   ['Test river equity polarizada (bluff-catch)', ['node', 'tools/test-river-equity-polar.js']],
   ['Test river overbet nuts (EV + resultado real)', ['node', 'tools/test-river-overbet-nuts.js']],
   ['Test hand score 0–10', ['node', 'tools/test-hand-score.js']],
+  ['Test check-raise line reconcile', ['node', 'tools/test-check-raise-line-reconcile.js']],
   ['Test share-hand HTML', ['node', 'tools/test-share-hand.js']],
   ['Test landing i18n', ['node', 'tools/test-landing-i18n.js']],
   ['Test landing login CTA', ['node', 'tools/test-landing-login-cta.js']],

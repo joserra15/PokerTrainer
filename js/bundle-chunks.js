@@ -46,6 +46,7 @@
     'js/engine/scoring/classifier.js',
     'js/engine/scoring/icmEv.js',
     'js/engine/scoring/evLoss.js',
+    'js/engine/scoring/lineReconcile.js',
     'js/engine/scoring/scoring.js',
     'js/engine/scoring/errors.js',
     'js/engine/explanations/rules.js',
