@@ -1180,6 +1180,10 @@ FILES.forEach(function (f) { load(g, f); });
     'simulating-rest overlay markup');
   assert.ok(cssSrc.includes('trn-sim-rest-backdrop') && cssSrc.includes('trn-sim-rest-modal'),
     'simulating-rest CSS');
+  assert.ok(uiSrc.includes('markContinueHandBusy') && uiSrc.includes('yieldThenContinue'),
+    'Continuar muestra busy + cede frame antes del motor');
+  assert.ok(cssSrc.includes('.trn-hand-end-actions .btn.is-busy'),
+    'Continuar busy CSS');
 }
 console.log('OK blind-popup-source');
 

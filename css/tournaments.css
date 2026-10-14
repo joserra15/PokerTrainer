@@ -2290,6 +2290,23 @@ body[data-table-speed="normal"] .trn-think-clock {
   text-align: center;
 }
 
+/* Continuar ocupado: redecilla en el botón mientras aplica mano / satélites / deal */
+.trn-hand-end-actions .btn.is-busy,
+.trn-hand-end-actions .btn[aria-busy="true"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  opacity: 0.92;
+  pointer-events: none;
+  cursor: wait;
+}
+
+.trn-hand-end-actions .btn.is-busy .trn-think-clock {
+  width: 14px;
+  height: 14px;
+}
+
 .trn-anim-actions .btn-skip-anim {
   background: rgba(255, 255, 255, .07);
   border: 1px solid rgba(255, 255, 255, .18);
