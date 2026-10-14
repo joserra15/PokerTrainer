@@ -13,7 +13,7 @@ const storageSrc = fs.readFileSync(path.join(root, 'js/storage.js'), 'utf8');
 const appSrc = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
 const ciSrc = fs.readFileSync(path.join(root, 'tools/run-ci-tests.js'), 'utf8');
 
-assert.ok(/PT_BUILD\s*=\s*'3\.2\.3'/.test(version), 'versión 3.2.3');
+assert.ok(/PT_BUILD\s*=\s*'3\.2\.4'/.test(version), 'versión 3.2.4');
 assert.ok(/mergeDailySpotProgress/.test(storageSrc), 'merge dailySpot en storage');
 assert.ok(/hasSchoolProgress/.test(cloudSrc), 'cloud hasSchoolProgress');
 assert.ok(/hasSchoolProgress\(val\)/.test(cloudSrc), 'hasLocalData cuenta Escuela');
@@ -300,6 +300,60 @@ sandbox.window.PTSchool.refreshFromCloud();
   const snap = Store.getCloudSnapshot();
   assert.ok(snap.stats && snap.stats.school && snap.stats.school.dailySpot,
     'snapshot nube incluye dailySpot');
+})();
+
+/* Tras perder la racha, el merge no debe restaurar el contador antiguo. */
+(function testBrokenStreakRestartWinsOverCloud() {
+  Store.saveSchoolProgress({
+    xp: 20,
+    lessons: {},
+    dailySpot: {
+      lastDay: '2026-09-01',
+      completed: true,
+      correct: true,
+      streak: 12,
+      best: 12,
+      total: 12
+    },
+    updatedAt: 300,
+    version: 2
+  });
+  Store.mergeFromCloud({
+    history: [],
+    errors: [],
+    stats: {
+      handsPlayed: 0,
+      decisions: 0,
+      optima: 0,
+      aceptable: 0,
+      imprecisa: 0,
+      error: 0,
+      totalEvLoss: 0,
+      totalNet: 0,
+      byStreet: {},
+      updatedAt: 400,
+      school: {
+        xp: 35,
+        lessons: {},
+        dailySpot: {
+          lastDay: '2026-09-05',
+          completed: true,
+          correct: true,
+          streak: 1,
+          best: 12,
+          total: 13
+        },
+        updatedAt: 400,
+        version: 2
+      }
+    }
+  });
+  const ds = Store.getStats().school && Store.getStats().school.dailySpot;
+  assert.ok(ds, 'dailySpot tras reinicio con hueco');
+  assert.strictEqual(ds.lastDay, '2026-09-05', 'día del reinicio gana');
+  assert.strictEqual(ds.streak, 1, 'racha reinicia en 1; no Math.max con la antigua');
+  assert.strictEqual(ds.best, 12, 'best histórico se conserva');
+  assert.strictEqual(ds.total, 13, 'total suma intentos');
 })();
 
 console.log('*** school-progress-sync OK ***');
