@@ -152,10 +152,15 @@
       if (!breakdown || !breakdown.length) breakdown = d.optionBreakdown;
       if ((!breakdown || !breakdown.length) && d.gto) breakdown = mixToBreakdown(d.gto);
       var exploitBreakdown = mixToBreakdown(d.exploitStrategy);
+      var lineTag = '';
+      if (d.lineRole === 'checkRaiseSetup' || d.lineRole === 'checkRaiseFollowThrough') {
+        lineTag = ' <span class="muted" title="Línea check-raise">· XR</span>';
+      }
       html += '<div class="dec-review">' +
         '<div class="dec-head"><strong>' + esc(cap(d.street)) + '</strong> · ' + esc(label) +
+        lineTag +
         ' <span class="verdict ' + esc(cls) + '">' + esc(verdictWord(cls)) + '</span>';
-      if (d.evLoss > 0) {
+      if (d.evLoss > 0 && !d.evLossLineSoftened) {
         var mp = d.mathParams;
         var evTied = mp && mp.actionEV != null && mp.bestEV != null
           && Math.abs(Number(mp.bestEV) - Number(mp.actionEV)) < 0.05;
@@ -164,6 +169,9 @@
         }
       }
       html += '</div>';
+      if (d.lineNote) {
+        html += '<div class="muted" style="margin-top:2px;font-size:12px">' + esc(d.lineNote) + '</div>';
+      }
       var gtoPct = d.freqGto != null ? Math.round(Number(d.freqGto) * 1000) / 10 : null;
       var exPct = d.freqExploit != null ? Math.round(Number(d.freqExploit) * 1000) / 10 : null;
       var classDiff = !!(d.classExploit && d.classGto && d.classExploit !== d.classGto);

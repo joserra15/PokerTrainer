@@ -4687,6 +4687,8 @@
   /** «mejor: X» solo aporta si X no es la acción que ya jugó el héroe. */
   function betterActionHtml(d) {
     if (!d) return '';
+    /* Check-raise reconciliado: no contradecir con «mejor: Apostar» en el setup. */
+    if (d.suppressBestHint || d.lineRole === 'checkRaiseSetup') return '';
     const best = resolveBestId(d.optionBreakdown, d.best);
     if (!best || best === (d.chosen || d.action)) return '';
     return ` <span class="tl-eval muted-text">mejor: ${actionName(best)}</span>`;
@@ -5986,7 +5988,11 @@
     if (d.score != null) html += ` <span class="muted-text">· Puntuación ${d.score}/100</span>`;
     html += `</h3>`;
     html += `<div>Elegiste <strong>${escapeHtml(d.label)}</strong>. `;
-    if (d.class === 'optima') {
+    if (d.lineRole === 'checkRaiseSetup' && (d.class === 'optima' || d.class === 'aceptable')) {
+      html += d.lineNote
+        ? escapeHtml(d.lineNote)
+        : `Forma parte de un <strong>check-raise</strong> completado; el nodo suelto pedía más bet, pero la línea completa encaja.`;
+    } else if (d.class === 'optima') {
       html += bestId === d.action
         ? `Es la jugada GTO principal.`
         : `Está dentro de la mezcla GTO principal (la más frecuente es <strong>${bestLabel}</strong>, ${bestPct}%).`;
@@ -5994,6 +6000,9 @@
     else html += `La jugada de mayor frecuencia GTO era <strong>${bestLabel}</strong> (${bestPct}%).`;
     html += `</div>`;
     if (d.frequency != null) html += `<div class="muted-text" style="margin-top:4px">Frecuencia GTO de tu acción: ${Math.round(d.frequency * 100)}%</div>`;
+    if (d.lineRole === 'checkRaiseSetup' && d.lineNote && d.class !== 'optima' && d.class !== 'aceptable') {
+      html += `<div class="muted-text" style="margin-top:4px">${escapeHtml(d.lineNote)}</div>`;
+    }
     html += renderDecisionContextLine(d);
     html += renderDecisionMath(d);
     {

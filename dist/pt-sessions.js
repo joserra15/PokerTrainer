@@ -3574,6 +3574,9 @@
       recomputeHeroNet(hand);
       return hand;
     }
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(hand.decisions);
+    }
     let totalEvLoss = GTO.EvLoss.totalEvLossFromDecisions(hand.decisions);
     const byStreet = {};
     hand.decisions.forEach((d) => {
@@ -3740,6 +3743,11 @@
     // Comparativa vs rango GTO genérico (población) en spots RFI
     if (global.PTPopulationCompare && global.PTPopulationCompare.annotateDecisions) {
       global.PTPopulationCompare.annotateDecisions(hand, decisions);
+    }
+
+    // Check-raise: matizar check nodal si el follow-through es bueno
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(decisions);
     }
 
     // EV y acierto

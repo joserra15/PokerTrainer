@@ -155,6 +155,9 @@
   function ensureHandScore(hand) {
     if (!hand) return null;
     const decisions = hand.decisions || [];
+    if (global.GTOLineReconcile && global.GTOLineReconcile.reconcileCheckRaiseLines) {
+      global.GTOLineReconcile.reconcileCheckRaiseLines(decisions);
+    }
     const totalEvLoss = hand.totalEvLoss != null
       ? hand.totalEvLoss
       : (hand.result && hand.result.totalEvLoss);
