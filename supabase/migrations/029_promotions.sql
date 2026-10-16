@@ -119,19 +119,22 @@ security definer
 set search_path = public
 as $$
 declare
-  code text := public.pt_promo_normalize_code(p_code);
-  p public.pt_promotions;
+  v_code text := public.pt_promo_normalize_code(p_code);
+  promo public.pt_promotions;
 begin
-  if code = '' then
+  if v_code = '' then
     return json_build_object('ok', false, 'error', 'missing_code');
   end if;
 
-  select * into p from public.pt_promotions where pt_promotions.code = code;
+  select * into promo
+  from public.pt_promotions
+  where pt_promotions.code = v_code;
+
   if not found then
     return json_build_object('ok', false, 'error', 'not_found');
   end if;
 
-  return public.pt_promo_public_json(p);
+  return public.pt_promo_public_json(promo);
 end;
 $$;
 
@@ -155,12 +158,21 @@ begin
   into rows
   from (
     select
-      id, code, title, description, plan,
-      public.pt_promo_plan_label(plan) as plan_label,
-      plan_duration_months, bonus_credits,
-      max_redemptions, used_count, is_active,
+      p.id,
+      p.code,
+      p.title,
+      p.description,
+      p.plan,
+      public.pt_promo_plan_label(p.plan) as plan_label,
+      p.plan_duration_months,
+      p.bonus_credits,
+      p.max_redemptions,
+      p.used_count,
+      p.is_active,
       public.pt_promo_is_available(p) as available,
-      created_by, created_at, updated_at
+      p.created_by,
+      p.created_at,
+      p.updated_at
     from public.pt_promotions p
   ) x;
 
@@ -187,53 +199,55 @@ set search_path = public
 as $$
 declare
   uid text := auth.uid()::text;
-  code text;
-  plan text := nullif(trim(coalesce(p_plan, '')), '');
-  bonus int := coalesce(p_bonus_credits, 0);
-  months int := p_plan_duration_months;
-  title text := trim(coalesce(p_title, ''));
-  descr text := trim(coalesce(p_description, ''));
-  max_n int := coalesce(p_max_redemptions, 100);
-  p public.pt_promotions;
+  v_code text;
+  v_plan text := nullif(trim(coalesce(p_plan, '')), '');
+  v_bonus int := coalesce(p_bonus_credits, 0);
+  v_months int := p_plan_duration_months;
+  v_title text := trim(coalesce(p_title, ''));
+  v_descr text := trim(coalesce(p_description, ''));
+  v_max int := coalesce(p_max_redemptions, 100);
+  promo public.pt_promotions;
 begin
   if not public.is_pt_admin() then
     raise exception 'forbidden';
   end if;
 
-  if title = '' then
+  if v_title = '' then
     raise exception 'invalid_title';
   end if;
 
-  if plan is not null and plan not in ('pro', 'premium') then
+  if v_plan is not null and v_plan not in ('pro', 'premium') then
     raise exception 'invalid_plan';
   end if;
 
-  if plan is null then
-    months := null;
+  if v_plan is null then
+    v_months := null;
   else
-    if months is null or months < 1 or months > 24 then
+    if v_months is null or v_months < 1 or v_months > 24 then
       raise exception 'invalid_duration';
     end if;
   end if;
 
-  if bonus < 0 or bonus > 500 then
+  if v_bonus < 0 or v_bonus > 500 then
     raise exception 'invalid_bonus';
   end if;
 
-  if plan is null and bonus <= 0 then
+  if v_plan is null and v_bonus <= 0 then
     raise exception 'gift_required';
   end if;
 
-  if max_n < 1 or max_n > 100000 then
+  if v_max < 1 or v_max > 100000 then
     raise exception 'invalid_max';
   end if;
 
-  code := public.pt_promo_normalize_code(p_code);
-  if code = '' then
-    code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
+  v_code := public.pt_promo_normalize_code(p_code);
+  if v_code = '' then
+    v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8));
   end if;
 
-  if exists (select 1 from public.pt_promotions where pt_promotions.code = code) then
+  if exists (
+    select 1 from public.pt_promotions where pt_promotions.code = v_code
+  ) then
     raise exception 'code_exists';
   end if;
 
@@ -241,18 +255,18 @@ begin
     code, title, description, plan, plan_duration_months,
     bonus_credits, max_redemptions, used_count, is_active, created_by
   ) values (
-    code, title, descr, plan, months,
-    bonus, max_n, 0, true, uid
+    v_code, v_title, v_descr, v_plan, v_months,
+    v_bonus, v_max, 0, true, uid
   )
-  returning * into p;
+  returning * into promo;
 
   return json_build_object(
     'ok', true,
     'promotion', (
-      select public.pt_promo_public_json(p)::jsonb || jsonb_build_object(
-        'id', p.id,
-        'created_at', p.created_at,
-        'updated_at', p.updated_at
+      select public.pt_promo_public_json(promo)::jsonb || jsonb_build_object(
+        'id', promo.id,
+        'created_at', promo.created_at,
+        'updated_at', promo.updated_at
       )
     )::json
   );
@@ -341,8 +355,8 @@ set search_path = public
 as $$
 declare
   uid text := auth.uid()::text;
-  code text := public.pt_promo_normalize_code(p_code);
-  p public.pt_promotions;
+  v_code text := public.pt_promo_normalize_code(p_code);
+  promo public.pt_promotions;
   prof public.pt_user_profiles;
   auth_created timestamptz;
   period_end timestamptz := null;
@@ -355,7 +369,7 @@ begin
   if uid is null then
     return json_build_object('ok', false, 'error', 'not_authenticated');
   end if;
-  if code = '' then
+  if v_code = '' then
     return json_build_object('ok', false, 'error', 'missing_code');
   end if;
 
@@ -389,25 +403,29 @@ begin
     return json_build_object('ok', false, 'error', 'existing_user');
   end if;
 
-  select * into p from public.pt_promotions where pt_promotions.code = code for update;
+  select * into promo
+  from public.pt_promotions
+  where pt_promotions.code = v_code
+  for update;
+
   if not found then
     return json_build_object('ok', false, 'error', 'not_found');
   end if;
 
-  if not public.pt_promo_is_available(p) then
+  if not public.pt_promo_is_available(promo) then
     return json_build_object(
       'ok', false,
-      'error', case when not p.is_active then 'inactive' else 'exhausted' end
+      'error', case when not promo.is_active then 'inactive' else 'exhausted' end
     );
   end if;
 
-  plan_label := public.pt_promo_plan_label(p.plan);
+  plan_label := public.pt_promo_plan_label(promo.plan);
 
-  if p.plan is not null then
-    period_end := timezone('utc', now()) + make_interval(months => p.plan_duration_months);
+  if promo.plan is not null then
+    period_end := timezone('utc', now()) + make_interval(months => promo.plan_duration_months);
     update public.pt_user_profiles
     set
-      plan = p.plan,
+      plan = promo.plan,
       subscription_status = 'trialing',
       subscription_period_end = period_end,
       subscription_cancel_at_period_end = true,
@@ -415,28 +433,28 @@ begin
       ai_monthly_limit = null
     where user_id = uid;
 
-    months_label := p.plan_duration_months::text ||
-      case when p.plan_duration_months = 1 then ' mes' else ' meses' end;
-    descr := 'Promoción ' || p.code || ' — ' || plan_label || ' ' || months_label || ' gratis';
+    months_label := promo.plan_duration_months::text ||
+      case when promo.plan_duration_months = 1 then ' mes' else ' meses' end;
+    descr := 'Promoción ' || promo.code || ' — ' || plan_label || ' ' || months_label || ' gratis';
 
     insert into public.pt_payment_ledger (
       user_id, kind, description, amount_cents, currency, plan, pack_code, paid_at
     ) values (
-      uid, 'promo', descr, 0, 'eur', p.plan, p.code, timezone('utc', now())
+      uid, 'promo', descr, 0, 'eur', promo.plan, promo.code, timezone('utc', now())
     );
   end if;
 
-  if p.bonus_credits > 0 then
+  if promo.bonus_credits > 0 then
     select * into prof from public.pt_user_profiles where user_id = uid for update;
 
     new_exp := timezone('utc', now()) + interval '12 months';
     if prof.ai_bonus_balance > 0
        and prof.ai_bonus_expires_at is not null
        and prof.ai_bonus_expires_at > timezone('utc', now()) then
-      new_bal := prof.ai_bonus_balance + p.bonus_credits;
+      new_bal := prof.ai_bonus_balance + promo.bonus_credits;
       new_exp := greatest(prof.ai_bonus_expires_at, timezone('utc', now()) + interval '12 months');
     else
-      new_bal := p.bonus_credits;
+      new_bal := promo.bonus_credits;
     end if;
 
     update public.pt_user_profiles
@@ -447,14 +465,14 @@ begin
     insert into public.pt_ai_bonus_ledger (
       user_id, delta, balance_after, reason, pack_code
     ) values (
-      uid, p.bonus_credits, new_bal, 'promo', p.code
+      uid, promo.bonus_credits, new_bal, 'promo', promo.code
     );
   end if;
 
   insert into public.pt_promotion_redemptions (
     promotion_id, user_id, code, plan_granted, plan_ends_at, bonus_credits_granted
   ) values (
-    p.id, uid, p.code, p.plan, period_end, coalesce(p.bonus_credits, 0)
+    promo.id, uid, promo.code, promo.plan, period_end, coalesce(promo.bonus_credits, 0)
   );
 
   update public.pt_promotions
@@ -462,17 +480,17 @@ begin
     used_count = used_count + 1,
     is_active = case when used_count + 1 >= max_redemptions then false else is_active end,
     updated_at = timezone('utc', now())
-  where id = p.id
-  returning * into p;
+  where id = promo.id
+  returning * into promo;
 
   return json_build_object(
     'ok', true,
-    'code', code,
-    'plan', p.plan,
+    'code', v_code,
+    'plan', promo.plan,
     'plan_label', plan_label,
     'plan_ends_at', period_end,
-    'bonus_credits', nullif(p.bonus_credits, 0),
-    'promotion', public.pt_promo_public_json(p)
+    'bonus_credits', nullif(promo.bonus_credits, 0),
+    'promotion', public.pt_promo_public_json(promo)
   );
 end;
 $$;
