@@ -592,6 +592,67 @@
     } catch (eHud) { return ''; }
   }
 
+  function cardCodeOf(c) {
+    if (!c) return '';
+    if (typeof c === 'string') return c;
+    return c.code || (c.r != null && c.s ? String(c.r) + c.s : '');
+  }
+
+  function cardCodesOf(cards) {
+    return (cards || []).map(cardCodeOf).filter(Boolean);
+  }
+
+  /** % de ganar en all-in / showdown (misma lógica que Torneos). */
+  function allInEquityBySeat(hand) {
+    var Tourney = global.PTTournamentsUI;
+    if (Tourney && typeof Tourney.allInEquityBySeat === 'function') {
+      try { return Tourney.allInEquityBySeat(hand); } catch (eEq) { /* fallback local */ }
+    }
+    if (!hand || !hand.holesRevealed) return null;
+    var contenders = (hand.seats || []).filter(function (s) {
+      return s && !s.folded && s.cards && s.cards.length >= 2;
+    });
+    if (contenders.length < 2) return null;
+    var board = cardCodesOf(hand.board);
+    var key = board.join(',') + '|' + contenders.map(function (s) { return s.id; }).join(',');
+    if (hand._eqCache && hand._eqCache.key === key) return hand._eqCache.map;
+    var MW = global.GTOMultiway;
+    var iters = board.length >= 5 ? 1 : (board.length >= 4 ? 100 : (board.length >= 3 ? 140 : 100));
+    var map = {};
+    contenders.forEach(function (seat) {
+      var hole = cardCodesOf(seat.cards);
+      var others = contenders.filter(function (o) { return o.id !== seat.id; })
+        .map(function (o) { return cardCodesOf(o.cards); });
+      var eq = 0.5;
+      if (MW && typeof MW.equityVsFixedHands === 'function') {
+        eq = MW.equityVsFixedHands(hole, board, others, iters);
+      }
+      map[seat.id] = Math.round((Number(eq) || 0) * 100);
+    });
+    hand._eqCache = { key: key, map: map };
+    return map;
+  }
+
+  function equityBesideCardsHtml(pct) {
+    var Tourney = global.PTTournamentsUI;
+    if (Tourney && typeof Tourney.equityBesideCardsHtml === 'function') {
+      try { return Tourney.equityBesideCardsHtml(pct); } catch (eB) { /* fallback */ }
+    }
+    if (pct == null || isNaN(pct)) return '';
+    var cls = 'trn-equity-pct';
+    if (pct >= 60) cls += ' is-high';
+    else if (pct <= 35) cls += ' is-low';
+    return '<div class="trn-seat-equity" aria-label="Probabilidad de ganar">' +
+      '<span class="' + cls + '" title="Probabilidad de ganar">' + esc(String(pct)) + '%</span></div>';
+  }
+
+  function isShowdownReveal(hand) {
+    return !!hand.holesRevealed ||
+      !!(hand.result && hand.result.showdown) ||
+      !!(ui.anim && ui.anim.frame &&
+        (ui.anim.frame.kind === 'reveal' || ui.anim.frame.holesRevealed));
+  }
+
   function liveHeroSessionStats(state) {
     if (!state) return null;
     var Stats = global.PTCashStats;
@@ -628,8 +689,9 @@
     if (!hand || !hand.seats || !hand.seats.length) return '';
     var ring = ringByPhysicalSeat(hand.seats);
     var coords = seatCoordsFor(ring.length);
-    var showdown = !!hand.holesRevealed || !!(hand.result && hand.result.showdown) ||
-      hand.stage === 'complete';
+    var showdown = isShowdownReveal(hand) || hand.stage === 'complete';
+    var revealedIds = (hand.result && hand.result.holeCards) || {};
+    var equityMap = allInEquityBySeat(hand);
     var html = '';
     ring.forEach(function (s, i) {
       if (s.isHero) return;
@@ -654,20 +716,22 @@
       }
       var cardsHtml = '';
       if (!s.folded) {
-        if ((showdown || (hand.result && hand.result.holeCards && hand.result.holeCards[s.id])) &&
-            s.cards && s.cards[0]) {
+        if ((showdown || revealedIds[s.id]) && s.cards && s.cards[0]) {
           cardsHtml = '<div class="seat-cards showdown">' + s.cards.map(faceCard).join('') + '</div>';
         } else {
           cardsHtml = '<div class="seat-cards">' + backCard() + backCard() + '</div>';
         }
       }
       var betHtml = renderSeatBetHtml(Number(s.streetInvested) || 0, bb, betPlacement(c));
+      var eqPct = equityMap && equityMap[s.id] != null ? equityMap[s.id] : null;
+      var eqHtml = (showdown && eqPct != null) ? equityBesideCardsHtml(eqPct) : '';
       var villainName = s.name || 'Villano';
       html += '<button type="button" class="' + cls.join(' ') + '" style="top:' + c.top +
         '%;left:' + c.left + '%" data-player="' + esc(s.id) + '"' +
-        ' title="' + esc(villainName + ' · ' + (s.pos || '')) + '">' +
+        ' title="' + esc(villainName + ' · ' + (s.pos || '') +
+          (eqPct != null ? (' · ' + eqPct + '%') : '')) + '">' +
         '<div class="seat-body">' +
-        '<div class="seat-hole">' + actHtml + cardsHtml + '</div>' +
+        '<div class="seat-hole">' + actHtml + cardsHtml + eqHtml + '</div>' +
         '<div class="seat-name">' + (s.allIn ? '<span class="trn-allin-badge">ALL-IN</span> ' : '') +
         esc(villainName) + '</div>' +
         '<div class="seat-pos">' + esc(s.pos || '') + '</div>' +
@@ -707,6 +771,10 @@
         : (backCard() + backCard()));
     var dealerHidden = hero.pos === 'BTN' ? '' : ' hidden';
     var streetChips = renderHeroStreetChipsHtml(Number(hero.streetInvested) || 0, bb);
+    var equityMap = allInEquityBySeat(hand);
+    var heroShowdown = !folded && (hand.stage === 'complete' || isShowdownReveal(hand));
+    var eqPct = equityMap && equityMap[hero.id] != null ? equityMap[hero.id] : null;
+    var eqHtml = (heroShowdown && eqPct != null) ? equityBesideCardsHtml(eqPct) : '';
     return '<button type="button" class="hero-area hero-area-btn' + (folded ? ' is-folded' : '') +
       (hero._acting ? ' acting' : '') +
       '" data-act="open-hero-detail" title="Ver mis estadísticas">' +
@@ -719,7 +787,7 @@
       (hero.allIn ? ' <span class="trn-allin-badge">ALL-IN</span>' : '') +
       '<span class="hero-dealer' + dealerHidden + '" title="Dealer">D</span></div>' +
       (cards
-        ? ('<div class="hero-cards">' + cards + '</div>')
+        ? ('<div class="hero-cards">' + cards + '</div>' + eqHtml)
         : '<div class="hero-cards hero-cards-folded"></div>') +
       '</button>';
   }
