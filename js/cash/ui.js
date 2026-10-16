@@ -26,18 +26,19 @@
     { top: 18, left: 14 },
     { top: 18, left: 86 }
   ];
+  /* Inset left/right so hole cards / seats no se cortan en portrait estrecho. */
   var SEAT_COORDS_MOBILE_6 = [
     { top: 94, left: 50 },
-    { top: 78, left: 5 },
-    { top: 30, left: 3 },
-    { top: 8, left: 28 },
-    { top: 8, left: 72 },
-    { top: 42, left: 96 }
+    { top: 78, left: 12 },
+    { top: 32, left: 11 },
+    { top: 8, left: 30 },
+    { top: 8, left: 70 },
+    { top: 42, left: 89 }
   ];
   var SEAT_COORDS_MOBILE_3 = [
     { top: 94, left: 50 },
-    { top: 16, left: 10 },
-    { top: 16, left: 90 }
+    { top: 16, left: 14 },
+    { top: 16, left: 86 }
   ];
 
   var ui = {
@@ -1184,7 +1185,11 @@
 
     var handEndModal = '';
     var rawHand = state._liveHand;
-    if (!(ui.anim && ui.anim.playing) && rawHand && rawHand.stage === 'complete' && rawHand.result) {
+    /* No mostrar el modal mientras actionBusy (p.ej. tras fold del héroe el
+       motor ya marcó complete pero aún quedan fotogramas de villanos): eso
+       duplicaba el resumen (una vez al fold + otra al acabar la animación). */
+    if (!ui.actionBusy && !(ui.anim && ui.anim.playing) &&
+        rawHand && rawHand.stage === 'complete' && rawHand.result) {
       handEndModal = renderHandEndModal(rawHand, state, bb);
     }
 
