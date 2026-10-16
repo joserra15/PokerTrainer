@@ -2194,7 +2194,7 @@
   function parseAdminPlanDuration(raw) {
     var s = String(raw || '').trim().toLowerCase();
     if (!s) return null;
-    var m = s.match(/^(\d+)\s*(semanas?|weeks?|w|meses?|months?|m)?$/i);
+    var m = s.match(/^(\d+)\s*(semanas?|weeks?|w|mes(?:es)?|months?|m)?$/i);
     if (!m) return null;
     var n = parseInt(m[1], 10);
     if (!(n >= 1)) return null;

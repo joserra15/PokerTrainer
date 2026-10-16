@@ -32,7 +32,7 @@ assert.ok(/data-col="push"/.test(src) && /colspan="11"/.test(src), 'columna Push
 assert.ok(/PLAN_AI_LIMITS = \{ free: 3, pro: 40, premium: 150 \}/.test(src), 'límites IA alineados con planes');
 assert.ok(/function confirmAdminChange/.test(src) && /¿Cambiar el plan/.test(src), 'confirmación al cambiar plan');
 assert.ok(/function parseAdminPlanDuration/.test(src), 'parser duración plan admin');
-assert.ok(/2 semanas/.test(src) && /semanas\?\|weeks\?\|w/.test(src), 'admin acepta semanas al cambiar plan');
+assert.ok(/2 semanas/.test(src) && /mes\(\?:es\)\?/.test(src), 'admin acepta semanas/meses al cambiar plan');
 assert.ok(/setUTCDate\(end\.getUTCDate\(\) \+ \(parsed\.n \* 7\)\)/.test(src), 'semanas suman días UTC');
 assert.ok(/toISOString\(\)\.slice\(0, 10\)/.test(src), 'filtros de fecha en UTC');
 assert.ok(/T23:59:59\.999Z/.test(src), 'fin de plan en UTC');
