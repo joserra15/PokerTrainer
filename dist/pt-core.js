@@ -48068,8 +48068,9 @@ window.PT_NASH_PUSH_JSON = {
     } catch (e) { /* ignore */ }
     $('#back-to-sessions').addEventListener('click', () => {
       if (tournamentReviewReturn) {
+        var backTabSessions = tournamentReviewReturnTab === 'cash' ? 'cash' : 'tournaments';
         clearTournamentReviewReturn();
-        goToTab('tournaments');
+        goToTab(backTabSessions);
         return;
       }
       if (analysisReviewReturn) {
@@ -48082,8 +48083,9 @@ window.PT_NASH_PUSH_JSON = {
     });
     $('#back-to-detail').addEventListener('click', () => {
       if (tournamentReviewReturn) {
+        var backTabDetail = tournamentReviewReturnTab === 'cash' ? 'cash' : 'tournaments';
         clearTournamentReviewReturn();
-        goToTab('tournaments');
+        goToTab(backTabDetail);
         return;
       }
       if (analysisReviewReturn) {
@@ -48531,11 +48533,13 @@ window.PT_NASH_PUSH_JSON = {
     if (btn) btn.innerHTML = '&laquo; Volver';
   }
   function setTournamentReviewBackLabel() {
+    const fromCash = tournamentReviewReturnTab === 'cash';
+    const label = fromCash ? '&laquo; Volver a cash' : '&laquo; Volver al torneo';
     const btn = $('#back-to-detail');
-    if (btn) btn.innerHTML = '&laquo; Volver al torneo';
+    if (btn) btn.innerHTML = label;
     const backSessions = $('#back-to-sessions');
     if (backSessions) {
-      backSessions.innerHTML = '&laquo; Volver al torneo';
+      backSessions.innerHTML = label;
       backSessions.hidden = false;
     }
   }
@@ -48550,8 +48554,15 @@ window.PT_NASH_PUSH_JSON = {
   }
   function clearTournamentReviewReturn() {
     tournamentReviewReturn = false;
+    tournamentReviewReturnTab = 'tournaments';
     analysisReviewReturn = false;
     restoreSessionReviewBackLabel();
+  }
+  function isCashLiveHandReview(hand) {
+    if (!hand) return false;
+    if (hand.formatHub === 'cash' || hand.kind === 'cash') return true;
+    var gt = String(hand.gameType || '');
+    return gt === 'cash6' || gt.indexOf('cash') === 0;
   }
 
   // Abre la revisión paso a paso / repaso GTO de una mano de análisis reutilizando
@@ -48579,25 +48590,30 @@ window.PT_NASH_PUSH_JSON = {
   }
   window.openAnalysisHandReview = openAnalysisHandReview;
 
-  /** Revisión paso a paso de una mano de Torneos IA (vuelve al torneo, sin replay GTO). */
+  /** Revisión paso a paso de una mano de Torneos/Cash IA (vuelve a la mesa, sin replay GTO). */
   function openTournamentHandReview(hand, mode) {
     if (!hand) return;
     currentHand = hand;
+    var fromCash = isCashLiveHandReview(hand);
     var stats = null;
     try {
       if (window.Importer && Importer.computeStats) stats = Importer.computeStats([hand]);
     } catch (eStats) { stats = null; }
     currentSession = {
-      id: hand.tournamentId ? ('trn_live_' + hand.tournamentId) : ('trn_live_' + Date.now()),
-      fileName: 'Mano de torneo IA',
+      id: hand.tournamentId
+        ? ((fromCash ? 'cash_live_' : 'trn_live_') + hand.tournamentId)
+        : ((fromCash ? 'cash_live_' : 'trn_live_') + Date.now()),
+      fileName: fromCash ? 'Mano de cash IA' : 'Mano de torneo IA',
       hero: hand.hero,
       hands: [hand],
       stats: stats,
-      source: 'tournamentAi',
-      tournamentAi: true
+      source: fromCash ? 'cashAi' : 'tournamentAi',
+      tournamentAi: !fromCash,
+      cashAi: !!fromCash
     };
     analysisReviewReturn = false;
     tournamentReviewReturn = true;
+    tournamentReviewReturnTab = fromCash ? 'cash' : 'tournaments';
     setTournamentReviewBackLabel();
     goToTab('sessions', { skipDefaultView: true });
     withLazyChunk('sessions', function () {
@@ -48606,7 +48622,7 @@ window.PT_NASH_PUSH_JSON = {
       try {
         if (Importer.recomputeHandDecisions) Importer.recomputeHandDecisions(currentHand);
       } catch (e) {
-        console.error('[Tournaments] recompute failed', e);
+        console.error(fromCash ? '[Cash] recompute failed' : '[Tournaments] recompute failed', e);
       }
       showSessionsView('review');
       /* Solo paso a paso: sin “Volver a jugar esta mano con GTO”. */
@@ -54127,6 +54143,8 @@ window.PT_NASH_PUSH_JSON = {
   let replayState = null;
   let analysisReviewReturn = false;
   let tournamentReviewReturn = false;
+  /** Tab al que vuelve «Paso a paso» desde mesa en vivo: 'tournaments' | 'cash'. */
+  let tournamentReviewReturnTab = 'tournaments';
   const SESSION_HANDS_PAGE = 80;
   const HEAVY_OPEN_HANDS = 2000;
   let sessionHandsShown = SESSION_HANDS_PAGE;
