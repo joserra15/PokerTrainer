@@ -10,14 +10,17 @@
     school: 'dist/pt-school.js',
     legendary: 'dist/pt-legendary.js',
     tournaments: 'dist/pt-tournaments.js',
+    cash: 'dist/pt-cash.js',
     contact: 'dist/pt-contact.js',
     manager: 'dist/pt-manager.js',
     admin: 'dist/pt-admin.js'
   };
 
-  /* Análisis de manos usa Importer.analyzeHand (chunk sessions). */
+  /* Análisis de manos usa Importer.analyzeHand (chunk sessions).
+     Cash reutiliza live-hand / seating / names del chunk tournaments. */
   var deps = {
-    analysis: ['sessions']
+    analysis: ['sessions'],
+    cash: ['tournaments']
   };
 
   var loaded = Object.create(null);

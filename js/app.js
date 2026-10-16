@@ -76,6 +76,34 @@
     if (tab) tab.classList.toggle('hidden', !show);
   }
 
+  function cashMenuVisible() {
+    if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
+      return !!window.PTCash.menuVisible();
+    }
+    if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
+    const u = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser()) || window.PT_AUTH_USER;
+    return !!u;
+  }
+
+  function refreshCashTabVisibility() {
+    var communityHide = false;
+    try {
+      if (window.PTCommunity && PTCommunity.config) {
+        var cfg = PTCommunity.config();
+        if (cfg && cfg.menus) {
+          if (cfg.menus.hide && cfg.menus.hide.indexOf('cash') >= 0) {
+            communityHide = true;
+          } else if (cfg.menus.show && cfg.menus.show.indexOf('cash') < 0) {
+            communityHide = true;
+          }
+        }
+      }
+    } catch (e) { /* noop */ }
+    const show = !communityHide && cashMenuVisible();
+    const tab = document.querySelector('.tab[data-tab="cash"]');
+    if (tab) tab.classList.toggle('hidden', !show);
+  }
+
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
   const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
@@ -1939,12 +1967,14 @@
       window.PTEntitlements.ensureLoaded().finally(function () {
         refreshLegendaryTabVisibility();
         refreshTournamentsTabVisibility();
+        refreshCashTabVisibility();
       });
     }
     window.addEventListener('pt-auth-ready', function () {
       const afterRefresh = function () {
         refreshLegendaryTabVisibility();
         refreshTournamentsTabVisibility();
+        refreshCashTabVisibility();
       };
       if (window.PTEntitlements && window.PTEntitlements.refresh) {
         window.PTEntitlements.refresh().finally(afterRefresh);
@@ -1955,10 +1985,12 @@
     window.addEventListener('pt-guest-ready', function () {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      refreshCashTabVisibility();
     });
     window.addEventListener('pt-entitlements-updated', function (ev) {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      refreshCashTabVisibility();
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) {
         var homeOptsEnt = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
         var communityShellEnt = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
@@ -1974,6 +2006,7 @@
       renderPricing();
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      refreshCashTabVisibility();
     });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -1997,6 +2030,7 @@
     refreshSessionUI();
     refreshLegendaryTabVisibility();
     refreshTournamentsTabVisibility();
+    refreshCashTabVisibility();
   }
 
   function firstNameFromUser(user) {
@@ -2383,7 +2417,7 @@
     }
     // Sin JWT vivo no abrir Entrenador / Escuela / cuenta (evita estado a medias).
     var needsLiveAuth = tabId === 'play' || tabId === 'school' || tabId === 'account' ||
-      tabId === 'admin' || tabId === 'manager' || tabId === 'tournaments';
+      tabId === 'admin' || tabId === 'manager' || tabId === 'tournaments' || tabId === 'cash';
     if (needsLiveAuth && window.PTAuth && typeof window.PTAuth.ensureLiveSession === 'function' &&
         !(window.PTGuest && PTGuest.isActive && PTGuest.isActive())) {
       window.PTAuth.ensureLiveSession().then(function (ok) {
@@ -2402,9 +2436,13 @@
     const panel = $('#tab-' + tabId);
     if (panel) panel.classList.add('active');
     closeMobileNav();
-    /* Mesa torneo: no dejar body.trn-table-active al salir del tab (evita padding/footer rotos). */
+    /* Mesa torneo/cash: no dejar body.*-table-active al salir del tab. */
     if (tabId !== 'tournaments') {
       document.body.classList.remove('trn-table-active');
+    }
+    if (tabId !== 'cash') {
+      document.body.classList.remove('cash-table-active');
+      if (tabId !== 'tournaments') document.body.classList.remove('trn-table-active');
     }
 
     if (tabId === 'home') {
@@ -2517,6 +2555,57 @@
             '<button type="button" class="btn" data-trn-reload>Reintentar</button></div>';
           const retry = host.querySelector('[data-trn-reload]');
           if (retry) retry.addEventListener('click', function () { goToTab('tournaments'); });
+        }
+      });
+    }
+    if (tabId === 'cash') {
+      restoreUserCardStyle();
+      const cDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      const cUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
+        || window.PT_AUTH_USER || null;
+      let canCash = !!(cUser && !cDemo);
+      if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
+        canCash = window.PTCash.menuVisible();
+      }
+      if (!canCash || cDemo) {
+        goToTab('home');
+        return;
+      }
+      const cashHost = $('#cash-content');
+      if (cashHost && !cashHost.querySelector('.cash-hub, .cash-table-view, .cash-result, .cash-history')) {
+        cashHost.innerHTML =
+          '<div class="cash-hub trn-hub" aria-busy="true">' +
+          '<p class="muted" style="padding:28px 16px;text-align:center">Cargando Cash…</p>' +
+          '</div>';
+      }
+      withLazyChunk(['cash', 'sessions'], function () {
+        if (window.PTCash && window.PTCash.menuVisible && !window.PTCash.menuVisible()) {
+          goToTab('home');
+          return;
+        }
+        if (window.PTCash && window.PTCash.refreshMenuVisibility) {
+          window.PTCash.refreshMenuVisibility();
+        }
+        const host = cashHost || $('#cash-content');
+        if (window.PTCash && window.PTCash.render) {
+          try {
+            window.PTCash.render(host);
+          } catch (err) {
+            console.error('[PT] cash render', err);
+            if (host) {
+              host.innerHTML =
+                '<div class="cash-hub trn-hub"><p class="muted">Error al mostrar Cash.</p>' +
+                '<button type="button" class="btn" data-cash-reload>Reintentar</button></div>';
+              const retry = host.querySelector('[data-cash-reload]');
+              if (retry) retry.addEventListener('click', function () { goToTab('cash'); });
+            }
+          }
+        } else if (host) {
+          host.innerHTML =
+            '<div class="cash-hub trn-hub"><p class="muted">No se pudo cargar el módulo Cash.</p>' +
+            '<button type="button" class="btn" data-cash-reload>Reintentar</button></div>';
+          const retry = host.querySelector('[data-cash-reload]');
+          if (retry) retry.addEventListener('click', function () { goToTab('cash'); });
         }
       });
     }
@@ -2646,6 +2735,7 @@
   window.goToTabUnlocked = goToTabUnlocked;
   window.refreshLegendaryTabVisibility = refreshLegendaryTabVisibility;
   window.refreshTournamentsTabVisibility = refreshTournamentsTabVisibility;
+  window.refreshCashTabVisibility = refreshCashTabVisibility;
   window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;

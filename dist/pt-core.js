@@ -31502,7 +31502,9 @@ window.PT_NASH_PUSH_JSON = {
     return base.concat([
       'tournamentWallet' + s,
       'tournamentHistory' + s,
-      'tournamentActive' + s
+      'tournamentActive' + s,
+      'cashHistory' + s,
+      'cashActive' + s
     ]);
   }
 
@@ -31526,7 +31528,9 @@ window.PT_NASH_PUSH_JSON = {
         onboarding: p.onboarding || null,
         tournamentWallet: walletFor(''),
         tournamentHistory: Array.isArray(p.tournamentHistory) ? p.tournamentHistory : null,
-        tournamentActive: p.tournamentActive || null
+        tournamentActive: p.tournamentActive || null,
+        cashHistory: Array.isArray(p.cashHistory) ? p.cashHistory : null,
+        cashActive: p.cashActive || null
       };
     }
     return {
@@ -31538,7 +31542,9 @@ window.PT_NASH_PUSH_JSON = {
       onboarding: null,
       tournamentWallet: walletFor(s),
       tournamentHistory: Array.isArray(p['tournamentHistory' + s]) ? p['tournamentHistory' + s] : null,
-      tournamentActive: p['tournamentActive' + s] || null
+      tournamentActive: p['tournamentActive' + s] || null,
+      cashHistory: Array.isArray(p['cashHistory' + s]) ? p['cashHistory' + s] : null,
+      cashActive: p['cashActive' + s] || null
     };
   }
 
@@ -31565,6 +31571,7 @@ window.PT_NASH_PUSH_JSON = {
       out.clearedAt = snap.clearedAt || {};
       if (snap.onboarding) out.onboarding = snap.onboarding;
       mergeTournamentFieldsIntoCloud(out, snap, '');
+      mergeCashFieldsIntoCloud(out, snap, '');
     } else {
       out['stats' + s] = snap.stats;
       out['history' + s] = snap.history;
@@ -31572,6 +31579,7 @@ window.PT_NASH_PUSH_JSON = {
       out['school' + s] = getSchoolProgress();
       out['clearedAt' + s] = snap.clearedAt || {};
       mergeTournamentFieldsIntoCloud(out, snap, s);
+      mergeCashFieldsIntoCloud(out, snap, s);
     }
     /* Subir también activos locales de otras comunidades (p.ej. MTT Lab). */
     mergeAllLocalTournamentActivesIntoCloud(out);
@@ -31636,6 +31644,59 @@ window.PT_NASH_PUSH_JSON = {
             global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
               detail: { tournamentActive: 'adopted_cloud' }
             }));
+          }
+        } catch (ePrefer) { /* */ }
+      }
+    } else {
+      delete out[aKey];
+    }
+  }
+
+  function mergeCashHistoryLists(cloudHist, localHist) {
+    var byId = {};
+    (cloudHist || []).forEach(function (h) {
+      if (h && h.id) byId[h.id] = h;
+    });
+    (localHist || []).forEach(function (h) {
+      if (!h || !h.id) return;
+      var cur = byId[h.id];
+      if (!cur) {
+        byId[h.id] = h;
+        return;
+      }
+      var ct = Date.parse(h.finishedAt || 0) || 0;
+      var lt = Date.parse(cur.finishedAt || 0) || 0;
+      if (ct >= lt) byId[h.id] = h;
+    });
+    return Object.keys(byId).map(function (k) { return byId[k]; }).sort(function (a, b) {
+      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
+    });
+  }
+
+  function mergeCashFieldsIntoCloud(out, snap, s) {
+    s = s || '';
+    var hKey = 'cashHistory' + s;
+    var aKey = 'cashActive' + s;
+    var localHist = Array.isArray(snap.cashHistory) ? snap.cashHistory : [];
+    var cloudHist = Array.isArray(out[hKey]) ? out[hKey] : [];
+    if (localHist.length) {
+      out[hKey] = mergeCashHistoryLists(cloudHist, localHist);
+    } else if (!cloudHist.length && out[hKey] == null) {
+      out[hKey] = [];
+    }
+    if (snap.cashActive) {
+      var cloudAct = out[aKey] || null;
+      var preferLocal = !cloudAct;
+      if (!preferLocal && global.PTCashStore && PTCashStore.isPreferableActive) {
+        preferLocal = PTCashStore.isPreferableActive(snap.cashActive, cloudAct);
+      } else if (!preferLocal) {
+        preferLocal = true;
+      }
+      if (preferLocal) out[aKey] = snap.cashActive;
+      else {
+        try {
+          if (global.PTCashStore && PTCashStore.saveActive) {
+            PTCashStore.saveActive(cloudAct, { silent: true });
           }
         } catch (ePrefer) { /* */ }
       }
@@ -33920,6 +33981,17 @@ window.PT_NASH_PUSH_JSON = {
           if (act) snap.tournamentActive = act;
         }
       }
+      if (global.PTCashStore) {
+        if (PTCashStore.getHistoryMemory) {
+          snap.cashHistory = PTCashStore.getHistoryMemory();
+        } else if (PTCashStore.list) {
+          snap.cashHistory = PTCashStore.list();
+        }
+        if (PTCashStore.loadActive) {
+          var cashAct = PTCashStore.loadActive();
+          if (cashAct) snap.cashActive = cashAct;
+        }
+      }
     } catch (eTw) { /* ignore */ }
     const onboarding = getOnboardingForCloud();
     if (onboarding) snap.onboarding = onboarding;
@@ -34001,7 +34073,10 @@ window.PT_NASH_PUSH_JSON = {
    * Stats/history/errors: claves lógicas se atan a la comunidad activa.
    */
   function parseDirtyDataKey(k, activeSuffix) {
-    var tournamentBases = ['tournamentWallet', 'tournamentHistory', 'tournamentActive'];
+    var tournamentBases = [
+      'tournamentWallet', 'tournamentHistory', 'tournamentActive',
+      'cashHistory', 'cashActive'
+    ];
     var i;
     for (i = 0; i < tournamentBases.length; i++) {
       var b = tournamentBases[i];
@@ -34199,6 +34274,35 @@ window.PT_NASH_PUSH_JSON = {
           /* clearActive local → borrar en nube (solo comunidad activa) */
           delete out[cloudDataKey || key];
         }
+      } else if (key === 'cashHistory') {
+        const localCH = (keySuffix === s && Array.isArray(local.cashHistory))
+          ? local.cashHistory
+          : [];
+        const cloudCH = keySuffix
+          ? (Array.isArray(cloud['cashHistory' + keySuffix]) ? cloud['cashHistory' + keySuffix] : [])
+          : (Array.isArray(cloud.cashHistory) ? cloud.cashHistory : []);
+        if (keySuffix === s) {
+          out[cloudDataKey || key] = mergeCashHistoryLists(cloudCH, localCH);
+        }
+      } else if (key === 'cashActive') {
+        const cloudCAct = keySuffix
+          ? cloud['cashActive' + keySuffix]
+          : cloud.cashActive;
+        var localCAct = (keySuffix === s) ? (local.cashActive || null) : null;
+        if (localCAct) {
+          var preferLocalCash = !cloudCAct;
+          if (!preferLocalCash && global.PTCashStore && PTCashStore.isPreferableActive) {
+            preferLocalCash = PTCashStore.isPreferableActive(localCAct, cloudCAct);
+          } else if (!preferLocalCash) {
+            preferLocalCash = true;
+          }
+          out[cloudDataKey || key] = preferLocalCash ? localCAct : cloudCAct;
+          if (!preferLocalCash && keySuffix === s && global.PTCashStore && PTCashStore.saveActive) {
+            try { PTCashStore.saveActive(cloudCAct, { silent: true }); } catch (eC) { /* */ }
+          }
+        } else if (keySuffix === s) {
+          delete out[cloudDataKey || key];
+        }
       } else if (keySuffix === s && local[key] != null) {
         out[cloudDataKey || key] = local[key];
       }
@@ -34368,6 +34472,23 @@ window.PT_NASH_PUSH_JSON = {
           /* No borrar un torneo local en curso solo porque la nube aún no lo tiene
              (p.ej. push pendiente). Solo limpiar si local tampoco tiene active. */
           if (!localAct) PTTournamentStore.clearActive({ silent: true });
+        }
+      }
+      if (global.PTCashStore) {
+        if (Array.isArray(logical.cashHistory) && PTCashStore.mergeHistoryFromCloud) {
+          PTCashStore.mergeHistoryFromCloud(logical.cashHistory);
+        }
+        var localCash = PTCashStore.loadActive && PTCashStore.loadActive();
+        if (logical.cashActive && PTCashStore.saveActive) {
+          var remoteCash = logical.cashActive;
+          var preferRemoteCash = PTCashStore.isPreferableActive
+            ? PTCashStore.isPreferableActive(remoteCash, localCash)
+            : !localCash;
+          if (preferRemoteCash) {
+            PTCashStore.saveActive(remoteCash, { silent: true });
+          }
+        } else if (!logical.cashActive && PTCashStore.clearActive) {
+          if (!localCash) PTCashStore.clearActive({ silent: true });
         }
       }
     } catch (eTRep) { /* ignore */ }
@@ -39725,6 +39846,45 @@ window.PT_NASH_PUSH_JSON = {
     return (a && typeof a === 'object' && a.id) ? a : null;
   }
 
+  function pickCashHistory(payload, communityId) {
+    var s = communitySuffix(communityId);
+    var h = payload && payload['cashHistory' + s];
+    return Array.isArray(h) ? h : [];
+  }
+
+  function pickCashActive(payload, communityId) {
+    var s = communitySuffix(communityId);
+    var a = payload && payload['cashActive' + s];
+    return (a && typeof a === 'object' && a.id) ? a : null;
+  }
+
+  function cashNetFromHistory(history) {
+    var net = 0;
+    var n = 0;
+    (history || []).forEach(function (row) {
+      if (!row || typeof row !== 'object') return;
+      n += 1;
+      if (row.profit != null && row.profit !== '' && isFinite(Number(row.profit))) {
+        net += asNum(row.profit);
+      } else {
+        var buyIn = asNum(row.buyInEur) * Math.max(1, asNum(row.buyInsPaid, 1));
+        var prize = asNum(row.prizeEur);
+        net += prize - buyIn;
+      }
+    });
+    return { net: net, played: n };
+  }
+
+  function cashActiveHold(active) {
+    if (!active) return 0;
+    var invested = active.stats && active.stats.heroInvestedKoins;
+    if (invested != null && isFinite(Number(invested))) return Math.max(0, asNum(invested));
+    var cfg = active.config || active;
+    var buyIn = Math.max(0, asNum(cfg.buyInEur != null ? cfg.buyInEur : cfg.buyIn));
+    var buys = Math.max(1, asNum(active.buyInsPaid, 1));
+    return buyIn * buys;
+  }
+
   function roleKoinsFromEntry(entry) {
     if (!entry || typeof entry !== 'object') return 0;
     if (entry.roleKoins != null && isFinite(Number(entry.roleKoins))) {
@@ -39803,10 +39963,13 @@ window.PT_NASH_PUSH_JSON = {
     var trainerKoins = Math.floor(trainerHands / TRAINER_HANDS_PER_KOIN);
 
     var hist = tournamentNetFromHistory(history);
-    var activeHold = activeBuyInHold(active);
+    var cashHist = cashNetFromHistory(pickCashHistory(payload, communityId));
+    var cashActive = pickCashActive(payload, communityId);
+    var activeHold = activeBuyInHold(active) + cashActiveHold(cashActive);
     var played = Math.max(hist.played, asNum(wallet.tournamentsPlayed));
 
-    var raw = STARTING + lessons + trainerKoins + hist.net + hist.roleKoins - activeHold;
+    var raw = STARTING + lessons + trainerKoins + hist.net + hist.roleKoins +
+      cashHist.net - activeHold;
     var balance = Math.max(0, Math.round(raw * 100) / 100);
 
     return {
@@ -39816,9 +39979,11 @@ window.PT_NASH_PUSH_JSON = {
       trainerHands: trainerHands,
       trainerKoins: trainerKoins,
       tournamentNet: Math.round(hist.net * 100) / 100,
+      cashNet: Math.round(cashHist.net * 100) / 100,
       roleKoins: Math.round(hist.roleKoins * 100) / 100,
       activeHold: Math.round(activeHold * 100) / 100,
       tournamentsPlayed: played,
+      cashSessionsPlayed: cashHist.played,
       forced: false,
       communityId: String(communityId || 'pokerforge').toLowerCase(),
       lessonAwards: wallet.lessonAwards || {}
@@ -39841,6 +40006,7 @@ window.PT_NASH_PUSH_JSON = {
         lessons: computed.lessons,
         trainerKoins: computed.trainerKoins,
         tournamentNet: computed.tournamentNet,
+        cashNet: computed.cashNet || 0,
         roleKoins: computed.roleKoins,
         activeHold: computed.activeHold,
         forced: !!computed.forced
@@ -44860,6 +45026,34 @@ window.PT_NASH_PUSH_JSON = {
     if (tab) tab.classList.toggle('hidden', !show);
   }
 
+  function cashMenuVisible() {
+    if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
+      return !!window.PTCash.menuVisible();
+    }
+    if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
+    const u = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser()) || window.PT_AUTH_USER;
+    return !!u;
+  }
+
+  function refreshCashTabVisibility() {
+    var communityHide = false;
+    try {
+      if (window.PTCommunity && PTCommunity.config) {
+        var cfg = PTCommunity.config();
+        if (cfg && cfg.menus) {
+          if (cfg.menus.hide && cfg.menus.hide.indexOf('cash') >= 0) {
+            communityHide = true;
+          } else if (cfg.menus.show && cfg.menus.show.indexOf('cash') < 0) {
+            communityHide = true;
+          }
+        }
+      }
+    } catch (e) { /* noop */ }
+    const show = !communityHide && cashMenuVisible();
+    const tab = document.querySelector('.tab[data-tab="cash"]');
+    if (tab) tab.classList.toggle('hidden', !show);
+  }
+
   const POS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const POS_3 = ['BTN', 'SB', 'BB'];
   const POS_9 = ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
@@ -46723,12 +46917,14 @@ window.PT_NASH_PUSH_JSON = {
       window.PTEntitlements.ensureLoaded().finally(function () {
         refreshLegendaryTabVisibility();
         refreshTournamentsTabVisibility();
+        refreshCashTabVisibility();
       });
     }
     window.addEventListener('pt-auth-ready', function () {
       const afterRefresh = function () {
         refreshLegendaryTabVisibility();
         refreshTournamentsTabVisibility();
+        refreshCashTabVisibility();
       };
       if (window.PTEntitlements && window.PTEntitlements.refresh) {
         window.PTEntitlements.refresh().finally(afterRefresh);
@@ -46739,10 +46935,12 @@ window.PT_NASH_PUSH_JSON = {
     window.addEventListener('pt-guest-ready', function () {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      refreshCashTabVisibility();
     });
     window.addEventListener('pt-entitlements-updated', function (ev) {
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      refreshCashTabVisibility();
       if ($('#tab-home') && $('#tab-home').classList.contains('active')) {
         var homeOptsEnt = (window.PTCommunity && PTCommunity.homeOptions) ? PTCommunity.homeOptions() : {};
         var communityShellEnt = !!(window.PTCommunity && PTCommunity.requireMembership && PTCommunity.requireMembership());
@@ -46758,6 +46956,7 @@ window.PT_NASH_PUSH_JSON = {
       renderPricing();
       refreshLegendaryTabVisibility();
       refreshTournamentsTabVisibility();
+      refreshCashTabVisibility();
     });
     window.runCloudSync = runCloudSync;
     const verEl = $('#app-version');
@@ -46781,6 +46980,7 @@ window.PT_NASH_PUSH_JSON = {
     refreshSessionUI();
     refreshLegendaryTabVisibility();
     refreshTournamentsTabVisibility();
+    refreshCashTabVisibility();
   }
 
   function firstNameFromUser(user) {
@@ -47167,7 +47367,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     // Sin JWT vivo no abrir Entrenador / Escuela / cuenta (evita estado a medias).
     var needsLiveAuth = tabId === 'play' || tabId === 'school' || tabId === 'account' ||
-      tabId === 'admin' || tabId === 'manager' || tabId === 'tournaments';
+      tabId === 'admin' || tabId === 'manager' || tabId === 'tournaments' || tabId === 'cash';
     if (needsLiveAuth && window.PTAuth && typeof window.PTAuth.ensureLiveSession === 'function' &&
         !(window.PTGuest && PTGuest.isActive && PTGuest.isActive())) {
       window.PTAuth.ensureLiveSession().then(function (ok) {
@@ -47186,9 +47386,13 @@ window.PT_NASH_PUSH_JSON = {
     const panel = $('#tab-' + tabId);
     if (panel) panel.classList.add('active');
     closeMobileNav();
-    /* Mesa torneo: no dejar body.trn-table-active al salir del tab (evita padding/footer rotos). */
+    /* Mesa torneo/cash: no dejar body.*-table-active al salir del tab. */
     if (tabId !== 'tournaments') {
       document.body.classList.remove('trn-table-active');
+    }
+    if (tabId !== 'cash') {
+      document.body.classList.remove('cash-table-active');
+      if (tabId !== 'tournaments') document.body.classList.remove('trn-table-active');
     }
 
     if (tabId === 'home') {
@@ -47301,6 +47505,57 @@ window.PT_NASH_PUSH_JSON = {
             '<button type="button" class="btn" data-trn-reload>Reintentar</button></div>';
           const retry = host.querySelector('[data-trn-reload]');
           if (retry) retry.addEventListener('click', function () { goToTab('tournaments'); });
+        }
+      });
+    }
+    if (tabId === 'cash') {
+      restoreUserCardStyle();
+      const cDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
+      const cUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
+        || window.PT_AUTH_USER || null;
+      let canCash = !!(cUser && !cDemo);
+      if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
+        canCash = window.PTCash.menuVisible();
+      }
+      if (!canCash || cDemo) {
+        goToTab('home');
+        return;
+      }
+      const cashHost = $('#cash-content');
+      if (cashHost && !cashHost.querySelector('.cash-hub, .cash-table-view, .cash-result, .cash-history')) {
+        cashHost.innerHTML =
+          '<div class="cash-hub trn-hub" aria-busy="true">' +
+          '<p class="muted" style="padding:28px 16px;text-align:center">Cargando Cash…</p>' +
+          '</div>';
+      }
+      withLazyChunk(['cash', 'sessions'], function () {
+        if (window.PTCash && window.PTCash.menuVisible && !window.PTCash.menuVisible()) {
+          goToTab('home');
+          return;
+        }
+        if (window.PTCash && window.PTCash.refreshMenuVisibility) {
+          window.PTCash.refreshMenuVisibility();
+        }
+        const host = cashHost || $('#cash-content');
+        if (window.PTCash && window.PTCash.render) {
+          try {
+            window.PTCash.render(host);
+          } catch (err) {
+            console.error('[PT] cash render', err);
+            if (host) {
+              host.innerHTML =
+                '<div class="cash-hub trn-hub"><p class="muted">Error al mostrar Cash.</p>' +
+                '<button type="button" class="btn" data-cash-reload>Reintentar</button></div>';
+              const retry = host.querySelector('[data-cash-reload]');
+              if (retry) retry.addEventListener('click', function () { goToTab('cash'); });
+            }
+          }
+        } else if (host) {
+          host.innerHTML =
+            '<div class="cash-hub trn-hub"><p class="muted">No se pudo cargar el módulo Cash.</p>' +
+            '<button type="button" class="btn" data-cash-reload>Reintentar</button></div>';
+          const retry = host.querySelector('[data-cash-reload]');
+          if (retry) retry.addEventListener('click', function () { goToTab('cash'); });
         }
       });
     }
@@ -47430,6 +47685,7 @@ window.PT_NASH_PUSH_JSON = {
   window.goToTabUnlocked = goToTabUnlocked;
   window.refreshLegendaryTabVisibility = refreshLegendaryTabVisibility;
   window.refreshTournamentsTabVisibility = refreshTournamentsTabVisibility;
+  window.refreshCashTabVisibility = refreshCashTabVisibility;
   window.isLegendaryAdminUser = isLegendaryAdminUser;
   window.openSession = openSession;
   window.syncAdvisorSettingsToSession = syncAdvisorSettingsToSession;

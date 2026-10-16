@@ -60,7 +60,9 @@
     return base.concat([
       'tournamentWallet' + s,
       'tournamentHistory' + s,
-      'tournamentActive' + s
+      'tournamentActive' + s,
+      'cashHistory' + s,
+      'cashActive' + s
     ]);
   }
 
@@ -84,7 +86,9 @@
         onboarding: p.onboarding || null,
         tournamentWallet: walletFor(''),
         tournamentHistory: Array.isArray(p.tournamentHistory) ? p.tournamentHistory : null,
-        tournamentActive: p.tournamentActive || null
+        tournamentActive: p.tournamentActive || null,
+        cashHistory: Array.isArray(p.cashHistory) ? p.cashHistory : null,
+        cashActive: p.cashActive || null
       };
     }
     return {
@@ -96,7 +100,9 @@
       onboarding: null,
       tournamentWallet: walletFor(s),
       tournamentHistory: Array.isArray(p['tournamentHistory' + s]) ? p['tournamentHistory' + s] : null,
-      tournamentActive: p['tournamentActive' + s] || null
+      tournamentActive: p['tournamentActive' + s] || null,
+      cashHistory: Array.isArray(p['cashHistory' + s]) ? p['cashHistory' + s] : null,
+      cashActive: p['cashActive' + s] || null
     };
   }
 
@@ -123,6 +129,7 @@
       out.clearedAt = snap.clearedAt || {};
       if (snap.onboarding) out.onboarding = snap.onboarding;
       mergeTournamentFieldsIntoCloud(out, snap, '');
+      mergeCashFieldsIntoCloud(out, snap, '');
     } else {
       out['stats' + s] = snap.stats;
       out['history' + s] = snap.history;
@@ -130,6 +137,7 @@
       out['school' + s] = getSchoolProgress();
       out['clearedAt' + s] = snap.clearedAt || {};
       mergeTournamentFieldsIntoCloud(out, snap, s);
+      mergeCashFieldsIntoCloud(out, snap, s);
     }
     /* Subir también activos locales de otras comunidades (p.ej. MTT Lab). */
     mergeAllLocalTournamentActivesIntoCloud(out);
@@ -194,6 +202,59 @@
             global.dispatchEvent(new CustomEvent('pt-cloud-synced', {
               detail: { tournamentActive: 'adopted_cloud' }
             }));
+          }
+        } catch (ePrefer) { /* */ }
+      }
+    } else {
+      delete out[aKey];
+    }
+  }
+
+  function mergeCashHistoryLists(cloudHist, localHist) {
+    var byId = {};
+    (cloudHist || []).forEach(function (h) {
+      if (h && h.id) byId[h.id] = h;
+    });
+    (localHist || []).forEach(function (h) {
+      if (!h || !h.id) return;
+      var cur = byId[h.id];
+      if (!cur) {
+        byId[h.id] = h;
+        return;
+      }
+      var ct = Date.parse(h.finishedAt || 0) || 0;
+      var lt = Date.parse(cur.finishedAt || 0) || 0;
+      if (ct >= lt) byId[h.id] = h;
+    });
+    return Object.keys(byId).map(function (k) { return byId[k]; }).sort(function (a, b) {
+      return (Date.parse(b.finishedAt || 0) || 0) - (Date.parse(a.finishedAt || 0) || 0);
+    });
+  }
+
+  function mergeCashFieldsIntoCloud(out, snap, s) {
+    s = s || '';
+    var hKey = 'cashHistory' + s;
+    var aKey = 'cashActive' + s;
+    var localHist = Array.isArray(snap.cashHistory) ? snap.cashHistory : [];
+    var cloudHist = Array.isArray(out[hKey]) ? out[hKey] : [];
+    if (localHist.length) {
+      out[hKey] = mergeCashHistoryLists(cloudHist, localHist);
+    } else if (!cloudHist.length && out[hKey] == null) {
+      out[hKey] = [];
+    }
+    if (snap.cashActive) {
+      var cloudAct = out[aKey] || null;
+      var preferLocal = !cloudAct;
+      if (!preferLocal && global.PTCashStore && PTCashStore.isPreferableActive) {
+        preferLocal = PTCashStore.isPreferableActive(snap.cashActive, cloudAct);
+      } else if (!preferLocal) {
+        preferLocal = true;
+      }
+      if (preferLocal) out[aKey] = snap.cashActive;
+      else {
+        try {
+          if (global.PTCashStore && PTCashStore.saveActive) {
+            PTCashStore.saveActive(cloudAct, { silent: true });
           }
         } catch (ePrefer) { /* */ }
       }
@@ -2478,6 +2539,17 @@
           if (act) snap.tournamentActive = act;
         }
       }
+      if (global.PTCashStore) {
+        if (PTCashStore.getHistoryMemory) {
+          snap.cashHistory = PTCashStore.getHistoryMemory();
+        } else if (PTCashStore.list) {
+          snap.cashHistory = PTCashStore.list();
+        }
+        if (PTCashStore.loadActive) {
+          var cashAct = PTCashStore.loadActive();
+          if (cashAct) snap.cashActive = cashAct;
+        }
+      }
     } catch (eTw) { /* ignore */ }
     const onboarding = getOnboardingForCloud();
     if (onboarding) snap.onboarding = onboarding;
@@ -2559,7 +2631,10 @@
    * Stats/history/errors: claves lógicas se atan a la comunidad activa.
    */
   function parseDirtyDataKey(k, activeSuffix) {
-    var tournamentBases = ['tournamentWallet', 'tournamentHistory', 'tournamentActive'];
+    var tournamentBases = [
+      'tournamentWallet', 'tournamentHistory', 'tournamentActive',
+      'cashHistory', 'cashActive'
+    ];
     var i;
     for (i = 0; i < tournamentBases.length; i++) {
       var b = tournamentBases[i];
@@ -2757,6 +2832,35 @@
           /* clearActive local → borrar en nube (solo comunidad activa) */
           delete out[cloudDataKey || key];
         }
+      } else if (key === 'cashHistory') {
+        const localCH = (keySuffix === s && Array.isArray(local.cashHistory))
+          ? local.cashHistory
+          : [];
+        const cloudCH = keySuffix
+          ? (Array.isArray(cloud['cashHistory' + keySuffix]) ? cloud['cashHistory' + keySuffix] : [])
+          : (Array.isArray(cloud.cashHistory) ? cloud.cashHistory : []);
+        if (keySuffix === s) {
+          out[cloudDataKey || key] = mergeCashHistoryLists(cloudCH, localCH);
+        }
+      } else if (key === 'cashActive') {
+        const cloudCAct = keySuffix
+          ? cloud['cashActive' + keySuffix]
+          : cloud.cashActive;
+        var localCAct = (keySuffix === s) ? (local.cashActive || null) : null;
+        if (localCAct) {
+          var preferLocalCash = !cloudCAct;
+          if (!preferLocalCash && global.PTCashStore && PTCashStore.isPreferableActive) {
+            preferLocalCash = PTCashStore.isPreferableActive(localCAct, cloudCAct);
+          } else if (!preferLocalCash) {
+            preferLocalCash = true;
+          }
+          out[cloudDataKey || key] = preferLocalCash ? localCAct : cloudCAct;
+          if (!preferLocalCash && keySuffix === s && global.PTCashStore && PTCashStore.saveActive) {
+            try { PTCashStore.saveActive(cloudCAct, { silent: true }); } catch (eC) { /* */ }
+          }
+        } else if (keySuffix === s) {
+          delete out[cloudDataKey || key];
+        }
       } else if (keySuffix === s && local[key] != null) {
         out[cloudDataKey || key] = local[key];
       }
@@ -2926,6 +3030,23 @@
           /* No borrar un torneo local en curso solo porque la nube aún no lo tiene
              (p.ej. push pendiente). Solo limpiar si local tampoco tiene active. */
           if (!localAct) PTTournamentStore.clearActive({ silent: true });
+        }
+      }
+      if (global.PTCashStore) {
+        if (Array.isArray(logical.cashHistory) && PTCashStore.mergeHistoryFromCloud) {
+          PTCashStore.mergeHistoryFromCloud(logical.cashHistory);
+        }
+        var localCash = PTCashStore.loadActive && PTCashStore.loadActive();
+        if (logical.cashActive && PTCashStore.saveActive) {
+          var remoteCash = logical.cashActive;
+          var preferRemoteCash = PTCashStore.isPreferableActive
+            ? PTCashStore.isPreferableActive(remoteCash, localCash)
+            : !localCash;
+          if (preferRemoteCash) {
+            PTCashStore.saveActive(remoteCash, { silent: true });
+          }
+        } else if (!logical.cashActive && PTCashStore.clearActive) {
+          if (!localCash) PTCashStore.clearActive({ silent: true });
         }
       }
     } catch (eTRep) { /* ignore */ }

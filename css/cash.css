@@ -1,0 +1,88 @@
+/*
+ * cash.css — Lobby y mesa Cash (extiende el lenguaje visual de Torneos).
+ */
+
+.cash-content,
+.cash-hub,
+.cash-table-view,
+.cash-result,
+.cash-history {
+  min-height: 12rem;
+}
+
+.cash-lobby-hero h2 {
+  letter-spacing: 0.08em;
+}
+
+.cash-lobby-row .trn-lobby-thumb-kind {
+  letter-spacing: 0.04em;
+}
+
+.cash-hand-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius, 10px);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--panel, #1a1f2a) 92%, transparent);
+}
+
+.cash-hand-end .trn-hand-end-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  flex: 1;
+}
+
+.cash-hand-end .is-win,
+.cash-result .is-win,
+.cash-history .is-win {
+  color: #3ecf8e;
+}
+
+.cash-hand-end .is-loss,
+.cash-result .is-loss,
+.cash-history .is-loss {
+  color: #ff7a7a;
+}
+
+.cash-result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.85rem 1rem;
+  margin: 1.25rem 0 1.5rem;
+}
+
+.cash-result-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius, 10px);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  background: color-mix(in srgb, var(--panel, #1a1f2a) 88%, transparent);
+}
+
+.cash-result-grid strong {
+  font-size: 1.05rem;
+}
+
+.cash-warn {
+  color: #ffb020;
+  margin: 0.5rem 0 0;
+}
+
+body.cash-table-active .tabs,
+body.cash-table-active .topbar-account {
+  /* Misma sensación de foco que Torneos en mesa */
+}
+
+@media (max-width: 720px) {
+  .cash-lobby .trn-lobby-desk {
+    display: none;
+  }
+}
