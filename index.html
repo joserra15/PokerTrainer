@@ -148,10 +148,12 @@
   <link rel="stylesheet" id="pt-css" />
   <link rel="stylesheet" id="pt-css-legendary" />
   <link rel="stylesheet" id="pt-css-tournaments" />
+  <link rel="stylesheet" id="pt-css-cash" />
   <noscript>
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/legendary.css" />
     <link rel="stylesheet" href="css/tournaments.css" />
+    <link rel="stylesheet" href="css/cash.css" />
   </noscript>
   <script>
   (function () {
@@ -162,7 +164,8 @@
     var SHEETS = [
       { id: 'pt-css', href: 'css/styles.css' },
       { id: 'pt-css-legendary', href: 'css/legendary.css' },
-      { id: 'pt-css-tournaments', href: 'css/tournaments.css' }
+      { id: 'pt-css-tournaments', href: 'css/tournaments.css' },
+      { id: 'pt-css-cash', href: 'css/cash.css' }
     ];
     var MAX_TRIES = 2;
     var tries = {};
@@ -521,6 +524,7 @@
         <button class="tab tab-school" data-tab="school" data-i18n="tab.school">Escuela de Póker</button>
         <button class="tab tab-legendary hidden" data-tab="legendary" data-i18n="tab.legendary">Manos legendarias</button>
         <button class="tab tab-tournaments hidden" data-tab="tournaments">Torneos</button>
+        <button class="tab tab-cash hidden" data-tab="cash">Cash</button>
         <button class="tab" data-tab="learn" data-i18n="tab.learn">Guía básica</button>
         <button class="tab" data-tab="analysis" data-i18n="tab.analysis">Análisis</button>
         <button class="tab" data-tab="ranges" data-i18n="tab.ranges">Rangos</button>
@@ -633,6 +637,10 @@
 
     <section id="tab-tournaments" class="tab-panel">
       <div id="tournaments-content" class="tournaments-content"></div>
+    </section>
+
+    <section id="tab-cash" class="tab-panel">
+      <div id="cash-content" class="cash-content"></div>
     </section>
 
     <!-- ===== GUÍA BÁSICA ===== -->

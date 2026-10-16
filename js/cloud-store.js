@@ -5,7 +5,11 @@
 (function (global) {
   'use strict';
 
-  const DATA_KEYS = ['stats', 'history', 'errors', 'onboarding', 'tournamentWallet', 'tournamentHistory', 'tournamentActive'];
+  const DATA_KEYS = [
+    'stats', 'history', 'errors', 'onboarding',
+    'tournamentWallet', 'tournamentHistory', 'tournamentActive',
+    'cashHistory', 'cashActive'
+  ];
   const TABLE = 'pt_user_state';
   const PUSH_DELAY_MS = 2000;
 
@@ -41,7 +45,11 @@
   }
 
   function logicalDataKeys() {
-    return ['stats', 'history', 'errors', 'onboarding', 'tournamentWallet', 'tournamentHistory', 'tournamentActive'];
+    return [
+      'stats', 'history', 'errors', 'onboarding',
+      'tournamentWallet', 'tournamentHistory', 'tournamentActive',
+      'cashHistory', 'cashActive'
+    ];
   }
 
   function activeDataKeys() {
@@ -217,6 +225,12 @@
       return Array.isArray(val) && val.length > 0;
     }
     if (key === 'tournamentActive') {
+      return !!(val && val.id);
+    }
+    if (key === 'cashHistory') {
+      return Array.isArray(val) && val.length > 0;
+    }
+    if (key === 'cashActive') {
       return !!(val && val.id);
     }
     return Array.isArray(val) && val.length > 0;

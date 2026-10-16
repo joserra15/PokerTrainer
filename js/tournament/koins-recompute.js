@@ -74,6 +74,45 @@
     return (a && typeof a === 'object' && a.id) ? a : null;
   }
 
+  function pickCashHistory(payload, communityId) {
+    var s = communitySuffix(communityId);
+    var h = payload && payload['cashHistory' + s];
+    return Array.isArray(h) ? h : [];
+  }
+
+  function pickCashActive(payload, communityId) {
+    var s = communitySuffix(communityId);
+    var a = payload && payload['cashActive' + s];
+    return (a && typeof a === 'object' && a.id) ? a : null;
+  }
+
+  function cashNetFromHistory(history) {
+    var net = 0;
+    var n = 0;
+    (history || []).forEach(function (row) {
+      if (!row || typeof row !== 'object') return;
+      n += 1;
+      if (row.profit != null && row.profit !== '' && isFinite(Number(row.profit))) {
+        net += asNum(row.profit);
+      } else {
+        var buyIn = asNum(row.buyInEur) * Math.max(1, asNum(row.buyInsPaid, 1));
+        var prize = asNum(row.prizeEur);
+        net += prize - buyIn;
+      }
+    });
+    return { net: net, played: n };
+  }
+
+  function cashActiveHold(active) {
+    if (!active) return 0;
+    var invested = active.stats && active.stats.heroInvestedKoins;
+    if (invested != null && isFinite(Number(invested))) return Math.max(0, asNum(invested));
+    var cfg = active.config || active;
+    var buyIn = Math.max(0, asNum(cfg.buyInEur != null ? cfg.buyInEur : cfg.buyIn));
+    var buys = Math.max(1, asNum(active.buyInsPaid, 1));
+    return buyIn * buys;
+  }
+
   function roleKoinsFromEntry(entry) {
     if (!entry || typeof entry !== 'object') return 0;
     if (entry.roleKoins != null && isFinite(Number(entry.roleKoins))) {
@@ -152,10 +191,13 @@
     var trainerKoins = Math.floor(trainerHands / TRAINER_HANDS_PER_KOIN);
 
     var hist = tournamentNetFromHistory(history);
-    var activeHold = activeBuyInHold(active);
+    var cashHist = cashNetFromHistory(pickCashHistory(payload, communityId));
+    var cashActive = pickCashActive(payload, communityId);
+    var activeHold = activeBuyInHold(active) + cashActiveHold(cashActive);
     var played = Math.max(hist.played, asNum(wallet.tournamentsPlayed));
 
-    var raw = STARTING + lessons + trainerKoins + hist.net + hist.roleKoins - activeHold;
+    var raw = STARTING + lessons + trainerKoins + hist.net + hist.roleKoins +
+      cashHist.net - activeHold;
     var balance = Math.max(0, Math.round(raw * 100) / 100);
 
     return {
@@ -165,9 +207,11 @@
       trainerHands: trainerHands,
       trainerKoins: trainerKoins,
       tournamentNet: Math.round(hist.net * 100) / 100,
+      cashNet: Math.round(cashHist.net * 100) / 100,
       roleKoins: Math.round(hist.roleKoins * 100) / 100,
       activeHold: Math.round(activeHold * 100) / 100,
       tournamentsPlayed: played,
+      cashSessionsPlayed: cashHist.played,
       forced: false,
       communityId: String(communityId || 'pokerforge').toLowerCase(),
       lessonAwards: wallet.lessonAwards || {}
@@ -190,6 +234,7 @@
         lessons: computed.lessons,
         trainerKoins: computed.trainerKoins,
         tournamentNet: computed.tournamentNet,
+        cashNet: computed.cashNet || 0,
         roleKoins: computed.roleKoins,
         activeHold: computed.activeHold,
         forced: !!computed.forced
