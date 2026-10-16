@@ -6,6 +6,41 @@ const { mockAuthenticatedUser, waitForAppShell, goTab } = require('./helpers');
 const ART = process.env.CURSOR_ARTIFACTS_DIR
   || '/opt/cursor/artifacts';
 
+/**
+ * Screenshot estable del modal: el paint de Torneos puede desmontar el nodo
+ * durante scrollIntoView del locator.screenshot (flake en main full e2e).
+ */
+async function screenshotPlayerModal(page, outPath) {
+  const sel = '.trn-modal-player-detail';
+  let lastErr = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const modal = page.locator(sel).first();
+    await expect(modal).toBeVisible({ timeout: 8000 });
+    try {
+      const box = await modal.boundingBox();
+      if (box && box.width > 0 && box.height > 0) {
+        await page.screenshot({
+          path: outPath,
+          clip: {
+            x: Math.max(0, box.x),
+            y: Math.max(0, box.y),
+            width: Math.ceil(box.width),
+            height: Math.ceil(box.height)
+          },
+          animations: 'disabled'
+        });
+        return;
+      }
+      await modal.screenshot({ path: outPath, animations: 'disabled', timeout: 5000 });
+      return;
+    } catch (err) {
+      lastErr = err;
+      await page.waitForTimeout(150);
+    }
+  }
+  throw lastErr || new Error('screenshotPlayerModal failed');
+}
+
 test.describe('Torneos: HUD en vivo en detalle de jugador', () => {
   test('villano y héroe muestran Jugado/Subido/Resubido/Manos', async ({ page }) => {
     fs.mkdirSync(path.join(ART, 'screenshots'), { recursive: true });
@@ -117,7 +152,7 @@ test.describe('Torneos: HUD en vivo en detalle de jugador', () => {
     await expect(manosVal).not.toHaveText('0');
 
     const villPath = path.join(ART, 'screenshots', 'tournament-live-hud-villain.png');
-    await page.locator('.trn-modal-player-detail').first().screenshot({ path: villPath });
+    await screenshotPlayerModal(page, villPath);
 
     await page.locator('.trn-modal-player-detail [data-act="close-role"]').last().click({ force: true });
     await page.waitForSelector('.trn-modal-player-detail', { state: 'detached', timeout: 8000 });
@@ -131,7 +166,7 @@ test.describe('Torneos: HUD en vivo en detalle de jugador', () => {
     await expect(page.locator('.trn-live-hud-lab', { hasText: 'Jugado' }).first()).toBeVisible();
 
     const heroPath = path.join(ART, 'screenshots', 'tournament-live-hud-hero.png');
-    await page.locator('.trn-modal-player-detail').first().screenshot({ path: heroPath });
+    await screenshotPlayerModal(page, heroPath);
 
     const feltStrips = await page.locator('.trn-play-like > .trn-live-hud-strip').count();
     expect(feltStrips).toBe(0);
