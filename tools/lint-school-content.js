@@ -177,6 +177,23 @@ lessons.forEach(function (lesson) {
           errors.push(sid + ': requiredPct ' + req + ' ≠ bet/(pot+2*bet)≈' + expectPct);
         }
       }
+      // Equity vs street: flop (3) outs×4; turn (4) outs×2 — never apply flop % on turn.
+      var eq = spot.quiz.equityPct;
+      var outsMatch = String(spot.quiz.draw || '').match(/(\d+)\s*outs?/i);
+      var nBoard = (spot.quiz.board || []).length;
+      if (eq != null && outsMatch && nBoard >= 3 && nBoard <= 4) {
+        var outs = Number(outsMatch[1]);
+        var streetExpect = nBoard === 3
+          ? Math.round(outs * 4)
+          : Math.round(100 * outs / 46); // turn: one card (~outs×2)
+        if (Math.abs(Number(eq) - streetExpect) > 4) {
+          errors.push(
+            sid + ': equityPct ' + eq + ' ≠ ~' + streetExpect +
+            '% for ' + outs + ' outs on ' + (nBoard === 3 ? 'flop' : 'turn') +
+            ' (board has ' + nBoard + ' cards)'
+          );
+        }
+      }
     }
 
     // Signature clone tracking

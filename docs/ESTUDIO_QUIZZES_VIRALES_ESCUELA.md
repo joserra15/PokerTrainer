@@ -69,18 +69,18 @@ Spot donde el alumno elige **Fold**, **Call** o **Raise** tras ver línea + boar
   quiz: {
     prompt: '¿Tienes pot odds para call?',
     potBB: 100,
-    betBB: 75,
+    betBB: 50,
     draw: 'Flush draw · 9 outs',
     heroCards: ['Ah', 'Kh'],
-    board: ['Qh', '7h', '2c', 'Jd'],
+    board: ['Qh', '7h', '2c', 'Jd'], // 4 cartas = turn → outs×2 (~19 %), no outs×4 (~35 %)
     options: [
       { id: 'yes', label: 'Sí · call correcto' },
       { id: 'no', label: 'No · fold' },
       { id: 'depends', label: 'Depende · implied odds' }
     ],
-    correctId: 'yes',
-    requiredPct: 30,
-    equityPct: 36
+    correctId: 'depends',
+    requiredPct: 25,
+    equityPct: 19
   }
 }
 ```
