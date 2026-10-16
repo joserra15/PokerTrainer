@@ -54916,9 +54916,14 @@ window.PT_NASH_PUSH_JSON = {
     }
     if (opts.fromTournament) {
       tournamentReviewReturn = true;
+      tournamentReviewReturnTab = (currentSession &&
+        (currentSession.cashAi || currentSession.source === 'cashAi'))
+        ? 'cash'
+        : (opts.returnTab === 'cash' ? 'cash' : 'tournaments');
       setTournamentReviewBackLabel();
     } else {
       tournamentReviewReturn = false;
+      tournamentReviewReturnTab = 'tournaments';
       restoreSessionReviewBackLabel();
     }
     sessionHandsShown = SESSION_HANDS_PAGE;
