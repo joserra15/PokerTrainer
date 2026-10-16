@@ -57,8 +57,9 @@ assert.ok(/invalid_auth/.test(checkout), 'checkout invalid_auth');
 assert.ok(/invalid_json/.test(checkout), 'checkout 400 invalid_json');
 assert.ok(/invalid_plan/.test(checkout), 'checkout invalid_plan');
 assert.ok(/already_subscribed/.test(checkout) && /409/.test(checkout), 'checkout 409 already_subscribed');
-assert.ok(/trial_period_days/.test(checkout) && /'10'|"10"|10/.test(checkout), 'trial 10 días Study');
-assert.ok(/plan === 'pro'/.test(checkout) || /plan === \"pro\"/.test(checkout), 'trial solo pro');
+assert.ok(!/trial_period_days/.test(checkout), 'checkout sin trial Stripe');
+assert.ok(!/study_10d/.test(checkout), 'checkout sin metadata trial 10d');
+assert.ok(/trial:\s*false/.test(checkout), 'checkout declara trial false');
 assert.ok(/url:\s*session\.url|session\.url/.test(checkout), 'checkout devuelve url');
 assert.ok(/type === 'bonus'|purchase_type/.test(checkout), 'checkout bonus packs');
 
@@ -70,6 +71,5 @@ assert.ok(/no_subscription/.test(portal), 'portal 404 sin suscripción Stripe (p
 assert.ok(/customerHasLiveSubscription|status=all/.test(portal), 'portal comprueba subs live');
 assert.ok(/if\s*\(\s*!hasLive\s*\)/.test(portal), 'portal exige sub live (ignora id obsoleto)');
 assert.ok(/stripe_subscription_id:\s*null/.test(portal), 'portal limpia sub id obsoleto');
-assert.ok(/alreadyGrantedPaid|trialing/.test(checkout), 'checkout no ofrece trial si ya hay plan promo');
 
 console.log('*** stripe-edge-contracts OK (webhook + checkout + portal) ***');
