@@ -188,6 +188,16 @@
       'js/tournament/ui.js',
       'js/tournament/index.js'
     ],
+    cash: [
+      'js/cash/config.js',
+      'js/cash/state.js',
+      'js/cash/stats.js',
+      'js/cash/store.js',
+      'js/cash/session-bridge.js',
+      'js/cash/runner.js',
+      'js/cash/ui.js',
+      'js/cash/index.js'
+    ],
     contact: ['js/contact.js'],
     manager: ['js/manager-panel.js'],
     admin: [
@@ -205,6 +215,7 @@
     CHUNKS.school,
     CHUNKS.legendary,
     CHUNKS.tournaments,
+    CHUNKS.cash,
     CHUNKS.contact,
     CHUNKS.manager,
     CHUNKS.admin

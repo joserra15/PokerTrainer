@@ -7238,7 +7238,8 @@
       var St = global.PTTournamentState;
       var cfg = state.config || {};
       var kind = cfg.kind || 'mtt';
-      var hub = (kind === 'spin') ? 'spin' : 'mtt';
+      var hub = (kind === 'spin') ? 'spin'
+        : (kind === 'cash' || cfg.formatHub === 'cash' ? 'cash' : 'mtt');
       var left = St && St.playersLeft ? St.playersLeft(state)
         : (state.players || []).filter(function (p) { return p && p.alive; }).length;
       var paid = Number(cfg.placesPaid) || 0;
@@ -7296,7 +7297,7 @@
       }
       hand.kind = kind;
       hand.formatHub = hub;
-      hand.isTournament = true;
+      hand.isTournament = hub !== 'cash';
       hand.tournamentType = tourneyType;
       hand.playersSeated = seatedN;
       hand.tableMax = Number(cfg.seatsPerTable) || seatedN;
