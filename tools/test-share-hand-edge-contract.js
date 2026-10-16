@@ -14,9 +14,11 @@ assert.ok(/MAX_HTML_BYTES/.test(src), 'límite HTML');
 assert.ok(/ALLOWED_SOURCES/.test(src) && /trainer/.test(src) && /leak/.test(src), 'sources');
 assert.ok(/missing_auth/.test(src) && /invalid_auth/.test(src), 'POST auth');
 assert.ok(/html_required|invalid_source|html_too_large/.test(src), 'POST validation');
+assert.ok(/sanitizeShareHtml|html_rejected/.test(src), 'HTML sanitize / reject');
 assert.ok(/available:\s*false|not_found|expired/.test(src), 'GET unavailable');
 assert.ok(/ttlDays:\s*14|TTL_DAYS/.test(src), 'respuesta ttlDays');
 assert.ok(/expiresAt/.test(src), 'expiresAt');
 assert.ok(/req\.method\s*===\s*'GET'|method === \"GET\"|GET/.test(src), 'GET público');
+assert.ok(/corsFor|jsonFor/.test(src), 'CORS allowlist');
 
 console.log('*** share-hand-edge-contract OK ***');

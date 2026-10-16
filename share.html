@@ -8,10 +8,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="robots" content="noindex, nofollow" />
   <meta name="theme-color" content="#0f1419" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co; frame-src 'self' blob:; base-uri 'self'; form-action 'none'; object-src 'none';" />
   <title>Mano compartida · PokerForgeAI</title>
   <link rel="icon" href="/icons/favicon-32x32.png" type="image/png" sizes="32x32" />
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="stylesheet" href="css/share.css" id="pt-share-css" />
+  <style>
+    html, body { margin: 0; height: 100%; background: #0f1419; }
+    #share-frame { border: 0; width: 100%; height: 100vh; display: block; background: #0f1419; }
+  </style>
   <script>document.write('<script src="js/version.js?t=' + Date.now() + '"><\/script>');</script>
   <script>
   (function () {
@@ -38,6 +43,7 @@
     </p>
     <a class="btn btn-primary" id="share-enter" href="/">Entrar</a>
   </div>
+  <iframe id="share-frame" title="Análisis compartido" sandbox="" referrerpolicy="no-referrer" hidden></iframe>
   <script>
   (function () {
     'use strict';
@@ -63,17 +69,30 @@
     function showUnavailable() {
       var loading = document.getElementById('share-loading');
       var box = document.getElementById('share-unavailable');
+      var frame = document.getElementById('share-frame');
       var enter = document.getElementById('share-enter');
       if (loading) loading.hidden = true;
+      if (frame) frame.hidden = true;
       if (box) box.hidden = false;
       if (enter) enter.href = appUrl();
       document.title = 'Mano no disponible · PokerForgeAI';
     }
 
+    /** Render shared HTML inside a script-disabled sandboxed iframe (no document.write). */
     function showHtml(html) {
-      document.open();
-      document.write(html);
-      document.close();
+      var loading = document.getElementById('share-loading');
+      var box = document.getElementById('share-unavailable');
+      var frame = document.getElementById('share-frame');
+      if (!frame) {
+        showUnavailable();
+        return;
+      }
+      if (loading) loading.hidden = true;
+      if (box) box.hidden = true;
+      frame.hidden = false;
+      frame.setAttribute('sandbox', '');
+      frame.srcdoc = String(html || '');
+      document.title = 'Mano compartida · PokerForgeAI';
     }
 
     async function boot() {

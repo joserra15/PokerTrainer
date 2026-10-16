@@ -1,6 +1,14 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { captureEdgeError } from '../_shared/sentry.ts';
-import { adminClient, cors, cronAuthorized, json, siteBaseUrl, verifyAuth } from '../_shared/http.ts';
+import {
+  adminClient,
+  corsFor,
+  cronAuthorized,
+  jsonFor,
+  safePushUrl,
+  siteBaseUrl,
+  verifyAuth
+} from '../_shared/http.ts';
 import { sendWebPush, vapidEnv } from '../_shared/web-push.ts';
 
 const TYPES = new Set(['test', 'reengage', 'admin']);
@@ -18,7 +26,7 @@ type SubRow = {
 function payloadOf(input: Record<string, unknown>) {
   const type = TYPES.has(String(input.type || '')) ? String(input.type) : 'admin';
   const site = siteBaseUrl();
-  const url = String(input.url || './?source=push&tab=play');
+  const url = safePushUrl(input.url);
   const title = String(input.title || 'PokerForgeAI').slice(0, 80);
   const body = String(input.body || 'Tienes un aviso de PokerForgeAI.').slice(0, 180);
   const tag = String(input.tag || type).slice(0, 64);
@@ -74,7 +82,8 @@ async function markResult(
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const json = (body: unknown, status = 200) => jsonFor(req, body, status);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsFor(req) });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   try {

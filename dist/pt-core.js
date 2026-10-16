@@ -37819,6 +37819,15 @@ window.PT_NASH_PUSH_JSON = {
     return s;
   }
 
+  function escapeHtml(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function fmt(x) {
     if (global.GTOPotMath && global.GTOPotMath.formatBB) return global.GTOPotMath.formatBB(x);
     var n = Number(x);
@@ -37937,12 +37946,14 @@ window.PT_NASH_PUSH_JSON = {
     opts = opts || {};
     var data = buildJson(session, opts);
     var st = data.stats || {};
-    var grade = st.grade && st.grade.letter ? st.grade.letter + ' · ' + st.grade.score + '/10' : '—';
+    var grade = st.grade && st.grade.letter
+      ? escapeHtml(st.grade.letter) + ' · ' + escapeHtml(st.grade.score) + '/10'
+      : '—';
     var rows = (data.hands || []).map(function (h) {
-      return '<tr><td>' + (h.heroCode || '') + '</td><td>' + (h.heroPos || '') + '</td>' +
-        '<td>' + fmt(h.heroNetBB) + '</td><td>-' + fmt(h.totalEvLoss) + '</td>' +
-        '<td>' + (h.handScore != null ? h.handScore : '—') + '</td>' +
-        '<td>' + (h.worstClass || '') + '</td></tr>';
+      return '<tr><td>' + escapeHtml(h.heroCode || '') + '</td><td>' + escapeHtml(h.heroPos || '') + '</td>' +
+        '<td>' + escapeHtml(fmt(h.heroNetBB)) + '</td><td>-' + escapeHtml(fmt(h.totalEvLoss)) + '</td>' +
+        '<td>' + escapeHtml(h.handScore != null ? h.handScore : '—') + '</td>' +
+        '<td>' + escapeHtml(h.worstClass || '') + '</td></tr>';
     }).join('');
     var toolbar = opts.inApp
       ? ''
@@ -37952,7 +37963,7 @@ window.PT_NASH_PUSH_JSON = {
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<title>Informe sesión — ' +
-      String(data.fileName || '').replace(/</g, '') + '</title>' +
+      escapeHtml(data.fileName || '') + '</title>' +
       '<style>body{font-family:system-ui,sans-serif;padding:24px;color:#111;margin:0}' +
       'h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:13px}' +
       'th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}' +
@@ -37962,13 +37973,15 @@ window.PT_NASH_PUSH_JSON = {
       '.muted{color:#666;font-size:12px}@media print{.no-print{display:none}}</style></head><body>' +
       toolbar +
       '<h1>PokerForgeAI — Informe de sesión</h1>' +
-      '<p><strong>' + String(data.fileName || '') + '</strong></p>' +
-      '<p>Manos: ' + (st.nHands || 0) + ' · Acierto: ' + (st.accuracy != null ? st.accuracy + '%' : '—') +
-      ' · Resultado: ' + fmt(st.netBB) + ' bb · EV perdido: -' + fmt(st.evLossBB) + ' bb · Nota sesión: ' + grade +
-      (st.avgHandScore != null ? ' · Nota media manos: ' + st.avgHandScore + '/10' : '') + '</p>' +
+      '<p><strong>' + escapeHtml(data.fileName || '') + '</strong></p>' +
+      '<p>Manos: ' + escapeHtml(st.nHands || 0) + ' · Acierto: ' +
+      (st.accuracy != null ? escapeHtml(st.accuracy) + '%' : '—') +
+      ' · Resultado: ' + escapeHtml(fmt(st.netBB)) + ' bb · EV perdido: -' +
+      escapeHtml(fmt(st.evLossBB)) + ' bb · Nota sesión: ' + grade +
+      (st.avgHandScore != null ? ' · Nota media manos: ' + escapeHtml(st.avgHandScore) + '/10' : '') + '</p>' +
       '<table><thead><tr><th>Mano</th><th>Pos</th><th>Net</th><th>EV loss</th><th>Nota</th><th>Clase</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
-      '<p class="muted">Exportado ' + data.exportedAt + ' · Estudio GTO heurístico</p></body></html>';
+      '<p class="muted">Exportado ' + escapeHtml(data.exportedAt) + ' · Estudio GTO heurístico</p></body></html>';
   }
 
   function downloadBlob(filename, mime, text) {
@@ -40175,26 +40188,14 @@ window.PT_NASH_PUSH_JSON = {
     return global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive();
   }
 
-  function localFallback() {
+  /** Fail-closed free limits — never trust client plan/isAdmin when server is unreachable. */
+  function freeClosedFallback() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-    var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
-    var admin = !demoActive() && isAdmin();
-    var limits = Object.assign({}, DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free);
-    if (admin) {
-      limits = {
-        trainer_hands_per_day: null,
-        import_sessions_per_month: null,
-        max_hands_per_import: null,
-        ai_reports_per_month: null,
-        history_days: null,
-        analysis_hands_max: 1000
-      };
-    }
     return {
-      plan: plan,
-      plan_label: PLAN_LABELS[plan] || plan,
-      is_admin: admin,
-      unlimited: admin || plan === 'pro' || plan === 'premium',
+      plan: 'free',
+      plan_label: PLAN_LABELS.free || 'free',
+      is_admin: false,
+      unlimited: false,
       is_founder: !!(u && u.isFounder),
       is_founder_study: !!(u && u.isFounderStudy),
       is_founder_coach: !!(u && u.isFounderCoach),
@@ -40203,14 +40204,59 @@ window.PT_NASH_PUSH_JSON = {
       founder_coach_requested_at: (u && u.founderCoachRequestedAt) || null,
       demo_mode: demoActive(),
       subscription_status: 'none',
-      paid_active: plan === 'pro' || plan === 'premium',
-      limits: limits,
+      paid_active: false,
+      _fromServer: false,
+      limits: Object.assign({}, DEFAULT_LIMITS.free),
       usage: {
         trainer_hands_today: 0,
         import_sessions_month: 0,
         ai_reports_month: 0
       }
     };
+  }
+
+  function localFallback() {
+    /* E2E / no-auth: keep prior behaviour for local UX; RPC failure uses freeClosedFallback. */
+    if (e2eBypass() || !useAuth()) {
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
+      var admin = !demoActive() && isAdmin();
+      var limits = Object.assign({}, DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free);
+      if (admin) {
+        limits = {
+          trainer_hands_per_day: null,
+          import_sessions_per_month: null,
+          max_hands_per_import: null,
+          ai_reports_per_month: null,
+          history_days: null,
+          analysis_hands_max: 1000
+        };
+      }
+      return {
+        plan: plan,
+        plan_label: PLAN_LABELS[plan] || plan,
+        is_admin: admin,
+        unlimited: admin || plan === 'pro' || plan === 'premium',
+        is_founder: !!(u && u.isFounder),
+        is_founder_study: !!(u && u.isFounderStudy),
+        is_founder_coach: !!(u && u.isFounderCoach),
+        founder_requested_at: (u && u.founderRequestedAt) || null,
+        founder_study_requested_at: (u && u.founderStudyRequestedAt) || null,
+        founder_coach_requested_at: (u && u.founderCoachRequestedAt) || null,
+        demo_mode: demoActive(),
+        subscription_status: 'none',
+        paid_active: plan === 'pro' || plan === 'premium',
+        _fromServer: false,
+        limits: limits,
+        usage: {
+          trainer_hands_today: 0,
+          import_sessions_month: 0,
+          ai_reports_month: 0
+        }
+      };
+    }
+    if (state && state._fromServer) return state;
+    return freeClosedFallback();
   }
 
   function normalizeEnt(data) {
@@ -40241,7 +40287,9 @@ window.PT_NASH_PUSH_JSON = {
     data.founder_requested_at = data.founder_requested_at || null;
     data.founder_study_requested_at = data.founder_study_requested_at || null;
     data.founder_coach_requested_at = data.founder_coach_requested_at || null;
-    if (!data.is_admin && isAdmin()) data.is_admin = true;
+    /* Trust server is_admin only — do not OR client localStorage flags. */
+    data.is_admin = !!data.is_admin;
+    data._fromServer = true;
     if (data.is_admin) {
       data.limits.trainer_hands_per_day = null;
       data.limits.import_sessions_per_month = null;
@@ -40269,7 +40317,7 @@ window.PT_NASH_PUSH_JSON = {
     }
     var c = client();
     if (!c) {
-      state = localFallback();
+      state = (state && state._fromServer) ? state : freeClosedFallback();
       return state;
     }
     try {
@@ -40283,7 +40331,7 @@ window.PT_NASH_PUSH_JSON = {
           global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
           return state;
         }
-        state = localFallback();
+        state = (state && state._fromServer) ? state : freeClosedFallback();
       } else {
         state = normalizeEnt(res.data);
         /* Tras refresh el usage del servidor manda; limpia bloqueo diferido. */
@@ -40297,7 +40345,7 @@ window.PT_NASH_PUSH_JSON = {
         global.PTAuth.handleAuthFailure((e && e.message) || 'not_authenticated');
         return state;
       }
-      state = localFallback();
+      state = (state && state._fromServer) ? state : freeClosedFallback();
     }
     applyToUser(state);
     if (global.PTCommunity && global.PTCommunity.refreshAiQuota) {
@@ -40356,7 +40404,8 @@ window.PT_NASH_PUSH_JSON = {
 
   function unlimited(ent) {
     ent = ent || state || localFallback();
-    return !!(ent.is_admin || ent.unlimited || isAdmin() ||
+    /* Server-derived flags only — never escalate via client isAdmin(). */
+    return !!(ent.is_admin || ent.unlimited ||
       ent.plan === 'pro' || ent.plan === 'premium');
   }
 
@@ -40398,7 +40447,7 @@ window.PT_NASH_PUSH_JSON = {
       return { ok: true, source: 'community', pending: true };
     }
     ent = ent || state || localFallback();
-    if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
+    if (ent.is_admin || ent.unlimited) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
@@ -40417,7 +40466,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function aiCombinedQuota(ent) {
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) {
+    if (ent.is_admin) {
       return {
         unlimited: true,
         used: (ent.usage && ent.usage.ai_reports_month) || 0,
@@ -40474,7 +40523,7 @@ window.PT_NASH_PUSH_JSON = {
       };
     }
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) {
+    if (ent.is_admin) {
       var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
       return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
@@ -40552,14 +40601,11 @@ window.PT_NASH_PUSH_JSON = {
   function recordTrainerHandAsync() {
     /* Invitados no ganan Koins ni consumen cupo autenticado. */
     if (isGuestUser()) return { ok: true };
-    /* Study/Coach/admin: sin techo diario. No bloquear por un RPC fallido previo
-       (p.ej. red) ni mostrar «Mejora tu plan» a quien ya tiene plan de pago. */
-    if (unlimited(state || localFallback())) {
+    var entNow = state || localFallback();
+    /* Study/Coach/admin (server-derived): sin techo diario en UX, pero siempre RPC. */
+    if (unlimited(entNow)) {
       trainerQuotaBlockedReason = null;
-      awardTrainerKoins();
-      return { ok: true };
-    }
-    if (trainerQuotaBlockedReason) {
+    } else if (trainerQuotaBlockedReason) {
       return { ok: false, error: trainerQuotaBlockedReason };
     }
     if (!useAuth() || e2eBypass()) {
@@ -40572,13 +40618,14 @@ window.PT_NASH_PUSH_JSON = {
       return { ok: true };
     }
 
-    bumpLocalTrainerUsage(1);
+    if (!unlimited(entNow)) bumpLocalTrainerUsage(1);
     awardTrainerKoins();
 
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
     Promise.resolve(c.rpc(rpc)).then(function (res) {
       if (unlimited(state || localFallback())) {
         trainerQuotaBlockedReason = null;
+        try { scheduleRefresh(); } catch (eRefreshU) { /* ignore */ }
         return;
       }
       if (res && res.error) {
@@ -40659,7 +40706,7 @@ window.PT_NASH_PUSH_JSON = {
 
   function analysisHandsMax(ent) {
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) return 1000;
+    if (ent.is_admin) return 1000;
     var lim = ent.limits || {};
     if (typeof lim.analysis_hands_max === 'number') return lim.analysis_hands_max;
     var plan = ent.plan || 'free';
@@ -42277,6 +42324,7 @@ window.PT_NASH_PUSH_JSON = {
   function handlePushNavigation(href) {
     try {
       var parsed = new URL(href, global.location.href);
+      if (parsed.origin !== global.location.origin) return;
       var tab = parsed.searchParams.get('tab');
       var source = parsed.searchParams.get('source');
       if (source === 'push' && global.PTAnalytics && global.PTAnalytics.trackPushOpen) {
@@ -47515,9 +47563,7 @@ window.PT_NASH_PUSH_JSON = {
     if (tabId === 'cash') {
       restoreUserCardStyle();
       const cDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      const cUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
-        || window.PT_AUTH_USER || null;
-      let canCash = !!(cUser && !cDemo);
+      let canCash = cashMenuVisible();
       if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
         canCash = window.PTCash.menuVisible();
       }

@@ -189,11 +189,26 @@ self.addEventListener('fetch', function (event) {
 });
 
 function pushAbsoluteUrl(path) {
-  path = path || './?source=push';
+  var fallback = './?source=push&tab=play';
+  path = path || fallback;
   try {
+    // Reject absolute cross-origin URLs (open-redirect / phishing via push).
+    if (/^https?:\/\//i.test(path) || path.indexOf('//') === 0) {
+      var abs = new URL(path, self.registration.scope);
+      var scopeOrigin = new URL(self.registration.scope).origin;
+      if (abs.origin !== scopeOrigin) return new URL(fallback, self.registration.scope).href;
+      return abs.href;
+    }
+    if (/^[a-z][a-z0-9+.-]*:/i.test(path)) {
+      return new URL(fallback, self.registration.scope).href;
+    }
     return new URL(path, self.registration.scope).href;
   } catch (e) {
-    return path;
+    try {
+      return new URL(fallback, self.registration.scope).href;
+    } catch (e2) {
+      return fallback;
+    }
   }
 }
 

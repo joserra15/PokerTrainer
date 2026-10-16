@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
-import { cors, json, stripeKey } from '../_shared/stripe.ts';
+import { corsFor, jsonReq, json, stripeKey } from '../_shared/stripe.ts';
 import { syncUserSubscription } from '../_shared/subscription-sync.ts';
 
 async function verifyAuth(req: Request) {
@@ -32,7 +32,8 @@ function adminClient() {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  const json = (data: unknown, status = 200) => jsonReq(req, data, status);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsFor(req) });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const auth = await verifyAuth(req);
