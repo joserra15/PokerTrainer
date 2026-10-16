@@ -2187,6 +2187,24 @@
     return window.confirm(message);
   }
 
+  /**
+   * Parsea duración admin: «2 semanas», «1 mes», «3w», «6m», o solo número (= meses).
+   * @returns {{ n: number, unit: 'week'|'month' }|null}
+   */
+  function parseAdminPlanDuration(raw) {
+    var s = String(raw || '').trim().toLowerCase();
+    if (!s) return null;
+    var m = s.match(/^(\d+)\s*(semanas?|weeks?|w|meses?|months?|m)?$/i);
+    if (!m) return null;
+    var n = parseInt(m[1], 10);
+    if (!(n >= 1)) return null;
+    var unitToken = (m[2] || 'mes').toLowerCase();
+    var unit = (/^(semanas?|weeks?|w)$/).test(unitToken) ? 'week' : 'month';
+    var max = unit === 'week' ? 52 : 24;
+    if (n > max) return null;
+    return { n: n, unit: unit };
+  }
+
   function patchUserInCache(userId, patch, serverRow) {
     var idx = -1;
     for (var i = 0; i < adminUsersCache.length; i++) {
@@ -2235,23 +2253,31 @@
       if ((patch.plan === 'pro' || patch.plan === 'premium') &&
           !patch.subscription_period_end &&
           !(current && current.subscription_period_end)) {
-        var months = window.prompt('Meses de acceso (1–24). Deja vacío solo si quieres plan sin caducidad (no recomendado):', '1');
-        if (months === null) { renderUsersTable(); return; }
-        months = String(months).trim();
-        if (months === '') {
+        var durRaw = window.prompt(
+          'Duración del acceso. Ejemplos: 2 semanas, 1 mes (máx. 52 semanas / 24 meses).\n' +
+          'Deja vacío solo si quieres plan sin caducidad (no recomendado):',
+          '2 semanas'
+        );
+        if (durRaw === null) { renderUsersTable(); return; }
+        durRaw = String(durRaw).trim();
+        if (durRaw === '') {
           if (!confirmAdminChange('Vas a dejar un plan de pago SIN fecha de fin. ¿Continuar?')) {
             renderUsersTable();
             return;
           }
         } else {
-          var n = parseInt(months, 10);
-          if (!(n >= 1 && n <= 24)) {
-            alert('Indica un número de meses entre 1 y 24.');
+          var parsed = parseAdminPlanDuration(durRaw);
+          if (!parsed) {
+            alert('Indica una duración válida, p. ej. «2 semanas» o «1 mes» (1–52 semanas / 1–24 meses).');
             renderUsersTable();
             return;
           }
           var end = new Date();
-          end.setUTCMonth(end.getUTCMonth() + n);
+          if (parsed.unit === 'week') {
+            end.setUTCDate(end.getUTCDate() + (parsed.n * 7));
+          } else {
+            end.setUTCMonth(end.getUTCMonth() + parsed.n);
+          }
           end.setUTCHours(23, 59, 59, 999);
           patch.subscription_period_end = end.toISOString();
         }

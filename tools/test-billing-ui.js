@@ -54,7 +54,7 @@ const bodyClass = new Set();
 const founderCfg = {
   enabled: false,
   purchasesPaused: false,
-  trial: { days: 10, plan: 'pro' },
+  trial: { days: 0, plan: 'pro' },
   founder: {
     seatsOpen: true,
     launchLabel: 'octubre',
@@ -125,16 +125,15 @@ B.showPaywall('ai_limit');
 assert.ok(/ForgeCoach|IA|FOUNDER|consultas/i.test(docEls['paywall-body'].innerHTML), 'ai_limit menciona IA/FOUNDER');
 
 const trial = B.trialInfo && B.trialInfo();
-if (trial) {
-  assert.strictEqual(trial.plan, 'pro');
-  assert.strictEqual(trial.days, 10);
-}
+assert.ok(!trial, 'sin trial Stripe automático (days 0)');
 
 assert.ok(/purchasesPaused|founder|seatsOpen/.test(billingCfgEx), 'billing-config.example documenta pause/FOUNDER');
 assert.ok(!/SUMMER26/.test(billingCfgEx), 'billing-config.example sin SUMMER26');
 
 // functionsUrl no debe llevar project ref scrubbed (rompe fetch → stripe-portal)
 const billingCfgSrc = fs.readFileSync(path.join(root, 'js/billing-config.js'), 'utf8');
+assert.ok(/days:\s*0/.test(billingCfgSrc), 'billing-config trial.days = 0');
+assert.ok(/days:\s*0/.test(billingCfgEx), 'billing-config.example trial.days = 0');
 assert.ok(!/functionsUrl:\s*'[^']*\[REDACTED\]/.test(billingCfgSrc), 'billing-config sin [REDACTED] en functionsUrl');
 assert.ok(!/functionsUrl:\s*'https:\/\/[^']*supabase\.co/.test(billingCfgSrc),
   'billing-config no hardcodea project ref (usar PT_SUPABASE.url)');
@@ -161,7 +160,7 @@ assert.ok(/no_subscription/.test(billingSrc) && /subscribeViaCheckout/.test(bill
           purchasesPaused: false,
           functionsUrl: functionsUrl,
           plans: {},
-          trial: { days: 10, plan: 'pro' }
+          trial: { days: 0, plan: 'pro' }
         },
         PT_SUPABASE: { url: 'https://abcdefghijklmnopqr.supabase.co', anonKey: 'test-anon' },
         PTSupabase: {

@@ -7,11 +7,12 @@ window.PT_BILLING = {
   purchasesPaused: false,
   /** Base de Edge Functions: se toma de PT_SUPABASE.url (no duplicar project ref aqui). */
   functionsUrl: '',
+  /** days: 0 = sin trial Stripe; las pruebas se otorgan a mano (admin/promo). */
   trial: {
     plan: 'pro',
-    days: 10,
-    label: 'Prueba Study 10 días',
-    note: 'Study con trial de 10 días (sin tarjeta si Stripe lo permite). Una vez por cuenta.'
+    days: 0,
+    label: '',
+    note: 'Sin trial automático: al suscribirte el cobro empieza desde el primer minuto.'
   },
   plans: {
     pro: {

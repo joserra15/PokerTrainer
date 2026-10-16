@@ -54,13 +54,13 @@ precio bloqueado para siempre. La regresión `tools/test-founder-pricing.js` fij
 
 Los administradores (`is_admin`) no tienen límites.
 
-## Trial Study (10 días)
+## Trial Stripe (desactivado)
 
-Checkout de **Study (`pro`)** ofrece `subscription_data[trial_period_days]=10` **una vez por cliente Stripe**
-(si el customer no tiene suscripciones previas). También usa `payment_method_collection=if_required`
-cuando hay trial. Coach no incluye trial automático.
+Checkout de Study/Coach **no** añade `trial_period_days`: al suscribirse el cobro empieza
+desde el primer minuto. Las pruebas gratuitas se otorgan a mano (admin o códigos promo).
 
-El backend ya trata `subscription_status=trialing` como plan de pago activo (`paid_active`).
+El backend sigue tratando `subscription_status=trialing` como plan de pago activo (`paid_active`)
+para grants promo/manuales que usan ese estado.
 
 ## Configuración Stripe (producción)
 
