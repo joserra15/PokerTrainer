@@ -4,7 +4,7 @@ window.PT_BUILD = '3.2.4';
 /* Huella del contenido de js, css, dist y data. La genera tools/build-bundles.js:
    no editar a mano. Es el token de ?v=, así que cambia siempre que cambia un
    asset aunque nadie suba PT_BUILD, y la caché vieja no sobrevive al deploy. */
-window.PT_ASSET_REV = '3.2.4-e492486f04';
+window.PT_ASSET_REV = '3.2.4-9183b55893';
 
 /* Token de invalidación para URLs de assets (?v=) y para el build guard. */
 window.PT_REV = function () {

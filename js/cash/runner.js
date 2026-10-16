@@ -622,6 +622,9 @@
       bbWon: summ.bbWon || 0,
       bbPer100: summ.bbPer100 || 0,
       rakePaid: summ.rakePaid || 0,
+      vpip: summ.vpip != null ? summ.vpip : null,
+      pfr: summ.pfr != null ? summ.pfr : null,
+      gtoAccuracy: state.gtoSession && state.gtoSession.accuracy,
       gtoSession: state.gtoSession || null
     };
     if (Wallet && typeof Wallet.credit === 'function' && econ.cashOut > 0) {

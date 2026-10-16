@@ -217,6 +217,12 @@
     if (!state || !state.result) return null;
     var cfg = state.config || {};
     var res = state.result;
+    var summ = null;
+    try {
+      if (global.PTCashStats && typeof global.PTCashStats.summary === 'function') {
+        summ = global.PTCashStats.summary(state);
+      }
+    } catch (eSum) { summ = null; }
     return {
       id: state.id,
       presetId: state._presetId || cfg.id,
@@ -233,6 +239,8 @@
       bbWon: Number(res.bbWon) || 0,
       bbPer100: Number(res.bbPer100) || 0,
       rakePaid: Number(res.rakePaid) || 0,
+      vpip: summ && summ.vpip != null ? summ.vpip : null,
+      pfr: summ && summ.pfr != null ? summ.pfr : null,
       startedAt: state.startedAt,
       finishedAt: state.finishedAt || new Date().toISOString(),
       communityId: communityId(),
