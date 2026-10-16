@@ -2421,13 +2421,14 @@
 
 /*
  * cash/index.js — API pública PTCash (lazy chunk).
- * Misma visibilidad que Torneos; presets por plan Gratis/Study/Coach.
+ * Menú admin-only de momento (CASH_PUBLIC=false). Presets por plan Gratis/Study/Coach.
  */
 (function (global) {
   'use strict';
 
   var ENABLED = true;
-  var CASH_PUBLIC = true;
+  /** false → solo admin (fase actual). true → cualquier autenticado. */
+  var CASH_PUBLIC = false;
 
   function isDemoActive() {
     return !!(global.PTDemo && global.PTDemo.isActive && global.PTDemo.isActive());
@@ -2488,7 +2489,7 @@
   function menuVisible() {
     if (!ENABLED || isDemoActive()) return false;
     if (CASH_PUBLIC) return !!authUser();
-    return hasAdminAccess() || isManagerAccess();
+    return hasAdminAccess();
   }
 
   function entitlementsPlan() {

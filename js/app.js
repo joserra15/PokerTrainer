@@ -80,9 +80,13 @@
     if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
       return !!window.PTCash.menuVisible();
     }
+    /* Admin-only hasta abrir el menú al público (CASH_PUBLIC). */
     if (window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive()) return false;
+    if (window.PTAdmin && typeof window.PTAdmin.hasAccess === 'function') {
+      return !!window.PTAdmin.hasAccess();
+    }
     const u = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser()) || window.PT_AUTH_USER;
-    return !!u;
+    return !!(u && u.isAdmin);
   }
 
   function refreshCashTabVisibility() {
@@ -2561,9 +2565,7 @@
     if (tabId === 'cash') {
       restoreUserCardStyle();
       const cDemo = window.PTDemo && window.PTDemo.isActive && window.PTDemo.isActive();
-      const cUser = (window.PTAuth && window.PTAuth.getUser && window.PTAuth.getUser())
-        || window.PT_AUTH_USER || null;
-      let canCash = !!(cUser && !cDemo);
+      let canCash = cashMenuVisible();
       if (window.PTCash && typeof window.PTCash.menuVisible === 'function') {
         canCash = window.PTCash.menuVisible();
       }
