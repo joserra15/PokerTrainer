@@ -110,4 +110,17 @@ assertOwnPolicies(mig050, 'pt_analysis_hands', [
 assert.ok(/user_id\s*=\s*auth\.uid\(\)::text/.test(mig050), 'analysis_hands user_id = auth.uid()');
 assert.ok(!/user_metadata/.test(mig050), '050 sin user_metadata');
 
-console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + analysis_hands + guest funnel + push) ***');
+const mig068 = fs.readFileSync(
+  path.join(root, 'supabase/migrations/068_security_hardening.sql'),
+  'utf8'
+);
+assert.ok(/revoke all on function public\.pt_check_ai_access/i.test(mig068),
+  '068 revoca pt_check_ai_access a authenticated');
+assert.ok(/revoke all on function public\.pt_record_ai_usage/i.test(mig068),
+  '068 revoca pt_record_ai_usage a authenticated');
+assert.ok(/drop policy if exists pt_app_settings_read_auth/i.test(mig068),
+  '068 cierra lectura abierta de pt_app_settings');
+assert.ok(/pt_villain_assist_cache_put/i.test(mig068) && /forbidden/i.test(mig068),
+  '068 gatea cache put villano');
+
+console.log('*** rls-policies OK (pt_user_state + pt_import_sessions + analysis_hands + guest funnel + push + 068) ***');

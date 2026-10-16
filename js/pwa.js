@@ -246,6 +246,7 @@
   function handlePushNavigation(href) {
     try {
       var parsed = new URL(href, global.location.href);
+      if (parsed.origin !== global.location.origin) return;
       var tab = parsed.searchParams.get('tab');
       var source = parsed.searchParams.get('source');
       if (source === 'push' && global.PTAnalytics && global.PTAnalytics.trackPushOpen) {

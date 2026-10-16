@@ -104,6 +104,7 @@ const STEPS = [
   ['Test cloud analysis slim', ['node', 'tools/test-cloud-analysis.js']],
   ['Test memory optimize reclaim', ['node', 'tools/test-memory-optimize.js']],
   ['Test RLS policies (SQL)', ['node', 'tools/test-rls-policies.js']],
+  ['Test security audit hardening', ['node', 'tools/test-security-audit.js']],
   ['Test auth contract', ['node', 'tools/test-auth-contract.js']],
   ['Test auth bootstrap login UI', ['node', 'tools/test-auth-bootstrap-login-ui.js']],
   ['Test auth gateway timeout UX', ['node', 'tools/test-auth-gateway-timeout.js']],

@@ -1,23 +1,11 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { captureEdgeError } from '../_shared/sentry.ts';
-
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-};
+import { corsFor, jsonFor } from '../_shared/http.ts';
 
 const TTL_DAYS = 14;
 const MAX_HTML_BYTES = 450_000;
 const ALLOWED_SOURCES = new Set(['trainer', 'analysis', 'session', 'leak']);
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8' }
-  });
-}
 
 function adminClient() {
   const url = Deno.env.get('SUPABASE_URL');
@@ -56,18 +44,41 @@ function byteLength(s: string) {
   return new TextEncoder().encode(s).length;
 }
 
+/** Strip executable / high-risk markup from shared HTML (stored XSS defense). */
+export function sanitizeShareHtml(html: string): string {
+  let out = String(html || '');
+  // Remove script/style/iframe/object/embed/link/meta-refresh/base/form
+  out = out.replace(/<\s*(script|iframe|object|embed|link|base|form|textarea|input|button)[\s\S]*?>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  out = out.replace(/<\s*(script|iframe|object|embed|link|base|form|textarea|input|button)[^>]*\/?\s*>/gi, '');
+  // Event handlers and javascript: / data: URLs in attributes
+  out = out.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  out = out.replace(/\s(href|src|xlink:href|action)\s*=\s*(['"])\s*(javascript|data|vbscript):[\s\S]*?\2/gi, ' $1="#"');
+  out = out.replace(/<\s*meta[^>]+http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, '');
+  // SVG/math that can carry script
+  out = out.replace(/<\s*(svg|math)[\s\S]*?>[\s\S]*?<\s*\/\s*\1\s*>/gi, '');
+  out = out.replace(/<\s*(svg|math)[^>]*\/?\s*>/gi, '');
+  return out;
+}
+
+function looksDangerous(html: string): boolean {
+  return /<\s*script[\s>/]/i.test(html)
+    || /\bon[a-z]+\s*=/i.test(html)
+    || /javascript\s*:/i.test(html)
+    || /<\s*iframe[\s>/]/i.test(html);
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsFor(req) });
 
   try {
     const admin = adminClient();
-    if (!admin) return json({ error: 'server_config' }, 500);
+    if (!admin) return jsonFor(req, { error: 'server_config' }, 500);
 
     if (req.method === 'GET') {
       const url = new URL(req.url);
       const id = (url.searchParams.get('id') || '').trim();
       if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
-        return json({ error: 'invalid_id', available: false }, 400);
+        return jsonFor(req, { error: 'invalid_id', available: false }, 400);
       }
 
       const { data, error } = await admin
@@ -78,10 +89,10 @@ serve(async (req) => {
 
       if (error) {
         console.error('[share-hand] get', error);
-        return json({ error: 'db_error', available: false }, 500);
+        return jsonFor(req, { error: 'db_error', available: false }, 500);
       }
       if (!data) {
-        return json({
+        return jsonFor(req, {
           available: false,
           error: 'not_found',
           message: 'Esta mano ya no está disponible.'
@@ -91,19 +102,19 @@ serve(async (req) => {
       const expiresAt = new Date(data.expires_at).getTime();
       if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) {
         await admin.from('pt_shared_hands').delete().eq('id', id);
-        return json({
+        return jsonFor(req, {
           available: false,
           error: 'expired',
           message: 'Esta mano ya no está disponible.'
         }, 404);
       }
 
-      return json({
+      return jsonFor(req, {
         available: true,
         id: data.id,
         title: data.title,
         source: data.source,
-        html: data.html,
+        html: sanitizeShareHtml(String(data.html || '')),
         createdAt: data.created_at,
         expiresAt: data.expires_at
       });
@@ -111,22 +122,26 @@ serve(async (req) => {
 
     if (req.method === 'POST') {
       const auth = await verifyAuth(req);
-      if (!auth.ok) return json({ error: auth.error }, auth.status);
+      if (!auth.ok) return jsonFor(req, { error: auth.error }, auth.status);
 
       let body: { html?: string; source?: string; title?: string };
       try {
         body = await req.json();
       } catch {
-        return json({ error: 'invalid_json' }, 400);
+        return jsonFor(req, { error: 'invalid_json' }, 400);
       }
 
-      const html = typeof body.html === 'string' ? body.html.trim() : '';
+      const rawHtml = typeof body.html === 'string' ? body.html.trim() : '';
       const source = typeof body.source === 'string' ? body.source.trim() : '';
       const title = typeof body.title === 'string' ? body.title.trim().slice(0, 160) : '';
 
-      if (!html) return json({ error: 'html_required' }, 400);
-      if (!ALLOWED_SOURCES.has(source)) return json({ error: 'invalid_source' }, 400);
-      if (byteLength(html) > MAX_HTML_BYTES) return json({ error: 'html_too_large' }, 413);
+      if (!rawHtml) return jsonFor(req, { error: 'html_required' }, 400);
+      if (!ALLOWED_SOURCES.has(source)) return jsonFor(req, { error: 'invalid_source' }, 400);
+      if (byteLength(rawHtml) > MAX_HTML_BYTES) return jsonFor(req, { error: 'html_too_large' }, 413);
+
+      const html = sanitizeShareHtml(rawHtml);
+      if (!html.trim()) return jsonFor(req, { error: 'html_required' }, 400);
+      if (looksDangerous(html)) return jsonFor(req, { error: 'html_rejected' }, 400);
 
       const createdAt = new Date();
       const expiresAt = new Date(createdAt.getTime() + TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -149,13 +164,13 @@ serve(async (req) => {
         const code = String(error && (error as { code?: string }).code || '');
         const msg = String(error && (error as { message?: string }).message || '');
         if (code === '23514' || /source/i.test(msg)) {
-          return json({ error: 'invalid_source', detail: msg }, 400);
+          return jsonFor(req, { error: 'invalid_source', detail: msg }, 400);
         }
-        return json({ error: 'db_error', detail: msg || undefined }, 500);
+        return jsonFor(req, { error: 'db_error', detail: msg || undefined }, 500);
       }
 
       const shareUrl = `${siteBaseUrl()}/share.html?id=${data.id}`;
-      return json({
+      return jsonFor(req, {
         ok: true,
         id: data.id,
         url: shareUrl,
@@ -165,10 +180,10 @@ serve(async (req) => {
       });
     }
 
-    return json({ error: 'method_not_allowed' }, 405);
+    return jsonFor(req, { error: 'method_not_allowed' }, 405);
   } catch (err) {
     console.error('[share-hand]', err);
     await captureEdgeError(err, { fn: 'share-hand' });
-    return json({ error: 'internal_error' }, 500);
+    return jsonFor(req, { error: 'internal_error' }, 500);
   }
 });

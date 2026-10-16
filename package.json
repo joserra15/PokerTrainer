@@ -49,6 +49,7 @@
     "test:cloud-analysis": "node tools/test-cloud-analysis.js",
     "test:memory-optimize": "node tools/test-memory-optimize.js",
     "test:rls": "node tools/test-rls-policies.js",
+    "test:security-audit": "node tools/test-security-audit.js",
     "test:auth-contract": "node tools/test-auth-contract.js",
     "test:auth-bootstrap-login": "node tools/test-auth-bootstrap-login-ui.js",
     "test:auth-gateway-timeout": "node tools/test-auth-gateway-timeout.js",

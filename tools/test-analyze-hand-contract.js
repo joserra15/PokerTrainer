@@ -39,7 +39,8 @@ modes.forEach((m) => {
 });
 
 assert.ok(/reportMarkdown/.test(src), 'respuesta incluye reportMarkdown');
-assert.ok(/Access-Control-Allow-Origin/.test(src), 'CORS');
+assert.ok(/corsFor|Access-Control-Allow-Origin|jsonFor/.test(src), 'CORS');
+assert.ok(/isHomeGreetingPayload\(enrichedPayload\)/.test(src), 'freePromo gated by greeting');
 assert.ok(/method_not_allowed/.test(src), '405 method');
 
 // Shape estable de respuesta exitosa (campos)

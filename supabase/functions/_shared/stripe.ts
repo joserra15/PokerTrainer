@@ -1,3 +1,5 @@
+import { corsFor, jsonFor } from './http.ts';
+
 const STRIPE_API = 'https://api.stripe.com/v1';
 
 export const BONUS_PACKS = {
@@ -155,15 +157,15 @@ export async function stripeRequest(
   return data as Record<string, unknown>;
 }
 
-export const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
-};
+/** Default CORS (allowlisted origin). Prefer corsFor(req) when Request is available. */
+export const cors = corsFor();
 
 export function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: Object.assign({ 'Content-Type': 'application/json' }, cors)
-  });
+  return jsonFor(new Request('https://www.pokerforgeai.com/'), data, status);
 }
+
+export function jsonReq(req: Request, data: unknown, status = 200) {
+  return jsonFor(req, data, status);
+}
+
+export { corsFor };

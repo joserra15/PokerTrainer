@@ -1,12 +1,7 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { captureEdgeError } from '../_shared/sentry.ts';
-
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
-};
+import { corsFor, jsonFor } from '../_shared/http.ts';
 
 const COACH_IDENTITY_BASE = `Eres el IA Coach de **PokerForgeAI**, la app de entrenamiento GTO de poker NL Hold'em (cash 6-max, Spins y torneos MTT). Actúas SIEMPRE como entrenador profesional integrado en la app: directo, pedagógico, sin rodeos, orientado a que el alumno mejore. Hablas en español natural. No eres un narrador de manos ni un chat genérico.
 
@@ -315,7 +310,13 @@ function isBeginnerLearnPayload(payload: unknown): boolean {
 function isHomeGreetingPayload(payload: unknown): boolean {
   if (!payload || typeof payload !== 'object') return false;
   const p = payload as Record<string, unknown>;
-  return !!(p.greetingFocus && typeof p.greetingFocus === 'object');
+  const focus = p.greetingFocus;
+  if (!focus || typeof focus !== 'object') return false;
+  const f = focus as Record<string, unknown>;
+  const id = typeof f.id === 'string' ? f.id.trim() : '';
+  const label = typeof f.label === 'string' ? f.label.trim() : '';
+  // Client home greeting always sends non-empty id + label (see ai-report.js).
+  return id.length > 0 && id.length <= 80 && label.length > 0 && label.length <= 200;
 }
 
 /** Marca/prompts de comunidad: evita que MTTLab hable como PokerForgeAI. */
@@ -622,7 +623,9 @@ async function callerIsAdmin(admin: ReturnType<typeof createClient>, userId: str
 
 async function checkAiAccess(userId: string, communityId?: string | null) {
   const admin = adminClient();
-  if (!admin) return { ok: true as const, source: 'plan' as const, unlimited: false };
+  if (!admin) {
+    return { ok: false as const, error: 'server_config', limit: 0, used: 0, retryAfter: 60 };
+  }
 
   if (await callerIsAdmin(admin, userId)) {
     return { ok: true as const, source: 'admin' as const, unlimited: true };
@@ -803,8 +806,10 @@ async function generateCoachResponse(
 }
 
 serve(async (req) => {
+  const json = (body: unknown, status = 200) => jsonFor(req, body, status);
+
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: cors });
+    return new Response('ok', { headers: corsFor(req) });
   }
   if (req.method !== 'POST') {
     return json({ error: 'method_not_allowed' }, 405);
@@ -849,7 +854,6 @@ serve(async (req) => {
     : null;
 
   const mode = normalizeMode(body.mode);
-  const freePromo = body.freePromo === true && mode === 'stats_question';
   const question = (mode === 'question' || mode === 'session_question' || mode === 'stats_question')
     ? sanitizeQuestion(body.question)
     : null;
@@ -871,6 +875,11 @@ serve(async (req) => {
   const enrichedPayload = (mode === 'villain_action')
     ? rawPayload
     : (admin ? await enrichPayload(admin, billingUserId, mode, rawPayload, communityId) : rawPayload);
+
+  // freePromo only for real home-greeting payloads (id+label), not arbitrary stats_question.
+  const freePromo = body.freePromo === true
+    && mode === 'stats_question'
+    && isHomeGreetingPayload(enrichedPayload);
 
   const systemPrompt = promptForMode(mode, enrichedPayload, freePromo, communityId);
   const userContent = mode === 'villain_action'
@@ -1017,10 +1026,3 @@ serve(async (req) => {
     return json({ error: msg }, 500);
   }
 });
-
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: Object.assign({ 'Content-Type': 'application/json' }, cors)
-  });
-}

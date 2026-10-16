@@ -82,26 +82,14 @@
     return global.PTGuest && global.PTGuest.isActive && global.PTGuest.isActive();
   }
 
-  function localFallback() {
+  /** Fail-closed free limits — never trust client plan/isAdmin when server is unreachable. */
+  function freeClosedFallback() {
     var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
-    var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
-    var admin = !demoActive() && isAdmin();
-    var limits = Object.assign({}, DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free);
-    if (admin) {
-      limits = {
-        trainer_hands_per_day: null,
-        import_sessions_per_month: null,
-        max_hands_per_import: null,
-        ai_reports_per_month: null,
-        history_days: null,
-        analysis_hands_max: 1000
-      };
-    }
     return {
-      plan: plan,
-      plan_label: PLAN_LABELS[plan] || plan,
-      is_admin: admin,
-      unlimited: admin || plan === 'pro' || plan === 'premium',
+      plan: 'free',
+      plan_label: PLAN_LABELS.free || 'free',
+      is_admin: false,
+      unlimited: false,
       is_founder: !!(u && u.isFounder),
       is_founder_study: !!(u && u.isFounderStudy),
       is_founder_coach: !!(u && u.isFounderCoach),
@@ -110,14 +98,59 @@
       founder_coach_requested_at: (u && u.founderCoachRequestedAt) || null,
       demo_mode: demoActive(),
       subscription_status: 'none',
-      paid_active: plan === 'pro' || plan === 'premium',
-      limits: limits,
+      paid_active: false,
+      _fromServer: false,
+      limits: Object.assign({}, DEFAULT_LIMITS.free),
       usage: {
         trainer_hands_today: 0,
         import_sessions_month: 0,
         ai_reports_month: 0
       }
     };
+  }
+
+  function localFallback() {
+    /* E2E / no-auth: keep prior behaviour for local UX; RPC failure uses freeClosedFallback. */
+    if (e2eBypass() || !useAuth()) {
+      var u = global.PTAuth && global.PTAuth.getUser ? global.PTAuth.getUser() : null;
+      var plan = demoActive() ? 'free' : ((u && u.plan) || 'free');
+      var admin = !demoActive() && isAdmin();
+      var limits = Object.assign({}, DEFAULT_LIMITS[plan] || DEFAULT_LIMITS.free);
+      if (admin) {
+        limits = {
+          trainer_hands_per_day: null,
+          import_sessions_per_month: null,
+          max_hands_per_import: null,
+          ai_reports_per_month: null,
+          history_days: null,
+          analysis_hands_max: 1000
+        };
+      }
+      return {
+        plan: plan,
+        plan_label: PLAN_LABELS[plan] || plan,
+        is_admin: admin,
+        unlimited: admin || plan === 'pro' || plan === 'premium',
+        is_founder: !!(u && u.isFounder),
+        is_founder_study: !!(u && u.isFounderStudy),
+        is_founder_coach: !!(u && u.isFounderCoach),
+        founder_requested_at: (u && u.founderRequestedAt) || null,
+        founder_study_requested_at: (u && u.founderStudyRequestedAt) || null,
+        founder_coach_requested_at: (u && u.founderCoachRequestedAt) || null,
+        demo_mode: demoActive(),
+        subscription_status: 'none',
+        paid_active: plan === 'pro' || plan === 'premium',
+        _fromServer: false,
+        limits: limits,
+        usage: {
+          trainer_hands_today: 0,
+          import_sessions_month: 0,
+          ai_reports_month: 0
+        }
+      };
+    }
+    if (state && state._fromServer) return state;
+    return freeClosedFallback();
   }
 
   function normalizeEnt(data) {
@@ -148,7 +181,9 @@
     data.founder_requested_at = data.founder_requested_at || null;
     data.founder_study_requested_at = data.founder_study_requested_at || null;
     data.founder_coach_requested_at = data.founder_coach_requested_at || null;
-    if (!data.is_admin && isAdmin()) data.is_admin = true;
+    /* Trust server is_admin only — do not OR client localStorage flags. */
+    data.is_admin = !!data.is_admin;
+    data._fromServer = true;
     if (data.is_admin) {
       data.limits.trainer_hands_per_day = null;
       data.limits.import_sessions_per_month = null;
@@ -176,7 +211,7 @@
     }
     var c = client();
     if (!c) {
-      state = localFallback();
+      state = (state && state._fromServer) ? state : freeClosedFallback();
       return state;
     }
     try {
@@ -190,7 +225,7 @@
           global.PTAuth.handleAuthFailure(res.error.message || 'not_authenticated');
           return state;
         }
-        state = localFallback();
+        state = (state && state._fromServer) ? state : freeClosedFallback();
       } else {
         state = normalizeEnt(res.data);
         /* Tras refresh el usage del servidor manda; limpia bloqueo diferido. */
@@ -204,7 +239,7 @@
         global.PTAuth.handleAuthFailure((e && e.message) || 'not_authenticated');
         return state;
       }
-      state = localFallback();
+      state = (state && state._fromServer) ? state : freeClosedFallback();
     }
     applyToUser(state);
     if (global.PTCommunity && global.PTCommunity.refreshAiQuota) {
@@ -263,7 +298,8 @@
 
   function unlimited(ent) {
     ent = ent || state || localFallback();
-    return !!(ent.is_admin || ent.unlimited || isAdmin() ||
+    /* Server-derived flags only — never escalate via client isAdmin(). */
+    return !!(ent.is_admin || ent.unlimited ||
       ent.plan === 'pro' || ent.plan === 'premium');
   }
 
@@ -305,7 +341,7 @@
       return { ok: true, source: 'community', pending: true };
     }
     ent = ent || state || localFallback();
-    if (ent.is_admin || ent.unlimited || isAdmin()) return { ok: true, unlimited: true };
+    if (ent.is_admin || ent.unlimited) return { ok: true, unlimited: true };
     var lim = ent.limits || {};
     var max = lim.ai_reports_per_month;
     var used = (ent.usage && ent.usage.ai_reports_month) || 0;
@@ -324,7 +360,7 @@
 
   function aiCombinedQuota(ent) {
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) {
+    if (ent.is_admin) {
       return {
         unlimited: true,
         used: (ent.usage && ent.usage.ai_reports_month) || 0,
@@ -381,7 +417,7 @@
       };
     }
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) {
+    if (ent.is_admin) {
       var adminUsed = (ent.usage && ent.usage.ai_reports_month) || 0;
       return { unlimited: true, label: 'Consultas IA: ilimitadas (admin) · ' + adminUsed + ' usadas este mes' };
     }
@@ -459,14 +495,11 @@
   function recordTrainerHandAsync() {
     /* Invitados no ganan Koins ni consumen cupo autenticado. */
     if (isGuestUser()) return { ok: true };
-    /* Study/Coach/admin: sin techo diario. No bloquear por un RPC fallido previo
-       (p.ej. red) ni mostrar «Mejora tu plan» a quien ya tiene plan de pago. */
-    if (unlimited(state || localFallback())) {
+    var entNow = state || localFallback();
+    /* Study/Coach/admin (server-derived): sin techo diario en UX, pero siempre RPC. */
+    if (unlimited(entNow)) {
       trainerQuotaBlockedReason = null;
-      awardTrainerKoins();
-      return { ok: true };
-    }
-    if (trainerQuotaBlockedReason) {
+    } else if (trainerQuotaBlockedReason) {
       return { ok: false, error: trainerQuotaBlockedReason };
     }
     if (!useAuth() || e2eBypass()) {
@@ -479,13 +512,14 @@
       return { ok: true };
     }
 
-    bumpLocalTrainerUsage(1);
+    if (!unlimited(entNow)) bumpLocalTrainerUsage(1);
     awardTrainerKoins();
 
     var rpc = demoActive() ? 'pt_demo_record_trainer_hand' : 'pt_record_trainer_hand';
     Promise.resolve(c.rpc(rpc)).then(function (res) {
       if (unlimited(state || localFallback())) {
         trainerQuotaBlockedReason = null;
+        try { scheduleRefresh(); } catch (eRefreshU) { /* ignore */ }
         return;
       }
       if (res && res.error) {
@@ -566,7 +600,7 @@
 
   function analysisHandsMax(ent) {
     ent = ent || state || localFallback();
-    if (ent.is_admin || isAdmin()) return 1000;
+    if (ent.is_admin) return 1000;
     var lim = ent.limits || {};
     if (typeof lim.analysis_hands_max === 'number') return lim.analysis_hands_max;
     var plan = ent.plan || 'free';

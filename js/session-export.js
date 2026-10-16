@@ -12,6 +12,15 @@
     return s;
   }
 
+  function escapeHtml(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function fmt(x) {
     if (global.GTOPotMath && global.GTOPotMath.formatBB) return global.GTOPotMath.formatBB(x);
     var n = Number(x);
@@ -130,12 +139,14 @@
     opts = opts || {};
     var data = buildJson(session, opts);
     var st = data.stats || {};
-    var grade = st.grade && st.grade.letter ? st.grade.letter + ' · ' + st.grade.score + '/10' : '—';
+    var grade = st.grade && st.grade.letter
+      ? escapeHtml(st.grade.letter) + ' · ' + escapeHtml(st.grade.score) + '/10'
+      : '—';
     var rows = (data.hands || []).map(function (h) {
-      return '<tr><td>' + (h.heroCode || '') + '</td><td>' + (h.heroPos || '') + '</td>' +
-        '<td>' + fmt(h.heroNetBB) + '</td><td>-' + fmt(h.totalEvLoss) + '</td>' +
-        '<td>' + (h.handScore != null ? h.handScore : '—') + '</td>' +
-        '<td>' + (h.worstClass || '') + '</td></tr>';
+      return '<tr><td>' + escapeHtml(h.heroCode || '') + '</td><td>' + escapeHtml(h.heroPos || '') + '</td>' +
+        '<td>' + escapeHtml(fmt(h.heroNetBB)) + '</td><td>-' + escapeHtml(fmt(h.totalEvLoss)) + '</td>' +
+        '<td>' + escapeHtml(h.handScore != null ? h.handScore : '—') + '</td>' +
+        '<td>' + escapeHtml(h.worstClass || '') + '</td></tr>';
     }).join('');
     var toolbar = opts.inApp
       ? ''
@@ -145,7 +156,7 @@
     return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<title>Informe sesión — ' +
-      String(data.fileName || '').replace(/</g, '') + '</title>' +
+      escapeHtml(data.fileName || '') + '</title>' +
       '<style>body{font-family:system-ui,sans-serif;padding:24px;color:#111;margin:0}' +
       'h1{font-size:20px}table{border-collapse:collapse;width:100%;font-size:13px}' +
       'th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}' +
@@ -155,13 +166,15 @@
       '.muted{color:#666;font-size:12px}@media print{.no-print{display:none}}</style></head><body>' +
       toolbar +
       '<h1>PokerForgeAI — Informe de sesión</h1>' +
-      '<p><strong>' + String(data.fileName || '') + '</strong></p>' +
-      '<p>Manos: ' + (st.nHands || 0) + ' · Acierto: ' + (st.accuracy != null ? st.accuracy + '%' : '—') +
-      ' · Resultado: ' + fmt(st.netBB) + ' bb · EV perdido: -' + fmt(st.evLossBB) + ' bb · Nota sesión: ' + grade +
-      (st.avgHandScore != null ? ' · Nota media manos: ' + st.avgHandScore + '/10' : '') + '</p>' +
+      '<p><strong>' + escapeHtml(data.fileName || '') + '</strong></p>' +
+      '<p>Manos: ' + escapeHtml(st.nHands || 0) + ' · Acierto: ' +
+      (st.accuracy != null ? escapeHtml(st.accuracy) + '%' : '—') +
+      ' · Resultado: ' + escapeHtml(fmt(st.netBB)) + ' bb · EV perdido: -' +
+      escapeHtml(fmt(st.evLossBB)) + ' bb · Nota sesión: ' + grade +
+      (st.avgHandScore != null ? ' · Nota media manos: ' + escapeHtml(st.avgHandScore) + '/10' : '') + '</p>' +
       '<table><thead><tr><th>Mano</th><th>Pos</th><th>Net</th><th>EV loss</th><th>Nota</th><th>Clase</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
-      '<p class="muted">Exportado ' + data.exportedAt + ' · Estudio GTO heurístico</p></body></html>';
+      '<p class="muted">Exportado ' + escapeHtml(data.exportedAt) + ' · Estudio GTO heurístico</p></body></html>';
   }
 
   function downloadBlob(filename, mime, text) {
