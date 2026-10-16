@@ -93,9 +93,13 @@
       : (b.completed && !a.completed) ? b
       : ((Number(a.streak) || 0) >= (Number(b.streak) || 0)) ? a : b;
     var other = pick === a ? b : a;
-    var streak = Math.max(Number(pick.streak) || 0, Number(other.streak) || 0);
+    // La racha pertenece al lastDay más reciente. No hacer Math.max con una
+    // racha antigua: tras saltar un día el reinicio (1) debe ganar al valor viejo.
+    var streak = Number(pick.streak) || 0;
     if (pick.lastDay && other.lastDay) {
-      if (pick.lastDay === dayAfterDaily(other.lastDay) && pick.completed && pick.correct) {
+      if (pick.lastDay === other.lastDay) {
+        streak = Math.max(Number(a.streak) || 0, Number(b.streak) || 0);
+      } else if (pick.lastDay === dayAfterDaily(other.lastDay) && pick.completed && pick.correct) {
         streak = Math.max(streak, (Number(other.streak) || 0) + 1);
       } else if (other.lastDay === dayAfterDaily(pick.lastDay) && other.completed && other.correct) {
         streak = Math.max(streak, (Number(pick.streak) || 0) + 1);

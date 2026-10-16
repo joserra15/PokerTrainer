@@ -1446,9 +1446,13 @@
       : (b.completed && !a.completed) ? b
       : ((Number(a.streak) || 0) >= (Number(b.streak) || 0)) ? a : b;
     const other = pick === a ? b : a;
-    let streak = Math.max(Number(pick.streak) || 0, Number(other.streak) || 0);
+    // Streak belongs to the newest lastDay. Never Math.max with an older
+    // broken streak or a restart (1) would jump back to the previous count.
+    let streak = Number(pick.streak) || 0;
     if (pick.lastDay && other.lastDay) {
-      if (pick.lastDay === dayAfterDailyProgress(other.lastDay) && pick.completed && pick.correct) {
+      if (pick.lastDay === other.lastDay) {
+        streak = Math.max(Number(a.streak) || 0, Number(b.streak) || 0);
+      } else if (pick.lastDay === dayAfterDailyProgress(other.lastDay) && pick.completed && pick.correct) {
         streak = Math.max(streak, (Number(other.streak) || 0) + 1);
       } else if (other.lastDay === dayAfterDailyProgress(pick.lastDay) && other.completed && other.correct) {
         streak = Math.max(streak, (Number(pick.streak) || 0) + 1);
