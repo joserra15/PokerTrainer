@@ -160,7 +160,7 @@ async function flush() {
   assert.strictEqual(Ent.trainerQuotaBlocked(), null, 'red no bloquea con paywall');
   assert.strictEqual(Ent.canStartTrainerHand(Ent.get()).ok, true, 'sigue pudiendo jugar tras error red');
 
-  // Bloqueo residual free + admin en auth: no paywall (limpia bloqueo)
+  // Bloqueo residual free + admin de servidor: limpia bloqueo (no confiar isAdmin local)
   rpcImpl = async () => ({ error: { message: 'trainer_limit' } });
   Ent.recordTrainerHandAsync();
   await flush();
@@ -168,14 +168,31 @@ async function flush() {
   assert.ok(Ent.trainerQuotaBlocked(), 'precondición: bloqueo free');
   sandbox.window.PTAuth = { getUser: () => ({ plan: 'premium', isAdmin: true }) };
   sandbox.PTAuth = sandbox.window.PTAuth;
+  rpcImpl = async () => ({
+    data: {
+      plan: 'premium',
+      plan_label: 'Coach',
+      is_admin: true,
+      paid_active: true,
+      limits: {
+        trainer_hands_per_day: null,
+        import_sessions_per_month: null,
+        ai_reports_per_month: null
+      },
+      usage: { trainer_hands_today: 0, import_sessions_month: 0, ai_reports_month: 0 },
+      bonus: { balance: 0 }
+    }
+  });
+  await Ent.refresh();
   let coachRpc = 0;
   rpcImpl = async () => { coachRpc += 1; return { error: { message: 'trainer_limit' } }; };
   const adminRec = Ent.recordTrainerHandAsync();
-  assert.strictEqual(adminRec.ok, true, 'admin acepta pese a bloqueo residual');
-  assert.strictEqual(coachRpc, 0, 'admin no llama RPC de cupo');
+  assert.strictEqual(adminRec.ok, true, 'admin servidor acepta pese a bloqueo residual');
+  assert.ok(coachRpc >= 1, 'admin autenticado sigue registrando trainer en servidor');
   assert.strictEqual(Ent.trainerQuotaBlocked(), null, 'admin limpia bloqueo residual');
+  await flush();
 
-  // Plan Coach (entitlements): skip RPC de cupo
+  // Plan Coach (entitlements servidor): unlimited UX pero siempre RPC
   sandbox.window.PTAuth = { getUser: () => ({ plan: 'premium', isAdmin: false }) };
   sandbox.PTAuth = sandbox.window.PTAuth;
   rpcImpl = async () => ({
@@ -193,8 +210,10 @@ async function flush() {
   coachRpc = 0;
   rpcImpl = async () => { coachRpc += 1; return { data: { ok: false, error: 'trainer_limit' } }; };
   assert.strictEqual(Ent.recordTrainerHandAsync().ok, true, 'coach paid ok');
-  assert.strictEqual(coachRpc, 0, 'coach paid no RPC cupo');
+  assert.ok(coachRpc >= 1, 'coach paid registra trainer en servidor');
   assert.strictEqual(Ent.canStartTrainerHand(Ent.get()).ok, true, 'coach puede siguiente mano');
+  assert.strictEqual(Ent.trainerQuotaBlocked(), null, 'coach unlimited no queda bloqueado por RPC');
+  await flush();
 
   // Guest no llama RPC ni Koins
   sandbox.window.PTGuest = { isActive: () => true, remaining: () => 3 };
