@@ -1528,19 +1528,19 @@
     { top: 18, left: 14 },
     { top: 18, left: 86 }
   ];
-  /* Inset left/right so hole cards / seats no se cortan en portrait estrecho. */
+  /* Inset vs Torneos (left:3/5): translate(-50%) de asientos laterales no corta cartas. */
   var SEAT_COORDS_MOBILE_6 = [
     { top: 94, left: 50 },
-    { top: 78, left: 12 },
-    { top: 32, left: 11 },
+    { top: 78, left: 14 },
+    { top: 34, left: 15 },
     { top: 8, left: 30 },
     { top: 8, left: 70 },
-    { top: 42, left: 89 }
+    { top: 42, left: 85 }
   ];
   var SEAT_COORDS_MOBILE_3 = [
     { top: 94, left: 50 },
-    { top: 16, left: 14 },
-    { top: 16, left: 86 }
+    { top: 16, left: 16 },
+    { top: 16, left: 84 }
   ];
 
   var ui = {
