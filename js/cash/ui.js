@@ -794,25 +794,41 @@
 
   /* ---------- Hand end modal / review ---------- */
 
+  /**
+   * Índice de la mano viva completa aún no aplicada a sessionHands.
+   * Antes de applyResults, state.handIndex sigue siendo el de la anterior;
+   * reutilizarlo colisiona el id (trn_…_hN) con sessionHands y Paso a paso
+   * abre la mano vieja (p.ej. fold preflop) en vez de la actual (fold en turn).
+   */
+  function liveHandIndex(hand, state) {
+    var idx = Number(state && state.handIndex) || 0;
+    if (hand && hand.stage === 'complete' && hand.result && !hand.result.applied) {
+      return idx + 1;
+    }
+    return idx;
+  }
+
   function analyzedFromLiveHand(hand, state) {
     if (!hand || !state) return null;
     try {
       var Bridge = global.PTCashSessionBridge || global.PTTournamentSessionBridge;
       if (!Bridge || !Bridge.handFromTournament) return null;
+      var handIndex = liveHandIndex(hand, state);
       var meta = Bridge.metaFromState
         ? Bridge.metaFromState(state, {
-          handIndex: state.handIndex,
+          handIndex: handIndex,
           heroName: heroDisplayName(state)
         })
         : {
           tournamentId: state.id,
-          handIndex: state.handIndex,
+          handIndex: handIndex,
           heroName: heroDisplayName(state),
           formatHub: 'cash'
         };
       meta.formatHub = 'cash';
       meta.gameType = 'cash6';
       meta.kind = 'cash';
+      meta.handIndex = handIndex;
       return Bridge.handFromTournament(hand, meta);
     } catch (eA) {
       return null;
@@ -840,6 +856,15 @@
     var Bridge = global.PTCashSessionBridge || global.PTTournamentSessionBridge;
     var live = state._liveHand;
     var wantIdx = handId != null && String(handId).match(/^\d+$/) ? Number(handId) : null;
+
+    /* Mano viva completa: prioridad sobre sessionHands (evita id colisionado). */
+    if (live && live.stage === 'complete' && live.result && !live.result.applied) {
+      analyzed = analyzedFromLiveHand(live, state);
+      if (analyzed) {
+        openCashHandReview(analyzed, mode);
+        return;
+      }
+    }
 
     if (wantIdx != null && state.sessionHands && state.sessionHands.length) {
       analyzed = state.sessionHands.filter(function (h) {
@@ -1794,19 +1819,20 @@
           return;
         }
         if (act === 'hand-end-review') {
-          var hid = btn.getAttribute('data-hand-id');
-          var live = ui.state && ui.state._liveHand;
-          var analyzed = null;
-          if (hid && ui.state && ui.state.sessionHands) {
-            analyzed = ui.state.sessionHands.filter(function (h) {
+          /* Siempre la mano viva del popup: no buscar por id en sessionHands
+             (colisión handIndex con la mano anterior). */
+          var liveReview = ui.state && ui.state._liveHand;
+          var analyzedReview = null;
+          if (liveReview && liveReview.stage === 'complete') {
+            analyzedReview = analyzedFromLiveHand(liveReview, ui.state);
+          }
+          if (!analyzedReview && ui.state && ui.state.sessionHands && ui.state.sessionHands.length) {
+            var hid = btn.getAttribute('data-hand-id');
+            analyzedReview = (hid && ui.state.sessionHands.filter(function (h) {
               return h && h.id === hid;
-            })[0] || null;
+            })[0]) || ui.state.sessionHands[ui.state.sessionHands.length - 1];
           }
-          if (!analyzed && live) analyzed = analyzedFromLiveHand(live, ui.state);
-          if (!analyzed && ui.state && ui.state.sessionHands && ui.state.sessionHands.length) {
-            analyzed = ui.state.sessionHands[ui.state.sessionHands.length - 1];
-          }
-          openCashHandReview(analyzed, 'review');
+          openCashHandReview(analyzedReview, 'review');
           return;
         }
         if (act === 'review-hand') {
