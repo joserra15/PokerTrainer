@@ -50,6 +50,11 @@ assert.ok(/pt_admin_user_koins_by_community/.test(src), 'cargan saldos Koins por
 assert.ok(/communityId: data\.community_id \|\| communityId/.test(src), 'push Koins con communityId');
 assert.ok(/encodeURIComponent\(communityId\)/.test(src) && /app=/.test(src),
   'deep link Contacto con app comunidad');
+assert.ok(/messageTemplatePickerHtml/.test(src) && /admin-compose-tpl-picker/.test(src),
+  'selector de plantillas al redactar');
+assert.ok(/admin-detail-tpl-picker/.test(src) && /admin-reply-tpl-picker/.test(src),
+  'plantillas en detalle y respuesta');
+assert.ok(/hideMessageTemplatesPanel/.test(src), 'oculta panel de plantillas');
 
 const koinsMig = fs.readFileSync(
   path.join(__dirname, '..', 'supabase/migrations/057_admin_set_user_koins.sql'),
@@ -81,6 +86,8 @@ assert.ok(/id="admin-filter-status"/.test(html), 'filtro estado en HTML');
 assert.ok(/id="admin-export-csv"/.test(html), 'botón export CSV');
 assert.ok(/id="admin-founder-queue"/.test(html), 'cola FOUNDER en HTML');
 assert.ok(/id="admin-users-pagination"/.test(html), 'paginación en HTML');
+assert.ok(/id="admin-msg-templates-btn"/.test(html) && /id="admin-msg-templates-panel"/.test(html),
+  'plantillas de mensajes en HTML');
 
 const localStore = {};
 const sandbox = {

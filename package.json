@@ -69,6 +69,7 @@
     "test:multiway-trainer": "node tools/test-multiway-trainer.js",
     "test:fuzz": "node tools/test-fuzz-evaluate.js",
     "test:admin": "node tools/test-admin-panel.js",
+    "test:admin-templates": "node tools/test-admin-message-templates.js",
     "test:storage-quota": "node tools/test-storage-quota.js",
     "test:account-settings": "node tools/test-account-settings.js",
     "test:card-style": "node tools/test-card-style.js",

@@ -203,7 +203,8 @@
     admin: [
       'js/tournament/villain-assist-flags.js',
       'js/admin-panel.js',
-      'js/admin-promotions.js'
+      'js/admin-promotions.js',
+      'js/admin-message-templates.js'
     ]
   };
 

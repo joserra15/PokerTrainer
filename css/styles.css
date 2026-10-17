@@ -8263,6 +8263,44 @@ html.pwa-standalone body {
 }
 
 /* ---- Admin promociones ---- */
+.admin-msg-templates-panel { margin-top: 4px; }
+.admin-msg-templates-intro { margin: 0 0 14px; max-width: 720px; }
+.admin-msg-tpl-edit {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border, rgba(255,255,255,.08));
+}
+.admin-msg-tpl-edit h4 { margin: 0 0 10px; font-size: 15px; }
+.admin-msg-tpl-sort-input {
+  width: 72px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255,255,255,.12));
+  background: var(--bg-elevated, #1a222c);
+  color: inherit;
+}
+.admin-msg-tpl-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 10px;
+}
+.admin-msg-tpl-picker {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, rgba(255,255,255,.12));
+  background: var(--bg-elevated, #1a222c);
+  color: inherit;
+  font: inherit;
+}
+.admin-msg-tpl-hint { margin: 0; font-size: 12px; }
+.admin-msg-templates-table .admin-promo-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .admin-promos-panel { margin-top: 4px; }
 .admin-promos-intro { margin: 0 0 14px; max-width: 720px; }
 .admin-promo-create { padding: 16px; margin-bottom: 8px; }
