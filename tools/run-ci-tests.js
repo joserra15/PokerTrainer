@@ -131,6 +131,8 @@ const STEPS = [
   ['Test multi-comunidad MTT Lab', ['node', 'tools/test-community-mttlab.js']],
   ['Test códigos invite MTT Lab', ['node', 'tools/test-community-invite-codes.js']],
   ['Test aislamiento datos por comunidad', ['node', 'tools/test-community-data-isolation.js']],
+  ['Test motor compartido sin fork comunidad', ['node', 'tools/test-shared-engine-no-community-fork.js']],
+  ['Test paridad motor MTT PF vs MTTlab', ['node', 'tools/test-community-mtt-engine-parity.js']],
   ['Test demo / sample session', ['node', 'tools/test-demo-sample.js']],
   // Fase 4
   ['Test solver sanity JS', ['node', 'tools/test-solver-sanity-js.js']],
