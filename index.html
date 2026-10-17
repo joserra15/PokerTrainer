@@ -1378,6 +1378,7 @@
           <button type="button" id="admin-villain-assist-btn" class="btn btn-ghost">Análisis rivales</button>
           <button type="button" id="admin-communities-btn" class="btn btn-ghost">Comunidades</button>
           <button type="button" id="admin-promos-btn" class="btn btn-ghost">Promociones</button>
+          <button type="button" id="admin-msg-templates-btn" class="btn btn-ghost">Plantillas</button>
           <button type="button" id="admin-messages-btn" class="btn btn-ghost admin-messages-btn">Mensajes <span id="admin-messages-badge" class="tab-badge hidden">0</span></button>
           <button type="button" id="admin-refresh" class="btn btn-ghost">Actualizar</button>
           <button type="button" id="admin-demo-start" class="btn btn-primary">Modo demo</button>
@@ -1505,6 +1506,50 @@
             <h3>Gestión</h3>
           </div>
           <div id="admin-promos-list"></div>
+        </div>
+      </div>
+
+      <div id="admin-msg-templates-panel" class="admin-msg-templates-panel hidden">
+        <div class="admin-section-head">
+          <h3>Plantillas de mensajes</h3>
+          <div class="admin-messages-head-actions">
+            <button type="button" id="admin-msg-templates-back" class="btn btn-ghost btn-sm">Volver a usuarios</button>
+          </div>
+        </div>
+        <p class="muted-text admin-msg-templates-intro">
+          Preconfigura mensajes para seleccionarlos al redactar (nuevo mensaje, respuesta o detalle de usuario).
+          En el saludo usa <code>{nombre}</code>: se sustituye automáticamente por el primer nombre del destinatario.
+        </p>
+
+        <div class="admin-promo-create card-box">
+          <h4>Nueva plantilla</h4>
+          <div class="admin-promo-form">
+            <label class="admin-invite-label" for="admin-msg-tpl-title">Título interno</label>
+            <input type="text" id="admin-msg-tpl-title" class="admin-promo-input" placeholder="Saludo de bienvenida" maxlength="120" />
+
+            <label class="admin-invite-label" for="admin-msg-tpl-subject">Asunto</label>
+            <input type="text" id="admin-msg-tpl-subject" class="admin-promo-input" placeholder="Bienvenido a PokerForgeAI" maxlength="200" />
+
+            <label class="admin-invite-label" for="admin-msg-tpl-body">Mensaje</label>
+            <textarea id="admin-msg-tpl-body" class="admin-promo-textarea" rows="6" maxlength="3000" placeholder="Hola {nombre},&#10;&#10;…"></textarea>
+
+            <label class="admin-invite-label" for="admin-msg-tpl-sort">Orden</label>
+            <input type="number" id="admin-msg-tpl-sort" class="admin-promo-input" value="0" />
+
+            <div class="admin-promo-actions">
+              <button type="button" id="admin-msg-tpl-create" class="btn btn-primary">Guardar plantilla</button>
+              <span id="admin-msg-templates-status" class="muted-text"></span>
+            </div>
+            <p id="admin-msg-templates-error" class="admin-error" role="alert"></p>
+          </div>
+          <div id="admin-msg-tpl-edit" class="admin-msg-tpl-edit hidden"></div>
+        </div>
+
+        <div class="admin-section" style="margin-top:18px">
+          <div class="admin-section-head">
+            <h3>Gestión</h3>
+          </div>
+          <div id="admin-msg-templates-list"></div>
         </div>
       </div>
 

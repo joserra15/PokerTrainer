@@ -124,6 +124,7 @@ const STEPS = [
   ['Test multiway trainer', ['node', 'tools/test-multiway-trainer.js']],
   ['Test fuzz evaluateSpot', ['node', 'tools/test-fuzz-evaluate.js']],
   ['Test admin panel', ['node', 'tools/test-admin-panel.js']],
+  ['Test admin message templates', ['node', 'tools/test-admin-message-templates.js']],
   ['Test storage quota', ['node', 'tools/test-storage-quota.js']],
   ['Test account settings', ['node', 'tools/test-account-settings.js']],
   ['Test card style', ['node', 'tools/test-card-style.js']],

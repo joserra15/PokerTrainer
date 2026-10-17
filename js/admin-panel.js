@@ -362,16 +362,21 @@
     closeAdminComposeModal();
     var msgPanel = $('#admin-messages-panel');
     var promoPanel = $('#admin-promos-panel');
+    var templatesPanel = $('#admin-msg-templates-panel');
     var usersPanel = $('#admin-users-panel');
     var usagePanel = $('#admin-usage-panel');
     var communitiesPanel = $('#admin-communities-panel');
     var villainAssistPanel = $('#admin-villain-assist-panel');
     if (msgPanel) msgPanel.classList.add('hidden');
     if (promoPanel) promoPanel.classList.add('hidden');
+    if (templatesPanel) templatesPanel.classList.add('hidden');
     if (usagePanel) usagePanel.classList.add('hidden');
     if (communitiesPanel) communitiesPanel.classList.add('hidden');
     if (villainAssistPanel) villainAssistPanel.classList.add('hidden');
     if (usersPanel) usersPanel.classList.remove('hidden');
+    if (global.PTAdminMessageTemplates && global.PTAdminMessageTemplates.clear) {
+      global.PTAdminMessageTemplates.clear();
+    }
     var usageContent = $('#admin-usage-content');
     if (usageContent) usageContent.innerHTML = '';
     var usageErr = $('#admin-usage-error');
@@ -444,6 +449,53 @@
     adminMessageRecipients = adminMessageRecipients.filter(function (id) { return !!valid[id]; });
     if (adminMessageMode === 'single' && adminMessageRecipients.length > 1) {
       adminMessageRecipients = adminMessageRecipients.slice(0, 1);
+    }
+  }
+
+  function hideMessageTemplatesPanel() {
+    var panel = $('#admin-msg-templates-panel');
+    if (panel) panel.classList.add('hidden');
+  }
+
+  /** Nombre del destinatario único (si hay exactamente uno) para personalizar {nombre}. */
+  function singleRecipientName(userIds) {
+    var ids = userIds || adminMessageRecipients;
+    if (!ids || ids.length !== 1) return '';
+    var u = recipientUsers().find(function (x) { return x.user_id === ids[0]; });
+    if (u && u.name) return u.name;
+    var cached = adminUsersCache.find(function (x) { return x && x.user_id === ids[0]; });
+    return (cached && cached.name) || '';
+  }
+
+  function messageTemplateApi() {
+    return global.PTAdminMessageTemplates || null;
+  }
+
+  function messageTemplatePickerHtml(selectId) {
+    var api = messageTemplateApi();
+    if (!api || !api.pickerHtml) return '';
+    return api.pickerHtml(selectId);
+  }
+
+  function bindMessageTemplatePicker(selectId, fields, opts) {
+    var api = messageTemplateApi();
+    if (!api) return;
+    var run = function () {
+      var sel = document.getElementById(selectId);
+      if (!sel) return;
+      if (api.bindPicker) api.bindPicker(sel, fields, opts);
+    };
+    if (api.load) {
+      api.load().then(function () {
+        var host = document.getElementById(selectId);
+        var wrap = host && host.closest ? host.closest('.admin-msg-tpl-picker-wrap') : null;
+        if (wrap && api.pickerHtml) {
+          wrap.outerHTML = api.pickerHtml(selectId);
+        }
+        run();
+      }).catch(function () { run(); });
+    } else {
+      run();
     }
   }
 
@@ -1713,6 +1765,7 @@
 
     var sendFormHtml = canMessage
       ? '<form id="admin-detail-send-form" class="admin-detail-send-form">' +
+        messageTemplatePickerHtml('admin-detail-tpl-picker') +
         '<label for="admin-detail-send-subject">Asunto</label>' +
         '<input type="text" id="admin-detail-send-subject" name="subject" maxlength="200" required placeholder="Ej.: Aviso sobre tu cuenta" />' +
         '<label for="admin-detail-send-body">Mensaje</label>' +
@@ -1721,7 +1774,7 @@
         '<button type="submit" class="btn btn-primary btn-sm">Enviar mensaje</button>' +
         '<span id="admin-detail-send-status" class="admin-detail-send-status"></span>' +
         '</div>' +
-        '<p class="muted-text admin-gift-note">El usuario lo verá en Contacto y recibirá un aviso si tiene push activo.</p>' +
+        '<p class="muted-text admin-gift-note">El usuario lo verá en Contacto y recibirá un aviso si tiene push activo. En plantillas, <code>{nombre}</code> se sustituye por su nombre.</p>' +
         '</form>'
       : '<p class="muted-text">' + escapeHtml(sendBlockedNote) + '</p>';
 
@@ -1812,6 +1865,13 @@
     });
     var sendForm = $('#admin-detail-send-form');
     if (sendForm) {
+      bindMessageTemplatePicker('admin-detail-tpl-picker', {
+        subject: $('#admin-detail-send-subject'),
+        body: $('#admin-detail-send-body')
+      }, {
+        resolveUserName: function () { return p.name || ''; },
+        shouldPersonalize: function () { return true; }
+      });
       sendForm.addEventListener('submit', async function (ev) {
         ev.preventDefault();
         if (!requireAdminAccess()) return;
@@ -2666,6 +2726,7 @@
       '<label class="admin-message-mode"><input type="radio" name="targetMode" value="multiple"' + (adminMessageMode === 'multiple' ? ' checked' : '') + '> Varios usuarios</label>' +
       '<label class="admin-message-mode"><input type="radio" name="targetMode" value="all"' + (adminMessageMode === 'all' ? ' checked' : '') + '> Todos</label>' +
       '</div>' +
+      messageTemplatePickerHtml('admin-compose-tpl-picker') +
       '<label for="admin-message-subject">Asunto</label>' +
       '<input type="text" id="admin-message-subject" name="subject" maxlength="200" placeholder="Ej.: Aviso sobre mantenimiento" required value="' + escapeHtml(adminMessageSubject) + '" />' +
       '<label for="admin-message-body">Mensaje</label>' +
@@ -2687,6 +2748,20 @@
       '</div>' +
       '</form>';
     bindAdminComposer();
+    bindMessageTemplatePicker('admin-compose-tpl-picker', {
+      subject: $('#admin-message-subject'),
+      body: $('#admin-message-body')
+    }, {
+      resolveUserName: function () { return singleRecipientName(); },
+      shouldPersonalize: function () {
+        return adminMessageMode === 'single' && adminMessageRecipients.length === 1;
+      },
+      onApplied: function (result) {
+        if (!result) return;
+        adminMessageSubject = result.subject || '';
+        adminMessageBody = result.body || '';
+      }
+    });
   }
 
   function setAdminComposeStatus(message) {
@@ -2891,6 +2966,7 @@
       '<p class="admin-msg-thread-read">' + readSummary + '</p>' +
       '<div class="contact-messages admin-msg-messages">' + renderAdminMessages(msgs) + '</div>' +
       '<form class="contact-reply-form" data-admin-reply="' + escapeHtml(th.id) + '">' +
+      messageTemplatePickerHtml('admin-reply-tpl-picker') +
       '<label>Respuesta<textarea name="body" rows="4" maxlength="3000" required placeholder="Escribe tu respuesta al usuario…"></textarea></label>' +
       '<button type="submit" class="btn btn-primary">Enviar respuesta</button></form>';
 
@@ -2899,6 +2975,13 @@
 
     var form = detail.querySelector('[data-admin-reply]');
     if (form) {
+      bindMessageTemplatePicker('admin-reply-tpl-picker', {
+        subject: null,
+        body: form.body
+      }, {
+        resolveUserName: function () { return th.user_name || ''; },
+        shouldPersonalize: function () { return true; }
+      });
       form.addEventListener('submit', async function (ev) {
         ev.preventDefault();
         if (!requireAdminAccess()) return;
@@ -3558,6 +3641,7 @@
       if (msgPanel) msgPanel.classList.add('hidden');
       if (usagePanel) usagePanel.classList.add('hidden');
       if (villainAssistPanel) villainAssistPanel.classList.add('hidden');
+      hideMessageTemplatesPanel();
       loadAdminCommunities();
     } else if (communitiesPanel) {
       communitiesPanel.classList.add('hidden');
@@ -3580,6 +3664,7 @@
       if (msgPanel) msgPanel.classList.add('hidden');
       if (usagePanel) usagePanel.classList.add('hidden');
       if (communitiesPanel) communitiesPanel.classList.add('hidden');
+      hideMessageTemplatesPanel();
       loadVillainAssistAdmin();
     } else if (panel) {
       panel.classList.add('hidden');
@@ -3954,6 +4039,7 @@
       if (msgPanel) msgPanel.classList.add('hidden');
       if (communitiesPanel) communitiesPanel.classList.add('hidden');
       if (villainAssistPanel) villainAssistPanel.classList.add('hidden');
+      hideMessageTemplatesPanel();
       loadUsageStats();
     } else if (usagePanel) {
       usagePanel.classList.add('hidden');
@@ -3976,6 +4062,7 @@
     if (show && communitiesPanel) communitiesPanel.classList.add('hidden');
     var villainAssistPanel = $('#admin-villain-assist-panel');
     if (show && villainAssistPanel) villainAssistPanel.classList.add('hidden');
+    if (show) hideMessageTemplatesPanel();
     if (show) {
       bindAdminComposeModal();
       if (opts.userId) adminMsgSelectedUserId = opts.userId;
